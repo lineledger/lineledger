@@ -443,8 +443,8 @@ page current.
 
 ## Self-hosting with Docker
 
-The easiest way to run LineLedger yourself. One prebuilt multi-arch image
-(`ghcr.io/lineledger/lineledger`, amd64 + arm64) runs the web app, the queue
+The easiest way to run LineLedger yourself. One prebuilt image
+(`ghcr.io/lineledger/lineledger`, linux/amd64) runs the web app, the queue
 worker, and the scheduler as three containers alongside MySQL — Docker and
 Docker Compose are the only requirements.
 
