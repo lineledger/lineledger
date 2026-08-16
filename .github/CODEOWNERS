@@ -1,0 +1,29 @@
+# Code owners for security-sensitive paths.
+#
+# GitHub enforces this only when branch protection on `main` has
+# "Require review from Code Owners" enabled — turn that on for it to gate merges.
+# Listed paths force an owner's review before a PR touching them can merge.
+
+# CI/CD: a malicious workflow edit can exfiltrate secrets or poison the published image.
+/.github/                               @tyrelb
+/.github/workflows/                     @tyrelb
+/Dockerfile                             @tyrelb
+/.dockerignore                          @tyrelb
+/docker/                                @tyrelb
+
+# Request boundary, auth, and multi-tenant isolation.
+/bootstrap/app.php                      @tyrelb
+/app/Http/Middleware/                   @tyrelb
+/app/Scopes/                            @tyrelb
+/app/Concerns/BelongsToCompany.php      @tyrelb
+/app/Concerns/HasCompanies.php          @tyrelb
+/app/Policies/                          @tyrelb
+
+# Posting pipeline, audit chain, and security services.
+/app/Services/Posting/                  @tyrelb
+/app/Services/Audit/                    @tyrelb
+/app/Services/Security/                 @tyrelb
+
+# Webhook receivers (unauthenticated inbound surface).
+/app/Http/Controllers/Stripe/           @tyrelb
+/app/Http/Controllers/Inbound/          @tyrelb

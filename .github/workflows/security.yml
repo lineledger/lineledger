@@ -1,0 +1,113 @@
+name: security
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  # Re-run weekly so newly-disclosed CVEs in unchanged dependencies are caught
+  # even without a code change. The run history is SOC 2 (CC7.1) evidence that
+  # we continuously track vulnerabilities.
+  schedule:
+    - cron: '17 6 * * 1'
+
+# Least privilege: this workflow only reads the tree to run audits.
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+
+      # Audits the locked Composer dependencies for known security advisories
+      # without a full install. Abandoned packages are reported but don't fail
+      # the build — they're a maintenance signal, not a vulnerability.
+      - name: Composer audit
+        run: composer audit --locked --abandoned=report
+
+      # Fails the build on high or critical advisories in the npm tree.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  # Secret scanning over the full git history. composer/npm audit cover advisories
+  # in current deps; this covers credentials committed at any point.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0 # full history — secrets live in old commits too
+
+      # Pinned binary rather than gitleaks-action: org-account repos need a
+      # GITLEAKS_LICENSE for the action, and the binary avoids that friction.
+      # Version + tarball checksum pinned; --redact keeps any hit out of public logs.
+      - name: Run gitleaks
+        run: |
+          VERSION=8.30.1
+          SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          echo "${SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 .
+
+  # PHP static analysis for security patterns. Non-blocking day one: findings are
+  # uploaded to the code-scanning tab and triaged there (dismissals persist), so
+  # a day-one backlog doesn't block PRs. Tighten to PR-introduced-only later with
+  # --baseline-commit once the backlog is triaged.
+  sast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to the code-scanning tab
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Semgrep
+        run: python3 -m pip install --user semgrep==1.172.0
+
+      - name: Semgrep scan
+        run: ~/.local/bin/semgrep scan --config p/php --config p/security-audit --sarif --output semgrep.sarif --metrics=off
+        continue-on-error: true
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3
+        with:
+          sarif_file: semgrep.sarif
+
+  # Blocks a PR that introduces a new vulnerable or disallowed-license dependency.
+  # Complements the audits: they scan current lockfiles post-merge/weekly, this
+  # gates the diff at PR time. PR events only (the action needs a base/head pair).
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # post the summary comment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

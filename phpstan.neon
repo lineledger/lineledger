@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - app
+
+    # Larastan level 5: checks argument and return types, method existence, and
+    # null-safety on resolved types. Existing findings are captured in
+    # phpstan-baseline.neon so CI only fails on NEW issues; raise the level over
+    # time and regenerate the baseline as debt is paid down.
+    level: 5
+
+    parallel:
+        maximumNumberOfProcesses: 4

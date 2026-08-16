@@ -1,0 +1,136 @@
+name: lineledger
+
+x-app-base: &app-base
+  image: ghcr.io/lineledger/lineledger:${LINELEDGER_VERSION:-latest}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  pull_policy: missing
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - storage:/app/storage
+  depends_on:
+    mysql:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app-base
+    environment:
+      CONTAINER_ROLE: app
+      SERVER_NAME: ${SERVER_NAME:-:8080}
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      # For direct exposure with automatic HTTPS, set SERVER_NAME to your
+      # domain in .env and uncomment:
+      # - "80:80"
+      # - "443:443"
+      # - "443:443/udp"
+    volumes:
+      - storage:/app/storage
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  # Mandatory: backups, restores, recurring documents, and mail are queued.
+  queue:
+    <<: *app-base
+    environment:
+      CONTAINER_ROLE: queue
+    command: php artisan queue:work --queue=default --tries=3 --timeout=120 --sleep=3
+    # The image healthcheck probes HTTP :8080, which worker roles don't serve.
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app-base
+    environment:
+      CONTAINER_ROLE: scheduler
+    command: php artisan schedule:work
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    # No binlog on a single-node install: it's replication/PITR overhead, and
+    # with it on, MySQL blocks the non-SUPER app user from creating the
+    # audit-log immutability triggers (error 1419) during migration.
+    command: --skip-log-bin
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-lineledger}
+      MYSQL_USER: ${DB_USERNAME:-lineledger}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---- Optional services: docker compose --profile mail up -d, etc. ----
+
+  mailpit:
+    image: axllent/mailpit
+    profiles: [mail]
+    restart: unless-stopped
+    # Mailpit has no authentication and its inbox exposes password-reset and MFA
+    # links. Bind to loopback only — reach the UI over an SSH tunnel, never the
+    # public interface. It is a dev/testing convenience, not a production mailer.
+    ports:
+      - "127.0.0.1:8025:8025"
+
+  redis:
+    image: redis:7-alpine
+    profiles: [redis]
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  minio:
+    image: minio/minio
+    profiles: [minio]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    # No world-known default: the old minioadmin/minioadmin would expose every
+    # attachment and backup blob. Left unset (plain ${VAR}) rather than :?
+    # because a :? default breaks the *default* `docker compose up` — Compose
+    # interpolates this service even when the minio profile is inactive. MinIO
+    # refuses to start without root credentials, so the profile still fails
+    # closed; set both in .env before enabling it. Ports bind to loopback —
+    # reach MinIO via the reverse proxy or an SSH tunnel, never the public
+    # interface.
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  storage:
+  dbdata:
+  caddy_data:
+  caddy_config:
+  redisdata:
+  miniodata:

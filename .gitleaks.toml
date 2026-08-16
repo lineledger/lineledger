@@ -1,0 +1,29 @@
+# gitleaks configuration. Extends the maintained default ruleset and allowlists
+# only known non-secrets — deliberately NOT a blanket tests/ exclusion, which
+# would hide real leaks. Add targeted entries here as the history scan surfaces
+# confirmed false positives.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known placeholders and test-mode fixtures"
+
+paths = [
+  '''\.env\.example$''',
+  '''docker/\.env\.example$''',
+]
+
+regexes = [
+  # Stripe test-mode + placeholder webhook secrets used in the test suite
+  # (PortalPaymentTest, EmailToInboxTest).
+  '''sk_test_[A-Za-z0-9]+''',
+  '''pk_test_[A-Za-z0-9]+''',
+  '''whsec_test[A-Za-z0-9_]*''',
+  # Documentation placeholder API token (docs/api-v1.md) — all-x, not a real key.
+  '''ll_live_x+''',
+  # Insight detector key asserted in tests/Feature/Insights/InsightNarratorTest.php
+  # ("chosen_key' => 'cash-trend-30d'"); the generic-api-key rule misreads this
+  # kebab-case identifier as a credential.
+  '''cash-trend-30d''',
+]

@@ -1,0 +1,23 @@
+version: 2
+
+# Weekly dependency update PRs. Beyond keeping deps current, the PR history is
+# the SOC 2 (CC7.1) artifact for "we track and remediate vulnerabilities" — each
+# security update arrives as a reviewable, auditable change on the record.
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10

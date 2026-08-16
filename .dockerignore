@@ -1,0 +1,57 @@
+.git
+.github
+.claude
+.idea
+.vscode
+
+# Never bake secrets or local state into the image. The bare patterns are
+# anchored to the context root; the ** variants also catch nested env files
+# (e.g. docker/.env, which the documented local-build path populates with real
+# APP_KEY / DB_ROOT_PASSWORD / MAIL_PASSWORD). Example templates stay in.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Built or installed inside the image
+node_modules
+vendor
+public/build
+public/storage
+public/hot
+
+# Local framework caches — regenerated inside the image/container
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# Runtime data — the storage/ directory skeleton (with .gitignore
+# placeholders) stays in the context so the image ships the tree
+# that seeds the named volume on first use.
+storage/app/private/*
+!storage/app/private/.gitignore
+storage/app/public/*
+!storage/app/public/.gitignore
+storage/logs/*
+!storage/logs/.gitignore
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+storage/oauth-*.key
+storage/pail
+
+database/database.sqlite
+
+tests
+phpunit.xml
+phpstan.neon
+phpstan-baseline.neon
+pint.json
+
+docker/docker-compose.yml
+docker/.env.example
+
+*.md
+!README.md

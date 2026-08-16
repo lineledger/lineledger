@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* Tidewater — Line Ledger palette. Values live in :root/.dark below; this
+ * block exposes them as Tailwind color utilities (bg-background, text-foreground,
+ * bg-primary, border-border, text-positive, …). */
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-positive: var(--positive);
+    --color-positive-foreground: var(--positive-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning-bg: var(--warning-bg);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+}
+
+:root {
+    --radius: 0.875rem;
+    --background: oklch(0.992 0.003 210);
+    --foreground: oklch(0.23 0.028 235);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.23 0.028 235);
+    --muted: oklch(0.965 0.006 210);
+    --muted-foreground: oklch(0.53 0.02 228);
+    --secondary: oklch(0.95 0.006 210);
+    --secondary-foreground: oklch(0.34 0.02 230);
+    --border: oklch(0.915 0.008 215);
+    --input: oklch(0.915 0.008 215);
+    --ring: oklch(0.67 0.122 204);
+    --primary: oklch(0.67 0.122 204);
+    --primary-foreground: oklch(1 0 0);
+    --accent: oklch(0.31 0.035 233);
+    --accent-foreground: oklch(0.98 0.003 210);
+    --positive: oklch(0.63 0.15 152);
+    --positive-foreground: oklch(1 0 0);
+    --destructive: oklch(0.58 0.20 25);
+    --destructive-foreground: oklch(1 0 0);
+    --warning: oklch(0.74 0.10 75);
+    --warning-foreground: oklch(0.42 0.09 60);
+    --warning-bg: oklch(0.95 0.045 85);
+    --sidebar: oklch(0.985 0.004 210);
+    --sidebar-foreground: oklch(0.30 0.025 233);
+    --sidebar-border: oklch(0.91 0.008 215);
+}
+
+.dark {
+    --background: oklch(0.205 0.018 236);
+    --foreground: oklch(0.95 0.005 210);
+    --card: oklch(0.245 0.020 236);
+    --card-foreground: oklch(0.95 0.005 210);
+    --muted: oklch(0.275 0.018 236);
+    --muted-foreground: oklch(0.72 0.015 218);
+    --secondary: oklch(0.30 0.018 236);
+    --secondary-foreground: oklch(0.82 0.01 210);
+    --border: oklch(0.32 0.018 236);
+    --input: oklch(0.32 0.018 236);
+    --ring: oklch(0.75 0.12 200);
+    --primary: oklch(0.78 0.115 199);
+    --primary-foreground: oklch(0.20 0.03 236);
+    --accent: oklch(0.74 0.05 220);
+    --accent-foreground: oklch(0.20 0.03 235);
+    --positive: oklch(0.74 0.15 155);
+    --positive-foreground: oklch(0.18 0.03 160);
+    --destructive: oklch(0.64 0.18 25);
+    --destructive-foreground: oklch(1 0 0);
+    --warning: oklch(0.80 0.11 78);
+    --warning-foreground: oklch(0.91 0.08 85);
+    --warning-bg: oklch(0.30 0.05 80);
+    --sidebar: oklch(0.18 0.018 238);
+    --sidebar-foreground: oklch(0.85 0.01 210);
+    --sidebar-border: oklch(0.29 0.018 236);
+
+    /* Hold the teal Flux accent in dark mode. Flux's dist CSS ships a
+     * `.dark { --color-accent: white }`; this unlayered .dark rule sits later in
+     * source order and wins. var(--primary) resolves to the dark teal above. */
+    --color-accent: var(--primary);
+    --color-accent-content: var(--primary);
+    --color-accent-foreground: var(--primary-foreground);
+}
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-zinc-50: #fafafa;
+    --color-zinc-100: #f5f5f5;
+    --color-zinc-200: #e5e5e5;
+    --color-zinc-300: #d4d4d4;
+    --color-zinc-400: #a3a3a3;
+    --color-zinc-500: #737373;
+    --color-zinc-600: #525252;
+    --color-zinc-700: #404040;
+    --color-zinc-800: #262626;
+    --color-zinc-900: #171717;
+    --color-zinc-950: #0a0a0a;
+
+    /* Flux accent rebridged to the Tidewater teal. --primary is redefined inside
+     * .dark, so var() makes the accent track light/dark automatically — no
+     * separate dark override needed. */
+    --color-accent: var(--primary);
+    --color-accent-content: var(--primary);
+    --color-accent-foreground: var(--primary-foreground);
+}
+
+/*
+ * Brand teal accent, scoped to the auth layouts only (login/register/forgot
+ * password). Uses the navy logo color for foreground text — white-on-teal
+ * fails WCAG AA (~2.1:1) whereas navy-on-teal passes AAA (~8.4:1). Declared
+ * outside @layer so it wins over the .dark theme-layer accent for descendants.
+ */
+.auth-brand {
+    --color-accent: #21c6de;
+    --color-accent-content: #21c6de;
+    --color-accent-foreground: #0f1b2a;
+}
+
+@layer base {
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+[data-flux-field]:not(ui-radio, ui-checkbox) {
+    @apply grid gap-2;
+}
+
+[data-flux-label] {
+    @apply  !mb-0 !leading-tight;
+}
+
+input:focus[data-flux-control],
+textarea:focus[data-flux-control],
+select:focus[data-flux-control] {
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+/* \[:where(&)\]:size-4 {
+    @apply size-4;
+} */
