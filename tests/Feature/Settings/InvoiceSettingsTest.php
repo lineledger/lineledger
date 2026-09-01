@@ -71,6 +71,22 @@ it('loads and persists the service date column toggle', function () {
         ->toBeTrue();
 });
 
+it('loads and persists the hide zero-quantity lines toggle', function () {
+    InvoiceSetting::updateOrCreate(
+        ['company_id' => $this->company->id],
+        [...InvoiceSetting::defaults(), 'hide_zero_qty_lines' => true],
+    );
+
+    Livewire::test('pages::settings.invoices', ['company' => $this->company])
+        ->assertSet('hideZeroQtyLines', true)
+        ->set('hideZeroQtyLines', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(InvoiceSetting::query()->where('company_id', $this->company->id)->first()->hide_zero_qty_lines)
+        ->toBeFalse();
+});
+
 it('persists the granular document-header field toggles', function () {
     Livewire::test('pages::settings.invoices', ['company' => $this->company])
         ->assertSet('showCompanyName', true)

@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\Invoice;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -131,6 +132,33 @@ class OpenDocumentAgingBuilder
         }
 
         return ['rows' => array_values($byContact), 'totals' => $totals];
+    }
+
+    /**
+     * One contact's aging buckets — the customer-statement aging strip. Built
+     * from summary() (not re-derived) so the row keeps the reconciliation
+     * guarantee: its total equals the contact's GL / statement balance.
+     * "Owing only" stays off so a net-credit contact gets a truthful row;
+     * a contact with no balance gets all zeros.
+     *
+     * @return array{current: int, b1_30: int, b31_60: int, b61_90: int, b90_plus: int, total: int}
+     */
+    public function summaryRowForContact(Company $company, string $kind, CarbonImmutable $asOf, Contact $contact): array
+    {
+        foreach ($this->summary($company, $kind, $asOf, owingOnly: false)['rows'] as $row) {
+            if ($row['contact_id'] === $contact->id) {
+                return [
+                    'current' => $row['current'],
+                    'b1_30' => $row['b1_30'],
+                    'b31_60' => $row['b31_60'],
+                    'b61_90' => $row['b61_90'],
+                    'b90_plus' => $row['b90_plus'],
+                    'total' => $row['total'],
+                ];
+            }
+        }
+
+        return ['current' => 0, 'b1_30' => 0, 'b31_60' => 0, 'b61_90' => 0, 'b90_plus' => 0, 'total' => 0];
     }
 
     /**

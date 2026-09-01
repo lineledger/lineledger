@@ -42,6 +42,8 @@ new class extends Component
 
     public string $companyName = '';
 
+    public string $legalName = '';
+
     public string $lockDate = '';
 
     public string $lockPassword = '';
@@ -161,6 +163,7 @@ new class extends Component
     {
         $this->companyModel = $company;
         $this->companyName = $company->name;
+        $this->legalName = (string) ($company->legal_name ?? '');
         $this->lockDate = $company->lock_date?->toDateString() ?? '';
         $this->currencyCode = $company->currency_code;
         $this->fiscalYearStartMonth = $company->fiscal_year_start_month;
@@ -217,6 +220,7 @@ new class extends Component
 
         $rules = [
             'companyName' => ['required', 'string', 'max:255', new CompanyName],
+            'legalName' => ['nullable', 'string', 'max:255'],
             'currencyCode' => ['required', 'string', 'size:3'],
             'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
@@ -284,6 +288,7 @@ new class extends Component
 
             $attributes = [
                 'name' => $validated['companyName'],
+                'legal_name' => filled($validated['legalName'] ?? null) ? trim($validated['legalName']) : null,
                 'currency_code' => strtoupper($validated['currencyCode']),
                 'fiscal_year_start_month' => $validated['fiscalYearStartMonth'],
                 'timezone' => $validated['timezone'],
@@ -658,6 +663,8 @@ new class extends Component
 
                         <form wire:submit="updateCompany" class="space-y-6">
                             <flux:input wire:model="companyName" :label="__('Company name')" required data-test="company-name-input" />
+
+                            <flux:input wire:model="legalName" :label="__('Legal name')" :description="__('Registered legal name. Printed on documents when “Show legal name” is enabled in invoice settings, and used on donation tax receipts.')" data-test="company-legal-name-input" />
 
                             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <flux:input wire:model="addressLine1" :label="__('Address')" data-test="company-address-input" />

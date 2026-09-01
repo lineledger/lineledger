@@ -12,7 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property Carbon|null $invoice_date
+ * @property Carbon|null $due_date
+ * @property string|null $currency_code
+ * @property string|null $fx_rate
+ */
 #[Fillable([
     'company_id', 'contact_id', 'sales_rep_id', 'sales_order_id', 'invoice_no', 'invoice_date', 'due_date',
     'terms_id', 'status', 'subtotal_cents', 'tax_cents', 'total_cents',

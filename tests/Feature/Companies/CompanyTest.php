@@ -134,6 +134,30 @@ test('owners can remove an existing logo', function () {
     Storage::disk('public')->assertMissing($existingPath);
 });
 
+test('owners can set and clear the legal name', function () {
+    $user = User::factory()->create();
+    $company = Company::factory()->create();
+    $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::companies.edit', ['company' => $company])
+        ->assertSet('legalName', '')
+        ->set('legalName', 'Personal Alternative Funeral Services Limited')
+        ->call('updateCompany')
+        ->assertHasNoErrors();
+
+    expect($company->refresh()->legal_name)->toEqual('Personal Alternative Funeral Services Limited');
+
+    Livewire::test('pages::companies.edit', ['company' => $company])
+        ->assertSet('legalName', 'Personal Alternative Funeral Services Limited')
+        ->set('legalName', '   ')
+        ->call('updateCompany')
+        ->assertHasNoErrors();
+
+    expect($company->refresh()->legal_name)->toBeNull();
+});
+
 test('owners can save contact info fields', function () {
     $user = User::factory()->create();
     $company = Company::factory()->create();

@@ -7,6 +7,7 @@ use App\Http\Controllers\Charity\PrintDonationReceiptController;
 use App\Http\Controllers\ChartOfAccountsTemplateController;
 use App\Http\Controllers\Cheques\PrintChequeController as ChequesPrintChequeController;
 use App\Http\Controllers\CompanyBackupDownloadController;
+use App\Http\Controllers\Customers\CustomerStatementController;
 use App\Http\Controllers\Estimates\PrintEstimateController;
 use App\Http\Controllers\Health\ExchangeRateHealthController;
 use App\Http\Controllers\HomeController;
@@ -122,6 +123,8 @@ Route::prefix('{company}')
 
         // Customers
         Route::livewire('customers', 'pages::customers.index')->name('customers.index');
+        Route::get('customers/{contact}/statement/print', [CustomerStatementController::class, 'print'])->name('customers.statement.print');
+        Route::get('customers/{contact}/statement/download', [CustomerStatementController::class, 'download'])->name('customers.statement.download');
 
         // Members (membership dues) — pages self-gate on the features_membership flag.
         Route::livewire('members', 'pages::members.index')->name('members.index');

@@ -70,6 +70,8 @@ use App\Models\MembershipLevel;
 use App\Models\MemorizedReport;
 use App\Models\MemorizedReportGroup;
 use App\Models\NavPreference;
+use App\Models\OpeningBalanceRow;
+use App\Models\OpeningBalanceState;
 use App\Models\Partner;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
@@ -187,8 +189,8 @@ final class BackupTableRegistry
             ['table' => 'currency_revaluations', 'model' => CurrencyRevaluation::class, 'group' => 'gl'],
             // Opening Balances workspace: states FK journal_entries (above) and
             // rows FK states + accounts, so states restore before rows.
-            ['table' => 'opening_balance_states', 'model' => \App\Models\OpeningBalanceState::class, 'group' => 'gl'],
-            ['table' => 'opening_balance_rows', 'model' => \App\Models\OpeningBalanceRow::class, 'group' => 'gl'],
+            ['table' => 'opening_balance_states', 'model' => OpeningBalanceState::class, 'group' => 'gl'],
+            ['table' => 'opening_balance_rows', 'model' => OpeningBalanceRow::class, 'group' => 'gl'],
 
             // === Sales ===
             ['table' => 'invoice_settings', 'model' => InvoiceSetting::class, 'group' => 'sales'],

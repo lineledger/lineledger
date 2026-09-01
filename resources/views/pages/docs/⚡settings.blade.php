@@ -76,7 +76,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         {{-- ──────────────────────────── Companies ─────────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Companies') }}</flux:heading>
         <flux:text>
-            {{ __('Settings → Organizations lists every company you belong to and lets you edit company-level details — name, address, province or state, currency, fiscal year start, and time zone. Each company has its own books, contacts, and reports; companies never share data. Use the selector at the top of the sidebar to switch between them.') }}
+            {{ __('Settings → Organizations lists every company you belong to and lets you edit company-level details — name, legal name, address, province or state, currency, fiscal year start, and time zone. Each company has its own books, contacts, and reports; companies never share data. Use the selector at the top of the sidebar to switch between them.') }}
         </flux:text>
 
         {{-- ──────────────────── Team and permissions ──────────────────────── --}}
@@ -187,7 +187,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <li>{{ __('Open Settings → Invoices.') }}</li>
             <li>{{ __('Under Header, choose whether to show your logo, company name, legal name, address, phone, email, and website.') }}</li>
             <li>{{ __('Under Defaults, set a default sales account — lines with no account (including when the Account column is hidden) fall back to it automatically.') }}</li>
-            <li>{{ __('Under Line columns, toggle the optional columns (Item, Quantity, Tax, Service date). Description, price, and amount always show.') }}</li>
+            <li>{{ __('Under Line columns, toggle the optional columns (Item, Quantity, Tax, Service date). Description, price, and amount always show. Turn on “Hide zero-quantity lines” to leave line items with a quantity of 0 and no amount off the printed invoice.') }}</li>
             <li>{{ __('Under Tax & footer, enter your tax registration number and a footer message if you want them on the PDF.') }}</li>
             <li>{{ __('Under Emailing invoices, set the sender name, reply-to address, and default message.') }}</li>
             <li>{{ __('Under Payment instructions, add other ways customers can pay — for example an Interac e-Transfer address — to show on the online payment page.') }}</li>

@@ -41,6 +41,8 @@ new #[Title('Invoice settings')] class extends Component {
 
     public bool $showServiceDateColumn = true;
 
+    public bool $hideZeroQtyLines = false;
+
     public string $taxNumber = '';
 
     public string $footerMessage = '';
@@ -72,6 +74,7 @@ new #[Title('Invoice settings')] class extends Component {
         $this->showQtyColumn = (bool) $settings->show_qty_column;
         $this->showTaxColumn = (bool) $settings->show_tax_column;
         $this->showServiceDateColumn = (bool) $settings->show_service_date_column;
+        $this->hideZeroQtyLines = (bool) $settings->hide_zero_qty_lines;
         $this->taxNumber = (string) ($company->tax_number ?? '');
         $this->footerMessage = (string) ($settings->footer_message ?? '');
         $this->emailFromAddress = (string) ($settings->email_from_address ?? '');
@@ -98,6 +101,7 @@ new #[Title('Invoice settings')] class extends Component {
             'showQtyColumn' => ['boolean'],
             'showTaxColumn' => ['boolean'],
             'showServiceDateColumn' => ['boolean'],
+            'hideZeroQtyLines' => ['boolean'],
             'taxNumber' => ['nullable', 'string', 'max:50'],
             'footerMessage' => ['nullable', 'string', 'max:1000'],
             'emailFromAddress' => ['nullable', 'email', 'max:255'],
@@ -125,6 +129,7 @@ new #[Title('Invoice settings')] class extends Component {
                 'show_qty_column' => (bool) $validated['showQtyColumn'],
                 'show_tax_column' => (bool) $validated['showTaxColumn'],
                 'show_service_date_column' => (bool) $validated['showServiceDateColumn'],
+                'hide_zero_qty_lines' => (bool) $validated['hideZeroQtyLines'],
                 'footer_message' => filled($validated['footerMessage']) ? trim($validated['footerMessage']) : null,
                 'email_from_address' => filled($validated['emailFromAddress']) ? trim($validated['emailFromAddress']) : null,
                 'email_from_name' => filled($validated['emailFromName']) ? trim($validated['emailFromName']) : null,
@@ -194,6 +199,7 @@ new #[Title('Invoice settings')] class extends Component {
                 <flux:switch wire:model="showQtyColumn" :label="__('Show Quantity column')" data-test="invoice-show-qty-column" />
                 <flux:switch wire:model="showTaxColumn" :label="__('Show Tax column')" data-test="invoice-show-tax-column" />
                 <flux:switch wire:model="showServiceDateColumn" :label="__('Show Service date column')" data-test="invoice-show-service-date-column" />
+                <flux:switch wire:model="hideZeroQtyLines" :label="__('Hide zero-quantity lines')" :description="__('Line items with a quantity of 0 and no amount are left off the printed invoice.')" data-test="invoice-hide-zero-qty-lines" />
             </div>
 
             <div class="space-y-4 rounded-lg border border-border p-4">

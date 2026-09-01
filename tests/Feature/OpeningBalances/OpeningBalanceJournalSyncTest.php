@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Accounting\MergeAccounts;
 use App\Actions\Accounting\PostAccountOpeningBalance;
 use App\Models\Account;
 use App\Models\AccountingAuditLog;
@@ -222,7 +223,7 @@ it('folds draft targets together when their accounts are merged', function () {
     $survivor = obAccount('6000');
     $loser = obAccount('6010');
 
-    app(\App\Actions\Accounting\MergeAccounts::class)->handle($loser, $survivor);
+    app(MergeAccounts::class)->handle($loser, $survivor);
 
     $rows = $this->state->rows()->get();
     expect($rows)->toHaveCount(1);
@@ -231,7 +232,7 @@ it('folds draft targets together when their accounts are merged', function () {
 
     // A loser-only target simply repoints.
     obTarget($this->state, '1010', debit: 5000);    // Savings
-    app(\App\Actions\Accounting\MergeAccounts::class)->handle(obAccount('1010'), obAccount('1000'));
+    app(MergeAccounts::class)->handle(obAccount('1010'), obAccount('1000'));
 
     expect((int) $this->state->rows()->where('account_id', obAccount('1000')->id)->first()->debit_cents)->toBe(5000);
 });

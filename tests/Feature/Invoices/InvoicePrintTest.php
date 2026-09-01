@@ -230,6 +230,67 @@ it('prints the Qty column after the Description column', function () {
     expect(strpos($html, '>Description<'))->toBeLessThan(strpos($html, '>Qty<'));
 });
 
+it('leaves zero-quantity zero-amount lines off the invoice only when the toggle is on', function () {
+    $invoice = makePostedInvoice($this);
+
+    $invoice->lines()->create([
+        'account_id' => $this->income->id,
+        'tax_code_id' => $this->gst->id,
+        'description' => 'Optional graveside service (not used)',
+        'quantity' => '0',
+        'unit_price_cents' => 9900,
+        'line_subtotal_cents' => 0,
+        'line_tax_cents' => 0,
+        'line_total_cents' => 0,
+        'line_order' => 1,
+    ]);
+
+    $invoice = $invoice->fresh()->load('lines.taxCode', 'lines.item', 'contact', 'terms');
+
+    $render = fn (bool $hide) => view('pdf.invoices.invoice', [
+        'company' => $this->company,
+        'invoice' => $invoice,
+        'settings' => new InvoiceSetting([...InvoiceSetting::defaults(), 'company_id' => $this->company->id, 'hide_zero_qty_lines' => $hide]),
+        'taxSummary' => [['label' => 'GST (5%)', 'rate' => 5.0, 'tax_cents' => 250]],
+        'logoData' => null,
+    ])->render();
+
+    expect($render(false))
+        ->toContain('Optional graveside service (not used)')
+        ->toContain('Embalming services');
+    expect($render(true))
+        ->not->toContain('Optional graveside service (not used)')
+        ->toContain('Embalming services');
+});
+
+it('keeps a zero-quantity line that carries an amount even when hiding is on', function () {
+    $invoice = makePostedInvoice($this);
+
+    $invoice->lines()->create([
+        'account_id' => $this->income->id,
+        'tax_code_id' => $this->gst->id,
+        'description' => 'Flat documentation fee',
+        'quantity' => '0',
+        'unit_price_cents' => 0,
+        'line_subtotal_cents' => 2500,
+        'line_tax_cents' => 0,
+        'line_total_cents' => 2500,
+        'line_order' => 1,
+    ]);
+
+    $invoice = $invoice->fresh()->load('lines.taxCode', 'lines.item', 'contact', 'terms');
+
+    $html = view('pdf.invoices.invoice', [
+        'company' => $this->company,
+        'invoice' => $invoice,
+        'settings' => new InvoiceSetting([...InvoiceSetting::defaults(), 'company_id' => $this->company->id, 'hide_zero_qty_lines' => true]),
+        'taxSummary' => [['label' => 'GST (5%)', 'rate' => 5.0, 'tax_cents' => 250]],
+        'logoData' => null,
+    ])->render();
+
+    expect($html)->toContain('Flat documentation fee');
+});
+
 it('hides the unit price column when the Unit column is toggled off', function () {
     $invoice = makePostedInvoice($this)->load('lines.taxCode', 'lines.item', 'contact', 'terms');
 

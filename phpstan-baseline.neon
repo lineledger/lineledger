@@ -961,18 +961,6 @@ parameters:
 			path: app/Mcp/Tools/ListInvoicesTool.php
 
 		-
-			message: '#^Cannot call method toDateString\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Mcp/Tools/ListInvoicesTool.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Mcp/Tools/ListInvoicesTool.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -1291,12 +1279,6 @@ parameters:
 			path: app/Models/Grant.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/Invoice.php
-
-		-
 			message: '#^Cannot call method isOpen\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1547,18 +1529,6 @@ parameters:
 			identifier: property.nonObject
 			count: 1
 			path: app/Notifications/Companies/CompanyInvitation.php
-
-		-
-			message: '#^Cannot call method toDateString\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Notifications/Sales/InvoiceSharedNotification.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Notifications/Sales/InvoiceSharedNotification.php
 
 		-
 			message: '#^Parameter \#1 \$subtype of static method App\\Support\\Gifi\\GifiCatalog\:\:defaultForSubtype\(\) expects App\\Enums\\AccountSubtype, string given\.$#'
@@ -2395,18 +2365,6 @@ parameters:
 			path: app/Services/Posting/DepositPoster.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$fx_rate\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\InvoiceLine\:\:\$class_id\.$#'
 			identifier: property.notFound
 			count: 2
@@ -2516,12 +2474,6 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property App\\Models\\CustomerReceipt\:\:\$fx_rate\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$fx_rate\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/Posting/ReceiptPoster.php
@@ -2673,7 +2625,7 @@ parameters:
 		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
-			count: 4
+			count: 3
 			path: app/Services/Proof/ProofArtifactWriter.php
 
 		-
@@ -2845,18 +2797,6 @@ parameters:
 			path: app/Services/Reporting/CashBasisCalculator.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reporting/CashBasisCalculator.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$fx_rate\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reporting/CashBasisCalculator.php
-
-		-
 			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\AccountType\:\:Income, App\\Enums\\AccountType\:\:Expense\} and true will always evaluate to false\.$#'
 			identifier: function.impossibleType
 			count: 1
@@ -2977,18 +2917,6 @@ parameters:
 			path: app/Services/Reporting/OpenDocumentAgingBuilder.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reporting/OpenDocumentAgingBuilder.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Invoice\:\:\$fx_rate\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reporting/OpenDocumentAgingBuilder.php
-
-		-
 			message: '#^Parameter \#1 \$array of function array_values contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
@@ -2996,12 +2924,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Bill\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Services/Reporting/OpenDocumentAgingBuilder.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
 			path: app/Services/Reporting/OpenDocumentAgingBuilder.php
