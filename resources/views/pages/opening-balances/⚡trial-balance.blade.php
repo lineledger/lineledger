@@ -252,10 +252,10 @@ new #[Title('Opening trial balance')] class extends Component {
                                 @endif
                             </td>
                             <td class="py-1.5 pr-3">
-                                <x-amount-input model="d.{{ $row->account_id }}" modifiers=".blur" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-tb-debit-{{ $row->account?->code }}" />
+                                <x-amount-input model="d.{{ $row->account_id }}" modifiers=".live.blur" placeholder="0.00" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-tb-debit-{{ $row->account?->code }}" />
                             </td>
                             <td class="py-1.5 pr-3">
-                                <x-amount-input model="c.{{ $row->account_id }}" modifiers=".blur" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-tb-credit-{{ $row->account?->code }}" />
+                                <x-amount-input model="c.{{ $row->account_id }}" modifiers=".live.blur" placeholder="0.00" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-tb-credit-{{ $row->account?->code }}" />
                             </td>
                             <td class="py-1.5 text-right">
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeRow({{ $row->account_id }})" wire:confirm="{{ __('Remove this target? The books will be re-netted without it.') }}" :disabled="$obState->isFinalized()" data-test="ob-tb-remove-{{ $row->account?->code }}" />

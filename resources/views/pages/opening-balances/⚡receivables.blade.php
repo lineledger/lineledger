@@ -196,7 +196,7 @@ new #[Title('Opening customer balances')] class extends Component {
                                 @endif
                             </td>
                             <td class="py-1.5">
-                                <x-amount-input model="bal.{{ $row['contact']->id }}" modifiers=".blur" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-ar-balance-{{ $row['contact']->id }}" />
+                                <x-amount-input model="bal.{{ $row['contact']->id }}" modifiers=".live.blur" placeholder="0.00" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-ar-balance-{{ $row['contact']->id }}" />
                             </td>
                         </tr>
                     @endforeach

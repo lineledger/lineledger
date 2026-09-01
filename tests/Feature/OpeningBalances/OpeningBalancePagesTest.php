@@ -104,6 +104,42 @@ it('saves a trial balance cell and applies it to the books immediately', functio
     expect($entry->refresh()->lines()->where('account_id', $bank->id)->first()->debit_cents)->toBe(75000);
 });
 
+it('saves a customer balance typed on the receivables grid', function () {
+    $company = ($this->companyAs)(CompanyRole::Owner);
+    OpeningBalanceState::create(['company_id' => $company->id, 'as_of_date' => '2026-06-30']);
+    $customer = \App\Models\Contact::factory()->customer()->create(['company_id' => $company->id]);
+
+    $page = Livewire::test('pages::opening-balances.receivables', ['company' => $company])
+        ->set('bal.'.$customer->id, '1,000.00');
+
+    $invoice = \App\Models\Invoice::query()
+        ->where('contact_id', $customer->id)
+        ->where('is_opening_balance', true)
+        ->first();
+
+    expect($invoice)->not->toBeNull();
+    expect((int) $invoice->total_cents)->toBe(100000);
+
+    // Plain integers and negatives (credits) work too.
+    $page->set('bal.'.$customer->id, '750');
+    expect((int) $invoice->fresh()->total_cents)->toBe(75000);
+
+    $page->set('bal.'.$customer->id, '-25.50');
+    expect($invoice->fresh()->voided_at)->not->toBeNull();
+    expect((int) \App\Models\CreditMemo::query()->where('contact_id', $customer->id)->whereNull('voided_at')->value('total_cents'))->toBe(2550);
+});
+
+it('saves a vendor balance typed on the payables grid', function () {
+    $company = ($this->companyAs)(CompanyRole::Owner);
+    OpeningBalanceState::create(['company_id' => $company->id, 'as_of_date' => '2026-06-30']);
+    $vendor = \App\Models\Contact::factory()->vendor()->create(['company_id' => $company->id]);
+
+    Livewire::test('pages::opening-balances.payables', ['company' => $company])
+        ->set('bal.'.$vendor->id, '425.00');
+
+    expect((int) \App\Models\Bill::query()->where('contact_id', $vendor->id)->where('is_opening_balance', true)->value('total_cents'))->toBe(42500);
+});
+
 it('imports a trial balance CSV through the page and applies it', function () {
     $company = ($this->companyAs)(CompanyRole::Owner);
     OpeningBalanceState::create(['company_id' => $company->id, 'as_of_date' => '2026-06-30']);
