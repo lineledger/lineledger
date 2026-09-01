@@ -80,6 +80,7 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@lint:check",
+            "npm test",
             "@php artisan test"
         ],
         "post-autoload-dump": [

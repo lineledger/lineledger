@@ -639,7 +639,7 @@ new #[Title('Estimate')] class extends Component
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Unit price') }}</span>
-                                <flux:input wire:model.live="lines.{{ $i }}.unit_price" class="lg:text-right" data-test="line-unit-price" />
+                                <x-amount-input model="lines.{{ $i }}.unit_price" class="lg:text-right" data-test="line-unit-price" />
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Disc %') }}</span>

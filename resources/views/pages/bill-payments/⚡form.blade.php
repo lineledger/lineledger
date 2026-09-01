@@ -431,7 +431,7 @@ new #[Title('Pay bills')] class extends Component {
                                     <td class="px-3 py-2">{{ $row['due_date'] }}</td>
                                     <td class="px-3 py-2 text-right font-mono">{{ number_format($row['balance'] / 100, 2) }}</td>
                                     <td class="px-3 py-2">
-                                        <flux:input wire:model.live="applyTable.{{ $i }}.apply" class="text-right" data-test="apply-bill-input" />
+                                        <x-amount-input model="applyTable.{{ $i }}.apply" class="text-right" data-test="apply-bill-input" />
                                     </td>
                                 </tr>
                             @endforeach

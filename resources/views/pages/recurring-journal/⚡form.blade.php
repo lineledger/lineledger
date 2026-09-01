@@ -345,11 +345,11 @@ new #[Title('Recurring journal entry')] class extends Component {
                             </div>
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Debit') }}</span>
-                                <flux:input wire:model.live="lines.{{ $i }}.debit" class="lg:text-right" placeholder="0.00" data-test="line-debit" />
+                                <x-amount-input model="lines.{{ $i }}.debit" class="lg:text-right" placeholder="0.00" data-test="line-debit" />
                             </div>
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Credit') }}</span>
-                                <flux:input wire:model.live="lines.{{ $i }}.credit" class="lg:text-right" placeholder="0.00" data-test="line-credit" />
+                                <x-amount-input model="lines.{{ $i }}.credit" class="lg:text-right" placeholder="0.00" data-test="line-credit" />
                             </div>
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Line memo') }}</span>

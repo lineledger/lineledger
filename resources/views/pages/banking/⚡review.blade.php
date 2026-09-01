@@ -433,7 +433,7 @@ new #[Title('For Review')] class extends Component {
                             <flux:select.option :value="$opt['value']">{{ $opt['label'] }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    <flux:input wire:model.live="splits.{{ $i }}.amount" class="col-span-4" placeholder="0.00" data-test="split-amount" />
+                    <x-amount-input model="splits.{{ $i }}.amount" class="col-span-4" placeholder="0.00" data-test="split-amount" />
                     <flux:button size="sm" variant="ghost" icon="trash" wire:click="removeSplit({{ $i }})" class="col-span-1" />
                 </div>
             @endforeach

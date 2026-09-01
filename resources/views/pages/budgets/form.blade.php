@@ -370,7 +370,7 @@ new #[Title('Budget')] class extends Component {
                             </td>
                             @for ($month = 1; $month <= 12; $month++)
                                 <td class="px-1 py-1">
-                                    <flux:input wire:model.live.debounce.500ms="rows.{{ $i }}.m{{ $month }}" class="w-24 text-right" placeholder="0.00" />
+                                    <x-amount-input model="rows.{{ $i }}.m{{ $month }}" modifiers=".live.debounce.500ms" class="w-24 text-right" placeholder="0.00" />
                                 </td>
                             @endfor
                             <td class="px-2 py-1 text-right font-mono">{{ number_format($this->rowTotal($i) / 100, 2) }}</td>

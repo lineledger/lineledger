@@ -390,7 +390,7 @@ new #[Title('Reimbursement')] class extends Component {
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Amount') }}</span>
-                                <flux:input wire:model.live="lines.{{ $i }}.unit_price" class="lg:text-right" data-test="line-unit-price" />
+                                <x-amount-input model="lines.{{ $i }}.unit_price" class="lg:text-right" data-test="line-unit-price" />
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Tax') }}</span>
@@ -407,7 +407,7 @@ new #[Title('Reimbursement')] class extends Component {
                                         </flux:menu.checkbox.group>
                                     </flux:menu>
                                 </flux:dropdown>
-                                <flux:input wire:model.live.debounce.500ms="lines.{{ $i }}.tax_override" size="sm"
+                                <x-amount-input model="lines.{{ $i }}.tax_override" modifiers=".live.debounce.500ms" size="sm"
                                     class="mt-1 lg:text-right"
                                     placeholder="{{ number_format(($line['auto_tax'] ?? 0) / 100, 2) }}"
                                     data-test="line-tax-override" />

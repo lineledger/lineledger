@@ -5,7 +5,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test": "node --test \"tests/js/**/*.test.js\""
     },
     "dependencies": {
         "@laravel/passkeys": "^0.2.0",

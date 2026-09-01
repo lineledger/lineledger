@@ -1,4 +1,5 @@
 import './charts.js';
+import { evaluateAmountExpression, isAmountExpression, roundHalfUp } from './amount-expression.js';
 
 document.addEventListener('alpine:init', () => {
     /**
@@ -123,13 +124,20 @@ document.addEventListener('alpine:init', () => {
 
     /**
      * In-cell money calculator for amount fields. Typing an expression such as
-     * "1050+52.50" or "+1102.50-25" surfaces a running "tape" of each
-     * addition/subtraction; pressing Enter (or blurring) collapses it to the
-     * final decimal value and syncs that to the bound Livewire property. Plain
-     * amounts behave like a normal input. All math is done in integer cents to
-     * avoid float drift, mirroring App\Support\Money.
+     * "1050+52.50", "100*1.13" or "250/4" surfaces a running "tape" of each
+     * operand and operator (+ − × ÷ with standard precedence; x / × / ÷ are
+     * accepted aliases); pressing Enter (or blurring) collapses it to the final
+     * decimal value and syncs that to the bound Livewire property. Plain amounts
+     * behave like a normal input.
+     *
+     * Parsing and rounding live in ./amount-expression.js: the result is rounded
+     * half-up once, at the end, to `decimals` (default 2; opt in with
+     * x-data="amountCalculator({ decimals: 4 })"), so the committed value is the
+     * plain literal App\Support\Money::tryFromString expects. Division by zero
+     * shows "Error" in the tape and never overwrites the cell.
      */
-    window.Alpine.data('amountCalculator', () => ({
+    window.Alpine.data('amountCalculator', (opts = {}) => ({
+        decimals: Number.isInteger(opts.decimals) ? opts.decimals : 2,
         showTape: false,
         steps: [],
         result: '',
@@ -144,7 +152,10 @@ document.addEventListener('alpine:init', () => {
             const input = this.$refs.input;
 
             input.addEventListener('input', (event) => this.onInput(event));
-            input.addEventListener('blur', () => this.commit());
+            input.addEventListener('blur', () => {
+                this.commit();
+                this.showTape = false;
+            });
             input.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     this.onEnter(event);
@@ -184,85 +195,47 @@ document.addEventListener('alpine:init', () => {
             tape.style.minWidth = `${rect.width}px`;
         },
 
-        isCalc(value) {
-            const s = (value ?? '').toString().trim();
-            if (s === '') {
-                return false;
-            }
-            if (s[0] === '+') {
-                return true;
-            }
-            return /[\d.][+\-]/.test(s.replace(/[,\s]/g, ''));
-        },
-
+        /** The evaluated expression, or null when the value is a plain amount / unparseable. */
         evaluate(value) {
-            const s = (value ?? '').toString().replace(/[,\s]/g, '');
-            const terms = s.match(/[+\-]?(?:\d+\.?\d*|\.\d+)/g);
-            if (!terms) {
-                return null;
-            }
-
-            let totalCents = 0;
-            const steps = [];
-            for (const term of terms) {
-                const num = parseFloat(term);
-                if (isNaN(num)) {
-                    continue;
-                }
-                const cents = Math.round(num * 100);
-                const negative = cents < 0;
-                totalCents += cents;
-                steps.push({
-                    op: steps.length === 0 ? (negative ? '−' : '') : (negative ? '−' : '+'),
-                    value: Math.abs(cents / 100).toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                    }),
-                });
-            }
-
-            if (steps.length === 0) {
-                return null;
-            }
-
-            return { totalCents, steps };
-        },
-
-        format(cents) {
-            return (cents / 100).toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            });
+            return isAmountExpression(value) ? evaluateAmountExpression(value, this.decimals) : null;
         },
 
         onInput(event) {
-            if (this.isCalc(event.target.value)) {
-                const r = this.evaluate(event.target.value);
-                if (r) {
-                    this.steps = r.steps;
-                    this.result = this.format(r.totalCents);
-                    this.showTape = true;
-                    this.$nextTick(() => this.position());
-                    return;
-                }
+            const r = this.evaluate(event.target.value);
+            if (!r) {
+                this.showTape = false;
+                return;
             }
-            this.showTape = false;
+
+            this.steps = r.steps;
+            this.result = r.display;
+            this.showTape = true;
+            this.$nextTick(() => this.position());
         },
 
+        /**
+         * Collapse an expression to its value and sync it to Livewire. Returns
+         * false when it can't be committed (÷0): the typed text and the "Error"
+         * tape are left in place for the user to fix.
+         */
         commit() {
             const input = this.$refs.input;
-            if (this.isCalc(input.value)) {
-                const r = this.evaluate(input.value);
-                if (r) {
-                    input.value = (r.totalCents / 100).toFixed(2);
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+            const r = this.evaluate(input.value);
+            if (r && !r.ok) {
+                return false;
+            }
+
+            if (r) {
+                input.value = r.plain;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
             }
             this.showTape = false;
+
+            return true;
         },
 
         onEnter(event) {
-            if (this.isCalc(event.target.value)) {
+            if (isAmountExpression(event.target.value)) {
                 event.preventDefault();
                 this.commit();
             }
@@ -312,7 +285,8 @@ document.addEventListener('alpine:init', () => {
      *    "value −" row); × and ÷ run a sub-calculation resolved by =; the Total
      *    key prints and clears the grand total.
      *
-     * Results are rounded to 2 decimals (an accounting default) to avoid float
+     * Results are rounded to 2 decimals (an accounting default, half away from
+     * zero via the shared roundHalfUp in ./amount-expression.js) to avoid float
      * drift, mirroring the cents philosophy of App\Support\Money.
      */
     window.Alpine.data('tapeCalculator', (opts = {}) => ({
@@ -349,7 +323,7 @@ document.addEventListener('alpine:init', () => {
         // --- formatting helpers -------------------------------------------------
 
         round2(value) {
-            return Math.round((value + Number.EPSILON) * 100) / 100;
+            return roundHalfUp(value, 2);
         },
 
         fmt(value) {

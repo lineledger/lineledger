@@ -508,7 +508,7 @@ new #[Title('Receive payment')] class extends Component {
 
             <flux:input wire:model="receipt_no" :label="__('Receipt #')" required data-test="receipt-no-input" />
             <flux:input type="date" wire:model="receipt_date" :label="__('Date')" required data-test="receipt-date-input" />
-            <flux:input wire:model.live="amount" :label="__('Amount')" placeholder="0.00" required data-test="receipt-amount-input" />
+            <x-amount-input model="amount" :label="__('Amount')" placeholder="0.00" required data-test="receipt-amount-input" />
 
             <flux:select wire:model="deposit_to_account_id" :label="__('Deposit to')" required data-test="receipt-deposit-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
@@ -584,7 +584,7 @@ new #[Title('Receive payment')] class extends Component {
                                     <td class="px-3 py-2">{{ $row['due_date'] }}</td>
                                     <td class="px-3 py-2 text-right font-mono">{{ number_format($row['balance'] / 100, 2) }}</td>
                                     <td class="px-3 py-2">
-                                        <flux:input wire:model.live="applyTable.{{ $i }}.apply" class="text-right" data-test="apply-input" />
+                                        <x-amount-input model="applyTable.{{ $i }}.apply" class="text-right" data-test="apply-input" />
                                     </td>
                                 </tr>
                             @endforeach

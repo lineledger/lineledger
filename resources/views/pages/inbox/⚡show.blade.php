@@ -650,7 +650,7 @@ new #[Title('Review document')] class extends Component {
                                         </flux:menu.checkbox.group>
                                     </flux:menu>
                                 </flux:dropdown>
-                                <flux:input wire:model.live.debounce.500ms="lines.{{ $i }}.tax_override" size="sm"
+                                <x-amount-input model="lines.{{ $i }}.tax_override" modifiers=".live.debounce.500ms" size="sm"
                                     class="mt-1 lg:text-right"
                                     placeholder="{{ number_format($line['auto_tax_cents'] / 100, 2) }}"
                                     data-test="inbox-line-tax-override" />

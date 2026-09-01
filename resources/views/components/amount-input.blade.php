@@ -5,11 +5,13 @@
 
 {{--
     Money input with an in-cell calculator. Typing an expression such as
-    "1050+52.50" or "+1102.50-25" surfaces a running "tape" dropdown of each
-    addition/subtraction; pressing Enter (or blurring) collapses it to the final
+    "1050+52.50", "100*1.13" or "250/4" surfaces a running "tape" dropdown of
+    each operand and operator (+ − × ÷ with standard precedence; x / × / ÷ are
+    accepted aliases); pressing Enter (or blurring) collapses it to the final
     decimal value and syncs that to the bound Livewire property. Plain amounts
-    behave like a normal input. Logic lives in the `amountCalculator` Alpine
-    component (resources/js/app.js); the dropdown is <x-amount-input.tape />.
+    behave like a normal input. The parser is resources/js/amount-expression.js;
+    the `amountCalculator` Alpine component (resources/js/app.js) wires it to
+    the input, and the dropdown is <x-amount-input.tape />.
 
     The Livewire binding defaults to `wire:model.live`. Pass `modifiers` to change
     it — e.g. modifiers="" for deferred binding, or modifiers=".live.debounce.500ms".
