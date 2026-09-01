@@ -6,11 +6,14 @@ use App\Enums\AuditAction;
 use App\Enums\ChequeStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\UnbalancedJournalException;
+use App\Models\Account;
 use App\Models\Cheque;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -39,6 +42,7 @@ class ChequePoster
         protected AccountingAuditRecorder $auditRecorder,
         protected TaxPeriodLockGuard $taxLockGuard,
         protected ExchangeRateService $exchangeRates,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(Cheque $cheque): JournalEntry
@@ -109,6 +113,112 @@ class ChequePoster
                     'bank_account_id' => (int) $cheque->bank_account_id,
                     'journal_entry_id' => (int) $entry->id,
                     'journal' => AccountingAuditRecorder::snapshotJournalEntry($entry),
+                ],
+                $entry,
+            );
+
+            return $entry;
+        }));
+    }
+
+    /**
+     * Edit a posted cheque in place: rebuild its GL entry's lines on the same
+     * journal entry (keeping the source link and cheque.journal_entry_id
+     * intact), then recompute every touched account balance.
+     *
+     * Mirrors {@see DepositPoster::repost()}: JournalPoster::post() is not
+     * re-run, so the period lock, tax-period lock and reconciliation lock are
+     * all enforced explicitly here on both the original and the (possibly new)
+     * cheque date.
+     */
+    public function repost(Cheque $cheque): JournalEntry
+    {
+        return DB::transaction(fn () => AuditMute::silence(function () use ($cheque) {
+            $cheque->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'bankAccount', 'company', 'journalEntry.lines');
+
+            if (! $cheque->journal_entry_id) {
+                throw new RuntimeException('Cheque has not been posted yet — call post() instead.');
+            }
+
+            if ($cheque->status === ChequeStatus::Void) {
+                throw new RuntimeException('Cannot repost a voided cheque.');
+            }
+
+            $entry = $cheque->journalEntry;
+            $journalBefore = AccountingAuditRecorder::snapshotJournalEntry($entry);
+            $lockDate = $cheque->company->lock_date;
+
+            $originalEntryDate = CarbonImmutable::parse($entry->entry_date);
+            $newEntryDate = CarbonImmutable::parse($cheque->cheque_date);
+
+            foreach ([$originalEntryDate, $newEntryDate] as $date) {
+                if ($cheque->company->isLockedFor($date)) {
+                    throw PeriodLockedException::for($date, CarbonImmutable::parse($lockDate));
+                }
+
+                $this->taxLockGuard->ensureNotFiled(
+                    (int) $cheque->company_id,
+                    $cheque->lines->pluck('tax_code_id')->all(),
+                    $date,
+                );
+            }
+
+            $cheque->recalculateAmount();
+
+            if ($cheque->lines->isEmpty() || $cheque->amount_cents <= 0) {
+                throw new RuntimeException('Cheque has no lines or zero amount; cannot post.');
+            }
+
+            // Capture old + new touched accounts and guard the reconciliation
+            // lock before mutating: the original date for the impact we're
+            // removing, the new date for the impact we're writing.
+            $oldAccountIds = $entry->lines->pluck('account_id')->all();
+
+            $newAccountIds = collect([$cheque->bank_account_id])
+                ->merge($cheque->lines->pluck('account_id'))
+                ->merge(array_keys($this->recoverableTaxByPayableAccount($cheque)));
+
+            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $oldAccountIds, $originalEntryDate);
+            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $newAccountIds->all(), $newEntryDate);
+
+            $entry->forceFill([
+                'entry_date' => $cheque->cheque_date,
+                'memo' => 'Cheque '.$cheque->cheque_no.' — '.$cheque->payee_name,
+            ])->save();
+
+            $entry->lines()->delete();
+
+            $this->buildChequeLines($cheque, $entry);
+
+            $entry->refresh();
+
+            if (! $entry->isBalanced()) {
+                throw UnbalancedJournalException::from($entry->totalDebitsCents(), $entry->totalCreditsCents());
+            }
+
+            foreach (array_unique([...$oldAccountIds, ...$entry->lines->pluck('account_id')->all()]) as $id) {
+                Account::withoutGlobalScopes()->find($id)?->recomputeBalance();
+            }
+
+            if ($cheque->isRefund()) {
+                $cheque->payee?->recomputeArBalance();
+            }
+
+            $entry = $entry->fresh();
+
+            $this->auditRecorder->record(
+                (int) $cheque->company_id,
+                AuditAction::ChequeReposted,
+                $cheque,
+                [
+                    'cheque_no' => $cheque->cheque_no,
+                    'cheque_date' => optional($cheque->cheque_date)->toDateString(),
+                    'payee_name' => $cheque->payee_name,
+                    'amount_cents' => (int) $cheque->amount_cents,
+                    'bank_account_id' => (int) $cheque->bank_account_id,
+                    'journal_entry_id' => (int) $entry->id,
+                    'journal_before' => $journalBefore,
+                    'journal_after' => AccountingAuditRecorder::snapshotJournalEntry($entry),
                 ],
                 $entry,
             );

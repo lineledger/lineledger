@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'company_id', 'bank_account_id', 'deposit_no', 'deposit_date',
-    'memo', 'amount_cents', 'currency_code', 'fx_rate', 'home_amount_cents', 'status',
+    'memo', 'is_opening_balance', 'amount_cents', 'currency_code', 'fx_rate', 'home_amount_cents', 'status',
     'posted_at', 'posted_by_user_id', 'voided_at', 'voided_by_user_id',
     'journal_entry_id',
 ])]
@@ -59,6 +59,7 @@ class Deposit extends Model
         return [
             'deposit_date' => 'date:Y-m-d',
             'status' => DepositStatus::class,
+            'is_opening_balance' => 'boolean',
             'amount_cents' => 'integer',
             'home_amount_cents' => 'integer',
             'posted_at' => 'datetime',

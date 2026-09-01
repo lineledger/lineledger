@@ -73,6 +73,7 @@ enum AuditAction: string
     case ChequeUpdated = 'cheque.updated';
     case ChequeDeleted = 'cheque.deleted';
     case ChequePosted = 'cheque.posted';
+    case ChequeReposted = 'cheque.reposted';
     case ChequeVoided = 'cheque.voided';
 
     case ExpensePosted = 'expense.posted';
@@ -164,4 +165,7 @@ enum AuditAction: string
     case ContactUpdated = 'contact.updated';
     case ContactDeleted = 'contact.deleted';
     case ContactMerged = 'contact.merged';
+
+    case OpeningBalanceApplied = 'opening_balance.applied';
+    case OpeningBalanceTargetsImported = 'opening_balance.targets_imported';
 }

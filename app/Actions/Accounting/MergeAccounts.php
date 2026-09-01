@@ -126,6 +126,36 @@ final class MergeAccounts
                         ->delete();
                 }
 
+                // opening_balance_rows is unique on (opening_balance_state_id,
+                // account_id): when both accounts carry a draft trial-balance
+                // target, fold the loser's signed amount into the survivor's row
+                // and drop the loser's. The journal_lines repoint below sums the
+                // accounts' posted activity wholesale, so the target must sum the
+                // same way or the workspace reports a phantom variance.
+                $loserObRows = DB::table('opening_balance_rows')
+                    ->where('account_id', $loser->id)
+                    ->get();
+
+                foreach ($loserObRows as $loserRow) {
+                    $survivorRow = DB::table('opening_balance_rows')
+                        ->where('opening_balance_state_id', $loserRow->opening_balance_state_id)
+                        ->where('account_id', $survivor->id)
+                        ->first();
+
+                    if ($survivorRow === null) {
+                        continue; // no collision — the blind repoint moves it
+                    }
+
+                    $signed = ((int) $survivorRow->debit_cents - (int) $survivorRow->credit_cents)
+                        + ((int) $loserRow->debit_cents - (int) $loserRow->credit_cents);
+
+                    DB::table('opening_balance_rows')->where('id', $survivorRow->id)->update([
+                        'debit_cents' => max($signed, 0),
+                        'credit_cents' => max(-$signed, 0),
+                    ]);
+                    DB::table('opening_balance_rows')->where('id', $loserRow->id)->delete();
+                }
+
                 foreach (AccountReferenceRegistry::columns() as $ref) {
                     $count = DB::table($ref['table'])
                         ->where($ref['column'], $loser->id)

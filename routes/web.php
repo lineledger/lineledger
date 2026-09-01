@@ -16,6 +16,7 @@ use App\Http\Controllers\Invoices\PrintInvoiceController;
 use App\Http\Controllers\Invoices\PrintReceiptController;
 use App\Http\Controllers\Invoices\PrintSalesReceiptController;
 use App\Http\Controllers\Migration\MigrationTemplateController;
+use App\Http\Controllers\OpeningBalances\OpeningBalanceTemplateController;
 use App\Http\Controllers\Payroll\PrintPayrollChequeController;
 use App\Http\Controllers\Payroll\PrintPayStubController;
 use App\Http\Controllers\Portal\EmployeePortalDocumentController;
@@ -436,6 +437,31 @@ Route::prefix('{company}')
         Route::get('import-from-quickbooks/templates/{step}', MigrationTemplateController::class)
             ->where('step', '[a-z_]+')
             ->name('migration.template');
+
+        // Opening balances workspace (owner only): the continuously-editable
+        // post-setup home for the draft trial balance and its sub-ledger detail.
+        Route::livewire('opening-balances', 'pages::opening-balances.index')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.index');
+        Route::livewire('opening-balances/trial-balance', 'pages::opening-balances.trial-balance')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.trial-balance');
+        Route::livewire('opening-balances/receivables', 'pages::opening-balances.receivables')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.receivables');
+        Route::livewire('opening-balances/payables', 'pages::opening-balances.payables')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.payables');
+        Route::livewire('opening-balances/cheques', 'pages::opening-balances.cheques')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.cheques');
+        Route::livewire('opening-balances/deposits', 'pages::opening-balances.deposits')
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->name('opening-balances.deposits');
+        Route::get('opening-balances/templates/{step}', OpeningBalanceTemplateController::class)
+            ->middleware(EnsureCompanyMembership::class.':owner')
+            ->where('step', '[a-z_]+')
+            ->name('opening-balances.template');
 
         // Per-company settings
         Route::livewire('settings/inventory', 'pages::settings.inventory')->name('settings.inventory');

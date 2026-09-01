@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'company_id', 'contact_id', 'vendor_credit_no', 'vendor_credit_date',
     'status', 'subtotal_cents', 'tax_cents', 'total_cents',
     'currency_code', 'fx_rate', 'home_total_cents',
-    'memo', 'vendor_message', 'posted_at', 'posted_by_user_id',
+    'memo', 'vendor_message', 'is_opening_balance', 'posted_at', 'posted_by_user_id',
     'voided_at', 'voided_by_user_id', 'journal_entry_id',
 ])]
 class VendorCredit extends Model
@@ -89,6 +89,7 @@ class VendorCredit extends Model
         return [
             'vendor_credit_date' => 'date:Y-m-d',
             'status' => VendorCreditStatus::class,
+            'is_opening_balance' => 'boolean',
             'subtotal_cents' => 'integer',
             'tax_cents' => 'integer',
             'total_cents' => 'integer',

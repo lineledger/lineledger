@@ -115,6 +115,11 @@ final class AccountReferenceRegistry
             // Categorization rules keep coding to the surviving account.
             ['table' => 'bank_rules', 'column' => 'action_account_id'],
 
+            // Opening Balances workspace — draft trial-balance targets. Unique
+            // on (opening_balance_state_id, account_id); MergeAccounts folds a
+            // colliding pair into the survivor's row before this blind repoint.
+            ['table' => 'opening_balance_rows', 'column' => 'account_id'],
+
             // Fixed assets.
             ['table' => 'asset_categories', 'column' => 'default_asset_account_id'],
             ['table' => 'asset_categories', 'column' => 'default_accumulated_depreciation_account_id'],

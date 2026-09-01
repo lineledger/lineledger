@@ -2,12 +2,12 @@
 
 namespace App\Services\Migration\Importers;
 
-use App\Enums\AccountSubtype;
 use App\Enums\AssetStatus;
 use App\Models\Account;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\JournalEntry;
+use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Migration\Csv\CsvParser;
 use App\Services\Migration\ImportContext;
 use App\Services\Migration\ImportResult;
@@ -85,11 +85,7 @@ class FixedAssetsImporter implements Importer
         $preview = [];
         $createdIds = [];
 
-        $obe = Account::withoutGlobalScopes()
-            ->where('company_id', $ctx->company->id)
-            ->where('subtype', AccountSubtype::Equity->value)
-            ->whereIn('name', Account::OPENING_BALANCE_NAMES)
-            ->first();
+        $obe = app(OpeningBalanceAccountResolver::class)->resolve((int) $ctx->company->id);
 
         if (! $obe) {
             return new ImportResult(

@@ -171,6 +171,11 @@ class SidebarNavCatalog
             if ($featuresFixedAssets) {
                 $items[] = self::item('accounting.fixed_assets', __('Fixed assets'), 'cube', 'assets.index', ['assets.*']);
             }
+            // Owner-only, matching the route's :owner middleware — showing it to
+            // anyone else would link straight to a 403.
+            if ($user->ownsCompany($company)) {
+                $items[] = self::item('accounting.opening_balances', __('Opening balances'), 'scale', 'opening-balances.index', ['opening-balances.*']);
+            }
             $groups[] = self::group('accounting', __('Accounting'), $items);
         }
 

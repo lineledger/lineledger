@@ -2,7 +2,6 @@
 
 namespace App\Services\Posting;
 
-use App\Enums\AccountSubtype;
 use App\Enums\AuditAction;
 use App\Enums\StockAdjustmentReason;
 use App\Exceptions\Posting\AlreadyPostedException;
@@ -13,6 +12,7 @@ use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\StockAdjustment;
 use App\Models\StockMovement;
+use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Inventory\InventoryCostingFactory;
@@ -281,11 +281,7 @@ class StockAdjustmentPoster
 
     protected function openingBalanceEquityAccount(StockAdjustment $adjustment): Account
     {
-        $account = Account::withoutGlobalScopes()
-            ->where('company_id', $adjustment->company_id)
-            ->where('subtype', AccountSubtype::Equity->value)
-            ->whereIn('name', Account::OPENING_BALANCE_NAMES)
-            ->first();
+        $account = app(OpeningBalanceAccountResolver::class)->resolve((int) $adjustment->company_id);
 
         if (! $account) {
             throw new RuntimeException("Missing 'Opening Balance Equity' account for company {$adjustment->company_id}.");

@@ -11,6 +11,7 @@ use App\Models\CustomerReceipt;
 use App\Models\Deposit;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\OpeningBalanceState;
 use App\Models\TaxReturn;
 use App\Models\Transfer;
 use App\Models\VendorCredit;
@@ -72,6 +73,14 @@ class SourceLinkResolver
                 : null;
         }
 
+        // The maintained opening-balances entry drills to its workspace, not a
+        // document (the workspace route carries no id).
+        if ($entry->source_type === OpeningBalanceState::class) {
+            return Route::has('opening-balances.index')
+                ? route('opening-balances.index', [$company->slug])
+                : null;
+        }
+
         $name = self::ROUTES[$entry->source_type] ?? null;
 
         if ($name === null || $entry->source_id === null || ! Route::has($name)) {
@@ -87,6 +96,10 @@ class SourceLinkResolver
 
     public function label(JournalEntry $entry): string
     {
+        if ($entry->source_type === OpeningBalanceState::class) {
+            return __('Opening balances');
+        }
+
         return $entry->source_type === null
             ? __('Journal entry')
             : class_basename($entry->source_type);

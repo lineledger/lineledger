@@ -2,12 +2,12 @@
 
 namespace App\Services\Migration\Importers;
 
-use App\Enums\AccountSubtype;
 use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Contact;
+use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Migration\Csv\CsvParser;
 use App\Services\Migration\ImportContext;
 use App\Services\Migration\ImportResult;
@@ -196,10 +196,6 @@ class OpenBillsImporter implements Importer
 
     protected function openingBalanceEquityAccount(int $companyId): ?Account
     {
-        return Account::withoutGlobalScopes()
-            ->where('company_id', $companyId)
-            ->where('subtype', AccountSubtype::Equity->value)
-            ->whereIn('name', Account::OPENING_BALANCE_NAMES)
-            ->first();
+        return app(OpeningBalanceAccountResolver::class)->resolve($companyId);
     }
 }

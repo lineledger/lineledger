@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'company_id', 'bank_account_id', 'cheque_no', 'cheque_date',
-    'payee_contact_id', 'credit_memo_id', 'payee_name', 'memo', 'amount_cents',
+    'payee_contact_id', 'credit_memo_id', 'payee_name', 'memo', 'is_opening_balance', 'amount_cents',
     'currency_code', 'fx_rate', 'home_amount_cents', 'status',
     'posted_at', 'posted_by_user_id', 'voided_at', 'voided_by_user_id',
     'journal_entry_id',
@@ -95,6 +95,7 @@ class Cheque extends Model
         return [
             'cheque_date' => 'date:Y-m-d',
             'status' => ChequeStatus::class,
+            'is_opening_balance' => 'boolean',
             'amount_cents' => 'integer',
             'home_amount_cents' => 'integer',
             'posted_at' => 'datetime',

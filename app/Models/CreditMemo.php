@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'company_id', 'contact_id', 'sales_rep_id', 'credit_memo_no', 'credit_memo_date',
     'status', 'subtotal_cents', 'tax_cents', 'total_cents',
     'currency_code', 'fx_rate', 'home_total_cents',
-    'memo', 'customer_message', 'posted_at', 'posted_by_user_id',
+    'memo', 'customer_message', 'is_opening_balance', 'posted_at', 'posted_by_user_id',
     'voided_at', 'voided_by_user_id', 'journal_entry_id',
 ])]
 class CreditMemo extends Model
@@ -151,6 +151,7 @@ class CreditMemo extends Model
         return [
             'credit_memo_date' => 'date:Y-m-d',
             'status' => CreditMemoStatus::class,
+            'is_opening_balance' => 'boolean',
             'subtotal_cents' => 'integer',
             'tax_cents' => 'integer',
             'total_cents' => 'integer',

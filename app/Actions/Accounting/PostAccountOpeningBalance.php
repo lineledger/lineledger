@@ -2,10 +2,10 @@
 
 namespace App\Actions\Accounting;
 
-use App\Enums\AccountSubtype;
 use App\Enums\NormalBalance;
 use App\Models\Account;
 use App\Models\JournalEntry;
+use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Migration\Importers\TrialBalanceImporter;
 use App\Services\Posting\JournalPoster;
 use Illuminate\Validation\ValidationException;
@@ -35,11 +35,7 @@ final class PostAccountOpeningBalance
             ]);
         }
 
-        $obe = Account::withoutGlobalScopes()
-            ->where('company_id', $account->company_id)
-            ->where('subtype', AccountSubtype::Equity->value)
-            ->whereIn('name', Account::OPENING_BALANCE_NAMES)
-            ->first();
+        $obe = app(OpeningBalanceAccountResolver::class)->resolve((int) $account->company_id);
 
         if (! $obe) {
             throw ValidationException::withMessages([

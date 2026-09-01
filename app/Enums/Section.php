@@ -105,7 +105,7 @@ enum Section: string
             'employees', 'reimbursements' => [self::Employees],
             'payroll', 'pay-runs', 'payroll-schedules', 'payroll-cheques', 'time-entries', 'time-off-policies', 'time-off-requests' => [self::Payroll],
             'inventory' => [self::Inventory],
-            'accounts', 'journal', 'journal-entry-templates', 'recurring-journal', 'assets' => [self::Accounting],
+            'accounts', 'journal', 'journal-entry-templates', 'recurring-journal', 'assets', 'opening-balances' => [self::Accounting],
             'banking', 'cheques', 'deposits', 'transfers' => [self::Banking],
             'inbox' => [self::Inbox],
             'reports', 'tax-returns', 'budgets' => [self::Reports],

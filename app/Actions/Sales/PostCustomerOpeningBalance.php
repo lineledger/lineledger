@@ -2,18 +2,17 @@
 
 namespace App\Actions\Sales;
 
-use App\Enums\AccountSubtype;
 use App\Enums\InvoiceStatus;
 use App\Models\Account;
 use App\Models\Contact;
 use App\Models\Invoice;
+use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Migration\Importers\OpenInvoicesImporter;
 use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\InvoicePoster;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Posts a customer's opening Accounts-Receivable balance as a synthetic
@@ -47,15 +46,7 @@ final class PostCustomerOpeningBalance
         return DB::transaction(function () use ($contact, $amountCents, $asOf): Invoice {
             $company = $contact->company;
 
-            $obe = Account::query()
-                ->where('company_id', $company->id)
-                ->where('subtype', AccountSubtype::Equity->value)
-                ->whereIn('name', Account::OPENING_BALANCE_NAMES)
-                ->first();
-
-            if (! $obe) {
-                throw new RuntimeException("Missing 'Opening Balance Equity' account for company {$company->id}.");
-            }
+            $obe = app(OpeningBalanceAccountResolver::class)->resolveOrFail((int) $company->id);
 
             $invoice = Invoice::create([
                 'company_id' => $company->id,

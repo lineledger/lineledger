@@ -877,6 +877,12 @@ parameters:
 			path: app/Livewire/Concerns/ImportsCsvList.php
 
 		-
+			message: '#^Trait App\\Livewire\\Concerns\\InteractsWithOpeningBalances is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/InteractsWithOpeningBalances.php
+
+		-
 			message: '#^Cannot call method label\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 2
@@ -2083,6 +2089,18 @@ parameters:
 			path: app/Services/Migration/SystemAccountMapper.php
 
 		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/OpeningBalances/OpeningBalanceJournalSynchronizer.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 4
+			path: app/Services/OpeningBalances/OpeningBalanceStatusBuilder.php
+
+		-
 			message: '#^Parameter \#1 \$array \(list\<array\{code\: string, name\: string, amount_cents\: int, reduces_taxable\: bool, liability_account_id\: int\<0, max\>\|null, t4_box\: string\|null\}\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
@@ -2307,7 +2325,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ChequeStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 1
+			count: 2
 			path: app/Services/Posting/ChequePoster.php
 
 		-

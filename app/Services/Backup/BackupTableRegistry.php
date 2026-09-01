@@ -185,6 +185,10 @@ final class BackupTableRegistry
             ['table' => 'journal_entry_template_lines', 'model' => JournalEntryTemplateLine::class, 'group' => 'gl'],
             ['table' => 'accounting_audit_logs', 'model' => AccountingAuditLog::class, 'group' => 'gl'],
             ['table' => 'currency_revaluations', 'model' => CurrencyRevaluation::class, 'group' => 'gl'],
+            // Opening Balances workspace: states FK journal_entries (above) and
+            // rows FK states + accounts, so states restore before rows.
+            ['table' => 'opening_balance_states', 'model' => \App\Models\OpeningBalanceState::class, 'group' => 'gl'],
+            ['table' => 'opening_balance_rows', 'model' => \App\Models\OpeningBalanceRow::class, 'group' => 'gl'],
 
             // === Sales ===
             ['table' => 'invoice_settings', 'model' => InvoiceSetting::class, 'group' => 'sales'],

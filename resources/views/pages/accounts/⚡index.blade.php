@@ -1123,6 +1123,14 @@ new #[Title('Chart of Accounts')] class extends Component {
             @endif
 
             @if ($this->showOpeningBalanceFields)
+                @if (\App\Models\OpeningBalanceState::for($company) !== null && auth()->user()?->ownsCompany($company))
+                    <flux:callout icon="scale" data-test="account-opening-balance-workspace-hint">
+                        <flux:callout.text>
+                            {{ __('This company has an Opening Balances workspace — balances entered there stay reconciled against your draft trial balance.') }}
+                            <flux:link :href="route('opening-balances.index', ['company' => $company->slug])" wire:navigate>{{ __('Open it') }}</flux:link>
+                        </flux:callout.text>
+                    </flux:callout>
+                @endif
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <flux:input
                         wire:model="form_opening_balance"
