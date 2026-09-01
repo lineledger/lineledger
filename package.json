@@ -9,7 +9,7 @@
         "test": "node --test \"tests/js/**/*.test.js\""
     },
     "dependencies": {
-        "@laravel/passkeys": "^0.2.0",
+        "@laravel/passkeys": "^0.4.0",
         "@tailwindcss/vite": "^4.1.11",
         "autoprefixer": "^10.4.20",
         "chart.js": "^4.5.1",
