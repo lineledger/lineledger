@@ -41,6 +41,10 @@ new #[Title('Vendors')] class extends Component
     #[Url(as: 'dir')]
     public string $sortDir = 'asc';
 
+    /** One-shot deep link (?edit={id}) that opens the edit form on load. */
+    #[Url(as: 'edit')]
+    public ?int $editRequest = null;
+
     public bool $showInactive = false;
 
     public ?int $editingId = null;
@@ -104,6 +108,17 @@ new #[Title('Vendors')] class extends Component
     public function mount(Company $company): void
     {
         $this->company = $company;
+
+        // Deep link from the contact statement report. Nulling the request makes
+        // Livewire drop ?edit= on first render, so reload/back doesn't reopen the
+        // form. Unknown or foreign ids (hidden by CompanyScope) are ignored.
+        if ($this->editRequest !== null) {
+            if (Contact::whereKey($this->editRequest)->exists()) {
+                $this->openEdit($this->editRequest);
+            }
+
+            $this->editRequest = null;
+        }
     }
 
     public function sortBy(string $field): void

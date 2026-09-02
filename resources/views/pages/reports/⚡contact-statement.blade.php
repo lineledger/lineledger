@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\Section;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Services\Reporting\ContactStatementBuilder;
@@ -8,6 +9,7 @@ use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
 use App\Services\Reporting\XlsxExporter;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -50,6 +52,29 @@ new #[Title('Account Statement')] class extends Component
     public function isAr(): bool
     {
         return $this->kind === 'ar';
+    }
+
+    /**
+     * The statement modal and the edit link lead into the Customers/Vendors
+     * section, which a Reports-only member can't use — so only offer them
+     * when the viewer can actually get there.
+     */
+    #[Computed]
+    public function canManageContact(): bool
+    {
+        return (bool) Auth::user()?->canAccessSection(
+            $this->company,
+            $this->isAr() ? Section::Customers : Section::Vendors,
+        );
+    }
+
+    #[Computed]
+    public function editContactUrl(): string
+    {
+        return route($this->isAr() ? 'customers.index' : 'vendors.index', [
+            'company' => $this->company->slug,
+            'edit' => $this->contact->id,
+        ]);
     }
 
     /**
@@ -153,6 +178,14 @@ new #[Title('Account Statement')] class extends Component
         </div>
 
         <div class="flex flex-wrap items-end gap-2">
+            @if ($this->isAr() && $this->canManageContact)
+                {{-- The child modal isn't re-rendered with this page, so the dates travel with the event. --}}
+                <flux:button
+                    icon="document-text"
+                    wire:click="$dispatch('open-customer-statement', { id: {{ $contact->id }}, start: $wire.startDate, end: $wire.endDate })"
+                    data-test="statement-open-modal"
+                >{{ __('Statement…') }}</flux:button>
+            @endif
             <flux:dropdown align="end">
                 <flux:button variant="primary" icon="arrow-down-tray" icon:trailing="chevron-down" data-test="statement-download">{{ __('Download') }}</flux:button>
                 <flux:menu>
@@ -173,6 +206,12 @@ new #[Title('Account Statement')] class extends Component
         >
             {{ $this->isAr() ? __('Back to AR Aging') : __('Back to AP Aging') }}
         </flux:button>
+
+        @if ($this->canManageContact)
+            <flux:button size="sm" variant="ghost" icon="pencil" :href="$this->editContactUrl" data-test="statement-edit-contact">
+                {{ $this->isAr() ? __('Edit customer') : __('Edit vendor') }}
+            </flux:button>
+        @endif
 
         <div class="grow"></div>
 
@@ -229,4 +268,8 @@ new #[Title('Account Statement')] class extends Component
             </tbody>
         </table>
     </div>
+
+    @if ($this->isAr() && $this->canManageContact)
+        <livewire:customer-statement-modal :company="$company" />
+    @endif
 </section>

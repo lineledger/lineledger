@@ -3,6 +3,7 @@
 use App\Enums\AccountSubtype;
 use App\Enums\BillType;
 use App\Enums\CompanyRole;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -340,4 +341,65 @@ it('AP aging row links the vendor name to its statement', function () {
     $response->assertOk();
     $response->assertSee('Linked Vendor');
     $response->assertSee($expected, escape: false);
+});
+
+it('offers the customer statement modal and an edit link on the AR statement', function () {
+    $customer = Contact::create(['display_name' => 'Linked Co', 'is_customer' => true]);
+
+    $this->actingAs($this->user);
+
+    $response = $this->get(route('reports.contact-statement', [
+        'company' => $this->company->slug,
+        'contact' => $customer->id,
+        'kind' => 'ar',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('data-test="statement-open-modal"', escape: false);
+    $response->assertSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertSee('Edit customer');
+    $response->assertSee(route('customers.index', ['company' => $this->company->slug, 'edit' => $customer->id]), escape: false);
+});
+
+it('offers only the vendor edit link on the AP statement', function () {
+    $vendor = Contact::create(['display_name' => 'Supply Co', 'is_vendor' => true]);
+
+    $this->actingAs($this->user);
+
+    $response = $this->get(route('reports.contact-statement', [
+        'company' => $this->company->slug,
+        'contact' => $vendor->id,
+        'kind' => 'ap',
+    ]));
+
+    $response->assertOk();
+    $response->assertDontSee('data-test="statement-open-modal"', escape: false);
+    $response->assertDontSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertSee('Edit vendor');
+    $response->assertSee(route('vendors.index', ['company' => $this->company->slug, 'edit' => $vendor->id]), escape: false);
+});
+
+it('hides the statement and edit actions from a member without customer access', function () {
+    $customer = Contact::create(['display_name' => 'Walled Co', 'is_customer' => true]);
+
+    $reportsOnly = User::factory()->create();
+    $this->company->memberships()->create([
+        'user_id' => $reportsOnly->id,
+        'role' => CompanyRole::Custom,
+        'sections' => [Section::Reports->value],
+    ]);
+
+    $this->actingAs($reportsOnly);
+
+    $response = $this->get(route('reports.contact-statement', [
+        'company' => $this->company->slug,
+        'contact' => $customer->id,
+        'kind' => 'ar',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('Walled Co');
+    $response->assertDontSee('data-test="statement-open-modal"', escape: false);
+    $response->assertDontSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertDontSee('data-test="statement-edit-contact"', escape: false);
 });

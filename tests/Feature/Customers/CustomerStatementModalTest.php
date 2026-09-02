@@ -25,8 +25,8 @@ it('opens the statement modal with date defaults and the customer email prefille
 
     $today = $this->company->currentDateTime();
 
-    Livewire::test('pages::customers.index', ['company' => $this->company])
-        ->call('openStatement', $customer->id)
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->dispatch('open-customer-statement', id: $customer->id)
         ->assertHasNoErrors()
         ->assertSet('statementCustomerId', $customer->id)
         ->assertSet('statementType', 'open-invoices')
@@ -42,16 +42,16 @@ it('refuses to open a statement for another company\'s contact', function () {
     $foreign = Contact::factory()->customer()->create();
     app()->instance('current_company', $this->company);
 
-    expect(fn () => Livewire::test('pages::customers.index', ['company' => $this->company])
-        ->call('openStatement', $foreign->id))
+    expect(fn () => Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $foreign->id))
         ->toThrow(ModelNotFoundException::class);
 });
 
 it('refuses to open a statement for a vendor-only contact', function () {
     $vendor = Contact::factory()->vendor()->create();
 
-    expect(fn () => Livewire::test('pages::customers.index', ['company' => $this->company])
-        ->call('openStatement', $vendor->id))
+    expect(fn () => Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $vendor->id))
         ->toThrow(ModelNotFoundException::class);
 });
 
@@ -61,5 +61,29 @@ it('shows the statement triggers on the customers page', function () {
     $this->get(route('customers.index', ['company' => $this->company->slug]))
         ->assertOk()
         ->assertSee('data-test="customer-open-balance"', escape: false)
-        ->assertSee('data-test="customer-statement-button"', escape: false);
+        ->assertSee('data-test="customer-statement-button"', escape: false)
+        ->assertSee('data-test="customer-statement-modal"', escape: false);
+});
+
+it('pre-fills the activity range and as-of date when opened with start and end', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->dispatch('open-customer-statement', id: $customer->id, start: '2026-02-01', end: '2026-03-31')
+        ->assertSet('statementStart', '2026-02-01')
+        ->assertSet('statementEnd', '2026-03-31')
+        ->assertSet('statementAsOf', '2026-03-31')
+        ->assertDispatched('modal-show', name: 'customer-statement');
+});
+
+it('falls back to year-to-date when the supplied start or end is not a real date', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    $today = $this->company->currentDateTime();
+
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->dispatch('open-customer-statement', id: $customer->id, start: 'nope', end: '2026-13-99')
+        ->assertSet('statementStart', $today->startOfYear()->toDateString())
+        ->assertSet('statementEnd', $today->toDateString())
+        ->assertSet('statementAsOf', $today->toDateString());
 });

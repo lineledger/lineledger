@@ -33,8 +33,8 @@ afterEach(function () {
 it('emails the statement to the parsed recipients with CC-self applied', function () {
     Notification::fake();
 
-    Livewire::test('pages::customers.index', ['company' => $this->company])
-        ->call('openStatement', $this->customer->id)
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $this->customer->id)
         ->set('statementToEmail', 'customer@example.com, second@example.com')
         ->set('statementCc', 'bookkeeper@example.com')
         ->set('statementCcSelf', true)
@@ -57,8 +57,8 @@ it('emails the statement to the parsed recipients with CC-self applied', functio
 it('rejects a malformed recipient address', function () {
     Notification::fake();
 
-    Livewire::test('pages::customers.index', ['company' => $this->company])
-        ->call('openStatement', $this->customer->id)
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $this->customer->id)
         ->set('statementToEmail', 'not-an-email')
         ->call('emailStatement')
         ->assertHasErrors(['statementToEmail']);
