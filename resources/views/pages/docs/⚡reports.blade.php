@@ -302,7 +302,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Management report package') }}</flux:heading>
         <flux:text>
-            {{ __('Management Reports bundles several statements into one polished PDF — a cover page, a table of contents, and each report you choose — ready to hand to an owner, a board, or a lender. Pick the reports and the period, and the app assembles the package as a single download. Find it under Company & Financial → Management Reports.') }}
+            {{ __('Management Reports bundles several statements into one polished PDF — a cover page, a table of contents, and each report you choose — ready to hand to an owner, a board, or a lender. Pick the reports and the period — a completed month, quarter, or fiscal year, or the current one to date — and the app assembles the package as a single download. Balance-style reports (balance sheet, aging, trial balance) are as at the period end, or as of today for a to-date period. An optional Compare to setting adds a prior-period or prior-year column to every report in the package that supports one. Find it under Company & Financial → Management Reports.') }}
         </flux:text>
 
         {{-- ─────────────────── Transactions ─────────────────── --}}

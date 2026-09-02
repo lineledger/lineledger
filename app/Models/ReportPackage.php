@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'title',
     'subtitle',
     'period_preset',
+    'comparison_basis',
     'show_cover',
     'show_logo',
     'show_toc',
@@ -39,6 +40,7 @@ class ReportPackage extends Model
      */
     protected $attributes = [
         'period_preset' => 'last_month',
+        'comparison_basis' => 'off',
         'show_cover' => true,
         'show_logo' => true,
         'show_toc' => true,

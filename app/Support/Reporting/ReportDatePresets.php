@@ -33,6 +33,43 @@ class ReportDatePresets
     }
 
     /**
+     * The presets a management report package may use. A package is built for
+     * a completed period (as at month, quarter, or fiscal year end) or a to-date
+     * period (as of today) — never for a period that ends in the future, which
+     * would age receivables and snapshot balances against a date that hasn't
+     * happened yet.
+     *
+     * @return array<string, string> preset key => human label
+     */
+    public static function packageOptions(): array
+    {
+        $options = self::options();
+        $keys = [
+            'last_month', 'last_fiscal_quarter', 'last_fiscal_year',
+            'this_month_to_date', 'this_fiscal_quarter_to_date', 'this_fiscal_year_to_date',
+        ];
+
+        return array_combine($keys, array_map(fn (string $key): string => $options[$key], $keys));
+    }
+
+    /**
+     * Normalize a saved package preset. A package saved before the picker was
+     * trimmed to {@see packageOptions()} may carry a full-period preset that
+     * ends in the future; it keeps working as its to-date twin, which is what
+     * "This Fiscal Year" meant to the person who picked it. Other keys pass
+     * through unchanged.
+     */
+    public static function packagePreset(string $key): string
+    {
+        return match ($key) {
+            'this_month' => 'this_month_to_date',
+            'this_fiscal_quarter' => 'this_fiscal_quarter_to_date',
+            'this_fiscal_year' => 'this_fiscal_year_to_date',
+            default => $key,
+        };
+    }
+
+    /**
      * Resolve a preset to a [start, end] range. Returns null for 'custom' (and any
      * unknown key), meaning the caller should leave the dates as the user set them.
      *

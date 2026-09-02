@@ -29,3 +29,29 @@ it('resolves fiscal-aware presets', function (string $key, string $start, string
 it('returns null for custom so callers keep user-set dates', function () use ($fy, $today) {
     expect(ReportDatePresets::resolve('custom', $fy, $today))->toBeNull();
 });
+
+// --- Management report package presets ---
+
+it('offers a package only completed and to-date periods', function () {
+    expect(array_keys(ReportDatePresets::packageOptions()))->toBe([
+        'last_month', 'last_fiscal_quarter', 'last_fiscal_year',
+        'this_month_to_date', 'this_fiscal_quarter_to_date', 'this_fiscal_year_to_date',
+    ]);
+});
+
+it('never offers a package preset that ends after today', function () use ($fy, $today) {
+    foreach (array_keys(ReportDatePresets::packageOptions()) as $key) {
+        $range = ReportDatePresets::resolve($key, $fy, $today);
+
+        expect($range)->not->toBeNull()
+            ->and($range[1]->toDateString() <= $today->toDateString())->toBeTrue("{$key} ends after today");
+    }
+});
+
+it('normalizes legacy full-period package presets to their to-date twin', function () {
+    expect(ReportDatePresets::packagePreset('this_fiscal_year'))->toBe('this_fiscal_year_to_date')
+        ->and(ReportDatePresets::packagePreset('this_fiscal_quarter'))->toBe('this_fiscal_quarter_to_date')
+        ->and(ReportDatePresets::packagePreset('this_month'))->toBe('this_month_to_date')
+        ->and(ReportDatePresets::packagePreset('last_month'))->toBe('last_month')
+        ->and(ReportDatePresets::packagePreset('custom'))->toBe('custom');
+});

@@ -13,6 +13,7 @@
         .subtitle { font-size: 15px; color: #4b5563; margin-bottom: 26px; }
         .rule { width: 120px; border-top: 2px solid #d1d5db; margin: 0 auto 26px auto; }
         .period { font-size: 13px; color: #374151; }
+        .comparison { font-size: 12px; color: #6b7280; margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -27,6 +28,9 @@
         @endif
         <div class="rule"></div>
         <div class="period">{{ $period }}</div>
+        @if (! empty($comparison))
+            <div class="comparison">{{ __('Compared to :basis', ['basis' => __($comparison)]) }}</div>
+        @endif
     </div>
 </body>
 </html>

@@ -6,13 +6,12 @@ use App\Models\Company;
 use App\Models\ReportPackage;
 use App\Services\Pdf\PdfMerger;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Reporting\ComparisonPeriod;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportDatePresets;
 use App\Support\Reporting\ReportSettings;
-use App\Support\Storage\StorageDisks;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -43,7 +42,8 @@ class ManagementReportBuilder
     public function build(ReportPackage $package): RenderedArtifact
     {
         $company = $package->company;
-        [$start, $end] = $this->resolvePeriod($package, $company);
+        [$preset, $start, $end] = $this->resolvePeriod($package, $company);
+        $comparisonBasis = $this->comparisonBasis($package);
 
         // Render every renderable report first — the TOC needs their page counts.
         /** @var list<array{label: string, bytes: string, pages: int}> $reports */
@@ -64,7 +64,7 @@ class ManagementReportBuilder
             $artifact = $this->renderer->render(
                 $company,
                 $item->report_key,
-                $this->overlayPeriod($item->settings ?? [], $start, $end),
+                $this->overlayPeriod($item->settings ?? [], $preset, $start, $end, $comparisonBasis),
                 'pdf',
                 resolvePresets: false,
             );
@@ -93,7 +93,8 @@ class ManagementReportBuilder
                 'title' => $title,
                 'subtitle' => $package->subtitle,
                 'period' => $period,
-                'logoData' => $package->show_logo ? $this->logoData($company) : null,
+                'comparison' => ComparisonPeriod::label($comparisonBasis),
+                'logoData' => $package->show_logo ? $company->documentLogoDataUri() : null,
             ]);
         }
 
@@ -147,56 +148,70 @@ class ManagementReportBuilder
     }
 
     /**
-     * The package's period overrides whatever dates an item's settings snapshot
-     * carries: range reports take startDate/endDate, as-of reports take the
-     * period end. All four keys are set — {@see ReportSettings::apply}
-     * only assigns properties the target component actually declares.
+     * The package's period and comparison override whatever an item's settings
+     * snapshot carries: range reports take startDate/endDate, as-of reports take
+     * the period end, and reports that compare take the package's basis.
+     *
+     * The real preset key is passed through (not 'custom') so ComparisonPeriod
+     * can resolve the true preceding month, quarter, or year for a "prior
+     * period" comparison. Nothing re-resolves it against today: ReportRenderer
+     * is called with resolvePresets: false, and the components' preset hooks
+     * only fire on Livewire updates. A package preset never ends after today
+     * ({@see ReportDatePresets::packageOptions()}), so an as-of report is as at
+     * the period end or as of today — never a future date, which would age
+     * every receivable into 90+.
+     *
+     * All keys are set — {@see ReportSettings::apply} only assigns properties
+     * the target component actually declares, so reports without a comparison
+     * (aging, trial balance, …) simply ignore the basis.
      *
      * @param  array<string, mixed>  $settings
      * @return array<string, mixed>
      */
-    public function overlayPeriod(array $settings, CarbonImmutable $start, CarbonImmutable $end): array
+    public function overlayPeriod(array $settings, string $preset, CarbonImmutable $start, CarbonImmutable $end, string $comparisonBasis): array
     {
         $settings['startDate'] = $start->toDateString();
         $settings['endDate'] = $end->toDateString();
-        $settings['preset'] = 'custom';
+        $settings['preset'] = $preset;
         $settings['asOf'] = $end->toDateString();
-        $settings['asOfPreset'] = 'custom';
+        $settings['asOfPreset'] = $preset;
+        $settings['comparisonBasis'] = $comparisonBasis;
 
         return $settings;
     }
 
     /**
      * Resolve the package's period preset against the company's calendar.
-     * An unresolvable preset (e.g. 'custom' from old data) falls back to
-     * last month — a package always has a concrete period.
+     * Legacy full-period presets are normalized to their to-date twin first
+     * ({@see ReportDatePresets::packagePreset()}); an unresolvable preset (e.g.
+     * 'custom' from old data) falls back to last month — a package always has
+     * a concrete period.
      *
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     * @return array{0: string, 1: CarbonImmutable, 2: CarbonImmutable} [preset, start, end]
      */
     private function resolvePeriod(ReportPackage $package, Company $company): array
     {
         $today = $company->currentDateTime();
-        $lastMonth = $today->subMonthNoOverflow();
+        $preset = ReportDatePresets::packagePreset($package->period_preset);
+        $range = ReportDatePresets::resolve($preset, (int) $company->fiscal_year_start_month, $today);
 
-        return ReportDatePresets::resolve($package->period_preset, (int) $company->fiscal_year_start_month, $today)
-            ?? [$lastMonth->startOfMonth(), $lastMonth->endOfMonth()];
+        if ($range === null) {
+            $lastMonth = $today->subMonthNoOverflow();
+
+            return ['last_month', $lastMonth->startOfMonth(), $lastMonth->endOfMonth()];
+        }
+
+        return [$preset, $range[0], $range[1]];
     }
 
     /**
-     * The company logo as a base64 data URI for reliable embedding in dompdf,
-     * or null when no logo is set.
+     * The package's comparison basis, sanitized to a known ComparisonPeriod
+     * value so an unexpected stored string can't leak into report settings.
      */
-    private function logoData(Company $company): ?string
+    private function comparisonBasis(ReportPackage $package): string
     {
-        $disk = Storage::disk(StorageDisks::logos());
+        $basis = (string) $package->comparison_basis;
 
-        if (! $company->logo_path || ! $disk->exists($company->logo_path)) {
-            return null;
-        }
-
-        $contents = $disk->get($company->logo_path);
-        $mime = $disk->mimeType($company->logo_path) ?: 'image/png';
-
-        return 'data:'.$mime.';base64,'.base64_encode($contents);
+        return ComparisonPeriod::isOn($basis) ? $basis : ComparisonPeriod::Off;
     }
 }

@@ -3,6 +3,7 @@
 use App\Models\Company;
 use App\Models\ReportPackage;
 use App\Services\Reporting\Render\ManagementReportBuilder;
+use App\Support\Reporting\ComparisonPeriod;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportDatePresets;
 use Flux\Flux;
@@ -28,6 +29,8 @@ new #[Title('Management Reports')] class extends Component {
     public string $subtitle = '';
 
     public string $periodPreset = 'last_month';
+
+    public string $comparisonBasis = ComparisonPeriod::Off;
 
     public bool $showCover = true;
 
@@ -82,20 +85,34 @@ new #[Title('Management Reports')] class extends Component {
     }
 
     /**
-     * Period presets for the package. 'custom' is excluded — a package has no
-     * date inputs of its own; the preset re-resolves at every download.
+     * Period presets for the package: a completed month, quarter, or fiscal
+     * year, or the current one to date. A package has no date inputs of its
+     * own; the preset re-resolves at every download.
      *
      * @return array<string, string>
      */
     #[Computed]
     public function presetOptions(): array
     {
-        return collect(ReportDatePresets::options())->except('custom')->all();
+        return ReportDatePresets::packageOptions();
     }
 
     public function itemLabel(string $reportKey): string
     {
         return $this->reportOptions[$reportKey] ?? $reportKey;
+    }
+
+    /**
+     * Index-table summary of a package's period and comparison, e.g.
+     * "Last Month · vs prior year".
+     */
+    public function periodLabel(ReportPackage $package): string
+    {
+        $preset = ReportDatePresets::packagePreset($package->period_preset);
+        $label = ReportDatePresets::options()[$preset] ?? $preset;
+        $basis = ComparisonPeriod::label((string) $package->comparison_basis);
+
+        return $basis === '' ? $label : $label.' · '.__('vs :basis', ['basis' => __($basis)]);
     }
 
     public function openCreate(): void
@@ -118,7 +135,9 @@ new #[Title('Management Reports')] class extends Component {
         $this->name = $package->name;
         $this->title = (string) $package->title;
         $this->subtitle = (string) $package->subtitle;
-        $this->periodPreset = $package->period_preset;
+        // A legacy full-period preset shows (and re-saves) as its to-date twin.
+        $this->periodPreset = ReportDatePresets::packagePreset($package->period_preset);
+        $this->comparisonBasis = (string) $package->comparison_basis;
         $this->showCover = $package->show_cover;
         $this->showLogo = $package->show_logo;
         $this->showToc = $package->show_toc;
@@ -167,6 +186,7 @@ new #[Title('Management Reports')] class extends Component {
             'title' => ['nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:255'],
             'periodPreset' => ['required', Rule::in(array_keys($this->presetOptions))],
+            'comparisonBasis' => ['required', Rule::in(array_keys(ComparisonPeriod::options()))],
             'preliminaryText' => ['nullable', 'string', 'max:10000'],
             'endNotes' => ['nullable', 'string', 'max:10000'],
         ]);
@@ -191,6 +211,7 @@ new #[Title('Management Reports')] class extends Component {
             'title' => trim($this->title) !== '' ? trim($this->title) : null,
             'subtitle' => trim($this->subtitle) !== '' ? trim($this->subtitle) : null,
             'period_preset' => $validated['periodPreset'],
+            'comparison_basis' => $validated['comparisonBasis'],
             'show_cover' => $this->showCover,
             'show_logo' => $this->showLogo,
             'show_toc' => $this->showToc,
@@ -265,6 +286,7 @@ new #[Title('Management Reports')] class extends Component {
         $this->title = '';
         $this->subtitle = '';
         $this->periodPreset = 'last_month';
+        $this->comparisonBasis = ComparisonPeriod::Off;
         $this->showCover = true;
         $this->showLogo = true;
         $this->showToc = true;
@@ -307,7 +329,7 @@ new #[Title('Management Reports')] class extends Component {
                     @foreach ($this->packages as $package)
                         <tr class="border-t border-zinc-200 dark:border-zinc-700" wire:key="pkg-{{ $package->id }}" data-test="package-row">
                             <td class="px-4 py-2 font-medium">{{ $package->name }}</td>
-                            <td class="px-4 py-2 text-zinc-500">{{ \App\Support\Reporting\ReportDatePresets::options()[$package->period_preset] ?? $package->period_preset }}</td>
+                            <td class="px-4 py-2 text-zinc-500">{{ $this->periodLabel($package) }}</td>
                             <td class="px-4 py-2 text-zinc-500">
                                 {{ $package->items->map(fn ($i) => $this->itemLabel($i->report_key))->implode(', ') ?: __('No reports') }}
                             </td>
@@ -338,6 +360,12 @@ new #[Title('Management Reports')] class extends Component {
                     @endforeach
                 </flux:select>
             </div>
+
+            <flux:select wire:model="comparisonBasis" :label="__('Compare to')" :description="__('Prior period compares to the immediately preceding period of the same length (December for a January package); prior year compares to the same period one year earlier. Reports without a comparison, such as aging and the trial balance, are unaffected.')" data-test="package-comparison">
+                @foreach (ComparisonPeriod::options() as $value => $label)
+                    <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:input wire:model="title" :label="__('Cover title (optional)')" :placeholder="__('Defaults to the package name')" data-test="package-title" />
