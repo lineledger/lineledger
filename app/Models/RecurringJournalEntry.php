@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Services\Recurring\RecurringSchedule;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * but JE lines are debit/credit and need no contact, so it has its own model.
  */
 #[Fillable([
-    'company_id', 'name', 'memo', 'frequency', 'start_date', 'day_of_month',
+    'company_id', 'name', 'memo', 'frequency', 'start_date', 'day_of_month', 'day_anchor',
     'end_type', 'end_date', 'max_occurrences', 'occurrences_generated',
     'next_run_date', 'last_generated_at', 'is_active', 'paused_reason',
 ])]
@@ -68,6 +69,11 @@ class RecurringJournalEntry extends Model implements RecurringSchedule
         return $this->day_of_month;
     }
 
+    public function scheduleDayAnchor(): RecurrenceDayAnchor
+    {
+        return $this->day_anchor ?? RecurrenceDayAnchor::DayOfMonth;
+    }
+
     public function scheduleStartDate(): CarbonImmutable
     {
         return CarbonImmutable::parse($this->start_date->toDateString());
@@ -85,6 +91,7 @@ class RecurringJournalEntry extends Model implements RecurringSchedule
             'end_date' => 'date:Y-m-d',
             'next_run_date' => 'date:Y-m-d',
             'day_of_month' => 'integer',
+            'day_anchor' => RecurrenceDayAnchor::class,
             'max_occurrences' => 'integer',
             'occurrences_generated' => 'integer',
             'last_generated_at' => 'datetime',

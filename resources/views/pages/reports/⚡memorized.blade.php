@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Models\Company;
@@ -33,6 +34,8 @@ new #[Title('Memorized Reports')] class extends Component {
     public string $scheduleStartDate = '';
 
     public ?int $scheduleDayOfMonth = null;
+
+    public string $scheduleDayAnchor = 'day_of_month';
 
     public string $scheduleEndType = 'never';
 
@@ -186,6 +189,7 @@ new #[Title('Memorized Reports')] class extends Component {
         $this->scheduleFrequency = $existing?->frequency->value ?? 'monthly';
         $this->scheduleStartDate = $existing?->start_date?->toDateString() ?? $today->toDateString();
         $this->scheduleDayOfMonth = $existing?->day_of_month ?? (int) $today->format('j');
+        $this->scheduleDayAnchor = $existing?->scheduleDayAnchor()->value ?? 'day_of_month';
         $this->scheduleEndType = $existing?->end_type->value ?? 'never';
         $this->scheduleEndDate = $existing?->end_date?->toDateString() ?? '';
         $this->scheduleMaxOccurrences = $existing?->max_occurrences;
@@ -202,6 +206,7 @@ new #[Title('Memorized Reports')] class extends Component {
             'scheduleFrequency' => ['required', Rule::in(array_column(RecurrenceFrequency::cases(), 'value'))],
             'scheduleStartDate' => ['required', 'date'],
             'scheduleDayOfMonth' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'scheduleDayAnchor' => ['required', Rule::in(array_column(RecurrenceDayAnchor::cases(), 'value'))],
             'scheduleEndType' => ['required', Rule::in(array_column(RecurrenceEndType::cases(), 'value'))],
             'scheduleEndDate' => ['nullable', 'required_if:scheduleEndType,on_date', 'date', 'after_or_equal:scheduleStartDate'],
             'scheduleMaxOccurrences' => ['nullable', 'required_if:scheduleEndType,after_occurrences', 'integer', 'min:1'],
@@ -251,6 +256,9 @@ new #[Title('Memorized Reports')] class extends Component {
         }
 
         $frequency = RecurrenceFrequency::from($validated['scheduleFrequency']);
+        $anchor = $frequency->usesDayOfMonth()
+            ? RecurrenceDayAnchor::from($validated['scheduleDayAnchor'])
+            : RecurrenceDayAnchor::DayOfMonth;
         $endType = RecurrenceEndType::from($validated['scheduleEndType']);
 
         // One schedule per target per user: saving replaces any existing one.
@@ -270,7 +278,8 @@ new #[Title('Memorized Reports')] class extends Component {
             'attach_xlsx' => $this->scheduleAttachXlsx,
             'frequency' => $frequency,
             'start_date' => $validated['scheduleStartDate'],
-            'day_of_month' => $frequency->usesDayOfMonth() ? ($validated['scheduleDayOfMonth'] ?? null) : null,
+            'day_anchor' => $anchor,
+            'day_of_month' => $frequency->usesDayOfMonth() && $anchor->usesDayOfMonth() ? ($validated['scheduleDayOfMonth'] ?? null) : null,
             'end_type' => $endType,
             'end_date' => $endType === RecurrenceEndType::OnDate ? ($validated['scheduleEndDate'] ?: null) : null,
             'max_occurrences' => $endType === RecurrenceEndType::AfterOccurrences ? ($validated['scheduleMaxOccurrences'] ?: null) : null,
@@ -405,7 +414,15 @@ new #[Title('Memorized Reports')] class extends Component {
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 @if ($scheduleFrequency !== 'weekly')
-                    <flux:input type="number" min="1" max="31" wire:model="scheduleDayOfMonth" :label="__('Day of month')" placeholder="{{ __('1–31') }}" data-test="schedule-day-of-month" />
+                    <flux:select wire:model.live="scheduleDayAnchor" :label="__('Runs on')" :description="\App\Enums\RecurrenceDayAnchor::tryFrom($scheduleDayAnchor)?->description()" data-test="schedule-day-anchor">
+                        @foreach (\App\Enums\RecurrenceDayAnchor::cases() as $a)
+                            <flux:select.option :value="$a->value">{{ $a->label() }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    @if ($scheduleDayAnchor === 'day_of_month')
+                        <flux:input type="number" min="1" max="31" wire:model="scheduleDayOfMonth" :label="__('Day of month')" placeholder="{{ __('1–31') }}" data-test="schedule-day-of-month" />
+                    @endif
                 @endif
 
                 <flux:select wire:model.live="scheduleEndType" :label="__('Ends')" data-test="schedule-end-type">

@@ -263,7 +263,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open Accounting → Recurring entries, then select New memorized entry.') }}</li>
             <li>{{ __('Name the schedule and enter the Memo applied to each generated entry.') }}</li>
-            <li>{{ __('Choose a Frequency — weekly, monthly, quarterly, semi-annual, or annual — and a Start date. For monthly and longer cadences you can pin a Day of month.') }}</li>
+            <li>{{ __('Choose a Frequency — weekly, monthly, quarterly, semi-annual, or annual — and a Start date. For monthly and longer cadences you can pin a Day of month, or run on the last day or last business day of the month (quarter-end for quarterly schedules).') }}</li>
             <li>{{ __('Under Ends, leave it on Never, or stop it on a date or after a set number of occurrences.') }}</li>
             <li>{{ __('Add the journal lines exactly as you would on a one-off entry — the schedule must balance before you can save it — then Save schedule.') }}</li>
         </ol>

@@ -40,7 +40,7 @@ new #[Title('Documentation — Recurring')] class extends Component {}; ?>
             <li>{{ __('Choose the Customer (or vendor) and give the schedule a Schedule name like "Monthly retainer" so you can recognize it in the list.') }}</li>
             <li>{{ __('Set the Terms and a Memo if you need them.') }}</li>
             <li>{{ __('On an invoice schedule, choose When each invoice is generated — keep new invoices as drafts to review, or let the app post (and optionally email) them automatically. See "How each invoice is issued" below.') }}</li>
-            <li>{{ __('Under Schedule, pick a Frequency — weekly, monthly, quarterly, semi-annual, or annual. Set the Start date, and for monthly and longer, the Day of month to run on.') }}</li>
+            <li>{{ __('Under Schedule, pick a Frequency — weekly, monthly, quarterly, semi-annual, or annual. Set the Start date, and for monthly and longer, what it runs on: a specific Day of month, the last day of the month, or the last business day (Monday–Friday) of the month. Quarterly and longer cadences apply that to the last month of each period.') }}</li>
             <li>{{ __('Choose when it Ends: Never (until paused), on a chosen end date, or after a set number of occurrences.') }}</li>
             <li>{{ __('Under Line items, add each line — Item or Account, Description, Qty, Unit price, and Tax — exactly as you would on the real document.') }}</li>
             <li>{{ __('Select Save schedule.') }}</li>

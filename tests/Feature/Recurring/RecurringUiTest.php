@@ -2,6 +2,7 @@
 
 use App\Actions\Recurring\SaveRecurringDocument;
 use App\Enums\AccountSubtype;
+use App\Enums\RecurrenceDayAnchor;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -120,4 +121,24 @@ it('shows a schedule that has run its course as Ended', function () {
         ->assertOk()
         ->assertSee('Ended')
         ->assertDontSee('Paused');
+});
+
+it('schedules a recurring invoice on the last day of the month', function () {
+    Livewire::test('pages::recurring.form', ['company' => $this->company])
+        ->set('document_type', 'invoice')
+        ->set('name', 'Month-end retainer')
+        ->call('selectContact', $this->customer->id)
+        ->set('frequency', 'monthly')
+        ->set('start_date', '2026-02-10')
+        ->set('day_anchor', 'last_day')
+        ->set('lines.0.account_id', $this->incomeAccount->id)
+        ->set('lines.0.quantity', '1')
+        ->set('lines.0.unit_price', '150.00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $schedule = RecurringDocument::query()->where('name', 'Month-end retainer')->firstOrFail();
+    expect($schedule->day_anchor)->toBe(RecurrenceDayAnchor::LastDay)
+        ->and($schedule->day_of_month)->toBeNull()
+        ->and($schedule->next_run_date->toDateString())->toBe('2026-02-28');
 });

@@ -3,6 +3,7 @@
 use App\Actions\Recurring\SaveRecurringDocument;
 use App\Enums\AccountType;
 use App\Enums\BillType;
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Enums\RecurringAutomationMode;
@@ -55,6 +56,8 @@ new #[Title('Recurring')] class extends Component {
 
     public ?int $day_of_month = null;
 
+    public string $day_anchor = 'day_of_month';
+
     public string $end_type = 'never';
 
     public string $end_date = '';
@@ -85,6 +88,7 @@ new #[Title('Recurring')] class extends Component {
             $this->frequency = $recurring->frequency->value;
             $this->start_date = $recurring->start_date->toDateString();
             $this->day_of_month = $recurring->day_of_month;
+            $this->day_anchor = $recurring->scheduleDayAnchor()->value;
             $this->end_type = $recurring->end_type->value;
             $this->end_date = $recurring->end_date?->toDateString() ?? '';
             $this->max_occurrences = $recurring->max_occurrences;
@@ -329,6 +333,7 @@ new #[Title('Recurring')] class extends Component {
             'frequency' => ['required', Rule::in(array_column(RecurrenceFrequency::cases(), 'value'))],
             'start_date' => ['required', 'date'],
             'day_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'day_anchor' => ['required', Rule::in(array_column(RecurrenceDayAnchor::cases(), 'value'))],
             'end_type' => ['required', Rule::in(array_column(RecurrenceEndType::cases(), 'value'))],
             'end_date' => ['nullable', 'required_if:end_type,on_date', 'date', 'after_or_equal:start_date'],
             'max_occurrences' => ['nullable', 'required_if:end_type,after_occurrences', 'integer', 'min:1'],
@@ -354,6 +359,7 @@ new #[Title('Recurring')] class extends Component {
             'frequency' => $validated['frequency'],
             'start_date' => $validated['start_date'],
             'day_of_month' => $validated['day_of_month'] ?: null,
+            'day_anchor' => $validated['day_anchor'],
             'end_type' => $validated['end_type'],
             'end_date' => $validated['end_date'] ?: null,
             'max_occurrences' => $validated['max_occurrences'] ?: null,
@@ -534,7 +540,7 @@ new #[Title('Recurring')] class extends Component {
 
         <flux:separator :text="__('Schedule')" />
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <flux:select wire:model.live="frequency" :label="__('Frequency')" data-test="recurring-frequency">
                 @foreach (\App\Enums\RecurrenceFrequency::cases() as $f)
                     <flux:select.option :value="$f->value">{{ $f->label() }}</flux:select.option>
@@ -544,7 +550,15 @@ new #[Title('Recurring')] class extends Component {
             <flux:input type="date" wire:model="start_date" :label="__('Start date')" required data-test="recurring-start-date" />
 
             @if ($frequency !== 'weekly')
-                <flux:input type="number" min="1" max="31" wire:model="day_of_month" :label="__('Day of month')" placeholder="{{ __('1–31') }}" data-test="recurring-day-of-month" />
+                <flux:select wire:model.live="day_anchor" :label="__('Runs on')" :description="\App\Enums\RecurrenceDayAnchor::tryFrom($day_anchor)?->description()" data-test="recurring-day-anchor">
+                    @foreach (\App\Enums\RecurrenceDayAnchor::cases() as $a)
+                        <flux:select.option :value="$a->value">{{ $a->label() }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                @if ($day_anchor === 'day_of_month')
+                    <flux:input type="number" min="1" max="31" wire:model="day_of_month" :label="__('Day of month')" placeholder="{{ __('1–31') }}" data-test="recurring-day-of-month" />
+                @endif
             @endif
         </div>
 

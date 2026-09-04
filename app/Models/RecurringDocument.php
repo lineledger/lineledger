@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
 use App\Enums\BillType;
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Enums\RecurringAutomationMode;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'company_id', 'document_type', 'automation_mode', 'contact_id', 'bill_type', 'vendor_reference',
-    'terms_id', 'memo', 'name', 'frequency', 'start_date', 'day_of_month',
+    'terms_id', 'memo', 'name', 'frequency', 'start_date', 'day_of_month', 'day_anchor',
     'end_type', 'end_date', 'max_occurrences', 'occurrences_generated',
     'next_run_date', 'last_generated_at', 'is_active', 'paused_reason',
 ])]
@@ -102,6 +103,11 @@ class RecurringDocument extends Model implements RecurringSchedule
         return $this->day_of_month;
     }
 
+    public function scheduleDayAnchor(): RecurrenceDayAnchor
+    {
+        return $this->day_anchor ?? RecurrenceDayAnchor::DayOfMonth;
+    }
+
     public function scheduleStartDate(): CarbonImmutable
     {
         return CarbonImmutable::parse($this->start_date->toDateString());
@@ -122,6 +128,7 @@ class RecurringDocument extends Model implements RecurringSchedule
             'end_date' => 'date:Y-m-d',
             'next_run_date' => 'date:Y-m-d',
             'day_of_month' => 'integer',
+            'day_anchor' => RecurrenceDayAnchor::class,
             'max_occurrences' => 'integer',
             'occurrences_generated' => 'integer',
             'last_generated_at' => 'datetime',

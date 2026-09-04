@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Notifications\Reports\ReportEmailNotification;
@@ -40,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property RecurrenceFrequency $frequency
  * @property CarbonInterface $start_date
  * @property ?int $day_of_month
+ * @property ?RecurrenceDayAnchor $day_anchor
  * @property RecurrenceEndType $end_type
  * @property ?CarbonInterface $end_date
  * @property ?int $max_occurrences
@@ -52,7 +54,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'company_id', 'user_id', 'memorized_report_id', 'memorized_report_group_id',
     'recipients', 'subject', 'body', 'attach_xlsx',
-    'frequency', 'start_date', 'day_of_month',
+    'frequency', 'start_date', 'day_of_month', 'day_anchor',
     'end_type', 'end_date', 'max_occurrences', 'occurrences_generated',
     'next_run_date', 'last_sent_at', 'is_active', 'paused_reason',
 ])]
@@ -101,6 +103,11 @@ class ReportEmailSchedule extends Model implements RecurringSchedule
         return $this->day_of_month;
     }
 
+    public function scheduleDayAnchor(): RecurrenceDayAnchor
+    {
+        return $this->day_anchor ?? RecurrenceDayAnchor::DayOfMonth;
+    }
+
     public function scheduleStartDate(): CarbonImmutable
     {
         return CarbonImmutable::parse($this->start_date->toDateString());
@@ -120,6 +127,7 @@ class ReportEmailSchedule extends Model implements RecurringSchedule
             'end_date' => 'date:Y-m-d',
             'next_run_date' => 'date:Y-m-d',
             'day_of_month' => 'integer',
+            'day_anchor' => RecurrenceDayAnchor::class,
             'max_occurrences' => 'integer',
             'occurrences_generated' => 'integer',
             'last_sent_at' => 'datetime',

@@ -127,7 +127,7 @@ new #[Title('Recurring journal entry')] class extends Component {
     <div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <div>
             <flux:text size="sm" class="text-muted-foreground">{{ __('Frequency') }}</flux:text>
-            <flux:heading>{{ $recurring->frequency->label() }}</flux:heading>
+            <flux:heading>{{ $recurring->frequency->label() }}@if ($recurring->frequency->usesDayOfMonth() && ! $recurring->scheduleDayAnchor()->usesDayOfMonth()) · {{ $recurring->scheduleDayAnchor()->shortLabel() }}@endif</flux:heading>
         </div>
         <div>
             <flux:text size="sm" class="text-muted-foreground">{{ __('Next run') }}</flux:text>

@@ -3,6 +3,7 @@
 namespace App\Actions\Recurring;
 
 use App\Enums\BillType;
+use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
 use App\Enums\RecurringAutomationMode;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
  *   name:             ?string
  *   frequency:        string
  *   start_date:       string
- *   day_of_month:     ?int     (monthly+ cadences)
+ *   day_anchor:       ?string  day_of_month|last_day|last_business_day (monthly+; default day_of_month)
+ *   day_of_month:     ?int     (monthly+ cadences, day_of_month anchor only)
  *   end_type:         string   'never'|'on_date'|'after_occurrences'
  *   end_date:         ?string
  *   max_occurrences:  ?int
@@ -50,6 +52,9 @@ final class SaveRecurringDocument
             $type = RecurringDocumentType::from($data['document_type']);
             $frequency = RecurrenceFrequency::from($data['frequency']);
             $endType = RecurrenceEndType::from($data['end_type']);
+            $anchor = $frequency->usesDayOfMonth()
+                ? RecurrenceDayAnchor::from($data['day_anchor'] ?? RecurrenceDayAnchor::DayOfMonth->value)
+                : RecurrenceDayAnchor::DayOfMonth;
 
             $header = [
                 'document_type' => $type,
@@ -67,7 +72,8 @@ final class SaveRecurringDocument
                 'name' => $data['name'] ?? null,
                 'frequency' => $frequency,
                 'start_date' => $data['start_date'],
-                'day_of_month' => $frequency->usesDayOfMonth() ? ($data['day_of_month'] ?? null) : null,
+                'day_anchor' => $anchor,
+                'day_of_month' => $frequency->usesDayOfMonth() && $anchor->usesDayOfMonth() ? ($data['day_of_month'] ?? null) : null,
                 'end_type' => $endType,
                 'end_date' => $endType === RecurrenceEndType::OnDate ? ($data['end_date'] ?? null) : null,
                 'max_occurrences' => $endType === RecurrenceEndType::AfterOccurrences

@@ -2,6 +2,7 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
+use App\Enums\RecurrenceDayAnchor;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -137,4 +138,32 @@ it('shows a manually paused memorized entry as Paused, not Ended', function () {
     Livewire::test('pages::recurring-journal.show', ['company' => $this->company, 'recurring' => $schedule->fresh()])
         ->assertOk()
         ->assertSee('Ended');
+});
+
+it('schedules on the last business day of each quarter', function () {
+    Livewire::test('pages::recurring-journal.form', ['company' => $this->company])
+        ->set('name', 'Quarterly rental income')
+        ->set('frequency', 'quarterly')
+        ->set('start_date', '2026-10-31')
+        ->set('day_anchor', 'last_business_day')
+        ->assertDontSeeHtml('data-test="recurring-day-of-month"')
+        ->set('lines.0.account_id', $this->expense->id)
+        ->set('lines.0.debit', '1.05')
+        ->set('lines.1.account_id', $this->bank->id)
+        ->set('lines.1.credit', '1.05')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $schedule = RecurringJournalEntry::query()->firstOrFail();
+    expect($schedule->day_anchor)->toBe(RecurrenceDayAnchor::LastBusinessDay)
+        ->and($schedule->day_of_month)->toBeNull()
+        // Oct 31 2026 is a Saturday, so the first run is Friday Oct 30.
+        ->and($schedule->next_run_date->toDateString())->toBe('2026-10-30');
+
+    Livewire::test('pages::recurring-journal.form', ['company' => $this->company, 'recurring' => $schedule])
+        ->assertSet('day_anchor', 'last_business_day')
+        ->assertSeeHtml('data-test="recurring-day-anchor"');
+
+    Livewire::test('pages::recurring-journal.show', ['company' => $this->company, 'recurring' => $schedule])
+        ->assertSeeInOrder(['Quarterly', '· last business day', 'Next run', '2026-10-30']);
 });
