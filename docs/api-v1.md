@@ -298,6 +298,14 @@ curl -s "https://your-host/api/v1/invoices/$INVOICE_ID" \
   -H "Authorization: Bearer $KEY" | jq '.data.status'   # → "paid"
 ```
 
+An invoice reports `balance_cents` — what is still owed by the server's own
+arithmetic (total, less receipts applied, less anything reconciled away by a
+journal entry) — so clients need not compute `total_cents - amount_paid_cents`.
+A receipt reports `unapplied_cents`, the part not yet applied to any invoice.
+To apply that credit later, `PUT`/`PATCH` the receipt with its full header and
+the **complete** `applications` list (the existing rows plus the new one): the
+list is replaced wholesale, and only the invoices in it are recomputed.
+
 ### 5.4 Reconcile what you've sent
 
 Because v1 has no idempotency keys, the safe retry pattern is search-then-create:

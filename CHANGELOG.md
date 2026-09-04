@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **API: invoice `balance_cents`, receipt `unapplied_cents`** — an invoice now
+  reports what is still owed by the server's own arithmetic (total, less
+  receipts applied, less anything reconciled away by a journal entry), and a
+  receipt reports the part not yet applied to any invoice. Clients that
+  computed `total_cents - amount_paid_cents` overstated the balance on a
+  partly reconciled invoice; both fields are also documented in the OpenAPI
+  spec and the v1 guide, alongside how to apply a receipt's credit later by
+  re-saving it with its complete applications list.
+
 ### Changed
 
 - **API: negative invoice lines** — `POST`/`PATCH /api/v1/invoices` now accept a

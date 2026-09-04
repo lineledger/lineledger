@@ -529,8 +529,33 @@ components:
         tax_cents: { type: integer }
         total_cents: { type: integer }
         amount_paid_cents: { type: integer }
+        balance_cents: { type: integer, description: "What is still owed: total less receipts applied less any balance reconciled away by a journal entry. Prefer this over computing total_cents minus amount_paid_cents." }
         journal_entry_id: { type: [integer, "null"] }
         lines: { type: array, items: { type: object } }
+    Receipt:
+      type: object
+      properties:
+        id: { type: integer }
+        receipt_no: { type: string }
+        contact_id: { type: integer }
+        receipt_date: { type: string, format: date }
+        deposit_to_account_id: { type: integer }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"] }
+        amount_cents: { type: integer }
+        unapplied_cents: { type: integer, description: "The part of amount_cents not yet applied to any invoice (the customer's credit on this receipt). To apply it, update the receipt with its full header and the complete applications list." }
+        memo: { type: [string, "null"] }
+        status: { type: string, enum: [draft, posted, void] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+        applications:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              invoice_id: { type: integer }
+              amount_cents: { type: integer }
     ReceiptInput:
       type: object
       required: [contact_id, receipt_date, deposit_to_account_id, amount_cents]

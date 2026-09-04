@@ -30,6 +30,10 @@ class InvoiceResource extends JsonResource
             'tax_cents' => (int) $this->tax_cents,
             'total_cents' => (int) $this->total_cents,
             'amount_paid_cents' => (int) $this->amount_paid_cents,
+            // What is still owed, by the server's own arithmetic: total less
+            // receipts applied less any balance reconciled away by a journal
+            // entry. Clients that computed total − amount_paid overstated it.
+            'balance_cents' => $this->balanceCents(),
             'memo' => $this->memo,
             'posted_at' => optional($this->posted_at)->toIso8601String(),
             'journal_entry_id' => $this->journal_entry_id,

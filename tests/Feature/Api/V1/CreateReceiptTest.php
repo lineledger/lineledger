@@ -65,6 +65,7 @@ it('creates an applied receipt and marks the invoice paid', function () {
     $response->assertStatus(201)
         ->assertJsonPath('data.status', 'posted')
         ->assertJsonPath('data.amount_cents', 20000)
+        ->assertJsonPath('data.unapplied_cents', 0)
         ->assertJsonPath('data.applications.0.amount_cents', 20000);
 
     $receipt = CustomerReceipt::query()->withoutGlobalScopes()->firstOrFail();
@@ -85,11 +86,58 @@ it('creates an unapplied receipt when applications are omitted', function () {
     ], ['Authorization' => "Bearer {$this->plain}"])
         ->assertStatus(201)
         ->assertJsonPath('data.status', 'posted')
+        ->assertJsonPath('data.unapplied_cents', 15000)
         ->assertJsonPath('data.applications', []);
 
     $this->invoice->refresh();
     expect($this->invoice->status)->toBe(InvoiceStatus::Posted);
     expect($this->invoice->amount_paid_cents)->toBe(0);
+});
+
+it('reports the invoice balance and the receipt\'s unapplied remainder as the receipt is applied', function () {
+    $headers = ['Authorization' => "Bearer {$this->plain}"];
+
+    $this->getJson("/api/v1/invoices/{$this->invoice->id}", $headers)
+        ->assertOk()
+        ->assertJsonPath('data.balance_cents', 20000);
+
+    $receiptId = $this->postJson('/api/v1/receipts', [
+        'contact_id' => $this->customer->id,
+        'receipt_date' => '2026-05-20',
+        'deposit_to_account_id' => $this->undeposited->id,
+        'amount_cents' => 15000,
+        'applications' => [
+            ['invoice_id' => $this->invoice->id, 'amount_cents' => 5000],
+        ],
+    ], $headers)
+        ->assertStatus(201)
+        ->assertJsonPath('data.unapplied_cents', 10000)
+        ->json('data.id');
+
+    $this->getJson("/api/v1/invoices/{$this->invoice->id}", $headers)
+        ->assertOk()
+        ->assertJsonPath('data.status', 'partial')
+        ->assertJsonPath('data.amount_paid_cents', 5000)
+        ->assertJsonPath('data.balance_cents', 15000);
+
+    // Re-saving the receipt with a larger application — the full header plus
+    // the complete applications list — moves credit onto the invoice.
+    $this->patchJson("/api/v1/receipts/{$receiptId}", [
+        'contact_id' => $this->customer->id,
+        'receipt_date' => '2026-05-20',
+        'deposit_to_account_id' => $this->undeposited->id,
+        'amount_cents' => 15000,
+        'applications' => [
+            ['invoice_id' => $this->invoice->id, 'amount_cents' => 15000],
+        ],
+    ], $headers)
+        ->assertOk()
+        ->assertJsonPath('data.unapplied_cents', 0);
+
+    $this->getJson("/api/v1/invoices/{$this->invoice->id}", $headers)
+        ->assertOk()
+        ->assertJsonPath('data.amount_paid_cents', 15000)
+        ->assertJsonPath('data.balance_cents', 5000);
 });
 
 it('rejects applications summing above the receipt amount', function () {

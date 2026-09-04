@@ -25,6 +25,10 @@ class ReceiptResource extends JsonResource
             'payment_method_id' => $this->payment_method_id,
             'reference' => $this->reference,
             'amount_cents' => (int) $this->amount_cents,
+            // The part not yet applied to any invoice — the customer's credit
+            // on this receipt. Applying it is a PUT/PATCH with the full
+            // applications list (existing rows plus the new one).
+            'unapplied_cents' => (int) $this->amount_cents - (int) $this->applications->sum('amount_cents'),
             'memo' => $this->memo,
             'status' => $this->status?->value,
             'posted_at' => optional($this->posted_at)->toIso8601String(),
