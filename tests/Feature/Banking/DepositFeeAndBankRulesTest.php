@@ -83,3 +83,9 @@ it('matches rule patterns case-insensitively by type', function () {
         ->and(BankRuleMatchType::Equals->matches('Stripe', 'STRIPE'))->toBeTrue()
         ->and(BankRuleMatchType::Regex->matches('Cheque #1042', 'cheque #\d+'))->toBeTrue();
 });
+
+it('matches merchant-key rules on the payee part of the description only', function () {
+    expect(BankRuleMatchType::MerchantKey->matches('PRE-AUTHORIZED PAYMENT, L SOCIO DIGITAL FEE/FRA REF 8812', 'Pre-Authorized Payment, L SOCIO DIGITAL FEE/FRA    ,'))->toBeTrue()
+        ->and(BankRuleMatchType::MerchantKey->matches('PRE-AUTHORIZED PAYMENT, ROGERS', 'L SOCIO DIGITAL FEE/FRA'))->toBeFalse()
+        ->and(BankRuleMatchType::MerchantKey->specificity())->toBeLessThan(BankRuleMatchType::Contains->specificity());
+});

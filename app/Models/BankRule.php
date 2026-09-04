@@ -11,12 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * An auto-categorization rule for imported bank statement lines. When a line's
  * description matches the pattern, the rule's account becomes the suggested
- * contra account for adding that line to the ledger.
+ * contra account for adding that line to the ledger — and its contact, when
+ * set, the suggested payee (an outflow to a vendor is then recorded as an
+ * expense to that vendor).
  *
  * @property BankRuleMatchType $match_type
  */
 #[Fillable([
-    'company_id', 'name', 'match_type', 'match_pattern', 'action_account_id', 'is_active', 'priority',
+    'company_id', 'name', 'match_type', 'match_pattern', 'action_account_id', 'action_contact_id', 'is_active', 'priority',
 ])]
 class BankRule extends Model
 {
@@ -28,6 +30,14 @@ class BankRule extends Model
     public function actionAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'action_account_id');
+    }
+
+    /**
+     * @return BelongsTo<Contact, $this>
+     */
+    public function actionContact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'action_contact_id');
     }
 
     /**

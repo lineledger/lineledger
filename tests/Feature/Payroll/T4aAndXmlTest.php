@@ -9,6 +9,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\EmployeePayrollProfile;
+use App\Models\Expense;
 use App\Models\PayrollSchedule;
 use App\Models\User;
 use App\Services\Payroll\CalculatePayRun;
@@ -182,4 +183,27 @@ it('downloads the T4 XML from the report page', function () {
         ->call('exportXml');
 
     $response->assertFileDownloaded('t4-2025.xml');
+});
+
+it('counts pay-now expenses to a T4A-tracked contractor in Box 048', function () {
+    $contractor = Contact::create(['display_name' => 'Card Paid Contractor', 'is_vendor' => true, 'track_t4a' => true, 'tax_number' => '111222333']);
+
+    postedChequeTo($contractor, 30000, '2025-04-10');
+
+    $expense = Expense::create([
+        'payment_account_id' => $this->bank->id,
+        'expense_date' => '2025-05-02',
+        'payee_contact_id' => $contractor->id,
+        'payee_name' => $contractor->display_name,
+        'amount_cents' => 45000,
+        'status' => 'posted',
+        'posted_at' => now(),
+    ]);
+    $expense->lines()->create(['account_id' => Account::query()->where('code', '6010')->value('id'), 'amount_cents' => 45000, 'line_order' => 0]);
+
+    $rows = app(T4ASlipCalculator::class)->rows($this->company, CarbonImmutable::create(2025, 1, 1), CarbonImmutable::create(2025, 12, 31)->endOfDay());
+    $row = collect($rows)->firstWhere('contact_id', $contractor->id);
+
+    expect($row['box048_cents'])->toBe(75000)
+        ->and($row['meets_threshold'])->toBeTrue();
 });

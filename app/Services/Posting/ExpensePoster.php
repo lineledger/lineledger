@@ -60,7 +60,7 @@ class ExpensePoster
 
             $this->taxLockGuard->ensureNotFiled(
                 (int) $expense->company_id,
-                $expense->lines->pluck('tax_code_id')->all(),
+                $expense->lines->pluck('tax_code_id')->merge($expense->lines->pluck('secondary_tax_code_id'))->all(),
                 CarbonImmutable::parse($expense->expense_date),
             );
 

@@ -7,6 +7,8 @@ use App\Services\Insights\InsightDetectorRegistry;
 use App\Services\Reporting\FinancialMetrics;
 use App\Services\Reporting\FinancialRatios;
 use App\Services\Reporting\ReportCalculator;
+use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -17,9 +19,52 @@ new #[Title('Daily insights')] class extends Component {
 
     public Company $company;
 
+    /** Per-user: show the daily insight card on the dashboard. */
+    public bool $showOnDashboard = true;
+
     public function mount(Company $company): void
     {
         $this->company = $company;
+        $this->showOnDashboard = Auth::user()?->show_daily_insights !== false;
+    }
+
+    public function updatedShowOnDashboard(bool $value): void
+    {
+        $user = Auth::user();
+        $user->show_daily_insights = $value;
+        $user->save();
+
+        Flux::toast(variant: 'success', text: $value
+            ? __('New insights will show on your dashboard.')
+            : __('Insights are hidden from your dashboard. You can still read them here.'));
+    }
+
+    /**
+     * localStorage keys the dashboard card uses to remember a same-day dismissal
+     * (today's and yesterday's insight, mirroring the card's lookup window), so
+     * "Show on dashboard again" can clear them.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function dismissKeys(): array
+    {
+        $today = $this->company->currentDateTime();
+
+        return [
+            'insight-dismissed-'.$this->company->id.'-'.$today->toDateString(),
+            'insight-dismissed-'.$this->company->id.'-'.$today->subDay()->toDateString(),
+        ];
+    }
+
+    #[Computed]
+    public function hasCurrentInsight(): bool
+    {
+        $today = $this->company->currentDateTime();
+
+        return DailyInsight::query()
+            ->whereIn('insight_date', [$today->toDateString(), $today->subDay()->toDateString()])
+            ->exists();
     }
 
     #[Computed]
@@ -66,9 +111,32 @@ new #[Title('Daily insights')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <div class="mb-6">
-        <flux:heading size="xl" level="1" data-test="page-title">{{ __('Daily insights') }}</flux:heading>
-        <flux:subheading>{{ __('A short note about your books, every day.') }}</flux:subheading>
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <flux:heading size="xl" level="1" data-test="page-title">{{ __('Daily insights') }}</flux:heading>
+            <flux:subheading>{{ __('A short note about your books, every day.') }}</flux:subheading>
+        </div>
+
+        <div class="max-w-md space-y-2 rounded-lg border border-border p-3" data-test="insight-dashboard-preference">
+            <flux:switch
+                wire:model.live="showOnDashboard"
+                :label="__('Show daily insights on my dashboard')"
+                :description="__('Closing an insight on the dashboard hides it for that day only. The next new insight appears automatically while this is on.')"
+                data-test="insights-dashboard-switch"
+            />
+            @if ($showOnDashboard && $this->hasCurrentInsight)
+                <div x-data="{ keys: @js($this->dismissKeys), dashboard: @js(route('dashboard', ['company' => $company->slug])) }" data-test="insight-show-again">
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="arrow-uturn-left"
+                        x-on:click="keys.forEach((key) => localStorage.removeItem(key)); Livewire.navigate(dashboard)"
+                    >
+                        {{ __('Show today\'s insight on the dashboard again') }}
+                    </flux:button>
+                </div>
+            @endif
+        </div>
     </div>
 
     @php

@@ -416,6 +416,7 @@ final class RowTransformer
         ],
         'bank_rules' => [
             'action_account_id' => 'accounts',
+            'action_contact_id' => 'contacts',
         ],
         'journal_entries' => [
             'recurring_journal_entry_id' => 'recurring_journal_entries',

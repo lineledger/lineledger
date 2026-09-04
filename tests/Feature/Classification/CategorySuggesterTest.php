@@ -4,12 +4,14 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\ExpenseStatus;
 use App\Enums\StatementLineMatchStatus;
+use App\Enums\TaxAppliesTo;
 use App\Models\Account;
 use App\Models\BankStatementImport;
 use App\Models\BankStatementLine;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Expense;
+use App\Models\JournalEntry;
 use App\Models\TaxCode;
 use App\Services\Classification\CategorySuggester;
 use App\Services\Classification\CategorySuggestion;
@@ -143,4 +145,101 @@ it('does not leak another company history', function () {
 
     expect($this->suggester->fromDescription($this->company->id, 'CROSS TENANT'))->toBeNull()
         ->and($this->suggester->fromContact($this->company->id, $vendorB->id))->toBeNull();
+});
+
+it('matches on the merchant key when the reference number changes, carrying the vendor', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    createdLine($this->bank, 'PRE-AUTHORIZED PAYMENT, L SOCIO DIGITAL FEE/FRA REF 8812', $this->expenseA->id, now()->subDays(30)->toDateString())
+        ->forceFill(['suggested_contact_id' => $vendor->id])->save();
+
+    $suggestion = $this->suggester->fromDescription($this->company->id, 'Pre-Authorized Payment, L SOCIO DIGITAL FEE/FRA    ,');
+
+    expect($suggestion)->not->toBeNull()
+        ->and($suggestion->accountId)->toBe($this->expenseA->id)
+        ->and($suggestion->contactId)->toBe($vendor->id)
+        ->and($suggestion->source)->toBe(CategorySuggestion::SOURCE_FUZZY_HISTORY)
+        ->and($suggestion->reason)->toContain('Looks like');
+});
+
+it('prefers an exact description match over a merchant-key match', function () {
+    createdLine($this->bank, 'SHELL 1234', $this->expenseA->id, now()->subDays(10)->toDateString());
+    createdLine($this->bank, 'SHELL 5678', $this->expenseB->id, now()->subDays(3)->toDateString());
+
+    $suggestion = $this->suggester->fromDescription($this->company->id, 'SHELL 1234');
+
+    expect($suggestion->accountId)->toBe($this->expenseA->id)
+        ->and($suggestion->source)->toBe(CategorySuggestion::SOURCE_HISTORY);
+});
+
+it('prefers history from the same bank account when asked', function () {
+    $card = Account::query()->where('subtype', AccountSubtype::CreditCard->value)->orderBy('code')->firstOrFail();
+
+    createdLine($this->bank, 'NETFLIX', $this->expenseA->id, now()->subDays(20)->toDateString());
+    createdLine($card, 'NETFLIX', $this->expenseB->id, now()->subDays(2)->toDateString());
+
+    $any = $this->suggester->forDescriptions($this->company->id, ['NETFLIX']);
+    $onBank = $this->suggester->forDescriptions($this->company->id, ['NETFLIX'], $this->bank->id);
+
+    expect($any['netflix']->accountId)->toBe($this->expenseB->id)
+        ->and($onBank['netflix']->accountId)->toBe($this->expenseA->id);
+});
+
+it('drops a vendor that is no longer active but keeps the account', function () {
+    $vendor = Contact::factory()->vendor()->create(['is_active' => false]);
+    createdLine($this->bank, 'ACME', $this->expenseA->id, now()->subDays(5)->toDateString())
+        ->forceFill(['suggested_contact_id' => $vendor->id])->save();
+
+    $suggestion = $this->suggester->fromDescription($this->company->id, 'ACME');
+
+    expect($suggestion->accountId)->toBe($this->expenseA->id)
+        ->and($suggestion->contactId)->toBeNull();
+});
+
+it('never fuzzy-matches on a key too short to be meaningful', function () {
+    createdLine($this->bank, 'CHQ 00123', $this->expenseA->id, now()->subDays(5)->toDateString());
+
+    expect($this->suggester->fromDescription($this->company->id, 'CHQ 00999'))->toBeNull()
+        ->and($this->suggester->fromDescription($this->company->id, 'chq 00123'))->not->toBeNull();
+});
+
+it('reports the tax code used when the prior line was recorded as an expense', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    $expense = postedExpenseFor($this->bank, $vendor->id, $this->expenseA, now()->subDays(5)->toDateString(), $this->gst->id);
+    $entry = JournalEntry::create(['entry_no' => 'JE-TAX-1', 'entry_date' => now()->subDays(5)->toDateString(), 'memo' => 'x']);
+    $expense->forceFill(['journal_entry_id' => $entry->id])->save();
+
+    createdLine($this->bank, 'STAPLES', $this->expenseA->id, now()->subDays(5)->toDateString())
+        ->forceFill(['created_journal_entry_id' => $entry->id])->save();
+
+    expect($this->suggester->fromDescription($this->company->id, 'STAPLES')->taxCodeId)->toBe($this->gst->id);
+});
+
+it('reports the secondary tax code used on the prior expense', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    $hst = TaxCode::query()->where('code', 'HST-ON')->firstOrFail();
+    $expense = postedExpenseFor($this->bank, $vendor->id, $this->expenseA, now()->subDays(5)->toDateString(), $this->gst->id);
+    $expense->lines->first()->forceFill(['secondary_tax_code_id' => $hst->id])->save();
+    $entry = JournalEntry::create(['entry_no' => 'JE-TAX-2', 'entry_date' => now()->subDays(5)->toDateString(), 'memo' => 'x']);
+    $expense->forceFill(['journal_entry_id' => $entry->id])->save();
+
+    createdLine($this->bank, 'OFFICE DEPOT', $this->expenseA->id, now()->subDays(5)->toDateString())
+        ->forceFill(['created_journal_entry_id' => $entry->id])->save();
+
+    $suggestion = $this->suggester->fromDescription($this->company->id, 'OFFICE DEPOT');
+
+    expect($suggestion->taxCodeId)->toBe($this->gst->id)
+        ->and($suggestion->secondaryTaxCodeId)->toBe($hst->id);
+});
+
+it('drops a suggested tax code that is inactive or sales-only', function () {
+    $retired = TaxCode::create(['code' => 'OLD', 'name' => 'Old', 'rate_basis_points' => 500, 'applies_to' => TaxAppliesTo::Both, 'is_recoverable' => true, 'is_active' => false]);
+    $salesOnly = TaxCode::create(['code' => 'SALE', 'name' => 'Sales only', 'rate_basis_points' => 500, 'applies_to' => TaxAppliesTo::SaleOnly, 'is_recoverable' => true, 'is_active' => true]);
+
+    $a = Contact::factory()->vendor()->create(['default_expense_account_id' => $this->expenseA->id, 'default_tax_code_id' => $retired->id]);
+    $b = Contact::factory()->vendor()->create(['default_expense_account_id' => $this->expenseA->id, 'default_tax_code_id' => $salesOnly->id]);
+    $c = Contact::factory()->vendor()->create(['default_expense_account_id' => $this->expenseA->id, 'default_tax_code_id' => $this->gst->id]);
+
+    expect($this->suggester->fromContact($this->company->id, $a->id)->taxCodeId)->toBeNull()
+        ->and($this->suggester->fromContact($this->company->id, $b->id)->taxCodeId)->toBeNull()
+        ->and($this->suggester->fromContact($this->company->id, $c->id)->taxCodeId)->toBe($this->gst->id);
 });

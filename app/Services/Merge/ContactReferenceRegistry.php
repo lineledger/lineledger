@@ -95,6 +95,12 @@ final class ContactReferenceRegistry
             // unprocessed inbox item follows the surviving contact, mirroring
             // bank_statement_lines.suggested_account_id on account merges.
             ['table' => 'inbox_items', 'column' => 'suggested_contact_id'],
+
+            // Bank import: the suggested/chosen payee on a statement line and the
+            // payee a bank rule assigns (mirroring their *_account_id twins in
+            // AccountReferenceRegistry).
+            ['table' => 'bank_statement_lines', 'column' => 'suggested_contact_id'],
+            ['table' => 'bank_rules', 'column' => 'action_contact_id'],
         ];
     }
 

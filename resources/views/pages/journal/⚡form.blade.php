@@ -2,6 +2,7 @@
 
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Accounting\SaveJournalEntryTemplate;
+use App\Actions\Accounting\UpdateJournalEntryHeader;
 use App\Enums\AccountSubtype;
 use App\Enums\AuditAction;
 use App\Exceptions\Posting\PeriodLockedException;
@@ -47,6 +48,17 @@ new #[Title('Journal entry')] class extends Component
 
     public bool $isPosted = false;
 
+    /**
+     * True for a source-linked entry the journal may edit header-only (see
+     * JournalEntry::hasLockedLines()): date, number and memo are editable, the
+     * lines are shown read-only and saved through UpdateJournalEntryHeader.
+     */
+    public bool $linesLocked = false;
+
+    public ?string $sourceUrl = null;
+
+    public string $sourceLabel = '';
+
     #[Url(as: 'from')]
     public ?int $duplicateFromId = null;
 
@@ -71,7 +83,7 @@ new #[Title('Journal entry')] class extends Component
         $this->company = $company;
 
         if ($entry && $entry->exists) {
-            if ($entry->source_type !== null) {
+            if (! $entry->isEditableInJournal()) {
                 $resolver = app(SourceLinkResolver::class);
                 $url = $resolver->urlFor($entry, $company)
                     ?? route('journal.show', ['company' => $company->slug, 'entry' => $entry->id]);
@@ -79,6 +91,20 @@ new #[Title('Journal entry')] class extends Component
                 $this->redirect($url, navigate: true);
 
                 return;
+            }
+
+            if ($entry->hasLockedLines()) {
+                // Voided or (impossibly) unposted adjustments have nothing to edit.
+                if ($entry->isVoided() || ! $entry->isPosted()) {
+                    $this->redirectRoute('journal.show', ['company' => $company->slug, 'entry' => $entry->id], navigate: true);
+
+                    return;
+                }
+
+                $resolver = app(SourceLinkResolver::class);
+                $this->linesLocked = true;
+                $this->sourceLabel = $resolver->label($entry);
+                $this->sourceUrl = $resolver->urlFor($entry, $company);
             }
 
             $this->entry = $entry;
@@ -516,7 +542,13 @@ new #[Title('Journal entry')] class extends Component
     public function saveChanges(JournalPoster $poster): void
     {
         abort_unless($this->entry && $this->entry->isPosted(), 403);
-        abort_if($this->entry->source_type !== null, 403);
+        abort_unless($this->entry->isEditableInJournal(), 403);
+
+        if ($this->entry->hasLockedLines()) {
+            $this->saveHeaderOnly();
+
+            return;
+        }
 
         if ($this->differenceCents !== 0 || $this->totalDebitsCents === 0) {
             $this->addError('lines', __('A posted entry must balance before saving.'));
@@ -546,6 +578,35 @@ new #[Title('Journal entry')] class extends Component
             AccountingAuditRecorder::snapshotJournalEntry($fresh),
             $fresh,
         );
+
+        Flux::toast(variant: 'success', text: __('Entry updated.'));
+        $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+    }
+
+    /**
+     * Header-only save for an entry whose lines belong to another document (a
+     * reconciliation's service charge / interest): the date, number and memo
+     * change in place, the lines — and the bank line's cleared flag — survive.
+     */
+    protected function saveHeaderOnly(): void
+    {
+        $validated = $this->validate([
+            'entryNo' => ['required', 'string', 'max:40'],
+            'entryDate' => ['required', 'date'],
+            'memo' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $this->entry = app(UpdateJournalEntryHeader::class)->handle($this->entry, [
+                'entry_no' => $validated['entryNo'],
+                'entry_date' => $validated['entryDate'],
+                'memo' => $validated['memo'] ?: null,
+            ]);
+        } catch (PeriodLockedException|ReconciliationLockedException $e) {
+            $this->addError('entryDate', $e->getMessage());
+
+            return;
+        }
 
         Flux::toast(variant: 'success', text: __('Entry updated.'));
         $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
@@ -696,7 +757,17 @@ new #[Title('Journal entry')] class extends Component
 <section class="w-full">
     <flux:heading size="xl" level="1" class="mb-6">{{ $entry?->id ? __('Edit journal entry') : __('New journal entry') }}</flux:heading>
 
-    @if ($isPosted)
+    @if ($linesLocked)
+        <flux:callout variant="secondary" icon="link" class="mb-6" data-test="locked-lines-callout">
+            <flux:callout.heading>{{ __('Created by :source', ['source' => $sourceLabel]) }}</flux:callout.heading>
+            <flux:callout.text>
+                {{ __('You can change the date, entry number, and memo here. The accounts and amounts belong to the reconciliation — change those from the reconciliation itself.') }}
+                @if ($sourceUrl)
+                    <a href="{{ $sourceUrl }}" wire:navigate class="underline" data-test="locked-lines-source-link">{{ __('Open :source', ['source' => $sourceLabel]) }}</a>
+                @endif
+            </flux:callout.text>
+        </flux:callout>
+    @elseif ($isPosted)
         <flux:callout variant="warning" icon="exclamation-triangle" class="mb-6">
             {{ __('This entry is posted. Saving overwrites it in place and changes already-reported balances.') }}
         </flux:callout>
@@ -722,6 +793,45 @@ new #[Title('Journal entry')] class extends Component
             <flux:input wire:model="memo" :label="__('Memo')" data-test="entry-memo-input" />
         </div>
 
+        @if ($linesLocked)
+            <div class="overflow-x-auto rounded-lg border border-border" data-test="locked-lines">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-medium">{{ __('Account') }}</th>
+                            <th class="px-4 py-2 text-left font-medium">{{ __('Line memo') }}</th>
+                            <th class="px-4 py-2 text-right font-medium">{{ __('Debit') }}</th>
+                            <th class="px-4 py-2 text-right font-medium">{{ __('Credit') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        @foreach ($entry->lines as $line)
+                            <tr data-test="locked-line-row">
+                                <td class="px-4 py-2">{{ $line->account->code }} — {{ $line->account->name }}</td>
+                                <td class="px-4 py-2 text-muted-foreground">{{ $line->memo }}</td>
+                                <td class="px-4 py-2 text-right font-mono">{{ $line->debit_cents > 0 ? number_format($line->debit_cents / 100, 2) : '' }}</td>
+                                <td class="px-4 py-2 text-right font-mono">{{ $line->credit_cents > 0 ? number_format($line->credit_cents / 100, 2) : '' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot class="bg-muted">
+                        <tr>
+                            <td colspan="2" class="px-4 py-2 text-right font-medium">{{ __('Totals') }}</td>
+                            <td class="px-4 py-2 text-right font-mono">{{ number_format($entry->totalDebitsCents() / 100, 2) }}</td>
+                            <td class="px-4 py-2 text-right font-mono">{{ number_format($entry->totalCreditsCents() / 100, 2) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+                @error('entryDate')
+                    <flux:text class="me-auto text-red-600">{{ $message }}</flux:text>
+                @enderror
+                <flux:button variant="ghost" type="button" :href="route('journal.show', ['company' => $company->slug, 'entry' => $entry->id])" wire:navigate>{{ __('Cancel') }}</flux:button>
+                <flux:button variant="primary" type="submit" data-test="save-changes-button">{{ __('Save changes') }}</flux:button>
+            </div>
+        @else
         @php($lineGrid = 'lg:grid lg:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_minmax(0,1.1fr)_2.75rem] lg:items-start lg:gap-3')
         <div class="overflow-hidden rounded-lg border border-border text-sm">
             {{-- Column headers (desktop): the line fields below align to these columns. --}}
@@ -893,6 +1003,7 @@ new #[Title('Journal entry')] class extends Component
                 @endif
             </div>
         </div>
+        @endif
     </form>
 
     <flux:modal name="save-as-je-template" class="max-w-md">

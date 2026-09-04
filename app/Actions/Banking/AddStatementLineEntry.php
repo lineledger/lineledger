@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\DB;
  * posts it through the audited pipeline, and stamps the line so it reads as
  * Created and links back to its entry.
  *
- * Extracted from {@see StatementImportCommitter} so
- * the import commit, the review feed, splits, and bulk actions all post a line
- * the same way.
+ * Extracted from {@see StatementImportCommitter}. Callers should go through
+ * {@see RecordStatementLine}, which decides between this plain entry, an
+ * Expense to a vendor, or a bill payment; this is the journal-entry primitive.
  */
 final class AddStatementLineEntry
 {

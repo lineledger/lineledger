@@ -8,6 +8,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CreditMemo;
+use App\Models\Expense;
 use App\Models\User;
 use App\Services\Reporting\Form1099Calculator;
 use Carbon\CarbonImmutable;
@@ -145,4 +146,37 @@ it('forbids the 1099 report for a non-US company', function () {
     $this->actingAs($user)
         ->get(route('reports.form-1099', ['company' => $ca->slug]))
         ->assertForbidden();
+});
+
+function expenseToVendor1099(Contact $vendor, Account $bank, int $cents, string $date, string $status = 'posted'): void
+{
+    $expense = Expense::create([
+        'payment_account_id' => $bank->id,
+        'expense_date' => $date,
+        'payee_contact_id' => $vendor->id,
+        'payee_name' => $vendor->display_name,
+        'amount_cents' => $cents,
+        'status' => $status,
+        'posted_at' => $status === 'posted' ? now() : null,
+    ]);
+
+    $expense->lines()->create(['account_id' => Account::query()->where('code', '6010')->value('id'), 'amount_cents' => $cents, 'line_order' => 0]);
+}
+
+it('includes pay-now expenses to a flagged vendor, but not drafts, voids or deleted ones', function () {
+    $vendor = Contact::create(['display_name' => 'Direct Pay Co', 'is_vendor' => true, 'track_1099' => true, 'tax_number' => '98-7654321']);
+
+    payVendor($vendor, $this->bank, 40000, '2025-03-01');
+    expenseToVendor1099($vendor, $this->bank, 30000, '2025-04-01');
+    expenseToVendor1099($vendor, $this->bank, 5000, '2025-05-01', 'draft');
+    expenseToVendor1099($vendor, $this->bank, 7000, '2025-06-01', 'void');
+    expenseToVendor1099($vendor, $this->bank, 9000, '2026-01-01'); // next year
+    expenseToVendor1099($vendor, $this->bank, 11000, '2025-07-01');
+    Expense::query()->where('amount_cents', 11000)->firstOrFail()->delete(); // soft-deleted
+
+    $rows = app(Form1099Calculator::class)->rows($this->company, CarbonImmutable::create(2025, 1, 1), CarbonImmutable::create(2025, 12, 31)->endOfDay());
+    $row = collect($rows)->firstWhere('contact_id', $vendor->id);
+
+    expect($row['total_cents'])->toBe(70000)
+        ->and($row['meets_threshold'])->toBeTrue();
 });

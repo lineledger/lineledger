@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Purchasing\SaveExpense;
 use App\Enums\AccountSubtype;
 use App\Enums\BillType;
 use App\Enums\Country;
@@ -11,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\JournalLine;
 use App\Models\TaxCode;
 use App\Services\Posting\BillPoster;
+use App\Services\Posting\ExpensePoster;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\TaxCalculator;
 
@@ -127,4 +129,36 @@ it('claims GST as an input credit and grosses up non-recoverable PST on a bill',
     expect(debitsTo($entry->id, $expense->id))->toBe(10700);                 // 10000 + 700 PST gross-up
     expect(creditsTo($entry->id, acct($company, '2000')->id))->toBe(11200);  // AP = 10000 + 1200
     expect($entry->fresh()->isBalanced())->toBeTrue();
+});
+
+it('posts a tax-inclusive GST + QST expense to both payables with the bank credited the gross', function () {
+    $company = Company::factory()->forCountry(Country::Canada, 'QC')->create();
+    app()->instance('current_company', $company);
+
+    $gst = TaxCode::where('code', 'GST')->firstOrFail();
+    $qst = TaxCode::where('code', 'QST-QC')->firstOrFail();
+    $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->firstOrFail();
+    $expense = Account::query()->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->firstOrFail();
+
+    $doc = app(SaveExpense::class)->handle([
+        'payment_account_id' => $bank->id,
+        'expense_date' => now()->toDateString(),
+        'payee_name' => 'QC Supplier',
+        'lines' => [[
+            'account_id' => $expense->id,
+            'amount_cents' => 11498, // gross
+            'tax_code_id' => $gst->id,
+            'secondary_tax_code_id' => $qst->id,
+            'amount_includes_tax' => true,
+        ]],
+    ]);
+
+    $entry = app(ExpensePoster::class)->post($doc);
+
+    expect($doc->fresh()->amount_cents)->toBe(11498)
+        ->and(debitsTo($entry->id, $expense->id))->toBe(10000)
+        ->and(debitsTo($entry->id, acct($company, '2200')->id))->toBe(500)
+        ->and(debitsTo($entry->id, acct($company, '2210')->id))->toBe(998)
+        ->and(creditsTo($entry->id, $bank->id))->toBe(11498)
+        ->and($entry->fresh()->isBalanced())->toBeTrue();
 });

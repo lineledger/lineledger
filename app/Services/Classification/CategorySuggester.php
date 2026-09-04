@@ -9,7 +9,9 @@ use App\Models\Bill;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Expense;
+use App\Models\TaxCode;
 use App\Services\Classification\Support\DescriptionNormalizer;
+use App\Services\Classification\Support\MerchantKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -25,7 +27,9 @@ use Illuminate\Support\Str;
  *   1. the contact's explicit default expense account (set by the user);
  *   2. the account most used on the contact's prior posted bills/expenses;
  *   3. the account a prior committed statement line with the same (normalized)
- *      description was categorized to.
+ *      description was categorized to — exact text first, then the same
+ *      merchant key ({@see MerchantKey}: reference numbers, dates and amounts
+ *      stripped), carrying the payee that line was recorded against.
  *
  * Every candidate is filtered to the accounts that may legitimately back a line
  * item (active, not an AR/AP/Undeposited control account) so a stale or invalid
@@ -37,6 +41,9 @@ class CategorySuggester
 
     /** @var array<int, Collection<int, int>> usable account-id sets, keyed by company */
     private array $usableCache = [];
+
+    /** @var array<int, Collection<int, int>> active purchase tax-code id sets, keyed by company */
+    private array $usableTaxCache = [];
 
     /**
      * Full deterministic chain for one transaction (the receipt path). Returns
@@ -68,7 +75,7 @@ class CategorySuggester
             && $this->isUsable($companyId, (int) $contact->default_expense_account_id)) {
             return new CategorySuggestion(
                 accountId: (int) $contact->default_expense_account_id,
-                taxCodeId: $contact->default_tax_code_id !== null ? (int) $contact->default_tax_code_id : null,
+                taxCodeId: $this->usableTaxCodeId($companyId, $contact->default_tax_code_id),
                 confidence: 95,
                 reason: __('Default category for :name.', ['name' => $contact->display_name]),
                 source: CategorySuggestion::SOURCE_CONTACT_DEFAULT,
@@ -89,11 +96,29 @@ class CategorySuggester
 
         return new CategorySuggestion(
             accountId: $accountId,
-            taxCodeId: $taxCodeId,
+            taxCodeId: $this->usableTaxCodeId($companyId, $taxCodeId),
             confidence: min(85, 60 + $count * 5),
             reason: __('You usually file :name here.', ['name' => $contact->display_name]),
             source: CategorySuggestion::SOURCE_HISTORY,
         );
+    }
+
+    /**
+     * The contact's explicit default purchase tax code, when it is still an
+     * active purchase code — independent of whether they have a default account.
+     */
+    public function defaultTaxCodeFor(int $companyId, ?int $contactId): ?int
+    {
+        if ($contactId === null) {
+            return null;
+        }
+
+        $taxCodeId = Contact::query()
+            ->where('company_id', $companyId)
+            ->whereKey($contactId)
+            ->value('default_tax_code_id');
+
+        return $this->usableTaxCodeId($companyId, $taxCodeId);
     }
 
     /**
@@ -112,24 +137,44 @@ class CategorySuggester
     }
 
     /**
-     * Batched description lookup for a whole import: one query over the company's
-     * committed statement lines, the most recent categorization winning for each
-     * distinct (normalized) description.
+     * Batched description lookup for a whole import: one bounded query over the
+     * company's categorized statement lines, then two passes over it —
+     *
+     *   1. exact (normalized) description equality;
+     *   2. the same merchant key, for descriptions still unresolved — so a new
+     *      reference number or date suffix does not break the memory.
+     *
+     * Within a pass the most recent categorization wins, preferring one made on
+     * the same bank account when $accountId is given. Each suggestion carries
+     * the payee that prior line was recorded against (when it still exists and
+     * is active) and the tax code from its expense, when there was one.
      *
      * @param  list<string>  $rawDescriptions
      * @return array<string, CategorySuggestion> keyed by normalized description
      */
-    public function forDescriptions(int $companyId, array $rawDescriptions): array
+    public function forDescriptions(int $companyId, array $rawDescriptions, ?int $accountId = null): array
     {
-        $wanted = [];
+        $wantedExact = [];
+        /** @var array<string, array<string, true>> merchant key => normalized descriptions */
+        $wantedFuzzy = [];
+
         foreach ($rawDescriptions as $description) {
             $normalized = DescriptionNormalizer::normalize($description);
-            if ($normalized !== '') {
-                $wanted[$normalized] = true;
+
+            if ($normalized === '') {
+                continue;
+            }
+
+            $wantedExact[$normalized] = true;
+
+            $key = MerchantKey::from($normalized);
+
+            if (MerchantKey::isUsable($key)) {
+                $wantedFuzzy[$key][$normalized] = true;
             }
         }
 
-        if ($wanted === []) {
+        if ($wantedExact === []) {
             return [];
         }
 
@@ -143,36 +188,186 @@ class CategorySuggester
             ->orderByDesc('txn_date')
             ->orderByDesc('id')
             ->limit((int) config('classification.description_history_limit', 1000))
-            ->get(['suggested_account_id', 'description', 'txn_date']);
+            ->get(['id', 'account_id', 'suggested_account_id', 'suggested_contact_id', 'created_journal_entry_id', 'description', 'txn_date']);
+
+        /** @var array<string, array{same: ?BankStatementLine, any: ?BankStatementLine}> $exact */
+        $exact = [];
+        /** @var array<string, array{same: ?BankStatementLine, any: ?BankStatementLine}> $fuzzy */
+        $fuzzy = [];
+
+        foreach ($lines as $line) {
+            if (! $usable->has((int) $line->suggested_account_id)) {
+                continue;
+            }
+
+            $normalized = DescriptionNormalizer::normalize($line->description);
+            $sameAccount = $accountId !== null && (int) $line->account_id === $accountId;
+
+            if (isset($wantedExact[$normalized])) {
+                $this->rememberCandidate($exact, $normalized, $line, $sameAccount);
+            }
+
+            if ($wantedFuzzy !== []) {
+                $key = MerchantKey::from($normalized);
+
+                if ($key !== '' && isset($wantedFuzzy[$key])) {
+                    $this->rememberCandidate($fuzzy, $key, $line, $sameAccount);
+                }
+            }
+        }
+
+        /** @var array<string, array{0: BankStatementLine, 1: string}> $chosen normalized => [line, source] */
+        $chosen = [];
+
+        foreach ($exact as $normalized => $slot) {
+            $chosen[$normalized] = [$slot['same'] ?? $slot['any'], CategorySuggestion::SOURCE_HISTORY];
+        }
+
+        foreach ($wantedFuzzy as $key => $normalizeds) {
+            if (! isset($fuzzy[$key])) {
+                continue;
+            }
+
+            $line = $fuzzy[$key]['same'] ?? $fuzzy[$key]['any'];
+
+            foreach (array_keys($normalizeds) as $normalized) {
+                $chosen[$normalized] ??= [$line, CategorySuggestion::SOURCE_FUZZY_HISTORY];
+            }
+        }
+
+        if ($chosen === []) {
+            return [];
+        }
+
+        $validContacts = $this->activeContactIds($companyId, array_map(fn (array $c) => $c[0]->suggested_contact_id, $chosen));
+        $taxByEntry = $this->taxCodeByEntry($companyId, array_map(fn (array $c) => $c[0]->created_journal_entry_id, $chosen));
 
         $result = [];
 
-        foreach ($lines as $line) {
-            $normalized = DescriptionNormalizer::normalize($line->description);
-
-            // First (most recent, given the ordering) categorization per merchant wins.
-            if (! isset($wanted[$normalized]) || isset($result[$normalized])) {
-                continue;
-            }
-
-            $accountId = (int) $line->suggested_account_id;
-
-            if (! $usable->has($accountId)) {
-                continue;
-            }
+        foreach ($chosen as $normalized => [$line, $source]) {
+            $contactId = $line->suggested_contact_id !== null && $validContacts->has((int) $line->suggested_contact_id)
+                ? (int) $line->suggested_contact_id
+                : null;
+            [$taxCodeId, $secondaryTaxCodeId] = $line->created_journal_entry_id !== null
+                ? ($taxByEntry[(int) $line->created_journal_entry_id] ?? [null, null])
+                : [null, null];
+            $desc = Str::limit((string) $line->description, 40);
 
             $result[$normalized] = new CategorySuggestion(
-                accountId: $accountId,
-                taxCodeId: null,
-                confidence: 80,
-                reason: __('Matches how you categorized ":desc" before.', [
-                    'desc' => Str::limit((string) $line->description, 40),
-                ]),
-                source: CategorySuggestion::SOURCE_HISTORY,
+                accountId: (int) $line->suggested_account_id,
+                taxCodeId: $this->usableTaxCodeId($companyId, $taxCodeId),
+                confidence: $source === CategorySuggestion::SOURCE_HISTORY ? 80 : 70,
+                reason: $source === CategorySuggestion::SOURCE_HISTORY
+                    ? __('Matches how you categorized ":desc" before.', ['desc' => $desc])
+                    : __('Looks like ":desc", which you filed before.', ['desc' => $desc]),
+                source: $source,
+                contactId: $contactId,
+                secondaryTaxCodeId: $this->usableTaxCodeId($companyId, $secondaryTaxCodeId),
             );
         }
 
         return $result;
+    }
+
+    /**
+     * Keep the most recent candidate per key, and separately the most recent one
+     * made on the same bank account (lines arrive most-recent first).
+     *
+     * @param  array<string, array{same: ?BankStatementLine, any: ?BankStatementLine}>  $slots
+     */
+    private function rememberCandidate(array &$slots, string $key, BankStatementLine $line, bool $sameAccount): void
+    {
+        $slots[$key] ??= ['same' => null, 'any' => null];
+
+        if ($slots[$key]['any'] === null) {
+            $slots[$key]['any'] = $line;
+        }
+
+        if ($sameAccount && $slots[$key]['same'] === null) {
+            $slots[$key]['same'] = $line;
+        }
+    }
+
+    /**
+     * The given contact ids that still exist (not merged away / trashed) and are
+     * active, as a flipped set for O(1) membership.
+     *
+     * @param  array<string, int|null>  $ids
+     * @return Collection<int, int>
+     */
+    private function activeContactIds(int $companyId, array $ids): Collection
+    {
+        $ids = collect($ids)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return Contact::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $ids)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip();
+    }
+
+    /**
+     * For lines recorded as an Expense, the primary and secondary tax codes on
+     * its first line — what the same payee was taxed at last time.
+     *
+     * @param  array<string, int|null>  $entryIds
+     * @return array<int, array{0: int|null, 1: int|null}>
+     */
+    private function taxCodeByEntry(int $companyId, array $entryIds): array
+    {
+        $entryIds = collect($entryIds)->filter()->unique()->values();
+
+        if ($entryIds->isEmpty()) {
+            return [];
+        }
+
+        $byEntry = [];
+
+        foreach (Expense::query()
+            ->where('company_id', $companyId)
+            ->whereIn('journal_entry_id', $entryIds)
+            ->with('lines:id,expense_id,tax_code_id,secondary_tax_code_id')
+            ->get(['id', 'journal_entry_id']) as $expense) {
+            $first = $expense->lines->first();
+            $byEntry[(int) $expense->journal_entry_id] = [
+                $first?->tax_code_id !== null ? (int) $first->tax_code_id : null,
+                $first?->secondary_tax_code_id !== null ? (int) $first->secondary_tax_code_id : null,
+            ];
+        }
+
+        return $byEntry;
+    }
+
+    /**
+     * A tax code id only if it is still an active purchase code for the company;
+     * a stale or sales-only code is dropped rather than suggested.
+     */
+    private function usableTaxCodeId(int $companyId, mixed $taxCodeId): ?int
+    {
+        if ($taxCodeId === null || $taxCodeId === '') {
+            return null;
+        }
+
+        return $this->usableTaxCodeIds($companyId)->has((int) $taxCodeId) ? (int) $taxCodeId : null;
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function usableTaxCodeIds(int $companyId): Collection
+    {
+        return $this->usableTaxCache[$companyId] ??= TaxCode::query()
+            ->where('company_id', $companyId)
+            ->usableForPurchases()
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip();
     }
 
     /**

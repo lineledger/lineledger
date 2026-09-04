@@ -2,6 +2,7 @@
 
 namespace App\Support\Reporting;
 
+use App\Models\BankReconciliation;
 use App\Models\Bill;
 use App\Models\BillPayment;
 use App\Models\Cheque;
@@ -9,6 +10,7 @@ use App\Models\Company;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Models\Deposit;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\OpeningBalanceState;
@@ -36,10 +38,12 @@ class SourceLinkResolver
         Deposit::class => 'deposits.show',
         BillPayment::class => 'bill-payments.show',
         Cheque::class => 'cheques.show',
+        Expense::class => 'expenses.show',
         CreditMemo::class => 'credit-memos.show',
         VendorCredit::class => 'vendor-credits.show',
         TaxReturn::class => 'tax-returns.show',
         Transfer::class => 'transfers.show',
+        BankReconciliation::class => 'banking.reconciliations.show',
     ];
 
     /**
@@ -81,6 +85,13 @@ class SourceLinkResolver
                 : null;
         }
 
+        // A reconciliation still in progress is worked on from the reconcile
+        // screen (where its service charge / interest can be edited); only a
+        // completed one has a read-only detail page.
+        if ($entry->source_type === BankReconciliation::class) {
+            return $this->reconciliationUrl($entry, $company);
+        }
+
         $name = self::ROUTES[$entry->source_type] ?? null;
 
         if ($name === null || $entry->source_id === null || ! Route::has($name)) {
@@ -100,9 +111,40 @@ class SourceLinkResolver
             return __('Opening balances');
         }
 
+        if ($entry->source_type === BankReconciliation::class) {
+            return __('Bank reconciliation');
+        }
+
         return $entry->source_type === null
             ? __('Journal entry')
             : class_basename($entry->source_type);
+    }
+
+    private function reconciliationUrl(JournalEntry $entry, Company $company): ?string
+    {
+        if ($entry->source_id === null) {
+            return null;
+        }
+
+        $rec = BankReconciliation::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->find($entry->source_id);
+
+        if ($rec === null) {
+            return null;
+        }
+
+        try {
+            if ($rec->isInProgress() && Route::has('banking.reconcile')) {
+                return route('banking.reconcile', ['company' => $company->slug, 'account' => $rec->account_id]);
+            }
+
+            return Route::has('banking.reconciliations.show')
+                ? route('banking.reconciliations.show', [$company->slug, $rec->id])
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

@@ -150,6 +150,6 @@ new #[Title('1099 Summary')] class extends Component {
     </div>
 
     <div class="mt-4 text-sm text-muted-foreground">
-        <p>{{ __('Includes posted bill payments and posted cheques coded to a 1099-tracked vendor in the year. Mark a vendor for 1099 on its profile.') }}</p>
+        <p>{{ __('Includes posted bill payments, posted cheques, and posted pay-now expenses (card, EFT, debit, or lines recorded from a bank import) to a 1099-tracked vendor in the year. Mark a vendor for 1099 on its profile.') }}</p>
     </div>
 </section>

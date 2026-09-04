@@ -31,6 +31,17 @@ class JournalEntry extends Model
     use BelongsToCompany;
 
     /**
+     * Source documents whose journal entries may still be edited from the
+     * general journal — header only (date, number, memo). Their lines stay
+     * locked because the source keeps its own copy of the amounts. Today that
+     * is just the bank-reconciliation service-charge / interest adjustments,
+     * which have no editable form of their own once posted.
+     *
+     * @var list<class-string>
+     */
+    public const JOURNAL_EDITABLE_SOURCES = [BankReconciliation::class];
+
+    /**
      * Keep the posting state denormalised onto journal_lines in sync. Lines inherit
      * is_posted / entry_date at creation (see {@see JournalLine}); this propagates
      * any later change — chiefly the draft → posted flip in JournalPoster, and the
@@ -93,6 +104,26 @@ class JournalEntry extends Model
     public function isPosted(): bool
     {
         return (bool) $this->is_posted;
+    }
+
+    /**
+     * Whether the general journal may edit this entry at all: manual entries,
+     * plus the source-linked types listed in {@see JOURNAL_EDITABLE_SOURCES}.
+     */
+    public function isEditableInJournal(): bool
+    {
+        return $this->source_type === null
+            || in_array($this->source_type, self::JOURNAL_EDITABLE_SOURCES, true);
+    }
+
+    /**
+     * Whether only the header (date, number, memo) may be edited from the
+     * journal — the lines belong to the originating document.
+     */
+    public function hasLockedLines(): bool
+    {
+        return $this->source_type !== null
+            && in_array($this->source_type, self::JOURNAL_EDITABLE_SOURCES, true);
     }
 
     public function isVoided(): bool

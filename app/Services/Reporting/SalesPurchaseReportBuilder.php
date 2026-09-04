@@ -66,7 +66,18 @@ class SalesPurchaseReportBuilder
         $bills = $this->aggregate('bills', 'bill_lines', 'bill_id', 'bill_date', $expr, $company, $start, $end, $classId, $locationId, $contactId);
         $credits = $this->aggregate('vendor_credits', 'vendor_credit_lines', 'vendor_credit_id', 'vendor_credit_date', $expr, $company, $start, $end, $classId, $locationId, $contactId);
 
-        return $this->mergeSigned($bills, $credits, $groupBy);
+        // Pay-now expenses carry a payee but no item, so they only contribute to
+        // the by-vendor view (a bill and an expense are disjoint documents, so
+        // adding both cannot double count).
+        $plus = $groupBy === 'contact'
+            ? $this->sumAggregates($bills, $this->aggregate(
+                'expenses', 'expense_lines', 'expense_id', 'expense_date', 'doc.payee_contact_id',
+                $company, $start, $end, $classId, $locationId, $contactId,
+                contactColumn: 'payee_contact_id', amountColumn: 'amount_cents', qtyExpr: '0', softDeletes: true,
+            ))
+            : $bills;
+
+        return $this->mergeSigned($plus, $credits, $groupBy);
     }
 
     /**
@@ -138,18 +149,34 @@ class SalesPurchaseReportBuilder
     /**
      * @return Collection<int|string, object{group_key: int|null, amount: int, qty: float}>
      */
-    private function aggregate(string $docTable, string $lineTable, string $docFk, string $dateCol, string $groupExpr, Company $company, CarbonInterface $start, CarbonInterface $end, ?int $classId, ?int $locationId, ?int $contactId): Collection
-    {
+    private function aggregate(
+        string $docTable,
+        string $lineTable,
+        string $docFk,
+        string $dateCol,
+        string $groupExpr,
+        Company $company,
+        CarbonInterface $start,
+        CarbonInterface $end,
+        ?int $classId,
+        ?int $locationId,
+        ?int $contactId,
+        string $contactColumn = 'contact_id',
+        string $amountColumn = 'line_subtotal_cents',
+        string $qtyExpr = 'line.quantity',
+        bool $softDeletes = false,
+    ): Collection {
         return DB::table("{$lineTable} as line")
             ->join("{$docTable} as doc", "line.{$docFk}", '=', 'doc.id')
             ->where('doc.company_id', $company->id)
             ->whereNotIn('doc.status', self::LIVE_STATUSES_EXCLUDED)
+            ->when($softDeletes, fn ($q) => $q->whereNull('doc.deleted_at'))
             ->whereBetween("doc.{$dateCol}", [$start->toDateString(), $end->toDateString()])
             ->when($classId !== null, fn ($q) => $q->where('line.class_id', $classId))
             ->when($locationId !== null, fn ($q) => $q->where('line.location_id', $locationId))
-            ->when($contactId !== null, fn ($q) => $q->where('doc.contact_id', $contactId))
+            ->when($contactId !== null, fn ($q) => $q->where("doc.{$contactColumn}", $contactId))
             ->groupBy(DB::raw($groupExpr))
-            ->selectRaw("{$groupExpr} as group_key, SUM(line.line_subtotal_cents) as amount, SUM(line.quantity) as qty")
+            ->selectRaw("{$groupExpr} as group_key, SUM(line.{$amountColumn}) as amount, SUM({$qtyExpr}) as qty")
             ->get()
             ->keyBy(fn (object $row): string => $row->group_key === null ? '' : (string) $row->group_key);
     }

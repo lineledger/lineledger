@@ -139,6 +139,18 @@ class Bill extends Model
         return $query->where('bill_type', BillType::Vendor->value);
     }
 
+    /**
+     * Open bills (posted or partial) that still carry a balance. The arithmetic
+     * mirrors {@see balanceCents()} as portable SQL so MySQL and SQLite agree.
+     *
+     * @param  Builder<Bill>  $query
+     */
+    public function scopeOpenWithBalance(Builder $query): void
+    {
+        $query->whereIn('status', [BillStatus::Posted->value, BillStatus::Partial->value])
+            ->whereRaw('total_cents - amount_paid_cents - reconciled_cents > 0');
+    }
+
     public function scopeReimbursement(Builder $query): Builder
     {
         return $query->where('bill_type', BillType::Reimbursement->value);

@@ -88,26 +88,144 @@ new #[Title('Reconcile')] class extends Component {
         $this->statementDate = $this->defaultStatementDate();
         $this->serviceChargeDate = $this->statementDate;
         $this->interestDate = $this->statementDate;
-
-        $bankCharges = Account::query()->where('code', '6010')->first();
-        $this->serviceChargeAccountId = $bankCharges?->id;
-
-        $otherIncome = Account::query()
-            ->where('subtype', AccountSubtype::OtherIncome->value)
-            ->orderBy('code')
-            ->first();
-        $this->interestAccountId = $otherIncome?->id;
+        $this->applyAdjustmentAccountDefaults();
     }
 
     /**
      * Switching accounts re-derives the suggested statement date for the newly
-     * selected account's last reconciliation.
+     * selected account's last reconciliation, and the accounts it last used
+     * for service charges / interest.
      */
     public function updatedAccountId(): void
     {
         $this->statementDate = $this->defaultStatementDate();
         $this->serviceChargeDate = $this->statementDate;
         $this->interestDate = $this->statementDate;
+        $this->applyAdjustmentAccountDefaults();
+    }
+
+    /**
+     * The service-charge / interest dates follow the statement date until the
+     * user sets one of them explicitly — a date still equal to the previous
+     * statement date (or blank) is treated as "not yet chosen" and moves along.
+     */
+    public function updatingStatementDate(mixed $value): void
+    {
+        $this->followStatementDate((string) $value);
+    }
+
+    protected function followStatementDate(string $newStatementDate): void
+    {
+        $previous = $this->statementDate;
+
+        foreach (['serviceChargeDate', 'interestDate'] as $prop) {
+            if ($this->{$prop} === '' || $this->{$prop} === $previous) {
+                $this->{$prop} = $newStatementDate;
+            }
+        }
+    }
+
+    /**
+     * Pre-select the service-charge and interest accounts: what this bank
+     * account used last time (remembered on the company, or recorded on its
+     * most recent reconciliation), else a best guess from the chart of accounts.
+     */
+    protected function applyAdjustmentAccountDefaults(): void
+    {
+        $this->serviceChargeAccountId = $this->rememberedAccountId('service_charge_account_id', 'service_charge_account_id')
+            ?? $this->guessServiceChargeAccountId();
+
+        $this->interestAccountId = $this->rememberedAccountId('interest_account_id', 'interest_earned_account_id')
+            ?? $this->guessInterestAccountId();
+    }
+
+    protected function rememberedAccountId(string $settingKey, string $reconciliationColumn): ?int
+    {
+        if (! $this->account_id) {
+            return null;
+        }
+
+        $id = data_get($this->company->reconciliationDefaults((int) $this->account_id), $settingKey);
+
+        if (! $id) {
+            $id = BankReconciliation::query()
+                ->forAccount((int) $this->account_id)
+                ->whereNotNull($reconciliationColumn)
+                ->orderByDesc('id')
+                ->value($reconciliationColumn);
+        }
+
+        if (! $id) {
+            return null;
+        }
+
+        $exists = Account::query()->where('id', (int) $id)->where('is_active', true)->exists();
+
+        return $exists ? (int) $id : null;
+    }
+
+    /**
+     * An expense account that looks like bank fees ("Bank Fees", "Bank Charges",
+     * "Bank Service Charges"…), falling back to the default chart's 6010.
+     */
+    protected function guessServiceChargeAccountId(): ?int
+    {
+        $expenses = Account::query()
+            ->where('type', AccountType::Expense->value)
+            ->where('is_active', true);
+
+        $byName = (clone $expenses)
+            ->where('name', 'like', '%bank%')
+            ->where(fn ($q) => $q->where('name', 'like', '%fee%')->orWhere('name', 'like', '%charge%'))
+            ->orderBy('code')
+            ->value('id');
+
+        $byName ??= (clone $expenses)->where('name', 'like', '%service charge%')->orderBy('code')->value('id');
+        $byName ??= Account::query()->where('code', '6010')->where('is_active', true)->value('id');
+
+        return $byName !== null ? (int) $byName : null;
+    }
+
+    /**
+     * An income account that looks like interest income, else the first
+     * other-income account.
+     */
+    protected function guessInterestAccountId(): ?int
+    {
+        $income = Account::query()
+            ->where('type', AccountType::Income->value)
+            ->where('is_active', true);
+
+        $id = (clone $income)->where('name', 'like', '%interest%')->orderBy('code')->value('id');
+        $id ??= (clone $income)->where('subtype', AccountSubtype::OtherIncome->value)->orderBy('code')->value('id');
+
+        return $id !== null ? (int) $id : null;
+    }
+
+    /**
+     * Persist the accounts picked on the Begin / Edit form so next month's
+     * reconciliation of this bank account starts with the same selection —
+     * even when no charge or interest was entered this time.
+     */
+    protected function rememberAdjustmentAccounts(): void
+    {
+        if (! $this->account_id) {
+            return;
+        }
+
+        $state = [];
+
+        if ($this->serviceChargeAccountId) {
+            $state['service_charge_account_id'] = (int) $this->serviceChargeAccountId;
+        }
+
+        if ($this->interestAccountId) {
+            $state['interest_account_id'] = (int) $this->interestAccountId;
+        }
+
+        if ($state !== []) {
+            $this->company->setReconciliationDefaults((int) $this->account_id, $state);
+        }
     }
 
     /**
@@ -256,6 +374,7 @@ new #[Title('Reconcile')] class extends Component {
             $filled = true;
         }
         if ($meta['endDate'] !== null) {
+            $this->followStatementDate($meta['endDate']->toDateString());
             $this->statementDate = $meta['endDate']->toDateString();
             $filled = true;
         }
@@ -318,6 +437,8 @@ new #[Title('Reconcile')] class extends Component {
                 $serviceCharge,
                 $interestEarned,
             );
+
+            $this->rememberAdjustmentAccounts();
 
             Flux::modal('begin-reconciliation')->close();
             Flux::toast(variant: 'success', text: __('Reconciliation started.'));
@@ -410,6 +531,8 @@ new #[Title('Reconcile')] class extends Component {
             );
 
             Flux::modal('edit-reconciliation')->close();
+            $this->rememberAdjustmentAccounts();
+
             Flux::toast(variant: 'success', text: __('Reconciliation details updated.'));
 
             unset($this->current);
@@ -880,7 +1003,7 @@ new #[Title('Reconcile')] class extends Component {
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <flux:input type="date" wire:model="statementDate" :label="__('Statement date')" />
+                    <flux:input type="date" wire:model.live="statementDate" :label="__('Statement date')" data-test="statement-date-input" />
                     <div>
                         <flux:label>{{ __('Beginning balance') }}</flux:label>
                         <div class="mt-1 h-9 rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
@@ -1166,7 +1289,7 @@ new #[Title('Reconcile')] class extends Component {
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <flux:input type="date" wire:model="statementDate" :label="__('Statement date')" />
+                    <flux:input type="date" wire:model.live="statementDate" :label="__('Statement date')" data-test="statement-date-input" />
                     <x-amount-input model="beginningBalance" modifiers="" :label="__('Beginning balance')" placeholder="0.00" />
                 </div>
 

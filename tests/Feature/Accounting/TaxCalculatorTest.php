@@ -4,6 +4,7 @@ use App\Enums\TaxAppliesTo;
 use App\Models\Company;
 use App\Models\TaxCode;
 use App\Services\Posting\TaxCalculator;
+use App\Support\Tax\InclusiveTaxSplit;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -119,4 +120,43 @@ it('lets a percent discount win over a fixed amount when both are given', functi
 
     expect($result['discount_cents'])->toBe(4000);
     expect($result['subtotal_cents'])->toBe(4000);
+});
+
+it('splits a tax-inclusive gross into net + GST + QST that re-add exactly', function () {
+    $gst = TaxCode::where('code', 'GST')->firstOrFail();
+    $qst = TaxCode::create([
+        'code' => 'QST',
+        'name' => 'QST (9.975%)',
+        'rate_basis_points' => 997.5,
+        'applies_to' => TaxAppliesTo::Both,
+        'is_recoverable' => true,
+        'is_active' => true,
+    ]);
+
+    expect(InclusiveTaxSplit::split(11498, $gst, $qst))->toBe(['net_cents' => 10000, 'tax_cents' => 500, 'secondary_tax_cents' => 998])
+        ->and(InclusiveTaxSplit::split(100, $gst, $qst))->toBe(['net_cents' => 87, 'tax_cents' => 4, 'secondary_tax_cents' => 9])
+        ->and(InclusiveTaxSplit::split(1, $gst, $qst))->toBe(['net_cents' => 1, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
+        ->and(InclusiveTaxSplit::split(10500, $gst))->toBe(['net_cents' => 10000, 'tax_cents' => 500, 'secondary_tax_cents' => 0]);
+
+    // The invariant every posting path relies on: the parts always re-add to the gross.
+    for ($gross = 1; $gross <= 2500; $gross++) {
+        $split = InclusiveTaxSplit::split($gross, $gst, $qst);
+        expect($split['net_cents'] + $split['tax_cents'] + $split['secondary_tax_cents'])->toBe($gross);
+    }
+});
+
+it('treats zero-rated, exempt and no-code splits as all net', function () {
+    $zero = TaxCode::create([
+        'code' => 'ZR-T',
+        'name' => 'Zero-rated',
+        'rate_basis_points' => 0,
+        'applies_to' => TaxAppliesTo::Both,
+        'is_recoverable' => true,
+        'is_active' => true,
+    ]);
+
+    expect(InclusiveTaxSplit::split(4200, $zero))->toBe(['net_cents' => 4200, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
+        ->and(InclusiveTaxSplit::split(4200, null, null))->toBe(['net_cents' => 4200, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
+        ->and(InclusiveTaxSplit::split(0, TaxCode::where('code', 'GST')->firstOrFail()))->toBe(['net_cents' => 0, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
+        ->and(fn () => InclusiveTaxSplit::split(-1, null))->toThrow(InvalidArgumentException::class);
 });

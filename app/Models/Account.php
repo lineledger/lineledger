@@ -122,6 +122,21 @@ class Account extends Model
      * @param  Builder<Account>  $query
      * @return Builder<Account>
      */
+    /**
+     * The system control account employee reimbursements settle against. Seeded
+     * with the employees feature, so it may be absent — callers must handle null.
+     *
+     * @param  Builder<Account>  $query
+     * @return Builder<Account>
+     */
+    public function scopeEmployeeReimbursementsPayable(Builder $query): Builder
+    {
+        return $query
+            ->where('is_system', true)
+            ->where('subtype', AccountSubtype::CurrentLiability->value)
+            ->where('name', 'Employee Reimbursements Payable');
+    }
+
     public function scopeSelectableForItemAccount(Builder $query): Builder
     {
         return $query

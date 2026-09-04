@@ -270,6 +270,7 @@ final class BackupTableRegistry
             ['table' => 'partners', 'model' => Partner::class, 'group' => 'tax'],
             ['table' => 'bank_reconciliations', 'model' => BankReconciliation::class, 'group' => 'reconciliation'],
             // Bank rules are durable user config (categorization) — FKs accounts only.
+            // FKs: accounts (action_account_id) + contacts (action_contact_id).
             ['table' => 'bank_rules', 'model' => BankRule::class, 'group' => 'reconciliation'],
             ['table' => 'assets', 'model' => Asset::class, 'group' => 'assets'],
             // asset_depreciation_entries FK assets (above) and journal_entries

@@ -65,6 +65,17 @@ class TaxCode extends Model
     }
 
     /**
+     * Active purchase-eligible codes — what a bank-import row may apply.
+     *
+     * @param  Builder<TaxCode>  $query
+     * @return Builder<TaxCode>
+     */
+    public function scopeUsableForPurchases(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->forPurchases();
+    }
+
+    /**
      * Codes selectable on sales documents (invoices, sales receipts, estimates,
      * credit memos): those flagged sale-only or both.
      *

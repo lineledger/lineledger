@@ -10,9 +10,10 @@ use App\Models\BankRule;
  *
  * Expected $data shape:
  *   name:               string
- *   match_type:         string  (contains|starts_with|equals|regex)
+ *   match_type:         string  (contains|starts_with|equals|regex|merchant_key)
  *   match_pattern:      string
  *   action_account_id:  int
+ *   action_contact_id:  ?int    (payee to record matching outflows against)
  *   priority:           ?int
  *   is_active:          ?bool
  */
@@ -30,6 +31,12 @@ final class SaveBankRule
             'action_account_id' => $data['action_account_id'],
             'priority' => (int) ($data['priority'] ?? 0),
         ];
+
+        if (array_key_exists('action_contact_id', $data)) {
+            $attributes['action_contact_id'] = $data['action_contact_id'] !== null && $data['action_contact_id'] !== ''
+                ? (int) $data['action_contact_id']
+                : null;
+        }
 
         if (array_key_exists('is_active', $data)) {
             $attributes['is_active'] = (bool) $data['is_active'];

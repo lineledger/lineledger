@@ -19,11 +19,18 @@ final readonly class CategorySuggestion
 
     public const SOURCE_AI = 'ai';
 
+    /** History matched on the merchant part of the description, not the exact text. */
+    public const SOURCE_FUZZY_HISTORY = 'fuzzy_history';
+
     public function __construct(
         public int $accountId,
         public ?int $taxCodeId,
         public int $confidence,
         public string $reason,
         public string $source,
+        /** The payee the same merchant was recorded against before, when known. */
+        public ?int $contactId = null,
+        /** A second tax code (GST + PST/QST) when the prior expense carried one. */
+        public ?int $secondaryTaxCodeId = null,
     ) {}
 }

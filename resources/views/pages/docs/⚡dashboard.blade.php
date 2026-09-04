@@ -42,7 +42,7 @@ new #[Title('Documentation — Dashboard')] class extends Component {}; ?>
             {{ __('Just under the cards, a “Daily insight” card surfaces one thing worth knowing about Demo Company Inc. today — an overdue receivable to chase, a bill due soon, sales tax to set aside, a record sales month, and so on. A background job picks the most relevant insight once each morning; on a quiet day the card simply does not appear.') }}
         </flux:text>
         <flux:text>
-            {{ __('Each insight has a headline, a one-line explanation, and a button that takes you to the matching page. Select “Past insights” to browse earlier days, or dismiss the card with the × to hide it until tomorrow (that only affects your own screen, not your colleagues’). When the wording was phrased by AI from your aggregate totals, a small AI badge appears — the numbers themselves always come from your posted ledger.') }}
+            {{ __('Each insight has a headline, a one-line explanation, and a button that takes you to the matching page. Select “Past insights” — or Insights in the sidebar, just under Dashboard — to browse earlier days at any time, or dismiss the card with the × to hide it until tomorrow (that only affects your own screen, not your colleagues’). The Insights page has a “Show daily insights on my dashboard” switch: leave it on and the next new insight appears on your dashboard automatically; a button there also puts today’s insight back if you closed it by mistake. When the wording was phrased by AI from your aggregate totals, a small AI badge appears — the numbers themselves always come from your posted ledger.') }}
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('Cash running low?') }}">

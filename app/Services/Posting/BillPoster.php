@@ -526,9 +526,7 @@ class BillPoster
 
         $account = Account::withoutGlobalScopes()
             ->where('company_id', $bill->company_id)
-            ->where('is_system', true)
-            ->where('subtype', AccountSubtype::CurrentLiability->value)
-            ->where('name', 'Employee Reimbursements Payable')
+            ->employeeReimbursementsPayable()
             ->first();
 
         if (! $account) {

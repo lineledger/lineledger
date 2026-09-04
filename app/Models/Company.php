@@ -538,6 +538,34 @@ class Company extends Model
     }
 
     /**
+     * The service-charge / interest accounts last used when reconciling a bank
+     * account, keyed by bank account id under `settings['reconciliation']['defaults']`,
+     * so the reconcile form pre-selects what the bookkeeper chose last month.
+     *
+     * @return array{service_charge_account_id?: int, interest_account_id?: int}
+     */
+    public function reconciliationDefaults(int $bankAccountId): array
+    {
+        return (array) data_get($this->settings, 'reconciliation.defaults.'.$bankAccountId, []);
+    }
+
+    /**
+     * Remember the accounts chosen for a bank account's reconciliation, merging
+     * into the existing `settings` JSON without disturbing other keys.
+     *
+     * @param  array{service_charge_account_id?: int, interest_account_id?: int}  $state
+     */
+    public function setReconciliationDefaults(int $bankAccountId, array $state): void
+    {
+        $settings = $this->settings ?? [];
+        $current = (array) data_get($settings, 'reconciliation.defaults.'.$bankAccountId, []);
+
+        data_set($settings, 'reconciliation.defaults.'.$bankAccountId, array_merge($current, $state));
+
+        $this->forceFill(['settings' => $settings])->save();
+    }
+
+    /**
      * Whether this company has opted in to AI receipt OCR on the document inbox.
      * The per-company half of the doubly-opt-in gate (the operator half is
      * config('inbox.ai.enabled') + an Anthropic key — see InboxServiceProvider).

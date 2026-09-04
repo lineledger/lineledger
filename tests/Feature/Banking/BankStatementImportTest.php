@@ -1,15 +1,22 @@
 <?php
 
+use App\Actions\Banking\ConfirmStatementLineSuggestions;
+use App\Actions\Purchasing\SaveBill;
 use App\Enums\AccountSubtype;
 use App\Enums\BankStatementFormat;
 use App\Enums\BankStatementImportStatus;
 use App\Enums\CompanyRole;
 use App\Enums\StatementLineMatchStatus;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Models\Account;
 use App\Models\Attachment;
 use App\Models\BankReconciliation;
 use App\Models\BankStatementImport;
+use App\Models\BankStatementLine;
+use App\Models\BillPayment;
 use App\Models\Company;
+use App\Models\Contact;
+use App\Models\Expense;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
@@ -18,6 +25,7 @@ use App\Services\Banking\Import\DTO\ColumnMapping;
 use App\Services\Banking\Import\DTO\ParsedTransaction;
 use App\Services\Banking\Import\StatementImportCommitter;
 use App\Services\Banking\Import\StatementImportProcessor;
+use App\Services\Posting\BillPoster;
 use App\Services\Posting\JournalPoster;
 use App\Services\Reconciliation\BankReconciliationService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -410,4 +418,97 @@ it('reports a temporary AI outage when a PDF cannot be read without it', functio
     $import->refresh();
     expect($import->status)->toBe(BankStatementImportStatus::Failed)
         ->and($import->error_message)->toContain('temporarily unavailable');
+});
+
+it('refuses to commit over an unconfirmed suggestion, then imports it once confirmed', function () {
+    postedBankEntry($this->bank, $this->revenue, 200000, '2026-01-05');
+
+    $csv = "Date,Description,Amount,Balance\n2026-01-05,PAYROLL,2000.00,2000.00\n2026-01-31,MONTHLY FEE,-5.00,1995.00\n";
+    $import = makeImport($this->bank, $csv);
+    app(StatementImportProcessor::class)->process($import);
+
+    // The pipeline (or a rule) pre-filled a category but nobody confirmed it.
+    $fee = $import->lines()->where('match_status', StatementLineMatchStatus::Unmatched->value)->firstOrFail();
+    $fee->forceFill(['suggested_account_id' => $this->expense->id, 'match_reason' => 'Remembered'])->save();
+
+    $committer = app(StatementImportCommitter::class);
+
+    expect($committer->unconfirmedSuggestionCount($import->fresh()))->toBe(1)
+        ->and(fn () => $committer->commit($import->fresh()))
+        ->toThrow(PostingValidationException::class, 'not been confirmed');
+
+    expect($import->fresh()->isCommitted())->toBeFalse()
+        ->and(JournalEntry::query()->where('source_type', BankStatementImport::class)->count())->toBe(0);
+
+    $confirmed = app(ConfirmStatementLineSuggestions::class)->handle($import->fresh());
+    $rec = $committer->commit($import->fresh());
+
+    expect($confirmed)->toBe(1)
+        ->and($fee->fresh()->match_status)->toBe(StatementLineMatchStatus::Created)
+        ->and($fee->fresh()->created_journal_entry_id)->not->toBeNull()
+        ->and($rec->markedLineIds())->toContain((int) $fee->fresh()->matched_journal_line_id);
+});
+
+it('can import without the unconfirmed suggestions, leaving them in For Review', function () {
+    $csv = "Date,Description,Amount,Balance\n2026-01-31,MONTHLY FEE,-5.00,1995.00\n";
+    $import = makeImport($this->bank, $csv);
+    app(StatementImportProcessor::class)->process($import);
+
+    $fee = $import->lines()->firstOrFail();
+    $fee->forceFill(['suggested_account_id' => $this->expense->id])->save();
+
+    app(StatementImportCommitter::class)->commit($import->fresh(), null, true);
+
+    expect($import->fresh()->isCommitted())->toBeTrue()
+        ->and($fee->fresh()->match_status)->toBe(StatementLineMatchStatus::Unmatched)
+        ->and($fee->fresh()->created_journal_entry_id)->toBeNull()
+        ->and(BankStatementLine::query()->forReview()->whereKey($fee->id)->exists())->toBeTrue();
+
+    // A committed import can no longer have its suggestions confirmed in bulk.
+    expect(fn () => app(ConfirmStatementLineSuggestions::class)->handle($import->fresh()))
+        ->toThrow(PostingValidationException::class);
+});
+
+it('confirming a line is a no-op when it carries no suggestion or is already confirmed', function () {
+    $csv = "Date,Description,Amount,Balance\n2026-01-31,MONTHLY FEE,-5.00,1995.00\n";
+    $import = makeImport($this->bank, $csv);
+    app(StatementImportProcessor::class)->process($import);
+
+    $fee = $import->lines()->firstOrFail();
+    $action = app(ConfirmStatementLineSuggestions::class);
+
+    expect($action->handleLine($fee))->toBeFalse();
+
+    $fee->forceFill(['suggested_account_id' => $this->expense->id])->save();
+
+    expect($action->handleLine($fee->fresh()))->toBeTrue()
+        ->and($action->handleLine($fee->fresh()))->toBeFalse()
+        ->and($fee->fresh()->match_status)->toBe(StatementLineMatchStatus::Created);
+});
+
+it('commits a confirmed vendor line as an expense and a confirmed bill offer as a bill payment', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    $bill = app(SaveBill::class)->handle([
+        'contact_id' => $vendor->id,
+        'bill_no' => 'BILL-77',
+        'bill_date' => '2026-01-02',
+        'due_date' => '2026-01-20',
+        'lines' => [['account_id' => $this->expense->id, 'quantity' => '1', 'unit_price_cents' => 25000]],
+    ]);
+    app(BillPoster::class)->post($bill);
+
+    $csv = "Date,Description,Amount\n2026-01-10,L SOCIO DIGITAL FEE,-120.00\n2026-01-12,BILL PAYMENT,-250.00\n";
+    $import = makeImport($this->bank, $csv);
+    app(StatementImportProcessor::class)->process($import);
+
+    $lines = $import->lines()->orderBy('txn_date')->get();
+    $lines[0]->forceFill(['suggested_account_id' => $this->expense->id, 'suggested_contact_id' => $vendor->id, 'match_status' => StatementLineMatchStatus::Created->value])->save();
+    $lines[1]->forceFill(['suggested_contact_id' => $vendor->id, 'suggested_bill_id' => $bill->id, 'match_status' => StatementLineMatchStatus::Created->value])->save();
+
+    $rec = app(StatementImportCommitter::class)->commit($import->fresh());
+
+    expect(Expense::query()->where('payee_contact_id', $vendor->id)->count())->toBe(1)
+        ->and(BillPayment::query()->where('contact_id', $vendor->id)->count())->toBe(1)
+        ->and($bill->fresh()->balanceCents())->toBe(0)
+        ->and($rec->markedLineIds())->toHaveCount(2);
 });

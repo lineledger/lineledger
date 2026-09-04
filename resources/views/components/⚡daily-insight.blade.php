@@ -32,7 +32,7 @@ new class extends Component
     #[Computed]
     public function insight(): ?DailyInsight
     {
-        if ($this->company === null) {
+        if ($this->company === null || ! $this->showOnDashboard) {
             return null;
         }
 
@@ -42,6 +42,18 @@ new class extends Component
             ->whereIn('insight_date', [$today->toDateString(), $today->subDay()->toDateString()])
             ->orderByDesc('insight_date')
             ->first();
+    }
+
+    /**
+     * The user's durable switch (see the Insights page). Closing a card hides
+     * only that day's insight; this hides the card altogether.
+     */
+    #[Computed]
+    public function showOnDashboard(): bool
+    {
+        $user = Auth::user();
+
+        return $user === null || $user->show_daily_insights !== false;
     }
 
     /**

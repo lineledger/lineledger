@@ -8,6 +8,7 @@ use App\Models\Bill;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CreditMemo;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\StockLayer;
@@ -313,4 +314,31 @@ it('filters the trial balance by account type', function () {
     $page->set('accountType', '')
         ->assertSee($ar->name)
         ->assertSee($this->income->name);
+});
+
+it('includes pay-now expenses in purchases by vendor but not by item', function () {
+    $vendor = Contact::create(['company_id' => $this->company->id, 'display_name' => 'Direct Supplier', 'is_vendor' => true]);
+
+    $bill = Bill::create(['company_id' => $this->company->id, 'contact_id' => $vendor->id, 'bill_no' => 'B-9', 'bill_date' => CarbonImmutable::now(), 'due_date' => CarbonImmutable::now(), 'status' => BillStatus::Posted->value]);
+    $bill->lines()->create(['account_id' => $this->expense->id, 'description' => 'x', 'quantity' => '1', 'unit_price_cents' => 8000, 'line_subtotal_cents' => 8000, 'line_tax_cents' => 0, 'line_total_cents' => 8000, 'line_order' => 0]);
+
+    $expense = Expense::create([
+        'company_id' => $this->company->id,
+        'payment_account_id' => Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->value('id'),
+        'expense_date' => CarbonImmutable::now()->toDateString(),
+        'payee_contact_id' => $vendor->id,
+        'payee_name' => 'Direct Supplier',
+        'amount_cents' => 2520,
+        'status' => 'posted',
+        'posted_at' => now(),
+    ]);
+    $expense->lines()->create(['account_id' => $this->expense->id, 'amount_cents' => 2520, 'line_order' => 0]);
+
+    $byVendor = app(SalesPurchaseReportBuilder::class)->purchasesByDimension($this->company, $this->start, $this->end, 'contact');
+    $filtered = app(SalesPurchaseReportBuilder::class)->purchasesByDimension($this->company, $this->start, $this->end, 'contact', contactId: $vendor->id);
+    $byItem = app(SalesPurchaseReportBuilder::class)->purchasesByDimension($this->company, $this->start, $this->end, 'item');
+
+    expect($byVendor->firstWhere('key', $vendor->id)['amount_cents'])->toBe(10520)
+        ->and($filtered->firstWhere('key', $vendor->id)['amount_cents'])->toBe(10520)
+        ->and($byItem->sum('amount_cents'))->toBe(8000);
 });

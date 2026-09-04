@@ -2,6 +2,7 @@
 
 namespace App\Services\Reconciliation;
 
+use App\Actions\Accounting\UpdateJournalEntryHeader;
 use App\Enums\BankReconciliationStatus;
 use App\Exceptions\Posting\ReconciliationOutOfBalanceException;
 use App\Models\Account;
@@ -356,6 +357,42 @@ class BankReconciliationService
 
             $rec->delete();
         }));
+    }
+
+    /**
+     * Keep the reconciliation's recorded service-charge / interest date in step
+     * with an adjustment entry whose header was edited from the general journal
+     * ({@see UpdateJournalEntryHeader}). Amounts and
+     * accounts are not touched — the journal cannot change those lines.
+     */
+    public function syncAdjustmentEntry(JournalEntry $entry): void
+    {
+        if ($entry->source_type !== BankReconciliation::class || $entry->source_id === null) {
+            return;
+        }
+
+        $rec = BankReconciliation::withoutGlobalScopes()
+            ->where('company_id', $entry->company_id)
+            ->find($entry->source_id);
+
+        if ($rec === null) {
+            return;
+        }
+
+        $date = Carbon::parse($entry->entry_date)->toDateString();
+        $changes = [];
+
+        if ($rec->service_charge_entry_id !== null && (int) $rec->service_charge_entry_id === (int) $entry->id) {
+            $changes['service_charge_date'] = $date;
+        }
+
+        if ($rec->interest_earned_entry_id !== null && (int) $rec->interest_earned_entry_id === (int) $entry->id) {
+            $changes['interest_earned_date'] = $date;
+        }
+
+        if ($changes !== []) {
+            $rec->forceFill($changes)->save();
+        }
     }
 
     public function differenceCents(BankReconciliation $rec): int

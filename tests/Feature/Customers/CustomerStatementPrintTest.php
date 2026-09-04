@@ -124,7 +124,8 @@ it('renders the open-invoices statement with invoice rows, aging strip and total
         ->toContain('Total Due')
         ->toContain('Current')
         ->toContain('1–30 Days')
-        ->toContain($this->company->name);
+        // The name is HTML-escaped in the template (Faker can generate an apostrophe).
+        ->toContain(e($this->company->name));
 });
 
 it('renders the activity statement with opening balance, running lines and closing balance', function () {

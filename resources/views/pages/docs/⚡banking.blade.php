@@ -41,7 +41,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
             <li>{{ __('From the Bank register, choose Actions → Import statement, then pick the bank or credit-card account from the Account selector.') }}</li>
             <li>{{ __('Select the statement file and choose Upload & analyze. CSV, Excel, OFX/QFX/QBO, and PDF are all accepted.') }}</li>
             <li>{{ __('If the app needs help reading a CSV or Excel file, map the columns (see below) and select Apply mapping. Structured OFX/QFX/QBO files skip this step.') }}</li>
-            <li>{{ __('Review the matched, to-add, and duplicate lines. For anything new, pick a category from the Add to… selector; confirm or skip any suggested matches.') }}</li>
+            <li>{{ __('Review the matched, to-add, suggested, and duplicate lines. For anything new, pick a category from the Add to… selector, optionally the vendor it was paid to, and the sales tax included in the amount — the app splits the tax out of the statement total for your return. Lines the app has seen before — a payee you categorized last month, a bank rule, or an AI guess — arrive pre-filled and marked Suggested; select Confirm to accept each one (or Confirm all suggestions in the summary bar), Change to adjust it, or Skip.') }}</li>
             <li>{{ __('Select Import & reconcile. The app pre-ticks every matched and added line and drops you on the reconciliation screen to finish.') }}</li>
         </ol>
 
@@ -85,8 +85,9 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         </flux:text>
         <ul class="list-disc ps-6 space-y-1">
             <li><strong>{{ __('Matched') }}</strong> — {{ __('the line already exists in your books; importing will clear it on the reconciliation. Choose Don’t clear to leave it untouched.') }}</li>
-            <li><strong>{{ __('To add') }}</strong> — {{ __('a transaction the file has but your books do not. Pick a category in the Add to… selector and the app posts it for you, or Skip to ignore it. If a bank rule matches the description, the category is already filled in (see Bank rules below).') }}</li>
-            <li><strong>{{ __('Suggested') }}</strong> — {{ __('a likely match the app is not certain about. Confirm it to treat it as matched, or Skip.') }}</li>
+            <li><strong>{{ __('To add') }}</strong> — {{ __('a transaction the file has but your books do not. Pick a category in the Add to… selector and the app posts it for you, or Skip to ignore it. Choosing a vendor records the line as an Expense to that vendor; if the vendor has an open bill for the same amount you can choose Pay bill instead, which records a bill payment — or select Pay bills… to settle several open bills (or a reimbursement owed to an employee) with the one payment; the amounts you apply must add up to the transaction, and a bill may be paid in part. Picking a vendor with a default expense account or tax code fills them in for you; picking one without remembers what you choose as that vendor’s defaults.') }}</li>
+            <li><strong>{{ __('Suggested') }}</strong> — {{ __('the app has filled in the category (and vendor, when it knows one) from how you categorized the same payee before, from a bank rule, or from AI, and tells you which. Nothing posts until you Confirm the line. If you try to import with unconfirmed suggestions, the app asks whether to confirm them all or leave them waiting in For Review.') }}</li>
+            <li><strong>{{ __('Possible match') }}</strong> — {{ __('a likely match to a transaction already in your books that the app is not certain about. Confirm it to treat it as matched, or Skip.') }}</li>
             <li><strong>{{ __('Duplicate') }}</strong> — {{ __('a line that is already accounted for; it is skipped automatically so you never import it twice.') }}</li>
         </ul>
 
@@ -96,6 +97,10 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
             caption="{{ __('Step 3 — review. The summary bar counts matched, to-add, and duplicate lines; Import & reconcile carries them all to the reconciliation screen pre-ticked.') }}"
         />
 
+        <x-docs.callout type="tip" heading="{{ __('Always do this') }}">
+            {{ __('Once a line has a category (and vendor), select the lightning-bolt Always do this button beside it. The app writes a bank rule for that payee — matching on the payee part of the description, so next month’s reference number or date does not matter — and pre-fills it the same way on every future import. The rule appears under Bank rules, where you can rename it, tune the pattern, or turn it off.') }}
+        </x-docs.callout>
+
         <x-docs.callout type="note" heading="{{ __('Reading a PDF statement') }}">
             {{ __('PDF statements are supported, but they need a little more from the server. When the poppler toolkit is installed the app uses it to read the PDF’s layout accurately; otherwise it falls back to a pure-PHP reader. A secured or scanned (image-only) PDF cannot be read as text — the import surfaces a clear “We could not read this statement” message rather than hanging, and you can fall back to the CSV or OFX export instead. Large files and PDFs are parsed in the background, so a queue worker should be running.') }}
         </x-docs.callout>
@@ -103,15 +108,15 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         {{-- ───────────────────────── Bank rules ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Bank rules') }}</flux:heading>
         <flux:text>
-            {{ __('A bank rule categorizes an imported transaction automatically when its description matches a pattern you set — so the coffee-shop charge that lands every week is filed to the same expense account without you choosing it each time. Rules only suggest the category; they never post anything on their own, so you stay in control. Open the Bank register and choose Bank rules from the Actions menu.') }}
+            {{ __('A bank rule categorizes an imported transaction automatically when its description matches a pattern you set — so the coffee-shop charge that lands every week is filed to the same expense account without you choosing it each time. A rule can also name the vendor, so the line is recorded as an expense to that vendor rather than a bare journal entry. Rules only suggest; they never post anything on their own, so you stay in control. Open the Bank register and choose Bank rules from the Actions menu.') }}
         </flux:text>
 
         <p><strong>{{ __('To create a bank rule:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('From the Bank register, choose Actions → Bank rules, then select New rule.') }}</li>
             <li>{{ __('Give the rule a Name you will recognize.') }}</li>
-            <li>{{ __('Choose how to Match the description — Contains, Starts with, Equals, or Matches regex — and type the Pattern. Matching is always case-insensitive.') }}</li>
-            <li>{{ __('Pick the account to Categorize to.') }}</li>
+            <li>{{ __('Choose how to Match the description — Contains, Starts with, Equals, Matches regex, or Same payee (which ignores reference numbers, dates, and amounts) — and type the Pattern. Matching is always case-insensitive.') }}</li>
+            <li>{{ __('Pick the account to Categorize to, and optionally the Vendor / contact the payee belongs to.') }}</li>
             <li>{{ __('Set a Priority if you have overlapping rules — lower numbers win first — and leave Active on.') }}</li>
             <li>{{ __('Select Save.') }}</li>
         </ol>
@@ -123,7 +128,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note">
-            {{ __('Rules apply to imported lines your books do not already have. The first active rule that matches, in priority order, wins and pre-fills the category — you still confirm the line before anything posts. Editing a rule never touches transactions you already categorized.') }}
+            {{ __('Rules apply to imported lines your books do not already have. The first active rule that matches, in priority order, wins and pre-fills the category — you still confirm the line before anything posts. When two rules share a priority, the more specific one wins (Equals, then Same payee, Starts with, Contains, Regex). Editing a rule never touches transactions you already categorized. Rules you create with Always do this on the import or For Review screens are listed here too.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── For Review ───────────────────────── --}}
@@ -135,16 +140,16 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         <p><strong>{{ __('To work the For Review feed:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open For Review. Narrow to one account with the Account selector if you like.') }}</li>
-            <li>{{ __('For each line, pick a Category (and optionally a Contact), then select Accept to post it to your books.') }}</li>
-            <li>{{ __('Select Split to divide one transaction across several categories — the parts must add up to the total before you can save.') }}</li>
+            <li>{{ __('For each line, pick a Category, optionally the Vendor it was paid to (money in: the customer) and the tax included in the amount, then select Accept — or Confirm, when the app has pre-filled the line for you — to post it. When the vendor has open bills you can choose Pay bill (one bill for the same amount) or Pay bills… (several bills, or an employee’s reimbursement) instead of Record as expense.') }}</li>
+            <li>{{ __('Select Split to divide one transaction across several categories, each part with its own tax if needed — the parts must add up to the total before you can save. A split outflow is recorded as an expense to the vendor chosen on the row.') }}</li>
             <li>{{ __('Select Exclude to set aside a line you do not want on the books; flip the Excluded toggle to see excluded lines and Include them again.') }}</li>
-            <li>{{ __('Tick several lines and use the bulk bar to Categorize or Exclude them all at once.') }}</li>
+            <li>{{ __('Tick several lines and use the bulk bar to Categorize them all at once — optionally to one vendor — or Exclude them.') }}</li>
         </ol>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/banking/review.png') }}"
             alt="{{ __('The For Review feed listing imported transactions with category and contact selectors and Accept, Split, and Exclude buttons') }}"
-            caption="{{ __('The For Review feed. Bank rules pre-fill the Category column; Accept posts the line, Split divides it across categories, Exclude sets it aside.') }}"
+            caption="{{ __('The For Review feed. Bank rules and your own history pre-fill the Category and Contact columns; Confirm or Accept posts the line, Split divides it across categories, Exclude sets it aside.') }}"
         />
 
         <x-docs.callout type="tip" heading="{{ __('Suggested transfers') }}">
@@ -152,7 +157,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('What Accept does to your books') }}">
-            {{ __('Accepting a line posts a balanced journal entry: money in debits the bank account and credits the category you chose; money out debits the category and credits the bank. The entry is linked back to the import for your audit trail, and the line leaves the queue.') }}
+            {{ __('Accepting a line with no vendor or tax posts a balanced journal entry: money in debits the bank account and credits the category you chose; money out debits the category and credits the bank. Accepting an outflow with a vendor or a tax code records an Expense — the statement amount is treated as including the tax, so the tax is split out for your return and the payment still equals the statement to the cent. Choosing Pay bill or Pay bills… records one bill payment applied across the chosen bills (an employee reimbursement posts to Employee Reimbursements Payable). Bulk Categorize records plain expenses with no tax and no bills. Every entry is linked back to the import for your audit trail, and the line leaves the queue.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Reconcile ───────────────────────── --}}
@@ -164,7 +169,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         <p><strong>{{ __('To reconcile an account:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('From the Bank register, choose Reconcile on the Actions menu — it opens on the account you were viewing.') }}</li>
-            <li>{{ __('Select Reconcile, enter the statement’s ending date and ending balance (plus any service charge or interest earned), and choose Continue.') }}</li>
+            <li>{{ __('Select Reconcile, enter the statement’s ending date and ending balance (plus any service charge or interest earned), and choose Continue. The service charge and interest dates follow the statement date until you change them, and the accounts you pick are remembered for that bank account next month.') }}</li>
             <li>{{ __('Tick each transaction that appears on your statement. The Difference figure shows how far off you still are.') }}</li>
             <li>{{ __('Keep ticking until the Difference reads 0.00.') }}</li>
             <li>{{ __('Select Reconcile now to complete it and lock the period in.') }}</li>
@@ -189,7 +194,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="tip" heading="{{ __('Edit the starting figures mid-reconciliation') }}">
-            {{ __('Caught a typo in the statement date or opening balance after you have already ticked off twenty transactions? Select Edit details on the reconciliation panel and change the statement date, opening balance, service charge, or interest in place — your cleared ticks are kept. If the service charge or interest amount changes, the app voids the old adjustment entry and reposts a new one so the books stay correct.') }}
+            {{ __('Caught a typo in the statement date or opening balance after you have already ticked off twenty transactions? Select Edit details on the reconciliation panel and change the statement date, opening balance, service charge, or interest in place — your cleared ticks are kept. If the service charge or interest amount changes, the app voids the old adjustment entry and reposts a new one so the books stay correct. Only the date wrong? You can also open the adjustment’s journal entry from the bank register and edit its date, number, or memo there — the accounts and amounts stay locked to the reconciliation.') }}
         </x-docs.callout>
 
         <x-docs.figure

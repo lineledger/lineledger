@@ -174,3 +174,49 @@ it('voiding a payment reopens the bill and reverses the GL entry', function () {
     expect($this->bill->status)->toBe(BillStatus::Posted);
     expect($this->bill->amount_paid_cents)->toBe(0);
 });
+
+it('posts a reimbursement payment: DR Employee Reimbursements Payable / CR bank', function () {
+    $employee = Contact::create(['display_name' => 'Dana Employee', 'is_employee' => true]);
+    $expense = Account::query()->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->first();
+
+    $claim = Bill::create([
+        'contact_id' => $employee->id,
+        'bill_type' => BillType::Reimbursement,
+        'bill_no' => 'REIM-9',
+        'bill_date' => now()->toDateString(),
+        'due_date' => now()->toDateString(),
+    ]);
+    $claim->lines()->create([
+        'account_id' => $expense->id,
+        'description' => 'Mileage',
+        'quantity' => '1',
+        'unit_price_cents' => 5000,
+        'line_subtotal_cents' => 5000,
+        'line_tax_cents' => 0,
+        'line_total_cents' => 5000,
+        'line_order' => 0,
+    ]);
+    app(BillPoster::class)->post($claim);
+
+    $payable = Account::query()->employeeReimbursementsPayable()->firstOrFail();
+    $ap = Account::query()->where('subtype', AccountSubtype::AccountsPayable->value)->where('is_system', true)->firstOrFail();
+    $apBefore = (int) $ap->fresh()->balance_cents;
+    $bankBefore = (int) $this->bank->fresh()->balance_cents;
+
+    $payment = BillPayment::create([
+        'contact_id' => $employee->id,
+        'payment_type' => BillType::Reimbursement,
+        'payment_no' => 'PAY-R1',
+        'payment_date' => now()->toDateString(),
+        'paid_from_account_id' => $this->bank->id,
+        'amount_cents' => 5000,
+    ]);
+    $payment->applications()->create(['bill_id' => $claim->id, 'amount_cents' => 5000]);
+
+    app(BillPaymentPoster::class)->post($payment->fresh('applications'));
+
+    expect($claim->fresh()->status)->toBe(BillStatus::Paid)
+        ->and($payable->fresh()->balance_cents)->toBe(0)
+        ->and((int) $ap->fresh()->balance_cents)->toBe($apBefore)
+        ->and((int) $this->bank->fresh()->balance_cents)->toBe($bankBefore - 5000);
+});

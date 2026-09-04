@@ -2,9 +2,10 @@
 
 namespace App\Services\Banking\Import;
 
-use App\Actions\Banking\AddStatementLineEntry;
+use App\Actions\Banking\RecordStatementLine;
 use App\Enums\BankStatementImportStatus;
 use App\Enums\StatementLineMatchStatus;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Models\Account;
 use App\Models\Attachment;
 use App\Models\BankReconciliation;
@@ -25,18 +26,42 @@ use RuntimeException;
  * Created "Add" entries are real, posted transactions linked to the import for
  * traceability; like QuickBooks' "add from feed", they persist even if the user
  * later cancels the reconciliation.
+ *
+ * Suggestions are pre-fill only: a line the pipeline categorized but the user
+ * never confirmed is still Unmatched, and commit refuses to run over it unless
+ * told to leave such lines behind (they then wait in the For Review feed).
  */
 class StatementImportCommitter
 {
     public function __construct(
         private readonly BankReconciliationService $reconciliations,
-        private readonly AddStatementLineEntry $addLineEntry,
+        private readonly RecordStatementLine $recordLine,
     ) {}
 
-    public function commit(BankStatementImport $import, ?int $userId = null): BankReconciliation
+    /**
+     * Lines carrying a pre-filled category / bill the user has not confirmed.
+     */
+    public function unconfirmedSuggestionCount(BankStatementImport $import): int
+    {
+        return $import->lines()->unconfirmedSuggestions()->count();
+    }
+
+    public function commit(BankStatementImport $import, ?int $userId = null, bool $leaveUnconfirmed = false): BankReconciliation
     {
         if ($import->isCommitted()) {
             throw new RuntimeException('This statement has already been committed.');
+        }
+
+        if (! $leaveUnconfirmed) {
+            $unconfirmed = $this->unconfirmedSuggestionCount($import);
+
+            if ($unconfirmed > 0) {
+                throw new PostingValidationException(trans_choice(
+                    '{1} :count suggested line has not been confirmed — confirm or clear it, or import without it.|[2,*] :count suggested lines have not been confirmed — confirm or clear them, or import without them.',
+                    $unconfirmed,
+                    ['count' => $unconfirmed],
+                ));
+            }
         }
 
         /** @var Account $account */
@@ -76,16 +101,31 @@ class StatementImportCommitter
     }
 
     /**
-     * Post a new journal entry for an "Add" line via the shared action and return
-     * its bank-side line id (used to tick the reconciliation).
+     * Record an "Add" line through the shared action (journal entry, expense to
+     * the chosen vendor, or payment of the chosen bill) and return its bank-side
+     * line id (used to tick the reconciliation).
      */
     private function createEntryForLine(BankStatementLine $line): int
     {
-        if ($line->suggested_account_id === null) {
+        $allocations = $line->suggestedBillAllocations();
+
+        if ($line->suggested_account_id === null && $line->suggested_bill_id === null && $allocations === []) {
             throw new RuntimeException("Choose a category for the added line dated {$line->txn_date?->toDateString()} before committing.");
         }
 
-        $this->addLineEntry->handle($line, (int) $line->suggested_account_id);
+        [$taxCodeId, $secondaryTaxCodeId] = $line->suggestedTaxCodeIds();
+
+        // A stale bill set raises a client-safe error here; the whole commit rolls
+        // back (no partial import) and the wizard names the bill to reopen.
+        $this->recordLine->handle(
+            $line,
+            $line->suggested_account_id !== null ? (int) $line->suggested_account_id : null,
+            $line->suggested_contact_id !== null ? (int) $line->suggested_contact_id : null,
+            $line->suggested_bill_id !== null ? (int) $line->suggested_bill_id : null,
+            taxCodeId: $taxCodeId,
+            secondaryTaxCodeId: $secondaryTaxCodeId,
+            billAllocations: $allocations !== [] ? $allocations : null,
+        );
 
         return (int) $line->matched_journal_line_id;
     }

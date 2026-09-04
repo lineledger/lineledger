@@ -17,6 +17,9 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="sparkles" :href="route('insights.index')" :current="request()->routeIs('insights.*')" wire:navigate data-test="sidebar-insights">
+                        {{ __('Insights') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
                 <livewire:sidebar-nav />
             </flux:sidebar.nav>

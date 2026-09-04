@@ -5,6 +5,7 @@ use App\Enums\BankRuleMatchType;
 use App\Models\Account;
 use App\Models\BankRule;
 use App\Models\Company;
+use App\Models\Contact;
 use Flux\Flux;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -24,6 +25,8 @@ new #[Title('Bank rules')] class extends Component {
 
     public ?int $f_action_account_id = null;
 
+    public ?int $f_action_contact_id = null;
+
     public string $f_priority = '0';
 
     public bool $f_is_active = true;
@@ -35,7 +38,7 @@ new #[Title('Bank rules')] class extends Component {
 
     public function openCreate(): void
     {
-        $this->reset(['editingId', 'f_name', 'f_match_type', 'f_match_pattern', 'f_action_account_id', 'f_priority', 'f_is_active']);
+        $this->reset(['editingId', 'f_name', 'f_match_type', 'f_match_pattern', 'f_action_account_id', 'f_action_contact_id', 'f_priority', 'f_is_active']);
         $this->f_match_type = 'contains';
         $this->f_priority = '0';
         $this->f_is_active = true;
@@ -50,6 +53,7 @@ new #[Title('Bank rules')] class extends Component {
         $this->f_match_type = $r->match_type->value;
         $this->f_match_pattern = $r->match_pattern;
         $this->f_action_account_id = $r->action_account_id;
+        $this->f_action_contact_id = $r->action_contact_id;
         $this->f_priority = (string) $r->priority;
         $this->f_is_active = $r->is_active;
         Flux::modal('bank-rule-form')->show();
@@ -62,6 +66,7 @@ new #[Title('Bank rules')] class extends Component {
             'f_match_type' => ['required', Rule::enum(BankRuleMatchType::class)],
             'f_match_pattern' => ['required', 'string', 'max:255'],
             'f_action_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $this->company->id)],
+            'f_action_contact_id' => ['nullable', 'integer', Rule::exists('contacts', 'id')->where('company_id', $this->company->id)],
             'f_priority' => ['nullable', 'integer', 'min:0'],
             'f_is_active' => ['boolean'],
         ]);
@@ -74,6 +79,7 @@ new #[Title('Bank rules')] class extends Component {
             'match_type' => $validated['f_match_type'],
             'match_pattern' => $validated['f_match_pattern'],
             'action_account_id' => $validated['f_action_account_id'],
+            'action_contact_id' => $validated['f_action_contact_id'] ?? null,
             'priority' => (int) ($validated['f_priority'] ?: 0),
             'is_active' => $validated['f_is_active'],
         ], $editing);
@@ -85,7 +91,25 @@ new #[Title('Bank rules')] class extends Component {
     #[Computed]
     public function rules()
     {
-        return BankRule::query()->with('actionAccount')->orderBy('priority')->orderBy('name')->get();
+        return BankRule::query()->with('actionAccount', 'actionContact')->orderBy('priority')->orderBy('name')->get();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, Contact>
+     */
+    #[Computed]
+    public function contactOptions()
+    {
+        return Contact::query()
+            ->where(function ($q) {
+                $q->where('is_active', true);
+                if ($this->f_action_contact_id) {
+                    $q->orWhere('id', $this->f_action_contact_id);
+                }
+            })
+            ->orderByDesc('is_vendor')
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
     }
 
     /**
@@ -116,7 +140,7 @@ new #[Title('Bank rules')] class extends Component {
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <flux:heading size="xl" level="1">{{ __('Bank rules') }}</flux:heading>
-            <flux:subheading>{{ __('Automatically categorize imported bank transactions whose description matches a pattern.') }}</flux:subheading>
+            <flux:subheading>{{ __('Automatically categorize imported bank transactions whose description matches a pattern — and, when a rule names a vendor, record them as expenses to that vendor. “Always do this” on the import screen writes rules here too.') }}</flux:subheading>
         </div>
         <flux:button variant="primary" icon="plus" wire:click="openCreate" data-test="new-bank-rule-button">{{ __('New rule') }}</flux:button>
     </div>
@@ -129,6 +153,7 @@ new #[Title('Bank rules')] class extends Component {
                     <th class="px-4 py-2 text-left">{{ __('Name') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('When description') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('Categorize to') }}</th>
+                    <th class="px-4 py-2 text-left">{{ __('Vendor') }}</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -139,12 +164,13 @@ new #[Title('Bank rules')] class extends Component {
                         <td class="px-4 py-2">{{ $r->name }}</td>
                         <td class="px-4 py-2 text-muted-foreground">{{ $r->match_type->label() }} “{{ $r->match_pattern }}”</td>
                         <td class="px-4 py-2 text-muted-foreground">{{ optional($r->actionAccount)->code }} — {{ optional($r->actionAccount)->name }}</td>
+                        <td class="px-4 py-2 text-muted-foreground" data-test="bank-rule-vendor">{{ $r->actionContact?->display_name ?? '—' }}</td>
                         <td class="px-4 py-2 text-right">
                             <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $r->id }})" />
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-muted-foreground">{{ __('No bank rules yet.') }}</td></tr>
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">{{ __('No bank rules yet.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -169,6 +195,13 @@ new #[Title('Bank rules')] class extends Component {
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->accountOptions as $a)
                     <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model="f_action_contact_id" :label="__('Vendor / contact (optional)')" :description="__('Pre-fills the payee on matching lines, so money out is recorded as an expense to this vendor.')" data-test="bank-rule-contact">
+                <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
+                @foreach ($this->contactOptions as $c)
+                    <flux:select.option :value="$c->id">{{ $c->display_name }}</flux:select.option>
                 @endforeach
             </flux:select>
 

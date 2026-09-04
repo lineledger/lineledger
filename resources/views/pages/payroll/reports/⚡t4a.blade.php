@@ -241,6 +241,6 @@ new #[Title('T4A slips')] class extends Component {
     </div>
 
     <div class="mt-4 text-sm text-muted-foreground">
-        <p>{{ __('Includes posted bill payments and posted cheques to a T4A-tracked contractor in the year. Mark a vendor for T4A on its profile. Box 048 covers fees for services; issue a T4A when the total exceeds $500.') }}</p>
+        <p>{{ __('Includes posted bill payments, posted cheques, and posted pay-now expenses to a T4A-tracked contractor in the year. Mark a vendor for T4A on its profile. Box 048 covers fees for services; issue a T4A when the total exceeds $500.') }}</p>
     </div>
 </section>

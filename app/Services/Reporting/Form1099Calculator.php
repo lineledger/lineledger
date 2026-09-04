@@ -4,6 +4,7 @@ namespace App\Services\Reporting;
 
 use App\Enums\BillPaymentStatus;
 use App\Enums\ChequeStatus;
+use App\Enums\ExpenseStatus;
 use App\Models\Company;
 use App\Models\Contact;
 use Carbon\CarbonImmutable;
@@ -60,10 +61,25 @@ class Form1099Calculator
             ->selectRaw('payee_contact_id, SUM(COALESCE(home_amount_cents, amount_cents)) AS total')
             ->pluck('total', 'payee_contact_id');
 
+        // Pay-now expenses (card / EFT / debit, incl. lines recorded from a bank
+        // import) are a third, disjoint disbursement path: never a bill payment,
+        // never a cheque, so summing all three cannot double count.
+        $byExpense = DB::table('expenses')
+            ->where('company_id', $company->id)
+            ->whereIn('payee_contact_id', $ids)
+            ->where('status', ExpenseStatus::Posted->value)
+            ->whereNull('deleted_at')
+            ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])
+            ->groupBy('payee_contact_id')
+            ->selectRaw('payee_contact_id, SUM(COALESCE(home_amount_cents, amount_cents)) AS total')
+            ->pluck('total', 'payee_contact_id');
+
         $rows = [];
 
         foreach ($vendors as $vendor) {
-            $total = (int) ($byBillPayment[$vendor->id] ?? 0) + (int) ($byCheque[$vendor->id] ?? 0);
+            $total = (int) ($byBillPayment[$vendor->id] ?? 0)
+                + (int) ($byCheque[$vendor->id] ?? 0)
+                + (int) ($byExpense[$vendor->id] ?? 0);
 
             $rows[] = [
                 'contact_id' => (int) $vendor->id,

@@ -10,6 +10,8 @@ use App\Models\Account;
 use App\Models\BankStatementImport;
 use App\Models\BankStatementLine;
 use App\Models\Company;
+use App\Models\Contact;
+use App\Models\Expense;
 use App\Models\JournalEntry;
 use App\Models\Transfer;
 use App\Models\User;
@@ -195,4 +197,18 @@ it('does not pair unequal amounts or out-of-window dates', function () {
 
     $page = Livewire::test('pages::banking.review', ['company' => $this->company]);
     expect($page->instance()->transferCandidates)->toHaveCount(0);
+});
+
+it('bulk categorize can name a vendor, recording outflows as expenses to them', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    $out = reviewLine(-7000);
+    $in = reviewLine(3000);
+
+    $count = app(BulkCategorizeStatementLines::class)->handle([$out->id, $in->id], $this->expense->id, $vendor->id);
+
+    expect($count)->toBe(2)
+        ->and(Expense::query()->where('payee_contact_id', $vendor->id)->count())->toBe(1)
+        ->and($out->fresh()->createdJournalEntry->source_type)->toBe(Expense::class)
+        ->and($in->fresh()->createdJournalEntry->source_type)->toBe(BankStatementImport::class)
+        ->and($in->fresh()->createdJournalEntry->lines()->where('account_id', $this->expense->id)->value('contact_id'))->toBe($vendor->id);
 });
