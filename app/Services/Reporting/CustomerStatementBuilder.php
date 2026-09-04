@@ -36,7 +36,7 @@ class CustomerStatementBuilder
      * (e.g. journal entries) when positive.
      *
      * @return array{
-     *   rows: array<int, array{kind: 'invoice'|'adjustment', invoice_no: string, invoice_date: ?string, due_date: ?string, total: int, balance: int, label: ?string}>,
+     *   rows: array<int, array{kind: 'invoice'|'adjustment', invoice_no: string, memo: string, invoice_date: ?string, due_date: ?string, total: int, balance: int, label: ?string}>,
      *   aging: array{current: int, b1_30: int, b31_60: int, b61_90: int, b90_plus: int, total: int},
      *   total_due: int,
      *   as_of: string,
@@ -65,6 +65,7 @@ class CustomerStatementBuilder
                 return [
                     'kind' => 'invoice',
                     'invoice_no' => (string) $invoice->invoice_no,
+                    'memo' => trim((string) $invoice->memo),
                     'invoice_date' => $invoice->invoice_date?->toDateString(),
                     'due_date' => $invoice->due_date?->toDateString(),
                     'total' => $total,
@@ -84,6 +85,7 @@ class CustomerStatementBuilder
             $rows[] = [
                 'kind' => 'adjustment',
                 'invoice_no' => '',
+                'memo' => '',
                 'invoice_date' => null,
                 'due_date' => null,
                 'total' => $difference,

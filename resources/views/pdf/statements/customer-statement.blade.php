@@ -20,7 +20,8 @@
         .box { border: 1px solid #9ca3af; min-height: 70px; padding: 6px 8px; }
         .box-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: #374151; border-bottom: 1px solid #d1d5db; padding-bottom: 3px; margin-bottom: 4px; }
         table.lines { width: 100%; margin-top: 18px; border: 1px solid #9ca3af; }
-        table.lines th, table.lines td { border: 1px solid #d1d5db; padding: 5px 8px; }
+        table.lines th, table.lines td { border: 1px solid #d1d5db; padding: 5px 8px; vertical-align: top; }
+        table.lines td.memo { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
         table.lines thead th { background: #f3f4f6; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: #374151; }
         table.lines tr.total td { border-top: 2px solid #9ca3af; font-size: 13px; font-weight: bold; }
         .num { text-align: right; font-family: DejaVu Sans Mono, monospace; }
@@ -104,11 +105,12 @@
             <table class="lines">
                 <thead>
                     <tr>
-                        <th style="width: 14%;">{{ __('Date') }}</th>
-                        <th>{{ __('Invoice #') }}</th>
-                        <th style="width: 14%;">{{ __('Due Date') }}</th>
+                        <th style="width: 11%;">{{ __('Date') }}</th>
+                        <th style="width: 15%;">{{ __('Invoice #') }}</th>
+                        <th>{{ __('Memo') }}</th>
+                        <th style="width: 11%;">{{ __('Due Date') }}</th>
                         <th class="num" style="width: 17%;">{{ __('Original Amount') }}</th>
-                        <th class="num" style="width: 17%;">{{ __('Balance') }}</th>
+                        <th class="num" style="width: 14%;">{{ __('Balance') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -117,20 +119,21 @@
                             <tr>
                                 <td>{{ $fmtDate($row['invoice_date']) }}</td>
                                 <td>{{ $row['invoice_no'] }}</td>
+                                <td class="memo">{{ $row['memo'] }}</td>
                                 <td>{{ $fmtDate($row['due_date']) }}</td>
                                 <td class="num">{{ $money($row['total']) }}</td>
                                 <td class="num">{{ $money($row['balance']) }}</td>
                             </tr>
                         @else
                             <tr>
-                                <td colspan="3">{{ $row['label'] }}</td>
+                                <td colspan="4">{{ $row['label'] }}</td>
                                 <td class="num"></td>
                                 <td class="num">{{ $money($row['balance']) }}</td>
                             </tr>
                         @endif
                     @endforeach
                     <tr class="total">
-                        <td colspan="4">{{ $totalDue < 0 ? __('Credit balance') : __('Total Due') }}</td>
+                        <td colspan="5">{{ $totalDue < 0 ? __('Credit balance') : __('Total Due') }}</td>
                         <td class="num">${{ $money($totalDue) }}</td>
                     </tr>
                 </tbody>
@@ -159,7 +162,7 @@
                         <td>{{ $fmtDate($line['date']) }}</td>
                         <td>{{ $line['type'] }}</td>
                         <td>{{ $line['doc_no'] }}</td>
-                        <td>{{ $line['memo'] }}</td>
+                        <td class="memo">{{ $line['memo'] }}</td>
                         <td class="num">{{ $line['debit'] !== 0 ? $money($line['debit']) : '' }}</td>
                         <td class="num">{{ $line['credit'] !== 0 ? $money($line['credit']) : '' }}</td>
                         <td class="num">{{ $money($line['running']) }}</td>

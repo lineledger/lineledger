@@ -58,7 +58,8 @@ function postStatementInvoice(object $test, Contact $customer, string $no, strin
 it('lists open invoices with balances and ties the total to the aging strip', function () {
     $customer = Contact::factory()->customer()->create();
 
-    postStatementInvoice($this, $customer, 'INV-OPEN-1', '2026-03-01', '2026-03-31', 20000);
+    $first = postStatementInvoice($this, $customer, 'INV-OPEN-1', '2026-03-01', '2026-03-31', 20000);
+    $first->update(['memo' => 'March retainer — cremation services']);
     $partial = postStatementInvoice($this, $customer, 'INV-OPEN-2', '2026-04-01', '2026-05-01', 10000);
 
     // Partially pay the second invoice: 40 of 100.
@@ -78,10 +79,12 @@ it('lists open invoices with balances and ties the total to the aging strip', fu
 
     expect($result['rows'])->toHaveCount(2)
         ->and($result['rows'][0]['invoice_no'])->toBe('INV-OPEN-1')
+        ->and($result['rows'][0]['memo'])->toBe('March retainer — cremation services')
         ->and($result['rows'][0]['total'])->toBe(20000)
         ->and($result['rows'][0]['balance'])->toBe(20000)
         ->and($result['rows'][0]['due_date'])->toBe('2026-03-31')
         ->and($result['rows'][1]['invoice_no'])->toBe('INV-OPEN-2')
+        ->and($result['rows'][1]['memo'])->toBe('')
         ->and($result['rows'][1]['balance'])->toBe(6000)
         ->and($result['total_due'])->toBe(26000)
         ->and($result['aging']['total'])->toBe(26000)

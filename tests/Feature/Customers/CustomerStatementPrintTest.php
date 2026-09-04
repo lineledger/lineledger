@@ -35,6 +35,7 @@ beforeEach(function () {
         'invoice_no' => 'INV-STMT-1',
         'invoice_date' => CarbonImmutable::create(2026, 5, 1),
         'due_date' => CarbonImmutable::create(2026, 5, 31),
+        'memo' => 'Pre-need arrangement for the Harbour Rd family plot, balance due on completion',
     ]);
     $invoice->lines()->create([
         'account_id' => $income->id,
@@ -120,6 +121,8 @@ it('renders the open-invoices statement with invoice rows, aging strip and total
         ->toContain('Rainbow Memorials')
         ->toContain('456 Harbour Rd')
         ->toContain('INV-STMT-1')
+        ->toContain('<th>Memo</th>')
+        ->toContain('<td class="memo">Pre-need arrangement for the Harbour Rd family plot, balance due on completion</td>')
         ->toContain('200.00')
         ->toContain('Total Due')
         ->toContain('Current')
