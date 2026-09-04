@@ -7,7 +7,6 @@ use App\Models\Company;
 use App\Models\Fund;
 use App\Models\JournalEntryTemplate;
 use App\Models\Location;
-use App\Models\TaxCode;
 use App\Rules\MoneyString;
 use App\Support\Money;
 use Flux\Flux;
@@ -26,7 +25,7 @@ new #[Title('Journal entry template')] class extends Component {
     public bool $is_active = true;
 
     /**
-     * @var array<int, array{account_id: ?int, debit: string, credit: string, memo: ?string, tax_code_id: ?int, class_id: ?int, location_id: ?int, fund_id: ?int}>
+     * @var array<int, array{account_id: ?int, debit: string, credit: string, memo: ?string, class_id: ?int, location_id: ?int, fund_id: ?int}>
      */
     public array $lines = [];
 
@@ -44,7 +43,6 @@ new #[Title('Journal entry template')] class extends Component {
                 'debit' => $l->debit_cents > 0 ? Money::fromCents($l->debit_cents)->toDecimalString() : '',
                 'credit' => $l->credit_cents > 0 ? Money::fromCents($l->credit_cents)->toDecimalString() : '',
                 'memo' => $l->memo,
-                'tax_code_id' => $l->tax_code_id,
                 'class_id' => $l->class_id,
                 'location_id' => $l->location_id,
                 'fund_id' => $l->fund_id,
@@ -55,7 +53,7 @@ new #[Title('Journal entry template')] class extends Component {
     }
 
     /**
-     * @return array{account_id: ?int, debit: string, credit: string, memo: ?string, tax_code_id: ?int, class_id: ?int, location_id: ?int, fund_id: ?int}
+     * @return array{account_id: ?int, debit: string, credit: string, memo: ?string, class_id: ?int, location_id: ?int, fund_id: ?int}
      */
     protected function emptyLine(): array
     {
@@ -64,7 +62,6 @@ new #[Title('Journal entry template')] class extends Component {
             'debit' => '',
             'credit' => '',
             'memo' => null,
-            'tax_code_id' => null,
             'class_id' => null,
             'location_id' => null,
             'fund_id' => null,
@@ -86,22 +83,6 @@ new #[Title('Journal entry template')] class extends Component {
         $this->lines = array_values($this->lines);
     }
 
-    /**
-     * Fill a blank tax code from the account's default when an account is picked.
-     */
-    public function updatedLines(mixed $value, ?string $key = null): void
-    {
-        if ($key === null || ! str_ends_with($key, '.account_id')) {
-            return;
-        }
-
-        $index = (int) explode('.', $key)[0];
-
-        if ($value && empty($this->lines[$index]['tax_code_id'])) {
-            $this->lines[$index]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
-        }
-    }
-
     public function save(): void
     {
         $companyId = $this->company->id;
@@ -114,7 +95,6 @@ new #[Title('Journal entry template')] class extends Component {
             'lines.*.debit' => ['nullable', 'string', new MoneyString],
             'lines.*.credit' => ['nullable', 'string', new MoneyString],
             'lines.*.memo' => ['nullable', 'string'],
-            'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             'lines.*.fund_id' => ['nullable', 'integer', Rule::exists('funds', 'id')->where('company_id', $companyId)],
@@ -131,7 +111,6 @@ new #[Title('Journal entry template')] class extends Component {
                 'debit_cents' => ($line['debit'] ?? '') !== '' ? Money::fromString($line['debit'])->cents : 0,
                 'credit_cents' => ($line['credit'] ?? '') !== '' ? Money::fromString($line['credit'])->cents : 0,
                 'memo' => $line['memo'] ?? null,
-                'tax_code_id' => $line['tax_code_id'] ?? null,
                 'class_id' => $line['class_id'] ?? null,
                 'location_id' => $line['location_id'] ?? null,
                 'fund_id' => $line['fund_id'] ?? null,
@@ -154,12 +133,6 @@ new #[Title('Journal entry template')] class extends Component {
             ->get(['id', 'code', 'name'])
             ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
             ->all();
-    }
-
-    #[Computed]
-    public function taxCodeOptions()
-    {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
     }
 
     #[Computed]
@@ -232,11 +205,10 @@ new #[Title('Journal entry template')] class extends Component {
 
         <flux:separator :text="__('Lines')" />
 
-        @php($lineGrid = 'lg:grid lg:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_minmax(0,1.1fr)_2.75rem] lg:items-start lg:gap-3')
+        @php($lineGrid = 'lg:grid lg:grid-cols-[minmax(0,1fr)_7rem_7rem_minmax(0,1.1fr)_2.75rem] lg:items-start lg:gap-3')
         <div class="overflow-hidden rounded-lg border border-border text-sm">
             <div class="{{ $lineGrid }} hidden bg-muted px-3 py-2 font-medium text-muted-foreground">
                 <div>{{ __('Account') }}</div>
-                <div>{{ __('Tax code') }}</div>
                 <div class="text-right">{{ __('Debit') }}</div>
                 <div class="text-right">{{ __('Credit') }}</div>
                 <div>{{ __('Line memo') }}</div>
@@ -249,19 +221,10 @@ new #[Title('Journal entry template')] class extends Component {
                         <div class="{{ $lineGrid }} grid grid-cols-1 gap-3">
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
+                                <flux:select wire:model="lines.{{ $i }}.account_id" data-test="line-account">
                                     <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                                     @foreach ($this->accountOptions as $opt)
                                         <flux:select.option :value="$opt['value']">{{ $opt['label'] }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                            <div>
-                                <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Tax code') }}</span>
-                                <flux:select wire:model="lines.{{ $i }}.tax_code_id" data-test="line-tax">
-                                    <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->taxCodeOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                             </div>
@@ -318,7 +281,6 @@ new #[Title('Journal entry template')] class extends Component {
 
             {{-- Totals (desktop) — a template need not balance; this is a reference only. --}}
             <div class="{{ $lineGrid }} hidden border-t border-border bg-muted px-3 py-2">
-                <div></div>
                 <div class="text-right font-medium">{{ __('Totals') }}</div>
                 <div class="text-right font-mono" data-test="total-debits">{{ number_format($this->totalDebitsCents / 100, 2) }}</div>
                 <div class="text-right font-mono" data-test="total-credits">{{ number_format($this->totalCreditsCents / 100, 2) }}</div>

@@ -30,7 +30,10 @@ final readonly class Money implements Stringable
     }
 
     /**
-     * Parse a decimal string like "1,234.56" or "1234.56" into cents.
+     * Parse a decimal string like "1,234.56" or "1234.56" into cents. A bare
+     * fraction such as ".05" is accepted (people type cents that way), so the
+     * only shapes rejected are non-numeric text, a trailing dot, and more than
+     * two decimals.
      * Two-decimal currencies only (covers CAD/USD/EUR/GBP and most). For
      * zero- or three-decimal currencies, swap to a Money library later.
      */
@@ -50,7 +53,7 @@ final readonly class Money implements Stringable
     {
         $clean = preg_replace('/[\s,]/', '', trim($value));
 
-        if ($clean === null || $clean === '' || ! preg_match('/^-?\d+(\.\d{1,2})?$/', $clean)) {
+        if ($clean === null || $clean === '' || ! preg_match('/^-?(\d+(\.\d{1,2})?|\.\d{1,2})$/', $clean)) {
             return null;
         }
 

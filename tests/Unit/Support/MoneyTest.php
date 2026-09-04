@@ -13,6 +13,9 @@ it('parses decimal strings to cents', function (string $input, int $cents) {
     ['1,234.56', 123456],
     ['-12.34', -1234],
     ['  10.10  ', 1010],
+    'bare cents' => ['.05', 5],
+    'bare tenths' => ['.5', 50],
+    'negative bare cents' => ['-.25', -25],
 ]);
 
 it('rejects invalid money strings', function () {

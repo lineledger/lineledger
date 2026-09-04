@@ -346,7 +346,7 @@ new #[Title('Journal entry')] class extends Component
             return;
         }
 
-        $template = JournalEntryTemplate::with('lines')->find($value);
+        $template = JournalEntryTemplate::with('lines.account')->find($value);
 
         if (! $template) {
             return;
@@ -380,7 +380,9 @@ new #[Title('Journal entry')] class extends Component
             'debit' => $tl->debit_cents > 0 ? Money::fromCents($tl->debit_cents)->toDecimalString() : '',
             'credit' => $tl->credit_cents > 0 ? Money::fromCents($tl->credit_cents)->toDecimalString() : '',
             'memo' => $tl->memo,
-            'tax_code_id' => $tl->tax_code_id,
+            // Templates carry no tax code; fill it from the account's default,
+            // as updatedLines() does when the account is picked by hand.
+            'tax_code_id' => $tl->tax_code_id ?? $tl->account?->default_tax_code_id,
             'class_id' => $tl->class_id,
             'location_id' => $tl->location_id,
             'fund_id' => $tl->fund_id,
@@ -419,7 +421,6 @@ new #[Title('Journal entry')] class extends Component
                 'debit_cents' => Money::tryFromString((string) ($line['debit'] ?? ''))?->cents ?? 0,
                 'credit_cents' => Money::tryFromString((string) ($line['credit'] ?? ''))?->cents ?? 0,
                 'memo' => $line['memo'] ?? null,
-                'tax_code_id' => $line['tax_code_id'] ?? null,
                 'class_id' => $line['class_id'] ?? null,
                 'location_id' => $line['location_id'] ?? null,
                 'fund_id' => $line['fund_id'] ?? null,

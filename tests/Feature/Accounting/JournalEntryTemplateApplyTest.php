@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryTemplate;
+use App\Models\TaxCode;
 use App\Models\User;
 use App\Services\Posting\JournalPoster;
 use Livewire\Livewire;
@@ -108,4 +109,16 @@ it('saves the current lines as a template', function () {
     expect($template->lines)->toHaveCount(2)
         ->and($template->lines->firstWhere('line_order', 0)->debit_cents)->toBe(30000)
         ->and($template->lines->firstWhere('line_order', 1)->credit_cents)->toBe(30000);
+});
+
+it('fills each applied line tax code from the account default', function () {
+    // Templates carry no tax code of their own; applying one behaves like
+    // picking the account by hand, which adopts the account's default tag.
+    $taxCode = TaxCode::query()->where('is_active', true)->orderBy('code')->firstOrFail();
+    $this->income->update(['default_tax_code_id' => $taxCode->id]);
+
+    Livewire::test('pages::journal.form', ['company' => $this->company])
+        ->set('template_id', $this->template->id)
+        ->assertSet('lines.1.tax_code_id', $taxCode->id)
+        ->assertSet('lines.0.tax_code_id', $this->bank->default_tax_code_id);
 });

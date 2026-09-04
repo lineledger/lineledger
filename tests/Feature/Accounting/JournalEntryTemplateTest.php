@@ -111,3 +111,57 @@ it('saves a template through the management form', function () {
         ->and($template->lines->firstWhere('line_order', 0)->debit_cents)->toBe(25000)
         ->and($template->lines->firstWhere('line_order', 1)->credit_cents)->toBe(25000);
 });
+
+it('accepts amounts typed without a leading zero and balances them', function () {
+    $component = Livewire::test('pages::journal-entry-templates.form', ['company' => $this->company])
+        ->set('name', 'Bare cents')
+        ->set('lines.0.account_id', $this->bank->id)
+        ->set('lines.0.debit', '1.05')
+        ->set('lines.1.account_id', $this->income->id)
+        ->set('lines.1.credit', '1')
+        ->call('addLine')
+        ->set('lines.2.account_id', $this->income->id)
+        ->set('lines.2.credit', '.05');
+
+    expect($component->get('totalCreditsCents'))->toBe(105);
+
+    $component->assertSee('Balanced')
+        ->assertDontSee('Off by')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $template = JournalEntryTemplate::query()->where('name', 'Bare cents')->firstOrFail();
+    expect($template->lines->firstWhere('line_order', 2)->credit_cents)->toBe(5);
+});
+
+it('stores blank optional selects as null rather than an empty string', function () {
+    // A flux:select's "—" option submits '' — MySQL strict mode rejects '' for
+    // an integer column, so the action must normalize it to null.
+    Livewire::test('pages::journal-entry-templates.form', ['company' => $this->company])
+        ->set('name', 'Blank selects')
+        ->set('lines.0.account_id', $this->bank->id)
+        ->set('lines.0.debit', '10.00')
+        ->set('lines.0.class_id', '')
+        ->set('lines.0.location_id', '')
+        ->set('lines.0.fund_id', '')
+        ->set('lines.1.account_id', '')
+        ->set('lines.1.credit', '10.00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $template = JournalEntryTemplate::query()->where('name', 'Blank selects')->firstOrFail();
+    $first = $template->lines->firstWhere('line_order', 0);
+    $second = $template->lines->firstWhere('line_order', 1);
+
+    expect($first->class_id)->toBeNull()
+        ->and($first->location_id)->toBeNull()
+        ->and($first->fund_id)->toBeNull()
+        ->and($second->account_id)->toBeNull()
+        ->and($second->credit_cents)->toBe(1000);
+});
+
+it('does not offer a tax code per template line', function () {
+    Livewire::test('pages::journal-entry-templates.form', ['company' => $this->company])
+        ->assertDontSeeHtml('data-test="line-tax"')
+        ->assertDontSee('Tax code');
+});
