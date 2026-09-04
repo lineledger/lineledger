@@ -10,6 +10,7 @@ use App\Models\Contact;
 use App\Models\CustomerReceipt;
 use App\Models\Deposit;
 use App\Models\Invoice;
+use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Posting\DepositPoster;
 use App\Services\Posting\InvoicePoster;
@@ -215,4 +216,24 @@ it('ignores from= when the source deposit belongs to another company', function 
     Livewire::withQueryParams(['from' => $otherDeposit->id])
         ->test('pages::deposits.form', ['company' => $this->company])
         ->assertCount('otherLines', 0);
+});
+
+it('shows each undeposited receipt\'s payment type after the payer', function () {
+    $method = PaymentMethod::query()->where('is_active', true)->firstOrFail();
+    $this->receipt->update(['payment_method_id' => $method->id]);
+
+    Livewire::test('pages::deposits.form', ['company' => $this->company])
+        ->assertSet('availableReceipts.0.receipt_id', $this->receipt->id)
+        ->assertSet('availableReceipts.0.payment_method', $method->name)
+        ->assertSee('Payment type')
+        ->assertSeeHtml('data-test="receipt-pick-method"')
+        ->assertSee($method->name);
+});
+
+it('shows a dash when an undeposited receipt has no payment type', function () {
+    $this->receipt->update(['payment_method_id' => null]);
+
+    Livewire::test('pages::deposits.form', ['company' => $this->company])
+        ->assertSet('availableReceipts.0.payment_method', null)
+        ->assertSeeHtml('data-test="receipt-pick-method">—<');
 });

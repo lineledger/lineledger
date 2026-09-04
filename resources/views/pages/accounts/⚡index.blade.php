@@ -958,14 +958,17 @@ new #[Title('Chart of Accounts')] class extends Component {
                                     $account = $row['account'];
                                     $depth = $row['depth'];
                                     $rollup = $this->rollups[$account->id] ?? null;
+                                    $ledgerUrl = route('reports.general-ledger', ['company' => $company->slug, 'account' => $account->id]);
                                 @endphp
                                 <tr class="@if(! $account->is_active) opacity-50 @endif" data-test="account-row">
-                                    <td class="px-4 py-2 font-mono" @if ($depth > 0) style="padding-left: {{ 1 + $depth * 1.25 }}rem" @endif>{{ $account->code }}</td>
+                                    <td class="px-4 py-2 font-mono" @if ($depth > 0) style="padding-left: {{ 1 + $depth * 1.25 }}rem" @endif>
+                                        <a href="{{ $ledgerUrl }}" wire:navigate class="hover:underline" title="{{ __('View ledger') }}" data-test="account-ledger-link">{{ $account->code }}</a>
+                                    </td>
                                     <td class="px-4 py-2">
                                         @if ($depth > 0)
                                             <span class="me-1 text-muted-foreground" aria-hidden="true">&rsaquo;</span>
                                         @endif
-                                        {{ $account->name }}
+                                        <a href="{{ $ledgerUrl }}" wire:navigate class="hover:underline" title="{{ __('View ledger') }}">{{ $account->name }}</a>
                                         @if ($account->is_system)
                                             <flux:badge color="zinc" size="sm" class="ms-2">{{ __('System') }}</flux:badge>
                                         @endif
@@ -1002,6 +1005,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                                         <flux:dropdown align="end">
                                             <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
                                             <flux:menu>
+                                                <flux:menu.item icon="document-text" :href="$ledgerUrl" wire:navigate>{{ __('View ledger') }}</flux:menu.item>
                                                 <flux:menu.item icon="pencil" wire:click="openEdit({{ $account->id }})" data-test="account-edit">{{ __('Edit') }}</flux:menu.item>
                                                 @unless ($account->is_system)
                                                     <flux:menu.item icon="{{ $account->is_active ? 'eye-slash' : 'eye' }}" wire:click="toggleActive({{ $account->id }})">

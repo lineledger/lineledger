@@ -299,3 +299,17 @@ it('requires unique code per company', function () {
 
     app()->forgetInstance('current_company');
 });
+
+it('links each account code and name to its General Ledger report', function () {
+    $company = Company::factory()->create();
+    app()->instance('current_company', $company);
+
+    $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->first();
+    $ledgerUrl = route('reports.general-ledger', ['company' => $company->slug, 'account' => $bank->id]);
+
+    Livewire::test('pages::accounts.index', ['company' => $company])
+        ->assertSeeHtml('data-test="account-ledger-link"')
+        ->assertSeeHtml('href="'.$ledgerUrl.'"')
+        ->assertSeeHtml('>'.$bank->code.'</a>')
+        ->assertSeeHtml('>'.e($bank->name).'</a>');
+});

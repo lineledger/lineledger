@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\ReportCalculator;
 use App\Services\Reporting\XlsxExporter;
+use App\Support\Reporting\ReportDatePresets;
 use Carbon\CarbonImmutable;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -44,8 +45,13 @@ new #[Title('General Ledger')] class extends Component
     {
         $this->company = $company;
 
+        // Default to fiscal-year-to-date: the opening balance shows what carried
+        // in, and the postings explain how the current balance built up.
         if ($this->startDate === '') {
-            $this->startDate = $this->company->currentDateTime()->startOfMonth()->toDateString();
+            $this->startDate = ReportDatePresets::fiscalYearStart(
+                $this->company->currentDateTime(),
+                (int) ($this->company->fiscal_year_start_month ?: 1),
+            )->toDateString();
         }
 
         if ($this->endDate === '') {

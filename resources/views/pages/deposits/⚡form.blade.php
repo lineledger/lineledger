@@ -161,7 +161,7 @@ new #[Title('Make deposit')] class extends Component
             : [];
 
         CustomerReceipt::query()
-            ->with('contact')
+            ->with(['contact', 'paymentMethod'])
             ->where('deposit_to_account_id', $undep->id)
             ->where('status', 'posted')
             ->whereNotIn('id', $depositedIds('customer_receipt_id'))
@@ -173,6 +173,7 @@ new #[Title('Make deposit')] class extends Component
                 'date' => $r->receipt_date->toDateString(),
                 'receipt_no' => $r->receipt_no,
                 'contact' => $r->contact?->display_name ?? '—',
+                'payment_method' => $r->paymentMethod?->name,
                 'reference' => $r->reference,
                 'amount' => (int) $r->amount_cents,
                 'included' => $this->deposit ? in_array($r->id, $currentCustomerIds, true) : true,
@@ -184,7 +185,7 @@ new #[Title('Make deposit')] class extends Component
             : [];
 
         SalesReceipt::query()
-            ->with('contact')
+            ->with(['contact', 'paymentMethod'])
             ->where('deposit_to_account_id', $undep->id)
             ->where('status', 'posted')
             ->whereNotIn('id', $depositedIds('sales_receipt_id'))
@@ -196,6 +197,7 @@ new #[Title('Make deposit')] class extends Component
                 'date' => $r->receipt_date->toDateString(),
                 'receipt_no' => $r->sales_receipt_no,
                 'contact' => $r->contact?->display_name ?? __('Cash sale'),
+                'payment_method' => $r->paymentMethod?->name,
                 'reference' => $r->reference,
                 'amount' => (int) $r->total_cents,
                 'included' => $this->deposit ? in_array($r->id, $currentSalesIds, true) : true,
@@ -479,6 +481,7 @@ new #[Title('Make deposit')] class extends Component
                                 <th class="px-3 py-2 text-left">{{ __('Date') }}</th>
                                 <th class="px-3 py-2 text-left">{{ __('Receipt #') }}</th>
                                 <th class="px-3 py-2 text-left">{{ __('From') }}</th>
+                                <th class="px-3 py-2 text-left">{{ __('Payment type') }}</th>
                                 <th class="px-3 py-2 text-left">{{ __('Ref') }}</th>
                                 <th class="px-3 py-2 text-right">{{ __('Amount') }}</th>
                             </tr>
@@ -490,6 +493,7 @@ new #[Title('Make deposit')] class extends Component
                                     <td class="px-3 py-2 whitespace-nowrap">{{ $r['date'] }}</td>
                                     <td class="px-3 py-2 font-mono">{{ $r['receipt_no'] }}</td>
                                     <td class="px-3 py-2">{{ $r['contact'] }}</td>
+                                    <td class="px-3 py-2 text-muted-foreground" data-test="receipt-pick-method">{{ $r['payment_method'] ?? '—' }}</td>
                                     <td class="px-3 py-2 text-muted-foreground">{{ $r['reference'] }}</td>
                                     <td class="px-3 py-2 text-right font-mono">{{ number_format($r['amount'] / 100, 2) }}</td>
                                 </tr>
