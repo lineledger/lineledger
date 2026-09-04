@@ -93,6 +93,7 @@ throttle runs *before* key authentication, so requests with bad keys are limited
 | Content type | `application/json` for both request and response |
 | Money | All money fields are **integer cents** (e.g. `total_cents: 10500` = $105.00). Never floats. |
 | Quantities | Strings, up to 4 decimal places (e.g. `"quantity": "1.5"`). |
+| Negative lines | `unit_price_cents` may be **negative** on an invoice line to record a discount or credit against the invoice (e.g. a member discount posted to a contra-revenue account). `quantity` stays positive — the sign lives on the price. The invoice **total must stay above zero**; a net credit is a credit memo, not an invoice. |
 | Dates | ISO `YYYY-MM-DD`. |
 | Timestamps | ISO 8601 in the response. |
 | Single resource | `{ "data": { … } }`. |
@@ -346,6 +347,8 @@ Common causes:
 - `applications.*.invoice_id` doesn't belong to the same `contact_id`, or is in
   `draft` / `void` / `paid`.
 - Sum of `applications[].amount_cents` exceeds `amount_cents`.
+- Invoice lines that net to zero or to a credit (`lines`: `"The invoice total must
+  be greater than zero. Use a credit memo for a net credit."`).
 
 ### Posting (`422`, no `errors` key)
 

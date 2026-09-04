@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\Invoice;
+use App\Models\JournalLine;
 use App\Models\TaxCode;
 
 beforeEach(function () {
@@ -148,4 +149,66 @@ it('rejects a duplicate invoice_no', function () {
     $this->postJson('/api/v1/invoices', $payload, ['Authorization' => "Bearer {$this->plain}"])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['invoice_no']);
+});
+
+it('accepts a negative line and posts it as a debit to its account', function () {
+    // The seeded chart has two income accounts (Sales, Services); use the
+    // second as the contra-revenue "discount" account for this invoice.
+    app()->instance('current_company', $this->company);
+    $discounts = Account::query()
+        ->where('subtype', AccountSubtype::Income->value)
+        ->where('id', '!=', $this->income->id)
+        ->firstOrFail();
+    app()->forgetInstance('current_company');
+
+    $response = $this->postJson('/api/v1/invoices', [
+        'contact_id' => $this->customer->id,
+        'invoice_date' => '2026-09-04',
+        'lines' => [
+            ['description' => 'Simple Cremation', 'quantity' => '1', 'unit_price_cents' => 101151, 'account_id' => $this->income->id],
+            ['description' => 'Less Discount for Members of Memorial Society of BC (10%)', 'quantity' => '1', 'unit_price_cents' => -10115, 'account_id' => $discounts->id],
+        ],
+    ], ['Authorization' => "Bearer {$this->plain}"]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.status', 'posted')
+        ->assertJsonPath('data.total_cents', 91036)
+        ->assertJsonPath('data.lines.1.line_total_cents', -10115);
+
+    $invoice = Invoice::query()->withoutGlobalScopes()->firstOrFail();
+    $lines = JournalLine::query()->withoutGlobalScopes()->where('journal_entry_id', $invoice->journal_entry_id)->get();
+
+    $discount = $lines->firstWhere('account_id', $discounts->id);
+    expect((int) $discount->debit_cents)->toBe(10115);
+    expect((int) $discount->credit_cents)->toBe(0);
+    expect((int) $lines->firstWhere('account_id', $this->income->id)->credit_cents)->toBe(101151);
+    expect((int) $lines->sum('debit_cents'))->toBe((int) $lines->sum('credit_cents'));
+});
+
+it('rejects an invoice whose lines net to a credit', function () {
+    $this->postJson('/api/v1/invoices', [
+        'contact_id' => $this->customer->id,
+        'invoice_date' => '2026-09-04',
+        'lines' => [
+            ['quantity' => '1', 'unit_price_cents' => 1000, 'account_id' => $this->income->id],
+            ['quantity' => '1', 'unit_price_cents' => -1500, 'account_id' => $this->income->id],
+        ],
+    ], ['Authorization' => "Bearer {$this->plain}"])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['lines' => 'The invoice total must be greater than zero. Use a credit memo for a net credit.']);
+
+    expect(Invoice::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('rejects an invoice whose lines net to exactly zero', function () {
+    $this->postJson('/api/v1/invoices', [
+        'contact_id' => $this->customer->id,
+        'invoice_date' => '2026-09-04',
+        'lines' => [
+            ['quantity' => '2', 'unit_price_cents' => 500, 'account_id' => $this->income->id],
+            ['quantity' => '1', 'unit_price_cents' => -1000, 'account_id' => $this->income->id],
+        ],
+    ], ['Authorization' => "Bearer {$this->plain}"])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['lines']);
 });

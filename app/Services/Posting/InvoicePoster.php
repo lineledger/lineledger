@@ -363,15 +363,22 @@ class InvoicePoster
         $this->applyRoundingPlug($legs, $arHome + $discountHome);
 
         foreach ($legs as $leg) {
+            // A leg that nets negative (a discount or credit line on a
+            // contra-revenue account) is a DEBIT to that account, never a
+            // negative credit.
+            $isDebit = $leg['home'] < 0;
+
             $entry->lines()->create([
                 'account_id' => $leg['account_id'],
-                'debit_cents' => 0,
-                'credit_cents' => $leg['home'],
+                'debit_cents' => $isDebit ? -$leg['home'] : 0,
+                'credit_cents' => $isDebit ? 0 : $leg['home'],
                 'memo' => $leg['memo'],
                 'line_order' => $order++,
                 'class_id' => $leg['class_id'],
                 'location_id' => $leg['location_id'],
-                ...Currency::lineMemo($currency, $rate, 0, $leg['foreign']),
+                ...($isDebit
+                    ? Currency::lineMemo($currency, $rate, -$leg['foreign'], 0)
+                    : Currency::lineMemo($currency, $rate, 0, $leg['foreign'])),
             ]);
         }
 

@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **API: negative invoice lines** — `POST`/`PATCH /api/v1/invoices` now accept a
+  negative `unit_price_cents` on a line (a discount or credit against the
+  invoice), matching what the web form already allowed. The invoice total must
+  still be greater than zero; a net credit is refused with a validation error
+  pointing to credit memos instead of the poster's generic "zero total" failure.
+- **Posting: negative revenue legs post as debits** — an invoice line that nets
+  negative on its account (a discount line on a contra-revenue account) now
+  writes a **debit** to that account rather than a negative credit. Applies to
+  both first-time posts and reposts, and to invoices entered through the web
+  form or the API.
+
 ## [1.0.0] - 2026-08-15
 
 First public release of LineLedger — free, open-source double-entry accounting

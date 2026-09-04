@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\Invoice;
+use App\Models\JournalLine;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -151,4 +152,50 @@ it('allows writes with a sales:write key', function () {
 
     $this->postJson('/api/v1/invoices', invoicePayload(), ['Authorization' => "Bearer {$writePlain}"])
         ->assertStatus(201);
+});
+
+it('reposts a negative line added via update as a debit to its account', function () {
+    $id = $this->postJson('/api/v1/invoices', invoicePayload(), authHeader())->json('data.id');
+
+    app()->instance('current_company', $this->company);
+    $discounts = Account::query()
+        ->where('subtype', AccountSubtype::Income->value)
+        ->where('id', '!=', $this->income->id)
+        ->firstOrFail();
+    app()->forgetInstance('current_company');
+
+    $this->patchJson("/api/v1/invoices/{$id}", invoicePayload([
+        'lines' => [
+            ['quantity' => '1', 'unit_price_cents' => 101151, 'account_id' => $this->income->id],
+            ['quantity' => '1', 'unit_price_cents' => -10115, 'account_id' => $discounts->id],
+        ],
+    ]), authHeader())
+        ->assertStatus(200)
+        ->assertJsonPath('data.total_cents', 91036)
+        ->assertJsonPath('data.status', 'posted');
+
+    $invoice = Invoice::query()->withoutGlobalScopes()->findOrFail($id);
+    $lines = JournalLine::query()->withoutGlobalScopes()->where('journal_entry_id', $invoice->journal_entry_id)->get();
+
+    $discount = $lines->firstWhere('account_id', $discounts->id);
+    expect((int) $discount->debit_cents)->toBe(10115);
+    expect((int) $discount->credit_cents)->toBe(0);
+    expect((int) $lines->firstWhere('account_id', $this->income->id)->credit_cents)->toBe(101151);
+    expect((int) $lines->sum('debit_cents'))->toBe((int) $lines->sum('credit_cents'));
+});
+
+it('rejects an update whose lines net to a credit', function () {
+    $id = $this->postJson('/api/v1/invoices', invoicePayload(), authHeader())->json('data.id');
+
+    $this->patchJson("/api/v1/invoices/{$id}", invoicePayload([
+        'lines' => [
+            ['quantity' => '1', 'unit_price_cents' => 1000, 'account_id' => $this->income->id],
+            ['quantity' => '1', 'unit_price_cents' => -1500, 'account_id' => $this->income->id],
+        ],
+    ]), authHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['lines']);
+
+    // The posted invoice is untouched.
+    expect((int) Invoice::query()->withoutGlobalScopes()->findOrFail($id)->total_cents)->toBe(10000);
 });
