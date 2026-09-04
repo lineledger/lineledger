@@ -2,7 +2,11 @@
 
 use App\Enums\CompanyRole;
 use App\Models\Account;
+use App\Models\Bill;
 use App\Models\Company;
+use App\Models\Contact;
+use App\Models\CreditMemo;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\OpeningBalanceState;
 use App\Models\User;
@@ -107,12 +111,12 @@ it('saves a trial balance cell and applies it to the books immediately', functio
 it('saves a customer balance typed on the receivables grid', function () {
     $company = ($this->companyAs)(CompanyRole::Owner);
     OpeningBalanceState::create(['company_id' => $company->id, 'as_of_date' => '2026-06-30']);
-    $customer = \App\Models\Contact::factory()->customer()->create(['company_id' => $company->id]);
+    $customer = Contact::factory()->customer()->create(['company_id' => $company->id]);
 
     $page = Livewire::test('pages::opening-balances.receivables', ['company' => $company])
         ->set('bal.'.$customer->id, '1,000.00');
 
-    $invoice = \App\Models\Invoice::query()
+    $invoice = Invoice::query()
         ->where('contact_id', $customer->id)
         ->where('is_opening_balance', true)
         ->first();
@@ -126,18 +130,18 @@ it('saves a customer balance typed on the receivables grid', function () {
 
     $page->set('bal.'.$customer->id, '-25.50');
     expect($invoice->fresh()->voided_at)->not->toBeNull();
-    expect((int) \App\Models\CreditMemo::query()->where('contact_id', $customer->id)->whereNull('voided_at')->value('total_cents'))->toBe(2550);
+    expect((int) CreditMemo::query()->where('contact_id', $customer->id)->whereNull('voided_at')->value('total_cents'))->toBe(2550);
 });
 
 it('saves a vendor balance typed on the payables grid', function () {
     $company = ($this->companyAs)(CompanyRole::Owner);
     OpeningBalanceState::create(['company_id' => $company->id, 'as_of_date' => '2026-06-30']);
-    $vendor = \App\Models\Contact::factory()->vendor()->create(['company_id' => $company->id]);
+    $vendor = Contact::factory()->vendor()->create(['company_id' => $company->id]);
 
     Livewire::test('pages::opening-balances.payables', ['company' => $company])
         ->set('bal.'.$vendor->id, '425.00');
 
-    expect((int) \App\Models\Bill::query()->where('contact_id', $vendor->id)->where('is_opening_balance', true)->value('total_cents'))->toBe(42500);
+    expect((int) Bill::query()->where('contact_id', $vendor->id)->where('is_opening_balance', true)->value('total_cents'))->toBe(42500);
 });
 
 it('imports a trial balance CSV through the page and applies it', function () {
