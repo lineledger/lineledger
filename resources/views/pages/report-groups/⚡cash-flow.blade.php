@@ -229,7 +229,11 @@ new #[Title('Combined Cash Flow Statement')] class extends Component {
 
                     <tr class="border-t border-border">
                         <td class="px-4 py-2 font-medium">{{ __('Net cash from') }} {{ __($label) }}</td>
-                        @if ($byCompany)<td colspan="{{ count($companies) }}"></td>@endif
+                        @if ($byCompany)
+                            @foreach ($companies as $c)
+                                <td class="px-4 py-2 text-right font-mono font-medium text-muted-foreground" data-test="cf-total-{{ $key }}-{{ $c['id'] }}">{{ number_format(($this->report['total_'.$key.'_by_company'][$c['id']] ?? 0) / 100, 2) }}</td>
+                            @endforeach
+                        @endif
                         <td class="px-4 py-2 text-right font-mono font-medium" data-test="cf-total-{{ $key }}">{{ number_format($this->report['total_'.$key] / 100, 2) }}</td>
                     </tr>
                 @endforeach
@@ -237,17 +241,30 @@ new #[Title('Combined Cash Flow Statement')] class extends Component {
             <tfoot class="bg-muted">
                 <tr class="text-base">
                     <td class="px-4 py-3 font-semibold">{{ __('Net change in cash') }}</td>
-                    @if ($byCompany)<td colspan="{{ count($companies) }}"></td>@endif
+                    @if ($byCompany)
+                        @foreach ($companies as $c)
+                            @php($companyNetChange = $this->report['net_change_by_company'][$c['id']] ?? 0)
+                            <td class="px-4 py-3 text-right font-mono font-semibold text-muted-foreground @if ($companyNetChange < 0) text-red-600 @endif" data-test="cf-net-change-{{ $c['id'] }}">{{ number_format($companyNetChange / 100, 2) }}</td>
+                        @endforeach
+                    @endif
                     <td class="px-4 py-3 text-right font-mono font-semibold @if ($this->report['net_change'] < 0) text-red-600 @endif" data-test="cf-net-change">{{ number_format($this->report['net_change'] / 100, 2) }}</td>
                 </tr>
                 <tr>
                     <td class="px-4 py-1 pl-4">{{ __('Cash at beginning of period') }}</td>
-                    @if ($byCompany)<td colspan="{{ count($companies) }}"></td>@endif
+                    @if ($byCompany)
+                        @foreach ($companies as $c)
+                            <td class="px-4 py-1 text-right font-mono text-muted-foreground" data-test="cf-cash-beginning-{{ $c['id'] }}">{{ number_format(($this->report['cash_beginning_by_company'][$c['id']] ?? 0) / 100, 2) }}</td>
+                        @endforeach
+                    @endif
                     <td class="px-4 py-1 text-right font-mono">{{ number_format($this->report['cash_beginning'] / 100, 2) }}</td>
                 </tr>
                 <tr>
                     <td class="px-4 py-2 pl-4 font-semibold">{{ __('Cash at end of period') }}</td>
-                    @if ($byCompany)<td colspan="{{ count($companies) }}"></td>@endif
+                    @if ($byCompany)
+                        @foreach ($companies as $c)
+                            <td class="px-4 py-2 text-right font-mono font-semibold text-muted-foreground" data-test="cf-cash-ending-{{ $c['id'] }}">{{ number_format(($this->report['cash_ending_by_company'][$c['id']] ?? 0) / 100, 2) }}</td>
+                        @endforeach
+                    @endif
                     <td class="px-4 py-2 text-right font-mono font-semibold" data-test="cf-cash-ending">{{ number_format($this->report['cash_ending'] / 100, 2) }}</td>
                 </tr>
             </tfoot>
@@ -257,4 +274,11 @@ new #[Title('Combined Cash Flow Statement')] class extends Component {
     @unless ($this->report['reconciles'])
         <flux:text class="mt-3 text-red-600">{{ __('Out of balance — only mapped accounts are included. Difference') }} {{ number_format(abs($this->report['cash_ending'] - ($this->report['cash_beginning'] + $this->report['net_change'])) / 100, 2) }}</flux:text>
     @endunless
+
+    @if ($byCompany)
+        @php($unreconciled = collect($companies)->filter(fn (array $c): bool => ! ($this->report['reconciles_by_company'][$c['id']] ?? true)))
+        @if ($unreconciled->isNotEmpty())
+            <flux:text class="mt-3 text-red-600" data-test="cf-unreconciled-companies">{{ __('Columns that do not reconcile (only mapped accounts are included):') }} {{ $unreconciled->pluck('name')->join(', ') }}</flux:text>
+        @endif
+    @endif
 </section>

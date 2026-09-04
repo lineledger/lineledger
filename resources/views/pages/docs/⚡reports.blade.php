@@ -205,7 +205,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('Move an account to a different activity') }}">
-            {{ __('By default, every balance-sheet account is classified into Operating, Investing, or Financing for the Cash Flow Statement, but you can override that classification per account. Select Move account to activity from any row in the cash-flow sections, pick the activity you want, and the account moves there on every future run of the statement. Income-statement accounts are not eligible — the override applies to balance-sheet accounts only.') }}
+            {{ __('By default, every balance-sheet account is classified into Operating, Investing, or Financing for the Cash Flow Statement, but you can override that classification per account. Select Move account to activity from any row in the cash-flow sections, pick the activity you want, and the account moves there on every future run of the statement. Income-statement accounts are not eligible — the override applies to balance-sheet accounts only. Combined report groups offer the same control per combined line, from the group’s Cash Flow sections page or from the line’s edit dialog on the group’s edit page.') }}
         </x-docs.callout>
 
         <p><strong>{{ __('To move an account to a different cash-flow activity:') }}</strong></p>
@@ -256,7 +256,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
             {{ __('The forecast works on two tracks, so you can tell a near-certainty from an estimate:') }}
         </flux:text>
         <ul class="list-disc ps-6 space-y-1">
-            <li><strong>{{ __('Committed') }}</strong> — {{ __('your cash on hand today, plus each open invoice landing in the period of its due date, minus each open bill on its due date. Anything already overdue is assumed to clear in the first period. This is the high-confidence line, and it is the one that drives the low-cash alert.') }}</li>
+            <li><strong>{{ __('Committed') }}</strong> — {{ __('your book cash today (cheques you have written but that have not cleared are already deducted), plus each open invoice when it is realistically expected, minus each open bill on its due date, plus any post-dated entry already in the ledger — a post-dated cheque or a future-dated bank charge — on the date it is booked. Overdue invoices and bills are assumed to settle in the first period; invoices not yet due are pushed out by how late your customers typically pay, learned from the past year of receipts. A receivable overdue by more than the cut-off you set (90 days unless you change it) is left out and listed separately as doubtful. This is the high-confidence line, and it is the one that drives the low-cash alert.') }}</li>
             <li><strong>{{ __('With run-rate') }}</strong> — {{ __('the committed line plus an estimate of ordinary day-to-day operations, taken from your net operating cash over the last 90 days. Because it already reflects recurring activity, it reads higher when the business has been generating cash and lower when it has been burning it.') }}</li>
         </ul>
 
@@ -265,8 +265,13 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
             <li>{{ __('Open Reports and select Cash Flow Forecast from the Company & Financial group.') }}</li>
             <li>{{ __('Choose Weekly to project the next 13 weeks, or Monthly for the next 6 months.') }}</li>
             <li>{{ __('Optionally type a figure into Low-cash alert at — the balance you never want to drop below. The forecast warns you if the committed balance is projected to fall under it.') }}</li>
-            <li>{{ __('Read the three summary cards — Cash on hand today, Lowest projected balance, and Recent run-rate — then scan the table period by period.') }}</li>
+            <li>{{ __('Optionally change Ignore receivables overdue past — how many days overdue an invoice can be before the forecast stops counting on it.') }}</li>
+            <li>{{ __('Read the three summary cards — Cash on hand today, Lowest projected balance, and Recent run-rate — then scan the table period by period. Hover any Expected in or Expected out figure to see exactly which invoices, bills, and post-dated entries make it up.') }}</li>
         </ol>
+
+        <flux:text>
+            {{ __('The Cash on hand today card also ties your book balance to the bank once you reconcile: it shows the balance cleared at the bank, the payments written but not yet cleared, and any deposits still in transit. That is why an outstanding cheque does not appear again as a future outflow — it has already left your book balance.') }}
+        </flux:text>
 
         <flux:text>
             {{ __('For each period the table shows the cash Expected in, the cash Expected out, the running Committed balance, and that same balance With run-rate. The cards above it call out your current cash, the lowest the committed balance is projected to reach across the whole horizon, and your recent monthly run-rate, labelled as net cash generated or net cash burned.') }}
@@ -398,7 +403,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('1099 Summary (US only)') }}</flux:heading>
         <flux:text>
-            {{ __('For US companies, the 1099 Summary totals what you paid each vendor you flagged for 1099 tracking over a calendar year — counting posted bill payments and cheques, but not refunds. Vendors under the $600 reporting threshold are hidden by default, with a toggle to show everyone. Amounts report as nonemployee compensation (1099-NEC Box 1). Export to CSV, XLSX, or PDF. To use it, flag the vendor and record their Tax ID on the vendor record. The report does not appear for Canadian companies.') }}
+            {{ __('For US companies, the 1099 Summary totals what you paid each vendor you flagged for 1099 tracking over a calendar year — counting posted bill payments, cheques, and pay-now expenses, but not refunds. Vendors under the $600 reporting threshold are hidden by default, with a toggle to show everyone. Amounts report as nonemployee compensation (1099-NEC Box 1). Export to CSV, XLSX, or PDF. To use it, flag the vendor and record their Tax ID on the vendor record. The report does not appear for Canadian companies.') }}
         </flux:text>
 
         {{-- ─────────────────── Sales & purchases analysis ─────────────────── --}}
@@ -494,7 +499,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
         />
 
         <flux:text>
-            {{ __('Inside a group you can rename or retype the combined lines and organize them into custom sections, and turn on per-company columns to see each company’s figures beside the combined total. Combined statements export to CSV and XLSX. A group is a straight roll-up, not a full consolidation — there are no intercompany eliminations, so balances owed between member companies are not removed.') }}
+            {{ __('Inside a group you can rename or retype the combined lines and organize them into custom sections, and turn on per-company columns to see each company’s figures beside the combined total — on the Cash Flow Statement that includes each company’s net cash per activity and its beginning and ending cash. Combined statements export to CSV and XLSX. A group is a straight roll-up, not a full consolidation — there are no intercompany eliminations, so balances owed between member companies are not removed.') }}
         </flux:text>
 
         <x-docs.callout type="note">

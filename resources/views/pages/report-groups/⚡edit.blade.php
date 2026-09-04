@@ -3,11 +3,13 @@
 use App\Actions\Reporting\SeedReportGroupMappings;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\CashFlowActivity;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportGroup;
 use App\Models\ReportGroupAccountMap;
 use App\Models\ReportGroupLine;
+use App\Support\Reporting\CashFlowBucket;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +30,8 @@ new #[Title('Edit combined report group')] class extends Component {
     public string $f_line_type = 'asset';
 
     public string $f_line_subtype = '';
+
+    public string $f_line_cash_flow_activity = '';
 
     public ?int $addCompanyId = null;
 
@@ -96,7 +100,7 @@ new #[Title('Edit combined report group')] class extends Component {
 
     public function openNewLine(): void
     {
-        $this->reset(['editingLineId', 'f_line_name', 'f_line_subtype']);
+        $this->reset(['editingLineId', 'f_line_name', 'f_line_subtype', 'f_line_cash_flow_activity']);
         $this->f_line_type = 'asset';
         Flux::modal('line-form')->show();
     }
@@ -108,6 +112,7 @@ new #[Title('Edit combined report group')] class extends Component {
         $this->f_line_name = $line->name;
         $this->f_line_type = $line->type->value;
         $this->f_line_subtype = $line->subtype?->value ?? '';
+        $this->f_line_cash_flow_activity = $line->cash_flow_activity?->value ?? '';
         Flux::modal('line-form')->show();
     }
 
@@ -117,12 +122,19 @@ new #[Title('Edit combined report group')] class extends Component {
             'f_line_name' => ['required', 'string', 'max:255'],
             'f_line_type' => ['required', \Illuminate\Validation\Rule::enum(AccountType::class)],
             'f_line_subtype' => ['nullable', \Illuminate\Validation\Rule::enum(AccountSubtype::class)],
+            'f_line_cash_flow_activity' => ['nullable', \Illuminate\Validation\Rule::enum(CashFlowActivity::class)],
         ]);
+
+        $type = AccountType::from($validated['f_line_type']);
+        $subtype = $validated['f_line_subtype'] ? AccountSubtype::from($validated['f_line_subtype']) : null;
 
         $payload = [
             'name' => $validated['f_line_name'],
-            'type' => $validated['f_line_type'],
-            'subtype' => $validated['f_line_subtype'] ?: null,
+            'type' => $type,
+            'subtype' => $subtype,
+            // Only balance-sheet lines carry an override, and restating the default
+            // stores nothing — so a stored value always means a real re-route.
+            'cash_flow_activity' => CashFlowBucket::normalizeOverride($type, $subtype, $validated['f_line_cash_flow_activity'] ?: null),
             'is_passthrough' => false,
         ];
 
@@ -153,6 +165,9 @@ new #[Title('Edit combined report group')] class extends Component {
                 'name' => $account?->name ?? __('Account'),
                 'type' => $account?->type ?? $line->type,
                 'subtype' => $account?->subtype,
+                // A passthrough line stands in for one account, so it keeps that
+                // account's own cash-flow activity override.
+                'cash_flow_activity' => $account?->cash_flow_activity,
                 'sort_order' => $sort++,
                 'is_passthrough' => true,
             ]);
@@ -290,7 +305,7 @@ new #[Title('Edit combined report group')] class extends Component {
                 <flux:button size="sm" icon="plus" wire:click="openNewLine" data-test="new-line-button">{{ __('New line') }}</flux:button>
             </div>
 
-            <flux:text class="mb-3 text-xs text-muted-foreground">{{ __('Lines drive the Income Statement and Balance Sheet. The Trial Balance always lists individual accounts.') }}</flux:text>
+            <flux:text class="mb-3 text-xs text-muted-foreground">{{ __('Lines drive the Income Statement, Balance Sheet, and Cash Flow Statement. The Trial Balance always lists individual accounts.') }}</flux:text>
 
             <div class="space-y-3">
                 @forelse ($this->lines as $line)
@@ -302,6 +317,11 @@ new #[Title('Edit combined report group')] class extends Component {
                                 <flux:badge size="sm" color="zinc">{{ $line->type->label() }}</flux:badge>
                                 @if ($line->subtype)
                                     <flux:badge size="sm" color="zinc">{{ $line->subtype->label() }}</flux:badge>
+                                @endif
+                                @if ($line->cash_flow_activity)
+                                    <flux:tooltip :content="__('Shown under this activity on the combined Cash Flow Statement instead of the default for its type.')">
+                                        <flux:badge size="sm" color="sky" data-test="line-cash-flow-badge">{{ __('Cash flow:') }} {{ __($line->cash_flow_activity->label()) }}</flux:badge>
+                                    </flux:tooltip>
                                 @endif
                                 @if ($accountTypes->count() > 1)
                                     <flux:tooltip :content="__('Mapped accounts have mixed types — double-check the sign.')">
@@ -356,6 +376,12 @@ new #[Title('Edit combined report group')] class extends Component {
                 <flux:select.option value="">{{ __('—') }}</flux:select.option>
                 @foreach (AccountSubtype::cases() as $subtype)
                     <flux:select.option :value="$subtype->value">{{ $subtype->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <flux:select wire:model="f_line_cash_flow_activity" :label="__('Cash flow activity')" :description="__('Override which activity this line appears under on the combined Cash Flow Statement. Only applies to balance-sheet lines.')" data-test="line-cash-flow-activity-select">
+                <flux:select.option value="">{{ __('Auto (classify by type)') }}</flux:select.option>
+                @foreach (CashFlowActivity::cases() as $activity)
+                    <flux:select.option :value="$activity->value">{{ __($activity->label()) }}</flux:select.option>
                 @endforeach
             </flux:select>
             <div class="flex justify-end gap-2">

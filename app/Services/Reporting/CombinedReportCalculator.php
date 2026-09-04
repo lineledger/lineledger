@@ -238,13 +238,23 @@ class CombinedReportCalculator
      * bank balance movement OVER THE MAPPED ACCOUNTS — like the balance sheet, an
      * incomplete mapping can leave it out of balance, which the view flags.
      *
+     * Every scalar has a `*_by_company` sibling (company id => value) so the
+     * per-company columns can show the same subtotals as the Combined column.
+     * The maps are seeded with a 0 for every member company, so a company that
+     * contributes nothing still has a key.
+     *
      * @return array{
      *   operating: array<int, array<string, mixed>>,
      *   investing: array<int, array<string, mixed>>,
      *   financing: array<int, array<string, mixed>>,
      *   net_income: int, net_income_by_company: array<int, int>,
-     *   total_operating: int, total_investing: int, total_financing: int,
-     *   net_change: int, cash_beginning: int, cash_ending: int, reconciles: bool,
+     *   total_operating: int, total_operating_by_company: array<int, int>,
+     *   total_investing: int, total_investing_by_company: array<int, int>,
+     *   total_financing: int, total_financing_by_company: array<int, int>,
+     *   net_change: int, net_change_by_company: array<int, int>,
+     *   cash_beginning: int, cash_beginning_by_company: array<int, int>,
+     *   cash_ending: int, cash_ending_by_company: array<int, int>,
+     *   reconciles: bool, reconciles_by_company: array<int, bool>,
      *   companies: array<int, array{id: int, name: string}>,
      * }
      */
@@ -252,26 +262,33 @@ class CombinedReportCalculator
     {
         $accounts = $this->mappedAccounts($group);
         $sections = $this->sectionsByGroupKey($group, ReportStatement::CashFlow);
+        $companyIds = $this->companies($group)->keys()->all();
+        $zeroed = array_fill_keys($companyIds, 0);
 
         $buckets = ['operating' => [], 'investing' => [], 'financing' => []];
         $activityTotals = ['operating' => 0, 'investing' => 0, 'financing' => 0];
+        $activityTotalsByCompany = ['operating' => $zeroed, 'investing' => $zeroed, 'financing' => $zeroed];
 
         $cashBeginning = 0;
         $cashEnding = 0;
+        $cashBeginningByCompany = $zeroed;
+        $cashEndingByCompany = $zeroed;
 
         foreach ($this->orderedLines($group) as $line) {
             // Bank lines are the cash being explained — accumulate their balances
             // (asset/debit-normal, so natural equals raw) and skip as an activity.
             if ($line->subtype === AccountSubtype::Bank) {
-                [$begin] = $this->sumLine($line, $accounts, fn (Account $a) => $this->calc->rawBalanceAsOf($a, $start->copy()->subDay()));
-                [$close] = $this->sumLine($line, $accounts, fn (Account $a) => $this->calc->rawBalanceAsOf($a, $end));
+                [$begin, $beginByCompany] = $this->sumLine($line, $accounts, fn (Account $a) => $this->calc->rawBalanceAsOf($a, $start->copy()->subDay()));
+                [$close, $closeByCompany] = $this->sumLine($line, $accounts, fn (Account $a) => $this->calc->rawBalanceAsOf($a, $end));
                 $cashBeginning += $begin;
                 $cashEnding += $close;
+                $cashBeginningByCompany = $this->addByCompany($cashBeginningByCompany, $beginByCompany);
+                $cashEndingByCompany = $this->addByCompany($cashEndingByCompany, $closeByCompany);
 
                 continue;
             }
 
-            $activity = CashFlowBucket::forValues($line->type, $line->subtype);
+            $activity = CashFlowBucket::forLine($line);
 
             if ($activity === null) {
                 continue;
@@ -296,13 +313,14 @@ class CombinedReportCalculator
             ];
 
             $activityTotals[$activity] += $current;
+            $activityTotalsByCompany[$activity] = $this->addByCompany($activityTotalsByCompany[$activity], $byCompany);
         }
 
         // Net income (total + per company) is taken from the combined income
         // statement so the cash-flow figure always matches it.
         $is = $this->incomeStatement($group, $start, $end);
         $netIncome = $is['net_income'];
-        $netIncomeByCompany = $this->netIncomeByCompany($is);
+        $netIncomeByCompany = $this->addByCompany($zeroed, $this->netIncomeByCompany($is));
 
         $partition = fn (string $key): array => CombinedSectionPartitioner::partition(
             $sections[$key] ?? collect(),
@@ -311,7 +329,21 @@ class CombinedReportCalculator
         );
 
         $totalOperating = $netIncome + $activityTotals['operating'];
+        $totalOperatingByCompany = $this->addByCompany($netIncomeByCompany, $activityTotalsByCompany['operating']);
+
         $netChange = $totalOperating + $activityTotals['investing'] + $activityTotals['financing'];
+        $netChangeByCompany = $this->addByCompany(
+            $this->addByCompany($totalOperatingByCompany, $activityTotalsByCompany['investing']),
+            $activityTotalsByCompany['financing'],
+        );
+
+        // A company's column foots only when all of its cash-moving accounts are
+        // mapped; the combined flag can be true while a column is not (offsetting
+        // unmapped movements), so the per-company flags are reported separately.
+        $reconcilesByCompany = [];
+        foreach ($companyIds as $companyId) {
+            $reconcilesByCompany[$companyId] = $cashEndingByCompany[$companyId] === $cashBeginningByCompany[$companyId] + $netChangeByCompany[$companyId];
+        }
 
         return [
             'operating' => $partition('operating'),
@@ -320,12 +352,19 @@ class CombinedReportCalculator
             'net_income' => $netIncome,
             'net_income_by_company' => $netIncomeByCompany,
             'total_operating' => $totalOperating,
+            'total_operating_by_company' => $totalOperatingByCompany,
             'total_investing' => $activityTotals['investing'],
+            'total_investing_by_company' => $activityTotalsByCompany['investing'],
             'total_financing' => $activityTotals['financing'],
+            'total_financing_by_company' => $activityTotalsByCompany['financing'],
             'net_change' => $netChange,
+            'net_change_by_company' => $netChangeByCompany,
             'cash_beginning' => $cashBeginning,
+            'cash_beginning_by_company' => $cashBeginningByCompany,
             'cash_ending' => $cashEnding,
+            'cash_ending_by_company' => $cashEndingByCompany,
             'reconciles' => $cashBeginning + $netChange === $cashEnding,
+            'reconciles_by_company' => $reconcilesByCompany,
             'companies' => $this->companyColumns($group),
         ];
     }
@@ -344,14 +383,31 @@ class CombinedReportCalculator
         foreach (['income' => 1, 'cogs' => -1, 'expense' => -1] as $key => $sign) {
             foreach ($incomeStatement[$key] as $block) {
                 foreach ($block['rows'] as $row) {
-                    foreach ($row['by_company'] as $companyId => $value) {
-                        $byCompany[$companyId] = ($byCompany[$companyId] ?? 0) + $sign * $value;
-                    }
+                    $byCompany = $this->addByCompany(
+                        $byCompany,
+                        array_map(fn (int $value): int => $sign * $value, $row['by_company']),
+                    );
                 }
             }
         }
 
         return $byCompany;
+    }
+
+    /**
+     * Add one per-company map into another, keeping every key from both.
+     *
+     * @param  array<int, int>  $into
+     * @param  array<int, int>  $add
+     * @return array<int, int>
+     */
+    protected function addByCompany(array $into, array $add): array
+    {
+        foreach ($add as $companyId => $value) {
+            $into[$companyId] = ($into[$companyId] ?? 0) + $value;
+        }
+
+        return $into;
     }
 
     /**
@@ -653,9 +709,7 @@ class CombinedReportCalculator
 
             $byCompany = [];
             foreach ($blocks as $block) {
-                foreach ($block['by_company'] as $companyId => $value) {
-                    $byCompany[$companyId] = ($byCompany[$companyId] ?? 0) + $value;
-                }
+                $byCompany = $this->addByCompany($byCompany, $block['by_company']);
             }
 
             $out[$groupKey] = [

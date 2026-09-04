@@ -1185,8 +1185,8 @@ class XlsxExporter
 
     /**
      * Combined indirect cash flow statement. Operating leads with Net income (per
-     * company when broken out); activity totals and net change are live formulas.
-     * Cash at beginning/end show in the Combined column only.
+     * company when broken out); activity totals, net change and cash at end are
+     * live formulas per column, so each company column foots on its own.
      *
      * @param  array<string, mixed>  $report
      */
@@ -1287,34 +1287,23 @@ class XlsxExporter
             $netChangeRow = $rowIndex;
             $this->writeCombinedFormulaRow($writer, 'NET CHANGE IN CASH', $valueColumns, fn (string $letter): string => sprintf('=%s%d+%s%d+%s%d', $letter, $activityTotalRows['operating'], $letter, $activityTotalRows['investing'], $letter, $activityTotalRows['financing']), self::TOTAL_FILL);
 
-            // Beginning/end cash only carry a Combined figure (per-company cash splits
-            // are not computed); other columns stay blank.
-            $combinedColumn = end($valueColumns)['column'];
-            $combinedLetter = $this->columnLetter($combinedColumn);
-
+            // Beginning cash is a value per column (Combined + each company); end
+            // cash is beginning + net change, per column, so every column foots.
             $labelStyle = $this->makeStyle(alignment: CellAlignment::RIGHT);
 
             $rowIndex++;
             $beginRow = $rowIndex;
             $beginCells = [Cell::fromValue('Cash at beginning of period', $labelStyle)];
             foreach ($valueColumns as $col) {
-                $beginCells[] = $col['key'] === 'combined'
-                    ? Cell::fromValue($report['cash_beginning'] / 100, $moneyStyle)
-                    : Cell::fromValue('');
+                $value = $col['key'] === 'combined'
+                    ? $report['cash_beginning']
+                    : ($report['cash_beginning_by_company'][$col['key']] ?? 0);
+                $beginCells[] = Cell::fromValue($value / 100, $moneyStyle);
             }
             $writer->addRow(new Row($beginCells));
 
             $rowIndex++;
-            $endLabelStyle = $this->makeStyle(bold: true, backgroundColor: self::TOTAL_FILL, alignment: CellAlignment::RIGHT);
-            $endMoneyStyle = $this->makeStyle(bold: true, backgroundColor: self::TOTAL_FILL, format: self::MONEY_FORMAT);
-            $endBlank = $this->makeStyle(backgroundColor: self::TOTAL_FILL);
-            $endCells = [Cell::fromValue('Cash at end of period', $endLabelStyle)];
-            foreach ($valueColumns as $col) {
-                $endCells[] = $col['key'] === 'combined'
-                    ? Cell::fromValue(sprintf('=%s%d+%s%d', $combinedLetter, $beginRow, $combinedLetter, $netChangeRow), $endMoneyStyle)
-                    : Cell::fromValue('', $endBlank);
-            }
-            $writer->addRow(new Row($endCells));
+            $this->writeCombinedFormulaRow($writer, 'Cash at end of period', $valueColumns, fn (string $letter): string => sprintf('=%s%d+%s%d', $letter, $beginRow, $letter, $netChangeRow), self::TOTAL_FILL);
         });
     }
 

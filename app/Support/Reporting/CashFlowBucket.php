@@ -6,6 +6,7 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\CashFlowActivity;
 use App\Models\Account;
+use App\Models\ReportGroupLine;
 use App\Models\ReportGroupSection;
 use App\Models\ReportSection;
 
@@ -14,6 +15,10 @@ use App\Models\ReportSection;
  * line) belongs to on the indirect Statement of Cash Flows. Shared by the report,
  * the section config pages, and the {@see ReportSection::accepts()} /
  * {@see ReportGroupSection::accepts()} validation so they never disagree.
+ *
+ * Both an {@see Account} and a combined {@see ReportGroupLine} may carry a
+ * per-row `cash_flow_activity` override; {@see for()} and {@see forLine()} apply
+ * it under the same rule.
  *
  * Returns null for accounts that are NOT presented as their own activity line:
  *   - Bank (cash itself — it's what the statement explains)
@@ -48,8 +53,47 @@ class CashFlowBucket
     }
 
     /**
-     * Activity from a bare type/subtype pair — used for combined report lines, which
-     * carry the same type/subtype enums as accounts but aren't Account models.
+     * The activity a combined report-group line is presented under, honoring the
+     * line's own {@see ReportGroupLine::$cash_flow_activity} override under the
+     * same rule as {@see for()}: only a line that already maps to an activity by
+     * type/subtype may be re-routed; Bank and P&L lines stay excluded.
+     *
+     * @return 'operating'|'investing'|'financing'|null
+     */
+    public static function forLine(ReportGroupLine $line): ?string
+    {
+        $default = self::forValues($line->type, $line->subtype);
+
+        if ($default === null) {
+            return null;
+        }
+
+        return $line->cash_flow_activity?->value ?? $default;
+    }
+
+    /**
+     * Normalize a requested override against the type/subtype default: null when
+     * the row has no activity of its own (Bank / P&L), when the value isn't an
+     * activity, or when it merely restates the default — so only real re-routes
+     * are stored and "override set" always means "differs from the default".
+     *
+     * @return 'operating'|'investing'|'financing'|null
+     */
+    public static function normalizeOverride(AccountType $type, ?AccountSubtype $subtype, ?string $activity): ?string
+    {
+        $default = self::forValues($type, $subtype);
+
+        if ($default === null || $activity === null || CashFlowActivity::tryFrom($activity) === null) {
+            return null;
+        }
+
+        return $activity === $default ? null : $activity;
+    }
+
+    /**
+     * Activity from a bare type/subtype pair — the override-blind default, used
+     * wherever the row's own override must be ignored (e.g. deciding whether a
+     * row may carry one at all).
      *
      * @return 'operating'|'investing'|'financing'|null
      */

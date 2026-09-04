@@ -4,7 +4,10 @@
       $groupKey   string
       $sections   Collection<ReportGroupSection> for this group (with `lines`)
       $unassigned Collection<ReportGroupLine> not in any of this group's sections
+      $activities ?array  optional cash-flow activity move options; when present
+                          each row also gets an "Activity" dropdown
 --}}
+@php($activities = $activities ?? null)
 <div class="space-y-3">
     @forelse ($sections as $section)
         <div wire:key="rgs-section-{{ $section->id }}" class="rounded-lg border border-border" data-test="section-card" data-section="{{ $section->id }}">
@@ -19,7 +22,7 @@
             </div>
             <div class="divide-y divide-border">
                 @forelse ($section->lines->sortBy('sort_order') as $line)
-                    @include('partials.reports.group-section-line-row', ['line' => $line, 'sections' => $sections, 'currentTarget' => $section->id])
+                    @include('partials.reports.group-section-line-row', ['line' => $line, 'sections' => $sections, 'currentTarget' => $section->id, 'activities' => $activities])
                 @empty
                     <div class="px-4 py-2 text-sm text-muted-foreground">{{ __('No lines. Assign some below.') }}</div>
                 @endforelse
@@ -33,7 +36,7 @@
         <div class="border-b border-border px-4 py-2 text-sm font-medium text-muted-foreground">{{ __('Unassigned') }}</div>
         <div class="divide-y divide-border">
             @forelse ($unassigned as $line)
-                @include('partials.reports.group-section-line-row', ['line' => $line, 'sections' => $sections, 'currentTarget' => 'unassigned'])
+                @include('partials.reports.group-section-line-row', ['line' => $line, 'sections' => $sections, 'currentTarget' => 'unassigned', 'activities' => $activities])
             @empty
                 <div class="px-4 py-2 text-sm text-muted-foreground">{{ __('All lines are assigned to a section.') }}</div>
             @endforelse

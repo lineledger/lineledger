@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *   - Balance Sheet: the line's AccountSubtype value, or its AccountType value
  *     when the line has no subtype (matches CombinedReportCalculator's bucketing)
  *   - Income Statement: a bucket literal ('income' | 'cogs' | 'expense')
+ *   - Cash Flow: an activity literal ('operating' | 'investing' | 'financing'),
+ *     honoring the line's own cash_flow_activity override
  *
  * Scoped to a ReportGroup (user-owned), not to a company.
  */
@@ -58,7 +60,7 @@ class ReportGroupSection extends Model
         return match ($this->statement) {
             ReportStatement::BalanceSheet => ($line->subtype?->value ?? $line->type->value) === $this->group_key,
             ReportStatement::IncomeStatement => IncomeStatementBucket::forValues($line->type, $line->subtype) === $this->group_key,
-            ReportStatement::CashFlow => CashFlowBucket::forValues($line->type, $line->subtype) === $this->group_key,
+            ReportStatement::CashFlow => CashFlowBucket::forLine($line) === $this->group_key,
         };
     }
 

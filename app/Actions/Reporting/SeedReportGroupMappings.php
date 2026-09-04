@@ -51,13 +51,18 @@ class SeedReportGroupMappings
                     /** @var Account $first */
                     $first = $group_accounts->first();
 
+                    $isPassthrough = $group_accounts->count() === 1;
+
                     $line = ReportGroupLine::create([
                         'report_group_id' => $group->id,
                         'name' => $first->name,
                         'type' => $first->type,
                         'subtype' => $first->subtype,
+                        // A passthrough line stands in for one account, so it keeps
+                        // that account's own cash-flow activity override.
+                        'cash_flow_activity' => $isPassthrough ? $first->cash_flow_activity : null,
                         'sort_order' => $nextSort++,
-                        'is_passthrough' => $group_accounts->count() === 1,
+                        'is_passthrough' => $isPassthrough,
                     ]);
 
                     $lineByCode[$code] = $line;

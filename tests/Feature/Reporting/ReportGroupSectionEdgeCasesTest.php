@@ -2,6 +2,8 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\CashFlowActivity;
+use App\Models\ReportGroupLine;
 
 // Reuses combinedScenario() from CombinedReportsTest.
 
@@ -9,6 +11,40 @@ beforeEach(function () {
     $this->scenario = combinedScenario();
     $this->group = $this->scenario['group'];
     $this->expenseLine = $this->group->lines()->where('name', 'Expenses')->firstOrFail();
+});
+
+it('drops a cash-flow section when a line is re-routed to another activity', function () {
+    $line = ReportGroupLine::create([
+        'report_group_id' => $this->group->id,
+        'name' => 'Equipment',
+        'type' => AccountType::Asset,
+        'subtype' => AccountSubtype::FixedAsset,
+        'sort_order' => 9,
+    ]);
+    $section = $this->group->sections()->create(['statement' => 'cash_flow', 'group_key' => 'investing', 'name' => 'Capital Expenditure', 'sort_order' => 1]);
+    $line->update(['report_group_section_id' => $section->id]);
+
+    // Re-routing the line to Financing leaves it outside its investing section.
+    $line->update(['cash_flow_activity' => CashFlowActivity::Financing]);
+
+    expect($line->fresh()->report_group_section_id)->toBeNull();
+});
+
+it('keeps a balance-sheet section when a line is re-routed to another cash-flow activity', function () {
+    $line = ReportGroupLine::create([
+        'report_group_id' => $this->group->id,
+        'name' => 'Equipment',
+        'type' => AccountType::Asset,
+        'subtype' => AccountSubtype::FixedAsset,
+        'sort_order' => 9,
+    ]);
+    $section = $this->group->sections()->create(['statement' => 'balance_sheet', 'group_key' => AccountSubtype::FixedAsset->value, 'name' => 'Plant', 'sort_order' => 1]);
+    $line->update(['report_group_section_id' => $section->id]);
+
+    // The section is anchored to the subtype, which the activity override does not change.
+    $line->update(['cash_flow_activity' => CashFlowActivity::Financing]);
+
+    expect($line->fresh()->report_group_section_id)->toBe($section->id);
 });
 
 it('drops the section assignment when a line is re-typed out of its anchor', function () {

@@ -11,15 +11,17 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 
 /**
- * Shared behaviour for the two combined report-group section config pages (income
- * statement + balance sheet). The host component supplies the ReportGroup, the
- * statement, and its anchor groups; this trait handles section CRUD, line
- * assignment, and ordering. Authorization (creator-only) is enforced in the host
- * component's mount() via the ReportGroup policy.
+ * Shared behaviour for the three combined report-group section config pages
+ * (income statement, balance sheet, cash flow). The host component supplies the
+ * ReportGroup, the statement, and its anchor groups; this trait handles section
+ * CRUD, line assignment, and ordering. Authorization (creator-only) is enforced in
+ * the host component's mount() via the ReportGroup policy.
  *
  * Anchors: for the balance sheet a group_key is a line's AccountSubtype value (or
  * its AccountType value when it has no subtype); for the income statement it is a
- * bucket ('income' | 'cogs' | 'expense').
+ * bucket ('income' | 'cogs' | 'expense'); for the cash flow statement it is an
+ * activity ('operating' | 'investing' | 'financing'), which the cash-flow host
+ * page can also re-route per line via the line's cash_flow_activity override.
  */
 trait ManagesReportGroupSections
 {
