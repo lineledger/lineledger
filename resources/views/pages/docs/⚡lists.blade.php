@@ -8,7 +8,7 @@ new #[Title('Documentation — Lists')] class extends Component {}; ?>
 <section class="w-full p-6">
     <x-pages::docs.layout
         :heading="__('Lists')"
-        :subheading="__('Items, tax codes, payment terms, payment methods, classes, and locations — the building blocks the rest of the app reuses.')"
+        :subheading="__('Items, tax codes, payment terms, payment methods, other names, classes, and locations — the building blocks the rest of the app reuses.')"
     >
         <flux:text>
             {{ __('Lists hold the reusable pieces that fill in the rest of your bookkeeping: the products you sell, the taxes you charge, when invoices come due, and how money moves. Setting them up well early means cleaner invoices, accurate tax filing, and consistent reports later. Every list lives under Settings → Lists — open Settings from the sidebar, then choose the list you want to edit from the Lists group. Settings → Lists → All lists is a one-stop hub that links to every list with a live record count. Some lists only appear once their feature is switched on under Settings → Organizations. The examples below use our sample business, Demo Company Inc., and the screenshots reflect the Tidewater teal theme the app ships with.') }}
@@ -143,6 +143,23 @@ new #[Title('Documentation — Lists')] class extends Component {}; ?>
             alt="{{ __('The Payment methods list with cash, cheque, credit card, e-transfer, EFT, and wire') }}"
             caption="{{ __('The Payment methods list. The check mark in the Cheque column marks methods that enable cheque printing.') }}"
         />
+
+        {{-- ───────────────────────── Other names ──────────────────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('Other names') }}</flux:heading>
+        <flux:text>
+            {{ __('An other name is a one-time payee — a raffle winner, a walk-in refund, “Cash” — that is not a vendor, customer, or employee and does not need a full record. Cheques and expenses written to an other name stay linked to it, so you can see everything paid to that name without inventing a fake vendor. QuickBooks calls these Other Names. The fastest way to add one is straight from the Pay to the order of field on a cheque (or Paid to on an expense): choose Add … as Other name and it is created on the spot. Every name added that way lands on this list.') }}
+        </flux:text>
+
+        <p><strong>{{ __('To add an other name:') }}</strong></p>
+        <ol class="list-decimal ps-6 space-y-1">
+            <li>{{ __('Open Settings → Lists → Other names, then select New other name.') }}</li>
+            <li>{{ __('Enter the Name as it should print on cheques, and optionally a note for your own reference.') }}</li>
+            <li>{{ __('Select Save.') }}</li>
+        </ol>
+
+        <x-docs.callout type="note" heading="{{ __('Transactions and one-way Convert') }}">
+            {{ __('Select Transactions on any row to open the Transactions report filtered to that name across all dates. If a one-time payee turns into a regular supplier, use the row menu to convert it to a vendor, customer, or employee. It keeps the same record, so every cheque and expense already written to it stays linked — but the change cannot be undone, and the name moves from this list to that page.') }}
+        </x-docs.callout>
 
         {{-- ──────────────────── Classes and locations ─────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Classes and locations') }}</flux:heading>

@@ -7,6 +7,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Services\AttachmentService;
 use App\Services\Posting\ChequePoster;
+use App\Support\Contacts\ContactLinkResolver;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -60,6 +61,19 @@ new #[Title('Cheque')] class extends Component {
         return $this->cheque->attachments()->get();
     }
 
+    /**
+     * The linked payee's home page (statement, employee editor, or all-time
+     * transactions), or null for a free-text payee or a viewer who cannot
+     * reach that page's section — the name then renders as plain text.
+     */
+    #[Computed]
+    public function payeeUrl(): ?string
+    {
+        return $this->cheque->payee
+            ? app(ContactLinkResolver::class)->urlForViewer($this->cheque->payee, $this->company, Auth::user())
+            : null;
+    }
+
     public function void(ChequePoster $poster): void
     {
         try {
@@ -81,7 +95,12 @@ new #[Title('Cheque')] class extends Component {
         <div>
             <flux:heading size="xl" level="1">{{ $j->cheque('singular') }} #{{ $cheque->cheque_no }}</flux:heading>
             <flux:subheading>
-                {{ $cheque->payee_name }} &middot;
+                @if ($this->payeeUrl)
+                    <a href="{{ $this->payeeUrl }}" wire:navigate class="underline" data-test="cheque-payee-link">{{ $cheque->payee_name }}</a>
+                @else
+                    {{ $cheque->payee_name }}
+                @endif
+                &middot;
                 {{ $cheque->cheque_date->toDateString() }} &middot;
                 {{ $cheque->bankAccount->name }}
             </flux:subheading>

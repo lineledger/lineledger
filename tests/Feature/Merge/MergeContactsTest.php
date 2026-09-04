@@ -233,3 +233,45 @@ it('blocks merging a customer into one of its own sub-customers', function () {
     // Nothing moved: the child still hangs off its original parent.
     expect($child->refresh()->parent_id)->toBe($parent->id);
 });
+
+it('drops the other-name flag when a vendor absorbs an other name, keeping the cheques linked', function () {
+    $loser = Contact::factory()->otherName()->create(['display_name' => 'Acme (one-off)']);
+    $survivor = Contact::factory()->vendor()->create(['display_name' => 'Acme Supplies']);
+
+    $cheque = Cheque::create([
+        'bank_account_id' => $this->bank->id,
+        'cheque_no' => '3001',
+        'cheque_date' => now()->toDateString(),
+        'payee_contact_id' => $loser->id,
+        'payee_name' => 'Acme (one-off)',
+    ]);
+
+    app(MergeContacts::class)->handle($loser, $survivor);
+
+    $survivor->refresh();
+    expect($survivor->is_vendor)->toBeTrue()
+        ->and($survivor->is_other_name)->toBeFalse()
+        ->and($cheque->fresh()->payee_contact_id)->toBe($survivor->id);
+});
+
+it('promotes an other name that absorbs a vendor and clears the other-name flag', function () {
+    $loser = Contact::factory()->vendor()->create(['display_name' => 'Acme Supplies']);
+    $survivor = Contact::factory()->otherName()->create(['display_name' => 'Acme']);
+
+    app(MergeContacts::class)->handle($loser, $survivor);
+
+    $survivor->refresh();
+    expect($survivor->is_vendor)->toBeTrue()
+        ->and($survivor->is_other_name)->toBeFalse();
+});
+
+it('keeps the other-name flag when two other names merge', function () {
+    $loser = Contact::factory()->otherName()->create(['display_name' => 'J. Chen']);
+    $survivor = Contact::factory()->otherName()->create(['display_name' => 'Jane Chen']);
+
+    app(MergeContacts::class)->handle($loser, $survivor);
+
+    $survivor->refresh();
+    expect($survivor->is_other_name)->toBeTrue()
+        ->and($survivor->hasDirectoryRole())->toBeFalse();
+});

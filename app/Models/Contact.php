@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'company_id', 'parent_id', 'display_name', 'company_name', 'account_no', 'first_name', 'last_name', 'job_title', 'employee_id',
     'email', 'phone', 'mobile', 'tax_number', 'track_1099', 'track_t4a',
-    'is_customer', 'is_vendor', 'is_employee', 'is_donor', 'donor_type', 'is_member',
+    'is_customer', 'is_vendor', 'is_employee', 'is_donor', 'donor_type', 'is_member', 'is_other_name',
     'billing_line1', 'billing_line2', 'billing_city', 'billing_region', 'billing_postal_code', 'billing_country',
     'shipping_line1', 'shipping_line2', 'shipping_city', 'shipping_region', 'shipping_postal_code', 'shipping_country',
     'default_terms_id', 'default_tax_code_id', 'default_income_account_id', 'default_expense_account_id',
@@ -89,6 +89,27 @@ class Contact extends Model implements AuthenticatableContract
             ->where('is_active', true)
             ->whereNotNull('email')
             ->whereHas('payrollProfile', fn (Builder $q) => $q->where('is_active', true));
+    }
+
+    /**
+     * QuickBooks-style "Other names": one-time payees that are not a customer,
+     * vendor or employee. Backs the Settings → Lists page and the payee picker.
+     *
+     * @param  Builder<Contact>  $query
+     */
+    public function scopeOtherNames(Builder $query): void
+    {
+        $query->where('is_other_name', true);
+    }
+
+    /**
+     * Whether the contact holds a directory role (customer, vendor or employee)
+     * — the roles with their own list page, as opposed to the Other name /
+     * donor / member flags that only qualify one.
+     */
+    public function hasDirectoryRole(): bool
+    {
+        return (bool) $this->is_customer || (bool) $this->is_vendor || (bool) $this->is_employee;
     }
 
     /**
@@ -329,6 +350,7 @@ class Contact extends Model implements AuthenticatableContract
             'is_employee' => 'boolean',
             'is_donor' => 'boolean',
             'is_member' => 'boolean',
+            'is_other_name' => 'boolean',
             'is_active' => 'boolean',
             'invoice_emails_enabled' => 'boolean',
             'reminder_emails_enabled' => 'boolean',

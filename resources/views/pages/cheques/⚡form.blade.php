@@ -5,6 +5,7 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\ChequeStatus;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Concerns\ManagesPayeeCombo;
 use App\Models\Account;
 use App\Models\Attachment;
 use App\Models\Cheque;
@@ -29,6 +30,7 @@ use Livewire\WithFileUploads;
 
 new #[Title('Cheque')] class extends Component
 {
+    use ManagesPayeeCombo;
     use WithFileUploads;
 
     public Company $company;
@@ -125,16 +127,14 @@ new #[Title('Cheque')] class extends Component
         }
     }
 
-    public function updatedPayeeContactId(?int $value): void
+    /**
+     * Default the memo to the supplier's account number so it prints on the
+     * cheque (QuickBooks behaviour). The user can still overwrite it.
+     */
+    protected function afterPayeeSelected(Contact $contact): void
     {
-        if ($value && $contact = Contact::find($value)) {
-            $this->payee_name = $contact->display_name;
-
-            // Default the memo to the supplier's account number so it prints on
-            // the cheque (QuickBooks behaviour). The user can still overwrite it.
-            if ($this->memo === '' && $contact->account_no) {
-                $this->memo = $contact->account_no;
-            }
+        if ($this->memo === '' && $contact->account_no) {
+            $this->memo = $contact->account_no;
         }
     }
 
@@ -266,6 +266,10 @@ new #[Title('Cheque')] class extends Component
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             ...AttachmentService::uploadRules(),
+        ], [
+            // The payee picker has no "use as typed" escape: a new cheque's
+            // payee must be picked or quick-added as an Other name.
+            'payee_name.required' => __('Choose a payee, or add the name as an Other name.'),
         ]);
 
         $this->cheque = app(SaveCheque::class)->handle([
@@ -349,16 +353,6 @@ new #[Title('Cheque')] class extends Component
             })
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
-    }
-
-    #[Computed]
-    public function payeeOptions()
-    {
-        return Contact::query()
-            ->where(fn ($q) => $q->where('is_vendor', true)->orWhere('is_employee', true)->orWhere('is_customer', true))
-            ->where('is_active', true)
-            ->orderBy('display_name')
-            ->get(['id', 'display_name']);
     }
 
     #[Computed]
@@ -491,15 +485,21 @@ new #[Title('Cheque')] class extends Component
             <flux:input wire:model="cheque_no" :label="$j->chequeLabel('number')" required data-test="cheque-no-input" />
             <flux:input type="date" wire:model="cheque_date" :label="__('Date')" required />
 
-            <flux:select wire:model.live="payee_contact_id" :label="__('Payee (optional contact)')">
-                <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
-                @foreach ($this->payeeOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->display_name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-
             <div class="md:col-span-2">
-                <flux:input wire:model="payee_name" :label="__('Pay to the order of')" required data-test="cheque-payee-input" />
+                <x-payee-combo
+                    :label="__('Pay to the order of')"
+                    :options="$this->payeeOptions"
+                    :selected-id="$payee_contact_id"
+                    :selected-name="$this->selectedPayee?->display_name ?? $payee_name"
+                    :selected-roles="$this->selectedPayeeRoles()"
+                    :legacy-name="$payee_name"
+                    :query="$payee_query"
+                    :creating="$payee_creating"
+                    :new-name="$new_payee_name"
+                    :create-links="$this->payeeCreateLinks"
+                    data-test="cheque-payee-combo"
+                    required
+                />
             </div>
         </div>
 

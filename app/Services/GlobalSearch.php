@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
 use App\Models\Cheque;
+use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
@@ -15,6 +16,7 @@ use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\TaxReturn;
+use App\Support\Contacts\ContactLinkResolver;
 use App\Support\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -294,6 +296,13 @@ class GlobalSearch
      */
     private function contacts(string $like): Collection
     {
+        // Role label and destination come from the one resolver every contact
+        // link shares (statement for customers/vendors, employee editor, or
+        // the all-time Transactions report for other names). Search results
+        // carry the ungated URL: GlobalSearchResult::$url is non-nullable.
+        $links = app(ContactLinkResolver::class);
+        $company = $this->company();
+
         return Contact::query()
             ->where(fn (Builder $q) => $q
                 ->where('display_name', 'like', $like)
@@ -308,42 +317,19 @@ class GlobalSearch
                 type: 'contact',
                 label: $c->display_name,
                 secondary: $c->company_name ?: $c->email,
-                meta: $this->contactRole($c),
+                meta: $links->roleLabel($c),
                 amountCents: null,
-                url: $this->contactUrl($c),
+                url: $links->urlFor($c, $company),
             ));
     }
 
-    private function contactRole(Contact $c): string
+    /**
+     * The tenant every query above is scoped to — the same binding CompanyScope
+     * reads, made explicit here because contact URLs name the company slug.
+     */
+    private function company(): Company
     {
-        $roles = [];
-
-        if ($c->is_customer) {
-            $roles[] = 'customer';
-        }
-
-        if ($c->is_vendor) {
-            $roles[] = 'vendor';
-        }
-
-        if ($c->is_employee) {
-            $roles[] = 'employee';
-        }
-
-        return implode(', ', $roles) ?: 'contact';
-    }
-
-    private function contactUrl(Contact $c): string
-    {
-        if ($c->is_customer) {
-            return route('reports.contact-statement', ['contact' => $c->id, 'kind' => 'ar']);
-        }
-
-        if ($c->is_vendor) {
-            return route('reports.contact-statement', ['contact' => $c->id, 'kind' => 'ap']);
-        }
-
-        return route('employees.index');
+        return app('current_company');
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Expense;
 use App\Services\AttachmentService;
 use App\Services\Posting\ExpensePoster;
+use App\Support\Contacts\ContactLinkResolver;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -59,6 +60,19 @@ new #[Title('Expense')] class extends Component {
         return $this->expense->attachments()->get();
     }
 
+    /**
+     * The linked payee's home page (statement, employee editor, or all-time
+     * transactions), or null for a free-text payee or a viewer who cannot
+     * reach that page's section — the name then renders as plain text.
+     */
+    #[Computed]
+    public function payeeUrl(): ?string
+    {
+        return $this->expense->payee
+            ? app(ContactLinkResolver::class)->urlForViewer($this->expense->payee, $this->company, Auth::user())
+            : null;
+    }
+
     public function void(ExpensePoster $poster): void
     {
         try {
@@ -79,7 +93,12 @@ new #[Title('Expense')] class extends Component {
         <div>
             <flux:heading size="xl" level="1">{{ __('Expense') }}{{ $expense->reference ? ' #'.$expense->reference : '' }}</flux:heading>
             <flux:subheading>
-                {{ $expense->payee_name }} &middot;
+                @if ($this->payeeUrl)
+                    <a href="{{ $this->payeeUrl }}" wire:navigate class="underline" data-test="expense-payee-link">{{ $expense->payee_name }}</a>
+                @else
+                    {{ $expense->payee_name }}
+                @endif
+                &middot;
                 {{ $expense->expense_date->toDateString() }} &middot;
                 {{ $expense->paymentAccount->name }}@if ($expense->paymentMethod) &middot; {{ $expense->paymentMethod->name }} @endif
             </flux:subheading>

@@ -5,7 +5,8 @@ namespace App\Actions\Contacts;
 use App\Models\Contact;
 
 /**
- * Creates or updates a Contact in a given role (customer / vendor / employee).
+ * Creates or updates a Contact in a given role (customer / vendor / employee /
+ * other name).
  * Shared by the Livewire directory pages and the API. A contact may hold
  * multiple roles, so updating in one role never clears the others.
  *
@@ -21,7 +22,7 @@ final class SaveContact
 {
     /**
      * @param  array<string, mixed>  $data
-     * @param  'is_customer'|'is_vendor'|'is_employee'  $role
+     * @param  'is_customer'|'is_vendor'|'is_employee'|'is_other_name'  $role
      */
     public function handle(array $data, string $role, ?Contact $contact = null): Contact
     {

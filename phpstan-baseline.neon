@@ -223,6 +223,12 @@ parameters:
 			path: app/Livewire/Concerns/ManagesStatementLineContacts.php
 
 		-
+			message: '#^Trait App\\Livewire\\Concerns\\ManagesPayeeCombo is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/ManagesPayeeCombo.php
+
+		-
 			message: '#^Trait App\\Livewire\\Concerns\\ManagesStatementLineTax is used zero times and is not analysed\.$#'
 			identifier: trait.unused
 			count: 1

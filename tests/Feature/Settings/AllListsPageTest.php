@@ -3,6 +3,7 @@
 use App\Enums\CompanyRole;
 use App\Enums\TaxAppliesTo;
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\Item;
 use App\Models\TaxCode;
 use App\Models\User;
@@ -33,6 +34,7 @@ it('renders the all lists hub page with the default row labels', function () {
         ->assertSee('Tax codes')
         ->assertSee('Payment terms')
         ->assertSee('Payment methods')
+        ->assertSee('Other names')
         ->assertSee('Asset categories')
         ->assertSee('Form styles')
         ->assertSee('Currencies')
@@ -54,17 +56,23 @@ it('renders record counts for each list', function () {
     }
     $expectedTaxCodes = $taxCodeBaseline + 2;
 
+    // Other names share the contacts table; only is_other_name rows count.
+    Contact::factory()->otherName()->count(2)->create();
+    Contact::factory()->vendor()->create();
+
     $component = Livewire::test('pages::settings.lists.index', ['company' => $this->company]);
 
     $rows = collect($component->instance()->rows);
 
     expect($rows->firstWhere('key', 'items')['count'])->toBe(3)
-        ->and($rows->firstWhere('key', 'tax-codes')['count'])->toBe($expectedTaxCodes);
+        ->and($rows->firstWhere('key', 'tax-codes')['count'])->toBe($expectedTaxCodes)
+        ->and($rows->firstWhere('key', 'other-names')['count'])->toBe(2);
 
     $html = $component->html();
 
     expect($html)->toMatch('/data-test="all-lists-count-items"[^>]*>\s*3\s*</')
-        ->toMatch('/data-test="all-lists-count-tax-codes"[^>]*>\s*'.$expectedTaxCodes.'\s*</');
+        ->toMatch('/data-test="all-lists-count-tax-codes"[^>]*>\s*'.$expectedTaxCodes.'\s*</')
+        ->toMatch('/data-test="all-lists-count-other-names"[^>]*>\s*2\s*</');
 });
 
 it('hides flag-gated rows when the company feature is off', function () {
@@ -96,6 +104,7 @@ it('links rows to their list pages', function () {
     $this->get(route('lists.index', ['company' => $this->company->slug]))
         ->assertOk()
         ->assertSee(route('lists.payment-methods', ['company' => $this->company]), false)
+        ->assertSee(route('lists.other-names', ['company' => $this->company]), false)
         ->assertSee(route('lists.tax-codes', ['company' => $this->company]), false)
         ->assertSee(route('accounts.index', ['company' => $this->company]), false);
 });

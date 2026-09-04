@@ -24,6 +24,7 @@ class ContactFactory extends Factory
             'is_vendor' => false,
             'is_employee' => false,
             'is_donor' => false,
+            'is_other_name' => false,
             'is_active' => true,
             'invoice_emails_enabled' => false,
             'reminder_emails_enabled' => false,
@@ -43,6 +44,14 @@ class ContactFactory extends Factory
     public function donor(): static
     {
         return $this->state(fn () => ['is_donor' => true]);
+    }
+
+    /**
+     * A QuickBooks-style "Other name": a one-time payee with no directory role.
+     */
+    public function otherName(): static
+    {
+        return $this->state(fn () => ['is_other_name' => true]);
     }
 
     /**

@@ -52,6 +52,7 @@
                     <flux:navlist.item :href="route('lists.tax-codes', ['company' => $listsCompany])" :current="request()->routeIs('lists.tax-codes')" wire:navigate>{{ __('Tax codes') }}</flux:navlist.item>
                     <flux:navlist.item :href="route('lists.payment-terms', ['company' => $listsCompany])" :current="request()->routeIs('lists.payment-terms')" wire:navigate>{{ __('Payment terms') }}</flux:navlist.item>
                     <flux:navlist.item :href="route('lists.payment-methods', ['company' => $listsCompany])" :current="request()->routeIs('lists.payment-methods')" wire:navigate>{{ __('Payment methods') }}</flux:navlist.item>
+                    <flux:navlist.item :href="route('lists.other-names', ['company' => $listsCompany])" :current="request()->routeIs('lists.other-names')" wire:navigate>{{ __('Other names') }}</flux:navlist.item>
                     @if ($listsClasses)
                         <flux:navlist.item :href="route('lists.classifications', ['company' => $listsCompany])" :current="request()->routeIs('lists.classifications')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
                     @endif

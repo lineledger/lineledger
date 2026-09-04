@@ -138,6 +138,21 @@ final class MergeContacts
                         $updates[$flag] = true;
                     }
                 }
+
+                // "Other name" is the role of last resort: it survives only when
+                // the merged contact ends with no directory role, and is cleared
+                // when a vendor / customer / employee absorbs (or is absorbed by)
+                // an Other name — QuickBooks' one-way change-type semantics.
+                $endsWithDirectoryRole = collect(['is_customer', 'is_vendor', 'is_employee'])
+                    ->contains(fn (string $flag) => $survivor->{$flag} || ! empty($updates[$flag]));
+
+                if ($endsWithDirectoryRole) {
+                    if ($survivor->is_other_name) {
+                        $updates['is_other_name'] = false;
+                    }
+                } elseif ($loser->is_other_name && ! $survivor->is_other_name) {
+                    $updates['is_other_name'] = true;
+                }
                 if (($survivor->tax_number === null || $survivor->tax_number === '') && $loser->tax_number) {
                     $updates['tax_number'] = $loser->tax_number;
                 }

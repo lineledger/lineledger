@@ -3,7 +3,9 @@
 use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\PayrollCheque;
+use App\Support\Contacts\ContactLinkResolver;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,8 +25,14 @@ new #[Title('Cheques')] class extends Component {
     #[Computed]
     public function allCheques(): LengthAwarePaginator
     {
+        // payee_url is the linked contact's home page (statement / employee
+        // editor / all-time transactions), or null when the cheque was written
+        // to a free-text name or the viewer cannot reach that page's section.
+        $resolver = app(ContactLinkResolver::class);
+        $viewer = Auth::user();
+
         $expense = Cheque::query()
-            ->with('bankAccount')
+            ->with('bankAccount', 'payee')
             ->when($this->search !== '', fn ($q) => $q->where(function ($q) {
                 $q->where('cheque_no', 'like', '%'.$this->search.'%')
                     ->orWhere('payee_name', 'like', '%'.$this->search.'%');
@@ -36,6 +44,7 @@ new #[Title('Cheques')] class extends Component {
                 'cheque_no' => $c->cheque_no,
                 'cheque_date' => $c->cheque_date->toDateString(),
                 'payee_name' => $c->payee_name,
+                'payee_url' => $c->payee ? $resolver->urlForViewer($c->payee, $this->company, $viewer) : null,
                 'bank_name' => $c->bankAccount?->name,
                 'amount_cents' => $c->amount_cents,
                 'status' => $c->status->value,
@@ -58,6 +67,8 @@ new #[Title('Cheques')] class extends Component {
                     'cheque_no' => $c->cheque_no,
                     'cheque_date' => $c->cheque_date->toDateString(),
                     'payee_name' => $c->payee_name,
+                    // Payroll cheques link to their pay run, not the employee.
+                    'payee_url' => null,
                     'bank_name' => $c->bankAccount?->name,
                     'amount_cents' => $c->amount_cents,
                     'status' => $c->status->value,
@@ -154,7 +165,13 @@ new #[Title('Cheques')] class extends Component {
                         <td class="px-4 py-2 font-mono">
                             <a href="{{ $cheque['href'] }}" wire:navigate class="underline">{{ $cheque['cheque_no'] }}</a>
                         </td>
-                        <td class="px-4 py-2">{{ $cheque['payee_name'] }}</td>
+                        <td class="px-4 py-2">
+                            @if ($cheque['payee_url'])
+                                <a href="{{ $cheque['payee_url'] }}" wire:navigate class="underline" data-test="cheque-payee-link">{{ $cheque['payee_name'] }}</a>
+                            @else
+                                {{ $cheque['payee_name'] }}
+                            @endif
+                        </td>
                         @if ($company->usesPayroll())
                             <td class="px-4 py-2 text-muted-foreground">
                                 @if ($cheque['pay_run_href'])

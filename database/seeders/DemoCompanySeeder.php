@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Actions\Accounting\EnableCompanyCurrency;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Accounting\SaveRecurringJournalEntry;
+use App\Actions\Banking\SaveCheque;
 use App\Actions\Banking\SaveTransfer;
 use App\Actions\Charity\SaveDonationReceipt;
 use App\Actions\Companies\CreateCompany;
@@ -61,6 +62,7 @@ use App\Services\Fundraising\GrantPoster;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\BillPaymentPoster;
 use App\Services\Posting\BillPoster;
+use App\Services\Posting\ChequePoster;
 use App\Services\Posting\CreditMemoPoster;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\JournalPoster;
@@ -196,6 +198,33 @@ class DemoCompanySeeder extends Seeder
             'company_id' => $company->id,
             'display_name' => 'City Utilities',
         ]);
+
+        // A QuickBooks-style "Other name" — a one-time payee that is not a
+        // vendor, customer or employee — with one posted cheque, so the payee
+        // picker badge, the Settings → Lists → Other names count and the
+        // name drill-through into the Transactions report all have demo data.
+        $raffleWinner = Contact::factory()->otherName()->create([
+            'company_id' => $company->id,
+            'display_name' => 'Raffle winner — J. Chen',
+        ]);
+        $otherNameCheque = app(SaveCheque::class)->handle([
+            'bank_account_id' => $bank->id,
+            'cheque_no' => '1001',
+            'cheque_date' => now()->subDays(20)->toDateString(),
+            'payee_contact_id' => $raffleWinner->id,
+            'payee_name' => $raffleWinner->display_name,
+            'memo' => 'Spring fundraiser draw prize',
+            'lines' => [[
+                'account_id' => $accounts->firstWhere('subtype', AccountSubtype::Expense)->id,
+                'description' => 'Draw prize',
+                'amount_cents' => 25000,
+                'tax_code_id' => null,
+                'tax_override_cents' => null,
+                'class_id' => null,
+                'location_id' => null,
+            ]],
+        ]);
+        app(ChequePoster::class)->post($otherNameCheque);
 
         // --- Items ---
         $consulting = Item::factory()->create([

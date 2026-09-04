@@ -15,6 +15,7 @@ use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\User;
 use App\Services\GlobalSearch;
+use App\Support\Contacts\ContactLinkResolver;
 use App\Support\GlobalSearchResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -134,10 +135,24 @@ it('routes contacts to ar / ap statements based on role', function () {
 
     expect($byName['Search Customer']->url)
         ->toBe(route('reports.contact-statement', ['contact' => $customer->id, 'kind' => 'ar']))
+        ->and($byName['Search Customer']->meta)->toBe('customer')
         ->and($byName['Search Vendor']->url)
         ->toBe(route('reports.contact-statement', ['contact' => $vendor->id, 'kind' => 'ap']))
+        ->and($byName['Search Vendor']->meta)->toBe('vendor')
+        // Employees open their own editor rather than the bare Employees list.
         ->and($byName['Search Employee']->url)
-        ->toBe(route('employees.index'));
+        ->toBe(route('employees.index', ['edit' => $employee->id]))
+        ->and($byName['Search Employee']->meta)->toBe('employee');
+});
+
+it('routes other names to the all-time transactions report', function () {
+    $other = Contact::factory()->otherName()->create(['display_name' => 'Search Raffle Winner']);
+
+    $result = app(GlobalSearch::class)->search('Search Raffle')['contacts']->first();
+
+    expect($result->url)->toBe(app(ContactLinkResolver::class)->transactionsUrl($other, $this->company))
+        ->and($result->url)->toContain('range=all')
+        ->and($result->meta)->toBe('other name');
 });
 
 it('matches across all supported groups', function () {

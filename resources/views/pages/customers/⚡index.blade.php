@@ -44,6 +44,10 @@ new #[Title('Customers')] class extends Component {
     #[Url(as: 'edit')]
     public ?int $editRequest = null;
 
+    /** One-shot deep link (?new=<name>) from the payee picker: opens the create form prefilled. */
+    #[Url(as: 'new')]
+    public ?string $newRequest = null;
+
     public bool $showInactive = false;
 
     public ?int $editingId = null;
@@ -139,6 +143,15 @@ new #[Title('Customers')] class extends Component {
             }
 
             $this->editRequest = null;
+        }
+
+        // Deep link from the cheque/expense payee picker ("Create … as a new
+        // customer"). openCreate() resets the form, so the prefill comes after
+        // it; nulled for the same reason as ?edit= above.
+        if ($this->newRequest !== null) {
+            $this->openCreate();
+            $this->f_display_name = mb_substr(trim($this->newRequest), 0, 255);
+            $this->newRequest = null;
         }
     }
 

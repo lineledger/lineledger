@@ -3,6 +3,8 @@
 use App\Models\Company;
 use App\Models\Expense;
 use App\Models\PaymentMethod;
+use App\Support\Contacts\ContactLinkResolver;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -43,6 +45,19 @@ new #[Title('Expenses')] class extends Component {
     public function paymentMethodOptions()
     {
         return PaymentMethod::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * The linked payee's home page (statement, employee editor, or all-time
+     * transactions), or null for a free-text payee or a viewer who cannot
+     * reach that page's section — the name then renders as plain text.
+     * payee is eager-loaded by expenses(), so this costs no extra queries.
+     */
+    public function payeeUrl(Expense $expense): ?string
+    {
+        return $expense->payee
+            ? app(ContactLinkResolver::class)->urlForViewer($expense->payee, $this->company, Auth::user())
+            : null;
     }
 }; ?>
 
@@ -109,7 +124,14 @@ new #[Title('Expenses')] class extends Component {
                     <tr data-test="expense-row">
                         <td class="px-4 py-2 whitespace-nowrap">{{ $expense->expense_date->toDateString() }}</td>
                         <td class="px-4 py-2 font-mono"><a href="{{ route('expenses.show', ['company' => $company->slug, 'expense' => $expense->id]) }}" wire:navigate class="underline">{{ $expense->reference ?: '—' }}</a></td>
-                        <td class="px-4 py-2">{{ $expense->payee_name }}</td>
+                        <td class="px-4 py-2">
+                            @php($payeeUrl = $this->payeeUrl($expense))
+                            @if ($payeeUrl)
+                                <a href="{{ $payeeUrl }}" wire:navigate class="underline" data-test="expense-payee-link">{{ $expense->payee_name }}</a>
+                            @else
+                                {{ $expense->payee_name }}
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-muted-foreground">{{ optional($expense->paymentAccount)->name }}</td>
                         <td class="px-4 py-2 text-muted-foreground">{{ optional($expense->paymentMethod)->name ?: '—' }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($expense->amount_cents / 100, 2) }}</td>

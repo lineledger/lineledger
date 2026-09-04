@@ -480,7 +480,14 @@ new #[Title('Transactions')] class extends Component {
 
                     @if ($groupBy !== 'none' && ($i === 0 || $groupKey !== $prevKey))
                         <tr class="bg-muted" data-test="txn-group-header">
-                            <td colspan="{{ $fullSpan }}" class="px-4 py-2 font-medium">{{ $this->groupLabelFor($groupKey) }}</td>
+                            <td colspan="{{ $fullSpan }}" class="px-4 py-2 font-medium">
+                                {{-- Grouped by name: the header drills to that name's own transactions too. --}}
+                                @if ($groupBy === 'contact' && $groupKey !== '' && (int) $groupKey !== (int) $contactId)
+                                    <a href="{{ route('reports.transactions', ['company' => $company->slug, 'contact' => (int) $groupKey, 'start' => $startDate, 'end' => $endDate]) }}" wire:navigate class="hover:underline" data-test="drill-contact-group">{{ $this->groupLabelFor($groupKey) }}</a>
+                                @else
+                                    {{ $this->groupLabelFor($groupKey) }}
+                                @endif
+                            </td>
                         </tr>
                     @endif
 
@@ -491,7 +498,14 @@ new #[Title('Transactions')] class extends Component {
                         @endif
                         <td class="px-4 py-2">{{ $line->account?->code }} — {{ $line->account?->name }}</td>
                         @if ($this->columnVisible('name'))
-                            <td class="px-4 py-2">{{ $line->contact?->display_name }}</td>
+                            <td class="px-4 py-2">
+                                {{-- Drill to that name's own transactions, unless the report is already filtered to it. --}}
+                                @if ($line->contact_id && (int) $line->contact_id !== (int) $contactId)
+                                    <a href="{{ route('reports.transactions', ['company' => $company->slug, 'contact' => $line->contact_id, 'start' => $startDate, 'end' => $endDate]) }}" wire:navigate class="hover:underline" data-test="drill-contact">{{ $line->contact?->display_name }}</a>
+                                @else
+                                    {{ $line->contact?->display_name }}
+                                @endif
+                            </td>
                         @endif
                         @if ($this->columnVisible('memo'))
                             <td class="px-4 py-2 text-muted-foreground">{{ $line->memo ?? $line->journalEntry?->memo }}</td>

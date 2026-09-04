@@ -6,6 +6,7 @@ use App\Models\Attachment;
 use App\Models\Classification;
 use App\Models\Company;
 use App\Models\CompanyCurrency;
+use App\Models\Contact;
 use App\Models\FormStyle;
 use App\Models\Item;
 use App\Models\ItemCategory;
@@ -101,6 +102,15 @@ new #[Title('All lists')] class extends Component {
                 'description' => __('Used on receipts and bill payments.'),
                 'href' => route('lists.payment-methods', ['company' => $company]),
                 'count' => PaymentMethod::query()->count(),
+            ],
+            [
+                // The only row that counts a filtered subset of a shared table:
+                // an Other name is a contact flagged is_other_name, not its own list.
+                'key' => 'other-names',
+                'label' => __('Other names'),
+                'description' => __('One-time payees for cheques and expenses that aren’t vendors, customers or employees.'),
+                'href' => route('lists.other-names', ['company' => $company]),
+                'count' => Contact::query()->otherNames()->count(),
             ],
         ];
 

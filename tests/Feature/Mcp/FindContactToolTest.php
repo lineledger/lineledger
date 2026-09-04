@@ -66,6 +66,26 @@ it('FindContact: asks the user to be specific when multiple contacts match', fun
     expect($content)->toContain('be more specific');
 });
 
+it('FindContact: labels an other name so the agent knows it carries no statement', function (): void {
+    $company = Company::factory()->create();
+
+    Contact::factory()->otherName()->create([
+        'company_id' => $company->id,
+        'display_name' => 'Raffle winner',
+    ]);
+
+    bindMcpTenant($company);
+
+    $response = (new FindContactTool)->handle(new Request(['name' => 'Raffle']));
+
+    expect($response->isError())->toBeFalse();
+
+    $content = (string) $response->content();
+    expect($content)->toContain('Raffle winner (Other name)');
+    expect($content)->not->toContain('Receivable statement');
+    expect($content)->not->toContain('Payable statement');
+});
+
 it('FindContact: returns a friendly message when no contact matches', function (): void {
     $company = Company::factory()->create();
 

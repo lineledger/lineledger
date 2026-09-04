@@ -255,7 +255,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open Banking → Cheques, then select Write cheque.') }}</li>
             <li>{{ __('Choose the Bank account it is drawn on. The Cheque # fills in automatically.') }}</li>
-            <li>{{ __('Set the Date, optionally pick a Payee contact, and type the name in Pay to the order of.') }}</li>
+            <li>{{ __('Set the Date. In Pay to the order of, start typing and pick the vendor, customer or employee. For a one-off payee choose Add … as Other name — it is created on the spot. To set up a full vendor, customer or employee record instead, choose Create … as a new …, which opens that page in a new tab; come back and pick the new name.') }}</li>
             <li>{{ __('On each line, choose the Account, type a Description, and enter the Amount (add a Tax code if needed).') }}</li>
             <li>{{ __('Select Add line for more than one expense, and check the Total.') }}</li>
             <li>{{ __('Select Post cheque to finalize it, or Save draft to keep working on it later.') }}</li>
@@ -264,7 +264,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/banking/cheque-create.png') }}"
-            alt="{{ __('The Write cheque form with bank account, payee, pay-to-the-order-of, and expense lines') }}"
+            alt="{{ __('The Write cheque form with bank account, the Pay to the order of payee picker, and expense lines') }}"
             caption="{{ __('The Write cheque form. Add as many expense lines as the cheque needs — the Total at the bottom is what gets paid.') }}"
         />
 
@@ -278,6 +278,10 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
 
         <x-docs.callout type="note" heading="{{ __('What shows in the cheque list') }}">
             {{ __('The Cheques list gathers the cheques you write here alongside any printed payroll cheques, which link back to the pay run that produced them. For a payment against a vendor bill, use Bill payments instead — those don’t appear here.') }}
+        </x-docs.callout>
+
+        <x-docs.callout type="tip" heading="{{ __('Payees and other names') }}">
+            {{ __('Every payee you pick is linked to the cheque, so its name is a link on the cheque list and on the cheque itself — select it to see everything paid to that name. Other names are one-time payees that aren’t vendors, customers or employees; they live under Settings → Lists → Other names, where you can rename one, mark it inactive, or convert it into a vendor, customer or employee once it turns out to be more than a one-off.') }}
         </x-docs.callout>
 
         <x-docs.callout type="tip" heading="{{ __('Do the math right in the amount field') }}">

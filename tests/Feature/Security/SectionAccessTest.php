@@ -110,3 +110,14 @@ it('grants recurring access when the member can reach either customers or vendor
     visitSection($purchasesOnly, $this->company, 'recurring.index')->assertSuccessful();
     visitSection($neither, $this->company, 'recurring.index')->assertForbidden();
 });
+
+it('gates the other names list by Lists', function () {
+    // lists.other-names must live under the `lists` route prefix so the
+    // Section::forRouteName() arm gates it; any other first segment would
+    // fall to `default => []` and ship ungated.
+    $bankingOnly = sectionMember($this->company, CompanyRole::Custom, [Section::Banking->value]);
+    $accountant = sectionMember($this->company, CompanyRole::Accountant);
+
+    visitSection($bankingOnly, $this->company, 'lists.other-names')->assertForbidden();
+    visitSection($accountant, $this->company, 'lists.other-names')->assertSuccessful();
+});

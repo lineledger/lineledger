@@ -487,6 +487,7 @@ Route::prefix('{company}')
         Route::livewire('settings/lists/tax-codes', 'pages::settings.lists.tax-codes')->name('lists.tax-codes');
         Route::livewire('settings/lists/payment-terms', 'pages::settings.lists.payment-terms')->name('lists.payment-terms');
         Route::livewire('settings/lists/payment-methods', 'pages::settings.lists.payment-methods')->name('lists.payment-methods');
+        Route::livewire('settings/lists/other-names', 'pages::settings.lists.other-names')->name('lists.other-names');
         Route::livewire('settings/lists/asset-categories', 'pages::settings.lists.asset-categories')->name('lists.asset-categories');
         Route::livewire('settings/lists/classifications', 'pages::settings.lists.classifications')->name('lists.classifications');
         Route::livewire('settings/lists/locations', 'pages::settings.lists.locations')->name('lists.locations');

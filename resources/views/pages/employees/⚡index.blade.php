@@ -16,6 +16,14 @@ new #[Title('Employees')] class extends Component {
     #[Url(as: 'q')]
     public string $search = '';
 
+    /** One-shot deep link (?edit={id}) that opens the edit form on load. */
+    #[Url(as: 'edit')]
+    public ?int $editRequest = null;
+
+    /** One-shot deep link (?new=<name>) from the payee picker: opens the create form prefilled. */
+    #[Url(as: 'new')]
+    public ?string $newRequest = null;
+
     public bool $showInactive = false;
 
     public ?int $editingId = null;
@@ -49,6 +57,27 @@ new #[Title('Employees')] class extends Component {
     public function mount(Company $company): void
     {
         $this->company = $company;
+
+        // Deep link from a contact link (ContactLinkResolver) or global search.
+        // Nulling the request makes Livewire drop ?edit= on first render, so
+        // reload/back doesn't reopen the form. Role-scoped: a vendor or
+        // customer id is ignored here, and foreign ids are hidden by CompanyScope.
+        if ($this->editRequest !== null) {
+            if (Contact::where('is_employee', true)->whereKey($this->editRequest)->exists()) {
+                $this->openEdit($this->editRequest);
+            }
+
+            $this->editRequest = null;
+        }
+
+        // Deep link from the cheque/expense payee picker ("Create … as a new
+        // employee"). openCreate() resets the form, so the prefill comes after
+        // it; nulled for the same reason as ?edit= above.
+        if ($this->newRequest !== null) {
+            $this->openCreate();
+            $this->f_display_name = mb_substr(trim($this->newRequest), 0, 255);
+            $this->newRequest = null;
+        }
     }
 
     public function openCreate(): void

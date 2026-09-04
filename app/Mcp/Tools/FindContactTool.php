@@ -145,7 +145,9 @@ class FindContactTool extends Tool
     }
 
     /**
-     * Build a "Customer", "Vendor", or "Customer & Vendor" label.
+     * Build a "Customer", "Vendor", "Customer & Vendor", or "Other name" label.
+     * An Other name is a one-time payee (QuickBooks' term) with no sub-ledger,
+     * so it carries no AR/AP statement — the label tells the agent why.
      */
     protected function roleLabel(Contact $contact): string
     {
@@ -155,6 +157,9 @@ class FindContactTool extends Tool
         }
         if ($contact->is_vendor) {
             $roles[] = 'Vendor';
+        }
+        if ($contact->is_other_name) {
+            $roles[] = 'Other name';
         }
 
         return implode(' & ', $roles);
