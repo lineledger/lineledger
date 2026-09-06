@@ -92,6 +92,10 @@ enum AuditAction: string
     case TransferPosted = 'transfer.posted';
     case TransferVoided = 'transfer.voided';
 
+    case StockAdjustmentCreated = 'stock_adjustment.created';
+    case StockAdjustmentUpdated = 'stock_adjustment.updated';
+    case StockAdjustmentDeleted = 'stock_adjustment.deleted';
+
     case JournalEntryCreated = 'journal_entry.created';
     case JournalEntryUpdated = 'journal_entry.updated';
     case JournalEntryDeleted = 'journal_entry.deleted';
@@ -99,6 +103,7 @@ enum AuditAction: string
     case JournalLineCreated = 'journal_line.created';
     case JournalLineUpdated = 'journal_line.updated';
     case JournalLineDeleted = 'journal_line.deleted';
+    case JournalLinesArAttributed = 'journal_line.ar_attributed';
 
     case TaxReturnCreated = 'tax_return.created';
     case TaxReturnUpdated = 'tax_return.updated';
@@ -168,4 +173,13 @@ enum AuditAction: string
 
     case OpeningBalanceApplied = 'opening_balance.applied';
     case OpeningBalanceTargetsImported = 'opening_balance.targets_imported';
+
+    case DataMigrationRolledBack = 'data_migration.rolled_back';
+
+    case BankReconciliationCompleted = 'bank_reconciliation.completed';
+    case BankReconciliationUndone = 'bank_reconciliation.undone';
+
+    case CompanyRestoreCompleted = 'company_restore.completed';
+
+    case ContactLinkBackfillCompleted = 'contact_link_backfill.completed';
 }
