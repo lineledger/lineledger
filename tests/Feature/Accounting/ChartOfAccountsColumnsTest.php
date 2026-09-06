@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\CompanyRole;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\GridPreference;
@@ -28,6 +29,7 @@ it('defaults to subtype and balance columns', function () {
 
 it('persists a column change to a grid preference row', function () {
     $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
     $this->actingAs($user);
 
     Livewire::test('pages::accounts.index', ['company' => $this->company])
@@ -45,6 +47,7 @@ it('persists a column change to a grid preference row', function () {
 
 it('restores saved columns on remount and renders the opted-in column', function () {
     $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
     $this->actingAs($user);
 
     $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->first();
@@ -64,6 +67,7 @@ it('restores saved columns on remount and renders the opted-in column', function
 
 it('drops unknown column keys from a stale saved preference', function () {
     $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
     $this->actingAs($user);
 
     GridPreference::create([
@@ -101,6 +105,7 @@ it('renders each account\'s real id in the Account ID column', function () {
 
 it('restores a saved Account ID column choice on remount', function () {
     $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
     $this->actingAs($user);
 
     GridPreference::create([
@@ -126,6 +131,7 @@ it('keeps column choices isolated per user', function () {
         'visible_columns' => ['description'],
     ]);
 
+    $this->company->members()->attach($userB, ['role' => CompanyRole::Owner->value]);
     $this->actingAs($userB);
 
     Livewire::test('pages::accounts.index', ['company' => $this->company])
