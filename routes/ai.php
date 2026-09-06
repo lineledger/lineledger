@@ -32,18 +32,18 @@ use Laravel\Mcp\Facades\Mcp;
 // provider boots.
 
 Mcp::web('mcp/business', BusinessQaServer::class)
-    ->middleware(['auth.api_key']);
+    ->middleware(['auth.api_key', 'enforce.2fa_api']);
 
 Mcp::web('mcp/business/{company}', BusinessQaServer::class)
-    ->middleware(['auth:api', 'mcp.company']);
+    ->middleware(['auth:api', 'mcp.company', 'enforce.2fa_api']);
 
 // Agentic (write-enabled) server: the propose→confirm tools. Same two
 // connection methods as the Q&A server; authorization is per-tool
 // (requireAbility / requireSection) plus the doubly-opt-in gate (operator
-// MCP_WRITE_ENABLED + per-company settings.mcp.agentic_writes), so no extra
-// route middleware is needed beyond the auth binding.
+// MCP_WRITE_ENABLED + per-company settings.mcp.agentic_writes), so the only
+// extra route middleware needed beyond the auth binding is the 2FA check.
 Mcp::web('mcp/business-actions', BusinessActionsServer::class)
-    ->middleware(['auth.api_key']);
+    ->middleware(['auth.api_key', 'enforce.2fa_api']);
 
 Mcp::web('mcp/business-actions/{company}', BusinessActionsServer::class)
-    ->middleware(['auth:api', 'mcp.company']);
+    ->middleware(['auth:api', 'mcp.company', 'enforce.2fa_api']);

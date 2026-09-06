@@ -2,8 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\CompanyRole;
 use App\Models\Company;
+use App\Support\Security\TwoFactorRequirement;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,12 +30,7 @@ class EnforceTwoFactor
         $company = app()->bound('current_company') ? app('current_company') : null;
         $user = $request->user();
 
-        if ($company instanceof Company
-            && $user !== null
-            && $company->require_two_factor
-            && ! $user->hasEnabledTwoFactorAuthentication()
-            && ($user->companyRole($company)?->isAtLeast(CompanyRole::Admin) ?? false)
-        ) {
+        if ($company instanceof Company && TwoFactorRequirement::isUnmet($company, $user)) {
             return redirect()
                 ->route('security.edit')
                 ->with('status', __('This company requires two-factor authentication for owners and admins. Enable it to continue.'));

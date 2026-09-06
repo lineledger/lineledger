@@ -6,6 +6,7 @@ use App\Exceptions\Posting\AlreadyPostedException;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\BindMcpCompany;
 use App\Http\Middleware\CheckSiteMaintenance;
+use App\Http\Middleware\EnforceTwoFactorForApi;
 use App\Http\Middleware\EnsureApiAbility;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsureLegalAcceptance;
@@ -82,6 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mcp.company' => BindMcpCompany::class,
             '2fa.confirm' => RequireTwoFactorConfirmation::class,
             'api.edit_lock' => RejectEditLockedRecords::class,
+            'enforce.2fa_api' => EnforceTwoFactorForApi::class,
         ]);
 
         // API-key auth (and the ability gate) must run before route-model
