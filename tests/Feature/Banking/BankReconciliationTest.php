@@ -1,15 +1,18 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Enums\BankReconciliationStatus;
 use App\Enums\CompanyRole;
 use App\Exceptions\Posting\ReconciliationOutOfBalanceException;
 use App\Models\Account;
+use App\Models\AccountingAuditLog;
 use App\Models\BankReconciliation;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\JournalPoster;
 use App\Services\Reconciliation\BankReconciliationService;
 use Carbon\CarbonImmutable;
@@ -153,7 +156,9 @@ it('posts an interest entry on begin and auto-marks the bank line', function () 
 it('auto-marks lines previously cleared via the legacy register', function () {
     $entry = makeBankEntry($this->bank, $this->revenue, debitOnBankCents: 0, creditOnBankCents: 2000);
     $bankLine = $entry->lines->firstWhere('account_id', $this->bank->id);
-    $bankLine->update(['cleared_at' => now()]); // legacy clear, no rec id
+    // Simulates data cleared by a since-decommissioned legacy register, i.e.
+    // pre-existing state rather than a mutation any current app flow performs.
+    PostedMutationGate::within(fn () => $bankLine->update(['cleared_at' => now()]));
 
     $rec = $this->service->begin($this->bank, Carbon::parse('2026-04-30'), -2000);
 
@@ -189,6 +194,15 @@ it('sets cleared_at and bank_reconciliation_id on marked lines when completed', 
     $line = JournalLine::find($depositLineId);
     expect($line->cleared_at)->not->toBeNull();
     expect($line->bank_reconciliation_id)->toBe($rec->id);
+
+    $auditLog = AccountingAuditLog::where('company_id', $rec->company_id)
+        ->where('action', AuditAction::BankReconciliationCompleted)
+        ->latest('id')->first();
+
+    expect($auditLog)->not->toBeNull()
+        ->and($auditLog->auditable_type)->toBe($completed->getMorphClass())
+        ->and($auditLog->auditable_id)->toBe($completed->id)
+        ->and($auditLog->payload['completed_by_user_id'])->toBe($user->id);
 });
 
 it('undoes the most recent reconciliation: un-clears lines and reverses adjustment entries', function () {
@@ -211,10 +225,21 @@ it('undoes the most recent reconciliation: un-clears lines and reverses adjustme
 
     $serviceChargeEntryId = $completed->service_charge_entry_id;
     $interestEntryId = $completed->interest_earned_entry_id;
+    $completedId = $completed->id;
+    $completedCompanyId = $completed->company_id;
 
     $this->service->undo($completed);
 
     expect(BankReconciliation::find($completed->id))->toBeNull();
+
+    $auditLog = AccountingAuditLog::where('company_id', $completedCompanyId)
+        ->where('action', AuditAction::BankReconciliationUndone)
+        ->latest('id')->first();
+
+    expect($auditLog)->not->toBeNull()
+        ->and($auditLog->auditable_type)->toBe((new BankReconciliation)->getMorphClass())
+        ->and($auditLog->auditable_id)->toBe($completedId)
+        ->and($auditLog->payload['voided_entry_ids'])->toContain($serviceChargeEntryId, $interestEntryId);
 
     $line = JournalLine::find($depositLineId);
     expect($line->cleared_at)->toBeNull();

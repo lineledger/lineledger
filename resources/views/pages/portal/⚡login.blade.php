@@ -1,9 +1,8 @@
 <?php
 
 use App\Actions\Portal\RequestPortalLoginLink;
+use App\Actions\Portal\ThrottlePortalLoginRequest;
 use App\Models\Company;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -25,20 +24,11 @@ new #[Layout('layouts.portal')] #[Title('Sign in')] class extends Component
         }
     }
 
-    public function submit(RequestPortalLoginLink $action): void
+    public function submit(RequestPortalLoginLink $action, ThrottlePortalLoginRequest $throttle): void
     {
         $this->validate(['email' => ['required', 'email']]);
 
-        // Throttle by company + email + IP to prevent magic-link email bombing.
-        $key = 'portal-login:'.$this->company->id.'|'.mb_strtolower($this->email).'|'.request()->ip();
-
-        if (RateLimiter::tooManyAttempts($key, maxAttempts: 5)) {
-            throw ValidationException::withMessages([
-                'email' => __('Too many attempts. Please try again in :seconds seconds.', ['seconds' => RateLimiter::availableIn($key)]),
-            ]);
-        }
-
-        RateLimiter::increment($key, decaySeconds: 900);
+        $throttle->handle($this->company->id, $this->email, request()->ip());
 
         $action->handle($this->company, $this->email);
 
