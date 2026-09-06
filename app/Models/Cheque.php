@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\ChequeStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class Cheque extends Model
 {
-    use BelongsToCompany, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, SoftDeletes;
 
     /**
      * @return BelongsTo<Account, $this>

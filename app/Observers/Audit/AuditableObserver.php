@@ -14,9 +14,12 @@ use App\Models\Deposit;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\PayRun;
 use App\Models\SalesOrder;
+use App\Models\StockAdjustment;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
+use App\Models\Transfer;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use Illuminate\Database\Eloquent\Model;
@@ -71,6 +74,21 @@ class AuditableObserver
             'created' => AuditAction::DepositCreated,
             'updated' => AuditAction::DepositUpdated,
             'deleted' => AuditAction::DepositDeleted,
+        ],
+        Transfer::class => [
+            'created' => AuditAction::TransferCreated,
+            'updated' => AuditAction::TransferUpdated,
+            'deleted' => AuditAction::TransferDeleted,
+        ],
+        StockAdjustment::class => [
+            'created' => AuditAction::StockAdjustmentCreated,
+            'updated' => AuditAction::StockAdjustmentUpdated,
+            'deleted' => AuditAction::StockAdjustmentDeleted,
+        ],
+        PayRun::class => [
+            'created' => AuditAction::PayRunCreated,
+            'updated' => AuditAction::PayRunUpdated,
+            'deleted' => AuditAction::PayRunDeleted,
         ],
         JournalEntry::class => [
             'created' => AuditAction::JournalEntryCreated,

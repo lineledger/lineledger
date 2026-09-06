@@ -16,16 +16,24 @@ use App\Exceptions\Posting\PostedDocumentDeletionException;
  * The guard fires for soft deletes and force deletes alike. Company teardown is
  * a database-level FK cascade, not an Eloquent delete, so it is unaffected.
  *
- * Consuming models must expose a nullable `journal_entry_id`.
+ * Consuming models must expose a nullable `journal_entry_id`, whose presence
+ * signals "posted". `JournalEntry` itself has no such column (it *is* the
+ * journal entry), so it overrides {@see isPostedForDeletionGuard()} to check
+ * `is_posted` instead.
  */
 trait GuardsPostedDeletion
 {
     public static function bootGuardsPostedDeletion(): void
     {
         static::deleting(function ($model): void {
-            if ($model->journal_entry_id !== null) {
+            if ($model->isPostedForDeletionGuard()) {
                 throw PostedDocumentDeletionException::for($model);
             }
         });
+    }
+
+    protected function isPostedForDeletionGuard(): bool
+    {
+        return $this->journal_entry_id !== null;
     }
 }

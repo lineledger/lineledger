@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\TransferStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class Transfer extends Model
 {
-    use BelongsToCompany, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, SoftDeletes;
 
     /**
      * @return BelongsTo<Account, $this>
