@@ -13,6 +13,7 @@ use App\Models\Deposit;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Banking\BankLineMemo;
@@ -122,7 +123,7 @@ class DepositPoster
      */
     public function repost(Deposit $deposit): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($deposit) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($deposit) {
             $deposit->loadMissing('lines.customerReceipt', 'lines.salesReceipt', 'bankAccount', 'company', 'journalEntry.lines');
 
             if (! $deposit->journal_entry_id) {
@@ -205,7 +206,7 @@ class DepositPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     public function void(Deposit $deposit, ?CarbonImmutable $voidDate = null): void

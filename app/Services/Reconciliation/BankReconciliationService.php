@@ -3,6 +3,7 @@
 namespace App\Services\Reconciliation;
 
 use App\Actions\Accounting\UpdateJournalEntryHeader;
+use App\Enums\AuditAction;
 use App\Enums\BankReconciliationStatus;
 use App\Exceptions\Posting\ReconciliationOutOfBalanceException;
 use App\Models\Account;
@@ -10,6 +11,8 @@ use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\EntryNumberGenerator;
 use App\Services\Posting\JournalPoster;
 use Carbon\CarbonInterface;
@@ -34,6 +37,7 @@ class BankReconciliationService
     public function __construct(
         protected JournalPoster $journalPoster,
         protected EntryNumberGenerator $entryNumbers,
+        protected AccountingAuditRecorder $auditRecorder,
     ) {}
 
     /**
@@ -132,16 +136,22 @@ class BankReconciliationService
             $ids = $rec->markedLineIds();
 
             if (! empty($ids)) {
-                JournalLine::query()
-                    ->where('account_id', $rec->account_id)
-                    ->whereIn('id', $ids)
-                    ->whereNull('cleared_at')
-                    ->update(['cleared_at' => now()]);
+                // Clearing a line doesn't touch debits/credits or account balances —
+                // it's reconciliation bookkeeping, not a financial restatement — so
+                // it's a reviewed exception to the DB-level immutability trigger on
+                // posted journal_lines rows.
+                PostedMutationGate::within(function () use ($rec, $ids) {
+                    JournalLine::query()
+                        ->where('account_id', $rec->account_id)
+                        ->whereIn('id', $ids)
+                        ->whereNull('cleared_at')
+                        ->update(['cleared_at' => now()]);
 
-                JournalLine::query()
-                    ->where('account_id', $rec->account_id)
-                    ->whereIn('id', $ids)
-                    ->update(['bank_reconciliation_id' => $rec->id]);
+                    JournalLine::query()
+                        ->where('account_id', $rec->account_id)
+                        ->whereIn('id', $ids)
+                        ->update(['bank_reconciliation_id' => $rec->id]);
+                });
             }
 
             // A service-charge or interest line is stamped with this
@@ -160,6 +170,14 @@ class BankReconciliationService
                 'completed_at' => now(),
                 'completed_by_user_id' => $user?->id,
             ])->save();
+
+            $this->auditRecorder->record($rec->company_id, AuditAction::BankReconciliationCompleted, $rec, [
+                'account_id' => $rec->account_id,
+                'statement_date' => $rec->statement_date?->toDateString(),
+                'ending_balance_cents' => $rec->ending_balance_cents,
+                'marked_line_ids' => $ids,
+                'completed_by_user_id' => $user?->id,
+            ]);
 
             return $rec->fresh();
         });
@@ -240,12 +258,15 @@ class BankReconciliationService
                 throw new RuntimeException('Only the most recent reconciliation for this account can be undone.');
             }
 
+            $voidedEntryIds = [];
+
             if ($rec->serviceChargeEntry && ! $rec->serviceChargeEntry->isVoided()) {
                 $this->journalPoster->void(
                     $rec->serviceChargeEntry,
                     null,
                     "Undo reconciliation #{$rec->id} — service charge reversal",
                 );
+                $voidedEntryIds[] = $rec->serviceChargeEntry->id;
             }
 
             if ($rec->interestEarnedEntry && ! $rec->interestEarnedEntry->isVoided()) {
@@ -254,14 +275,27 @@ class BankReconciliationService
                     null,
                     "Undo reconciliation #{$rec->id} — interest earned reversal",
                 );
+                $voidedEntryIds[] = $rec->interestEarnedEntry->id;
             }
 
-            JournalLine::query()
+            $unclearedIds = JournalLine::query()
+                ->where('bank_reconciliation_id', $rec->id)
+                ->pluck('id')
+                ->all();
+
+            PostedMutationGate::within(fn () => JournalLine::query()
                 ->where('bank_reconciliation_id', $rec->id)
                 ->update([
                     'cleared_at' => null,
                     'bank_reconciliation_id' => null,
-                ]);
+                ]));
+
+            $this->auditRecorder->record($rec->company_id, AuditAction::BankReconciliationUndone, $rec, [
+                'account_id' => $rec->account_id,
+                'statement_date' => $rec->statement_date?->toDateString(),
+                'uncleared_line_ids' => $unclearedIds,
+                'voided_entry_ids' => $voidedEntryIds,
+            ]);
 
             $rec->delete();
         }));

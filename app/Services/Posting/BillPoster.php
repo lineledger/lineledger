@@ -17,6 +17,7 @@ use App\Models\JournalEntry;
 use App\Models\StockMovement;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Inventory\InventoryCostingFactory;
 use App\Services\Inventory\MovementContext;
@@ -138,7 +139,7 @@ class BillPoster
      */
     public function repost(Bill $bill): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($bill) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($bill) {
             $bill->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'lines.item', 'contact', 'company', 'journalEntry.lines');
 
             if (! $bill->journal_entry_id) {
@@ -226,7 +227,7 @@ class BillPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     protected function recomputeStatus(Bill $bill): void

@@ -13,6 +13,7 @@ use App\Models\CreditMemo;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
@@ -120,7 +121,7 @@ class CreditMemoPoster
      */
     public function repost(CreditMemo $memo): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($memo) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($memo) {
             $memo->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'company', 'journalEntry.lines', 'contact');
 
             if (! $memo->journal_entry_id) {
@@ -202,7 +203,7 @@ class CreditMemoPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     /**

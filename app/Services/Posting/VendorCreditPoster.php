@@ -13,6 +13,7 @@ use App\Models\JournalEntry;
 use App\Models\VendorCredit;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
@@ -125,7 +126,7 @@ class VendorCreditPoster
      */
     public function repost(VendorCredit $credit): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($credit) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($credit) {
             $credit->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'company', 'journalEntry.lines', 'contact');
 
             if (! $credit->journal_entry_id) {
@@ -207,7 +208,7 @@ class VendorCreditPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     /**

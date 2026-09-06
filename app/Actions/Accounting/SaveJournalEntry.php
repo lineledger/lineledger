@@ -4,6 +4,7 @@ namespace App\Actions\Accounting;
 
 use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Models\JournalEntry;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\EntryNumberGenerator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,10 @@ final class SaveJournalEntry
      */
     public function handle(array $data, ?JournalEntry $entry = null): JournalEntry
     {
-        return DB::transaction(function () use ($data, $entry): JournalEntry {
+        // An existing $entry may already be posted (repost-in-place): the header
+        // update and the lines()->delete()+recreate below are a reviewed, audited
+        // exception to the DB-level immutability trigger on posted rows.
+        return PostedMutationGate::within(fn () => DB::transaction(function () use ($data, $entry): JournalEntry {
             $company = app('current_company');
             $entryDate = CarbonImmutable::parse($data['entry_date'])->toDateString();
 
@@ -103,6 +107,6 @@ final class SaveJournalEntry
             $entry->refresh();
 
             return $entry;
-        });
+        }));
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Models\Account;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Merge\AccountReferenceRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -106,7 +107,7 @@ final class MergeAccounts
             ]);
         }
 
-        return DB::transaction(function () use ($loser, $survivor): Account {
+        return PostedMutationGate::within(fn () => DB::transaction(function () use ($loser, $survivor): Account {
             $moved = [];
 
             AuditMute::silence(function () use ($loser, $survivor, &$moved): void {
@@ -183,7 +184,7 @@ final class MergeAccounts
             ]);
 
             return $survivor->refresh();
-        });
+        }));
     }
 
     /**
