@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\CompanyRole;
 use App\Enums\ReportStatement;
 use App\Models\Account;
 use App\Models\Company;
@@ -166,7 +167,9 @@ it('re-routes an account to another activity via the per-account override and st
 
 it('moves an account across activities from the sections page and clears its custom section', function () {
     $s = cashFlowScenario();
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create();
+    $s['company']->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
 
     $section = ReportSection::create([
         'company_id' => $s['company']->id,
@@ -188,7 +191,9 @@ it('moves an account across activities from the sections page and clears its cus
 
 it('ignores a sections-page activity move for an account with no activity line', function () {
     $s = cashFlowScenario();
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create();
+    $s['company']->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
 
     // Bank is cash itself — it has no activity, so the move is a no-op.
     Livewire::test('pages::reports.cash-flow-sections', ['company' => $s['company']])
@@ -200,7 +205,9 @@ it('ignores a sections-page activity move for an account with no activity line',
 
 it('renders the report and exports to CSV, XLSX and PDF', function () {
     $s = cashFlowScenario();
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create();
+    $s['company']->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
 
     $component = Livewire::test('pages::reports.cash-flow', ['company' => $s['company']])
         ->set('startDate', '2026-01-01')
@@ -225,7 +232,9 @@ it('renders the report and exports to CSV, XLSX and PDF', function () {
 
 it('renders the prior column and names the comparison range in the subtitle', function () {
     $s = cashFlowScenario();
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create();
+    $s['company']->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
 
     Livewire::test('pages::reports.cash-flow', ['company' => $s['company']])
         ->set('startDate', '2026-01-01')

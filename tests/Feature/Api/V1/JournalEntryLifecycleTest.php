@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Deposit;
 use App\Models\JournalEntry;
+use App\Services\Audit\PostedMutationGate;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -116,7 +117,7 @@ it('rejects editing a source-linked entry with 409', function () {
     $id = $this->postJson('/api/v1/journal-entries', journalPayload(), $this->h)->json('data.id');
 
     $entry = JournalEntry::withoutGlobalScopes()->find($id);
-    $entry->update(['source_type' => Deposit::class, 'source_id' => 1]);
+    PostedMutationGate::within(fn () => $entry->update(['source_type' => Deposit::class, 'source_id' => 1]));
 
     $this->patchJson("/api/v1/journal-entries/{$id}", journalPayload([
         'memo' => 'should not save',

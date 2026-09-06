@@ -64,6 +64,22 @@ it('reports success from the login component without revealing whether a match w
         ->assertSet('sent', true);
 });
 
+it('throttles repeated login-link requests from the same IP', function () {
+    Notification::fake();
+
+    for ($i = 0; $i < 5; $i++) {
+        Livewire::test('pages::portal.login', ['company' => $this->company])
+            ->set('email', 'buyer@acme.test')
+            ->call('submit')
+            ->assertHasNoErrors();
+    }
+
+    Livewire::test('pages::portal.login', ['company' => $this->company])
+        ->set('email', 'buyer@acme.test')
+        ->call('submit')
+        ->assertHasErrors('email');
+});
+
 it('consumes a valid link and signs the customer in', function () {
     $token = 'validtoken123';
     PortalLoginLink::create([

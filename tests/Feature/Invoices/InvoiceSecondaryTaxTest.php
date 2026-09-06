@@ -119,7 +119,7 @@ it('shows both tax codes and amounts on the read-only invoice page', function ()
 
     // The read-only page itemises the two taxes on the line: GST $5.00 and PST
     // $7.00 are shown as separate amounts rather than a single merged figure.
-    Livewire::test('pages::invoices.show', ['invoice' => $invoice])
+    Livewire::test('pages::invoices.show', ['company' => $this->company, 'invoice' => $invoice])
         ->assertSee('5.00')   // GST amount
         ->assertSee('7.00');  // PST amount, shown separately
 });
@@ -172,6 +172,6 @@ it('breaks the line tax into a separate totals row per tax code', function () {
     expect(collect($rows)->firstWhere('tax_cents', 500))->not->toBeNull(); // GST 5%
     expect(collect($rows)->firstWhere('tax_cents', 700))->not->toBeNull(); // PST 7%
 
-    Livewire::test('pages::invoices.show', ['invoice' => $invoice])
+    Livewire::test('pages::invoices.show', ['company' => $this->company, 'invoice' => $invoice])
         ->assertSeeHtml('invoice-tax-row');
 });
