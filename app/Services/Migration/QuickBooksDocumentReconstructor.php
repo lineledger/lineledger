@@ -21,6 +21,7 @@ use App\Models\CustomerReceipt;
 use App\Models\Deposit;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Services\Audit\PostedMutationGate;
 use App\Support\Accounting\ControlAccountRoles;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -76,10 +77,14 @@ class QuickBooksDocumentReconstructor
         if ($document !== null) {
             // Point the journal entry at the document it now belongs to, and the
             // document back at its entry, so each is reachable from the other.
-            $entry->forceFill([
+            // The entry is already posted by the caller before build() runs — this
+            // is purely a document-linking backfill, not a financial restatement —
+            // so it's a reviewed exception to the DB-level immutability trigger on
+            // posted journal_entries rows.
+            PostedMutationGate::within(fn () => $entry->forceFill([
                 'source_type' => $document->getMorphClass(),
                 'source_id' => $document->getKey(),
-            ])->save();
+            ])->save());
 
             $document->forceFill(['journal_entry_id' => $entry->id])->save();
         }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Restore;
 
+use App\Enums\AuditAction;
 use App\Enums\CompanyRestoreStatus;
 use App\Enums\CompanyRole;
 use App\Models\Company;
@@ -10,6 +11,7 @@ use App\Models\Membership;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Audit\CanonicalJson;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Backup\CompanyExporter;
 use App\Services\Restore\Exceptions\BundleValidationException;
@@ -59,6 +61,7 @@ final class CompanyImporter
         private readonly JsonlTableReader $reader,
         private readonly UserRemapBuilder $userRemap,
         private readonly AttachmentImporter $attachments,
+        private readonly AccountingAuditRecorder $auditRecorder,
     ) {}
 
     /**
@@ -210,7 +213,12 @@ final class CompanyImporter
             $stepResults = [];
             $deferredFkUpdates = [];
 
-            DB::transaction(function () use (
+            // Restored rows (journal_entries.is_posted, etc.) reproduce already-posted
+            // historical data — a reviewed exception to the DB-level immutability
+            // trigger, needed for both the main insert pass (rows insert with
+            // is_posted already true, which triggers no BEFORE UPDATE/DELETE guard)
+            // and the deferred cross-cycle FK patch pass below (a genuine UPDATE).
+            PostedMutationGate::within(fn () => DB::transaction(function () use (
                 $extractedDir,
                 $rowTransformer,
                 $idMapper,
@@ -400,7 +408,7 @@ final class CompanyImporter
                     'user_id' => $restore->requested_by_user_id,
                     'role' => CompanyRole::Owner,
                 ]);
-            });
+            }));
 
             $restore->forceFill([
                 'status' => CompanyRestoreStatus::Completed,
@@ -409,6 +417,12 @@ final class CompanyImporter
                 'step_results' => $stepResults,
                 'error_message' => null,
             ])->save();
+
+            $this->auditRecorder->record($newCompany->id, AuditAction::CompanyRestoreCompleted, $restore, [
+                'source_company_bundle' => $restore->file_path,
+                'requested_by_user_id' => $restore->requested_by_user_id,
+                'step_results' => $stepResults,
+            ]);
 
             return $restore->fresh() ?? $restore;
         } catch (Throwable $e) {

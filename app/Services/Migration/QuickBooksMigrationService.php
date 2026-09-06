@@ -2,6 +2,7 @@
 
 namespace App\Services\Migration;
 
+use App\Enums\AuditAction;
 use App\Enums\DataMigrationMode;
 use App\Enums\DataMigrationStatus;
 use App\Models\Account;
@@ -9,7 +10,9 @@ use App\Models\Company;
 use App\Models\DataMigrationRun;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -26,6 +29,10 @@ use RuntimeException;
  */
 class QuickBooksMigrationService
 {
+    public function __construct(
+        protected AccountingAuditRecorder $auditRecorder,
+    ) {}
+
     /**
      * Find the in-progress run for the company, or start a new one.
      *
@@ -174,17 +181,37 @@ class QuickBooksMigrationService
             ->distinct()
             ->pluck('account_id');
 
-        AuditMute::silence(function () use ($importedEntries, $companyId): void {
+        $dateRange = JournalEntry::withoutGlobalScopes()
+            ->where('company_id', $companyId)->whereNotNull('source_external_id')
+            ->selectRaw('min(entry_date) as min_date, max(entry_date) as max_date')
+            ->first();
+
+        // Hard-deleting posted journal_entries/journal_lines rows below is a
+        // reviewed, audit-logged exception to the DB-level immutability trigger
+        // on posted rows — legitimate only because the run is still InProgress
+        // and the company is unlocked (checked above). The summary record()
+        // call after the transaction is what makes it audit-logged.
+        PostedMutationGate::within(fn () => AuditMute::silence(function () use ($importedEntries, $companyId): void {
             DB::transaction(function () use ($importedEntries, $companyId): void {
                 $this->deleteReconstructedDocuments($companyId, $importedEntries);
                 JournalLine::query()->whereIn('journal_entry_id', $importedEntries)->delete();
                 DB::table('journal_entries')->where('company_id', $companyId)->whereNotNull('source_external_id')->delete();
             });
-        });
+        }));
 
         foreach ($accountIds as $id) {
             Account::withoutGlobalScopes()->find($id)?->recomputeBalance();
         }
+
+        $this->auditRecorder->record($companyId, AuditAction::DataMigrationRolledBack, $run, [
+            'mode' => $run->modeEnum()?->value,
+            'entries_removed' => $count,
+            'account_ids_affected' => $accountIds->values()->all(),
+            'entry_date_range' => [
+                'min' => $dateRange?->min_date,
+                'max' => $dateRange?->max_date,
+            ],
+        ]);
 
         // Clear the recorded GL step so the wizard lets the user re-import.
         $results = $run->step_results ?? [];
