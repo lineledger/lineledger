@@ -8,19 +8,28 @@ attempted) except where noted.
 
 Local-only document — this branch (`local/security-review`) is not pushed to GitHub.
 
+**Update — 2026-09-05**: Findings #1, #2, #3, #5, #7, and #8 have been fixed and
+verified (code changes described in their sections below, plus a full test-suite run
+against an isolated database — see §5 for methodology and final results). Findings #4
+and #6 were re-reviewed and are unchanged from the original assessment — both remain
+deliberate, documented tradeoffs rather than bugs, see their sections below for the
+current reasoning. Finding #9 (base-image CVE tracking) is an ongoing operational
+practice, not a one-time fix — see §1. A related audit-trail gap not in the original 9
+findings was also found and fixed during verification — see §3i.
+
 ## Risk-ranked summary
 
 | # | Finding | Area | Severity | Status |
 |---|---|---|---|---|
-| 1 | Posted-record deletion guard inconsistent across models | Accounting integrity | Medium | Open |
-| 2 | `integrity:check --fix` silently heals balance-cache drift | Accounting integrity | Medium | Open |
-| 3 | 2FA enforcement doesn't cover API keys / MCP OAuth tokens | Authorization | Medium | Open |
+| 1 | Posted-record deletion guard inconsistent across models | Accounting integrity | Medium | **Fixed 2026-09-05** |
+| 2 | `integrity:check --fix` silently heals balance-cache drift | Accounting integrity | Medium | **Fixed 2026-09-05** |
+| 3 | 2FA enforcement doesn't cover API keys / MCP OAuth tokens | Authorization | Medium | **Fixed 2026-09-05** |
 | 4 | MCP write-proposal "confirm" is not a real human-in-the-loop gate | Authorization | Low–Medium | Open (feature is off by default) |
-| 5 | Live ledger tables have no DB-level immutability (app-layer only) | Accounting integrity | Low (defense-in-depth) | Open |
-| 6 | Posted entries editable in place with no visible correction trail in reports | Accounting integrity | Low (by-design tradeoff) | Noted |
-| 7 | Livewire AJAX doesn't re-check access after initial page load | Authorization | Low (mitigated by `SESSION_DRIVER=database`) | Mitigated in this deployment |
-| 8 | Portal magic-link *request* endpoint rate limiting unconfirmed | Web vuln | Low | Unconfirmed |
-| 9 | `mysql:8.4` / `frankenphp` base images carry upstream CVEs | Dependency/image | Low–Medium | Track upstream |
+| 5 | Live ledger tables have no DB-level immutability (app-layer only) | Accounting integrity | Low (defense-in-depth) | **Fixed 2026-09-05** |
+| 6 | Posted entries editable in place with no visible correction trail in reports | Accounting integrity | Low (by-design tradeoff) | Noted — re-reviewed, unchanged |
+| 7 | Livewire AJAX doesn't re-check access after initial page load | Authorization | Low (mitigated by `SESSION_DRIVER=database`) | **Fixed 2026-09-05** (no longer dependent on session driver) |
+| 8 | Portal magic-link *request* endpoint rate limiting unconfirmed | Web vuln | Low | **Fixed 2026-09-05** |
+| 9 | `mysql:8.4` / `frankenphp` base images carry upstream CVEs | Dependency/image | Low–Medium | Track upstream (ongoing) |
 
 No SQL injection, stored XSS, webhook-auth bypass, mass-assignment, or IDOR
 vulnerabilities were found. `composer audit` and `npm audit` both report zero known
@@ -64,12 +73,13 @@ No exploitable finding in any category. Notable hardening observed:
 - `app/Http/Controllers/Inbound/InboundEmailController.php:40-79` — three-layer
   defense (per-company token, HMAC-SHA256 with `hash_equals()`, sender allow-list).
 
-**Open item (#8)**: could not confirm whether
-`app/Actions/Portal/RequestPortalLoginLink.php` (the endpoint that *requests* a
-passwordless magic link, as opposed to consuming one) is rate-limited. The
-token-consume endpoint is adequately protected by 48-char token entropy regardless.
-Worst case if unconfirmed: an attacker mass-triggers login-link emails to arbitrary
-addresses (spam/relay-abuse), not a data-exposure risk.
+**Fixed (#8)**: `app/Actions/Portal/ThrottlePortalLoginRequest.php` now enforces two
+independent `RateLimiter` caps on the login-request path — `portal-login:{company}|
+{email}|{ip}` (5 attempts / 15 min) and `portal-login-email:{company}|{email}` (10
+attempts / hour, so rotating IPs can't bypass the per-IP cap) — throwing a
+`ValidationException` once tripped. Wired into both
+`resources/views/pages/portal/⚡login.blade.php` and the equivalent employee-portal
+login page. Covered by `tests/Feature/Portal/ThrottlePortalLoginRequestTest.php`.
 
 ## 3. Accounting integrity & audit trail
 
@@ -89,26 +99,32 @@ addresses (spam/relay-abuse), not a data-exposure risk.
   `AppServiceProvider.php:73-74`), with field-level dirty diffs and PII/derived-field
   stripping.
 
-### 3b. Finding #5 — live ledger tables lack DB-level immutability
-The hash chain and triggers protect the **audit log table**, not `journal_entries` /
-`journal_lines` themselves. `grep -rl "CREATE TRIGGER" database/migrations` returns
-only `accounting_audit_logs` and `security_logs`. Enforcement of "don't edit a posted
-line" is 100% application-layer (Eloquent guards, controller checks, `JournalPoster`).
+### 3b. Finding #5 — live ledger tables lack DB-level immutability — Fixed
+Migration `2026_09_04_000000_add_posted_ledger_immutability_triggers.php` adds four
+MySQL triggers (`journal_entries_no_update_when_posted`,
+`journal_entries_no_delete_when_posted`, `journal_lines_no_update_when_posted`,
+`journal_lines_no_delete_when_posted`) that `SIGNAL SQLSTATE '45000'` on any
+`UPDATE`/`DELETE` of a row whose `is_posted = 1`, unless a session-scoped escape hatch
+(`app/Services/Audit/PostedMutationGate.php`, a reentrancy-safe
+`@ll_allow_posted_mutation` session variable) is active. No-ops on non-MySQL drivers.
+This closes the direct-DB-access gap described in the original finding: even a
+compromised app container or an operator with raw DB credentials can no longer mutate
+a posted line without going through the gate.
 
-**Scenario**: the app's DB user has full DML rights (required to create triggers during
-migration — see `docker/docker-compose.yml:72-75` comment on `--skip-log-bin`). Direct
-DB access (compromised app/queue container, an operator with DB credentials, or a
-future SQL-injection primitive) can `UPDATE journal_lines SET debit_cents = ...`
-directly. This bypasses the Eloquent observer (no audit row written) and the hash chain
-has nothing to say about it (it only captured a snapshot at posting time, not a live
-hash of the current row). Detection is left to the nightly `integrity:check` balance
-heuristics, which a balance-preserving tamper (swap which line carries the debit) would
-evade.
+`PostedMutationGate::within()` is deliberately used by every legitimate code path that
+still needs to touch a posted row's data without going through `JournalPoster`/
+`SaveJournalEntry`'s normal void-and-repost flow: bank-register cleared-status toggling
+(`resources/views/pages/banking/⚡register.blade.php`), account/contact merges
+(`app/Actions/Accounting/MergeAccounts.php`, `app/Actions/Contacts/MergeContacts.php` —
+repointing `journal_lines.account_id`/`contact_id` without touching amounts or dates),
+AR-line customer attribution (`resources/views/pages/reports/⚡unattributed-ar.blade.php`,
+see §3i), and `SaveJournalEntry`'s repost-in-place path (§3f). Each call site was
+reasoned through individually to confirm it doesn't defeat the trigger's intent (no
+debit/credit/date mutation on a posted row outside a proper void+repost).
 
-**Recommendation**: add DB-level triggers on `journal_lines`/`journal_entries` (and any
-other posted-financial-data table) that reject `UPDATE`/`DELETE` once a row's parent
-entry is posted, mirroring the pattern already used for `accounting_audit_logs`. This
-is defense-in-depth against anything below the Eloquent layer.
+Verified: `tests/Feature/Accounting/PostedLedgerImmutabilityTriggerTest.php` (5/5
+passing) exercises the trigger directly; the full test suite (§5) confirms no other
+production code path was broken by the new restriction.
 
 ### 3c. Double-entry enforcement — app-layer only (same caveat as above)
 No DB `CHECK` constraint requires `debits == credits`. Enforced at posting time:
@@ -132,43 +148,41 @@ a buggy importer) is not blocked — only caught later by
 4. Balance-cache drift check: recomputes each account's balance from posted
    `journal_lines` and compares to the denormalized `accounts.balance_cents` cache.
 
-**Finding #2**: `--fix` (lines 159-207) silently rewrites the balance cache via
-`saveQuietly()` when drift is found, **without raising an issue for the drift it just
-healed**. If `--fix` is part of the routine cron invocation, a real tampering signal
-(deliberate or accidental corruption of `balance_cents`) gets silently absorbed into a
-routine run with no alert.
-
-**Recommendation**: always log/alert on a drift found, even when `--fix` is enabled
-and successfully heals it. Confirm the scheduler does not default to `--fix`
-unconditionally; if it does, split "detect and alert" from "heal" into separate
-scheduled invocations.
+**Finding #2 — Fixed**: `CheckLedgerIntegrity::checkBalanceCache()` now appends an issue
+(`"...recomputed to %d, and has been healed (--fix)."`) even on the `--fix` path,
+instead of silently `continue`-ing past a healed drift. A drift found while `--fix` is
+enabled now alerts and exits non-zero exactly like a drift found without `--fix` —
+`--fix` only changes whether the cache is also corrected in the same run, never whether
+the drift is surfaced. Verified by
+`tests/Feature/Console/CheckLedgerIntegrityTest.php::'detects a drifted account-balance
+cache and heals it with --fix, but still alerts'`.
 
 **On failure generally**: this command is purely detective — it emails
 `LEDGER_INTEGRITY_ALERT_EMAIL` and exits non-zero, but never blocks posting, locks a
 company, or quarantines data.
 
-### 3e. Finding #1 — inconsistent deletion guards on posted documents
+### 3e. Finding #1 — inconsistent deletion guards on posted documents — Fixed
 `app/Concerns/GuardsPostedDeletion.php` is a model-level `static::deleting()` guard
-(fires for soft *and* force deletes) that throws `PostedDocumentDeletionException` if
-`journal_entry_id !== null`. Applied to: `Invoice`, `Bill`, `BillPayment`,
-`CustomerReceipt`, `SalesReceipt`.
+(fires for soft *and* force deletes) that throws `PostedDocumentDeletionException`.
+Previously applied only to `Invoice`, `Bill`, `BillPayment`, `CustomerReceipt`,
+`SalesReceipt`.
 
-**Not applied to**: `CreditMemo`, `Cheque`, `Deposit`, `TaxReturnPayment`, `Transfer`,
-`StockAdjustment`, `PayRun`, `JournalEntry` — all of which also carry a
-`journal_entry_id`. For these, the equivalent check exists only inside each API
-controller's `destroy()` method. Additionally, `Cheque`/`Deposit`/`Transfer`/
-`StockAdjustment`/`PayRun` are **absent from `AuditableObserver::ACTIONS`**
-(`app/Observers/Audit/AuditableObserver.php:34-105`), so a deletion of one of these
-wouldn't even generate an audit-log row.
+`GuardsPostedDeletion` now also applies to `CreditMemo`, `Cheque`, `Deposit`,
+`TaxReturnPayment`, `Transfer`, `StockAdjustment`, `PayRun`, and `JournalEntry` (the
+eight models originally missing it). The trait was generalized to accept an
+`isPostedForDeletionGuard()` hook per model, since not every model uses the same
+`journal_entry_id !== null` posted-check (`JournalEntry` itself checks `is_posted`
+directly, for example). `Cheque`, `Deposit`, `Transfer`, `StockAdjustment`, and `PayRun`
+were also added to `AuditableObserver::ACTIONS`
+(`app/Observers/Audit/AuditableObserver.php`), so a deletion attempt on any of them now
+generates an audit-log row regardless of outcome.
 
-**Scenario**: a future maintenance script or an operator in `artisan tinker` running
-`Cheque::find($id)->forceDelete()` on a posted, GL-linked cheque succeeds silently — no
-exception, orphans the linked `JournalEntry`, and leaves no audit trail.
+`artisan tinker`-style `Model::find($id)->forceDelete()` on any of these eight, once
+posted/GL-linked, now throws `PostedDocumentDeletionException` instead of silently
+orphaning the linked `JournalEntry`. Verified by
+`tests/Feature/Accounting/PostedDocumentDeletionGuardExtendedTest.php`.
 
-**Recommendation**: apply `GuardsPostedDeletion` to all eight missing models, and add
-`Cheque`/`Deposit`/`Transfer`/`StockAdjustment`/`PayRun` to `AuditableObserver::ACTIONS`.
-
-### 3f. Finding #6 — posted entries editable in place, no visible correction trail
+### 3f. Finding #6 — posted entries editable in place, no visible correction trail — re-reviewed 2026-09-05, unchanged
 Both `JournalEntryController::updatePosted()` and the Livewire journal form's
 `saveChanges()` allow a posted `JournalEntry` to be overwritten in place (UI shows an
 explicit warning), rather than requiring a void + new entry. Same "repost-in-place"
@@ -181,7 +195,11 @@ surfaces it. This is available to any user with ordinary bookkeeper write access
 just admins.
 
 This is a design tradeoff (matches how much off-the-shelf accounting software behaves),
-not a bug — noted for awareness, not necessarily something to "fix."
+not a bug — noted for awareness, not necessarily something to "fix." Re-reviewed
+alongside Finding #5 (§3b): `SaveJournalEntry::handle()`'s repost-in-place path is one
+of the reviewed exemptions wrapped in `PostedMutationGate`, since the new DB triggers
+would otherwise block this same by-design behavior at the database layer. No change to
+the underlying tradeoff itself.
 
 ### 3g. Period locking — sound, single global cutoff, reversible by design
 `Company.lock_date` + `isLockedFor()` (`app/Models/Company.php:293-298`), enforced at
@@ -197,6 +215,19 @@ common-in-the-industry tradeoffs rather than gaps.
 deliberate opt-outs exist for console/checkpoint contexts. See §4 for the one place
 this trust boundary has a real gap (Livewire AJAX).
 
+### 3i. Audit-trail gap found during Finding #5 verification — Fixed
+While auditing every code path that needed a `PostedMutationGate` exemption (§3b),
+`resources/views/pages/reports/⚡unattributed-ar.blade.php`'s `assign()` action was
+found to perform a raw `DB::table('journal_lines')->update(...)` (attributing an
+unattributed AR line to a customer) with **no audit-log entry at all** — a genuine gap
+against the standing requirement that every user-initiated data change be captured in
+the audit trail (`app/Observers/Audit/AuditableObserver.php` only instruments Eloquent
+model mutations, not raw query-builder updates). Fixed by adding
+`AuditAction::JournalLinesArAttributed` (`app/Enums/AuditAction.php`) and calling
+`AccountingAuditRecorder::record()` after a successful attribution, alongside the
+`PostedMutationGate` wrap the trigger now requires. This was outside the original 9
+findings — found and fixed as a byproduct of this pass, not a pre-existing tracked item.
+
 ## 4. Multi-tenancy & authorization
 
 ### 4a. Tenant isolation / IDOR — solid
@@ -209,21 +240,25 @@ explicit `abort_unless($model->company_id === $company->id, 404)` checks. No mis
 check found among the controllers/pages spot-checked (invoices, journal entries,
 bills, attachments, backups, member management, support tickets).
 
-### 4b. Finding #7 — Livewire AJAX doesn't re-check access after mount (mitigated here)
-`app/Livewire/Hooks/BindCurrentCompanyHook.php` documents, in its own comment, that
-Livewire's `/livewire-*/update` AJAX endpoint doesn't route through
-`EnsureCompanyMembership` — it re-binds `current_company` from the component snapshot
-without re-checking `belongsToCompany()`. `EnsureSectionAccess`, `EnsureSectionEnabled`,
-and `EnforceTwoFactor` only run on the initial full-page GET.
+### 4b. Finding #7 — Livewire AJAX doesn't re-check access after mount — Fixed
+`app/Livewire/Hooks/BindCurrentCompanyHook.php`'s `hydrate()`/`call()`/`update()`/
+`render()` hooks now re-check `$user->belongsToCompany($component->company)` on every
+Livewire AJAX request, not just the initial full-page GET (`mount()` still only binds,
+deliberately not enforcing — see the class docblock for why: it would preempt the
+admin-portal's own site-admin guard, which relies on Livewire hydrating `$company`
+before the component's `mount()` body runs). A revoked/downgraded user's already-open
+tab now gets a 403 (`"You no longer have access to this company."`) on its very next
+interaction, rather than continuing to read/write that company's data until the tab
+refreshes or the session is killed server-side.
 
-**Scenario**: an owner revokes/downgrades a user's access while that user has a
-form open; the open tab can keep submitting AJAX writes until it's refreshed —
-**unless the session is killed server-side**, which `app/Services/Security/AccessRevoker.php:81-99`
-does via `forgetSessions()`, but **only when `SESSION_DRIVER=database`**.
-
-**This deployment's `.env` already sets `SESSION_DRIVER=database`** (the shipped
-default), so this gap is currently mitigated. Flagging so it stays that way — don't
-switch to `redis`/`file`/`cookie` session drivers without also hardening this path.
+Scoped to the `web` guard only (portal Livewire components authenticate under the
+separate `customer` guard and must not be affected) and exempts site admins (the
+`/admin/*` portal's authorization model is "is site admin," not "belongs to this
+company," and enforces that itself). This closes the gap independent of session driver
+— previously mitigated only because this deployment happens to run
+`SESSION_DRIVER=database`; that mitigation is no longer load-bearing, though it remains
+good practice regardless. Verified by
+`tests/Feature/Security/LivewireCompanyRevocationTest.php`.
 
 ### 4c. Authorization policies — coarse but consistent
 Only 3 Policy classes exist (`CompanyPolicy`, `DocumentFolderPolicy`,
@@ -240,7 +275,7 @@ server-overridden by `BelongsToCompany::creating()`. Passport/MCP OAuth tokens d
 authorization per-tool to the user's actual in-app section grants — no over-broad scope
 grant found.
 
-### 4e. Finding #4 — MCP write-proposal "confirm" is not a real human-in-the-loop gate
+### 4e. Finding #4 — MCP write-proposal "confirm" is not a real human-in-the-loop gate — re-reviewed 2026-09-05, unchanged
 `app/Mcp/Concerns/ProposesWrites.php` + `ConfirmProposalTool.php`: writes are staged as
 `McpWriteProposal` rows, gated by `MCP_WRITE_ENABLED` (default `false`), a per-company
 opt-in, control-account rejection, tenant scoping, and re-validated abilities at confirm
@@ -252,19 +287,65 @@ against single-shot LLM mistakes (preview, second call, guardrails, idempotency)
 not an enforced human-approval workflow, despite the naming suggesting one.
 
 This install currently has `MCP_WRITE_ENABLED` unset (defaults to `false`), so the
-feature is off. Worth deciding deliberately before turning it on.
+feature is off. Re-reviewed this pass and confirmed nothing has changed since the
+original finding — no code was touched here, since building a real human-approval
+web-UI is a feature addition, not a bug fix, and the feature being off by default means
+there's no live exposure to close urgently. Worth deciding deliberately before turning
+`MCP_WRITE_ENABLED` on for any company.
 
-### 4f. Finding #3 — 2FA enforcement doesn't cover API keys / MCP tokens
-`app/Http/Middleware/EnforceTwoFactor.php` is registered only on the `{company}`-prefixed
-web route group (`routes/web.php:96`) — not on `routes/api.php` or the MCP OAuth routes
-(`routes/ai.php:34-49`). A company that mandates 2FA for admins gets that protection
-only for the interactive web UI; an admin's `CompanyApiKey` or MCP OAuth token works
-with no 2FA check at all. Concrete because the MCP path can include the agentic write
-tools once enabled (§4e).
+### 4f. Finding #3 — 2FA enforcement doesn't cover API keys / MCP tokens — Fixed
+The shared enforcement logic was extracted to
+`app/Support/Security/TwoFactorRequirement::isUnmet(Company $company, ?User $user)` —
+`$user !== null && $company->require_two_factor && ! $user->hasEnabledTwoFactorAuthentication()
+&& ($user->companyRole($company)?->isAtLeast(CompanyRole::Admin) ?? false)` — and is now
+used by both `EnforceTwoFactor` (web) and the new
+`app/Http/Middleware/EnforceTwoFactorForApi.php` (API/MCP). The new middleware is
+registered as `enforce.2fa_api` (`bootstrap/app.php`) and applied to all four MCP route
+groups in `routes/ai.php` (both the Q&A and agentic-write servers, both the API-key and
+OAuth `{company}` connection methods) and the versioned REST API in `routes/api.php`
+(`Route::middleware(['throttle:api', 'auth.api_key', 'enforce.2fa_api'])`). A company
+that mandates 2FA for admins now gets that protection uniformly across the web UI, API
+keys, and MCP tokens — closing the gap flagged as concrete in §4e (the MCP path can
+carry the agentic write tools once `MCP_WRITE_ENABLED` is turned on). Verified by
+`tests/Feature/Security/TwoFactorApiEnforcementTest.php`.
 
-**Recommendation**: extend `EnforceTwoFactor`'s check (or an equivalent) to the API-key
-and MCP-token auth paths for companies that have opted into `require_two_factor`, or at
-minimum document clearly that 2FA is a web-UI-only control today.
+## 5. Verification of the 2026-09-05 fixes
+
+Each fix above was covered by a dedicated new or extended test (cited in its own
+section) and run in isolation first. The full suite was then run twice against a
+scratch database (`lineledger_test_isolated`, via `phpunit.isolated.xml`) to catch any
+regression the fixes introduced elsewhere in the codebase:
+
+- **First full run** surfaced 32 regressions (30 errors + 2 failures), all traced to two
+  root causes rather than flaws in the findings' own fixes:
+  1. **13 tests** — the new Finding #5 DB triggers correctly blocking several
+     legitimate production code paths that mutate posted `journal_lines`/
+     `journal_entries` outside the normal poster flow (bank-register reconciliation
+     metadata, account/contact merges, AR attribution, `SaveJournalEntry`'s
+     repost-in-place — all now wrapped in `PostedMutationGate`, reasoned through
+     individually in §3b/§3f), plus test fixtures that deliberately fake posted-row
+     tampering as setup for their own assertions (`CheckLedgerIntegrityTest`,
+     `JournalEntryLifecycleTest`, `JournalEntrySourceLockTest` — also wrapped in
+     `PostedMutationGate`, since the tampering being blocked is exactly what those
+     tests exist to fake).
+  2. **19 tests** — pre-existing test-fixture gaps unmasked by the Finding #7 fix now
+     correctly enforcing membership on every Livewire AJAX request, not a defect in
+     the fix itself: 17 tests across `CashFlowStatementTest`, `ColumnTogglesTest`,
+     `ManagementReportPackageTest`, `ReportEmailTest`, `ReportNotesTest`, and
+     `ReportNumberFormatTest` whose fixtures created a Livewire-testing user without
+     attaching real company membership, plus 2 tests in `InvoiceSecondaryTaxTest`
+     that omitted the `company` prop from `Livewire::test()` entirely (every other
+     caller of that same page component supplies it).
+- **Second full run** (post-fix, 2026-09-05 22:18 UTC): **3259 tests, 3257 passed, 13214
+  assertions, 2 skipped, 0 failures** — zero regressions. All 32 failures from the first
+  run are confirmed fixed, and no new failures were introduced. Final runtime: 55 min
+  20 sec against an isolated, clean database.
+
+No test assertions were weakened or removed to make the suite pass — every fix was
+either a `PostedMutationGate::within()` wrap around a reviewed, legitimate exemption, or
+a test-fixture correction (real company membership attached, or the `company` prop
+supplied) that brings the fixture in line with how every other test in the suite
+already exercises these components.
 
 ---
 
