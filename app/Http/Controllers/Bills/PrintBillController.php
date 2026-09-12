@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Bill;
 use App\Models\Company;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -23,13 +24,13 @@ class PrintBillController extends Controller
 
         $filename = $slug.'-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $bill->bill_no).'.pdf';
 
-        return $pdf->inline('pdf.bills.bill', [
+        return Locales::forContactDocument($bill->contact, $company, fn (): Response => $pdf->inline('pdf.bills.bill', [
             'company' => $company,
             'bill' => $bill,
             'isReimbursement' => $isReimbursement,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($bill),
-        ], $filename);
+        ], $filename));
     }
 
     /**

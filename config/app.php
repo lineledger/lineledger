@@ -114,6 +114,13 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    | UI and document language codes this deployment ships catalogs for.
+    | English is the source language (the __() key). Add a lang/{code}.json
+    | file when introducing a new code.
+    */
+    'supported_locales' => ['en', 'fr'],
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

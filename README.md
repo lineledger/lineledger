@@ -163,9 +163,60 @@ and Vite. The app is then at <http://localhost:8000>.
 | `php artisan test --compact` | Run the test suite |
 | `vendor/bin/pint --dirty` | Auto-format changed PHP files |
 
+## Develop with Docker
+
+PHP, Composer, Node, MySQL, poppler, the queue worker, Vite, and Mailpit all
+run in containers. Docker is the only host dependency.
+
+```bash
+cp .env.example .env          # optional — the app container copies it if missing
+docker compose up --build     # first boot runs composer + npm + migrate
+```
+
+Then:
+
+| URL | What |
+| --- | --- |
+| <http://localhost:8000> | App |
+| <http://localhost:5173> | Vite HMR |
+| <http://localhost:8025> | Mailpit (queued mail lands here, not `storage/logs`) |
+| `127.0.0.1:3306` | MySQL (root, empty password — matches `phpunit.xml`) |
+
+This is **not** the self-host stack. `docker/docker-compose.yml` is the GHCR
+production image (no bind mount, `config:cache`). Use that only when you are
+running LineLedger as a server; use the root `docker-compose.yml` when you are
+changing the code.
+
+Optional demo data (refuses to run in production):
+
+```bash
+docker compose exec app php artisan migrate --seed
+docker compose exec app php artisan db:seed --class=DemoCompanySeeder
+```
+
+| Command | Action |
+| --- | --- |
+| `docker compose exec app ./vendor/bin/pest` | Pest against MySQL `lineledger_test` |
+| `docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=':memory:' app ./vendor/bin/pest` | CI-exact SQLite suite |
+| `docker compose exec app vendor/bin/pint --dirty` | Format changed PHP |
+| `docker compose exec app vendor/bin/phpstan analyse --memory-limit=1G` | Larastan |
+| `docker compose exec app npm test` | JS unit tests |
+
+On Linux, export `DEV_UID=$(id -u) DEV_GID=$(id -g)` so `vendor/` and
+`node_modules/` are not root-owned. Docker Desktop for Mac/Windows is fine at
+the default `1000:1000`.
+
+If you switch between this loop and host-native `composer run dev`, rebuild
+JS deps (`rm -rf node_modules && docker compose up`) — macOS binaries are not
+valid inside the Linux container.
+
+If host port 3306 is already taken, stop that mysqld or change the published
+port in `docker-compose.yml`.
+
 ### Bank-statement PDF import (poppler)
 
-Importing a bank statement as **PDF** needs [poppler](https://poppler.freedesktop.org/)'s
+The Docker development image already includes `pdftotext`. On a host-native
+loop, importing a bank statement as **PDF** needs [poppler](https://poppler.freedesktop.org/)'s
 `pdftotext` for text extraction:
 
 - macOS: `brew install poppler`

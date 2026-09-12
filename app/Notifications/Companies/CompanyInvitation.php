@@ -3,6 +3,7 @@
 namespace App\Notifications\Companies;
 
 use App\Models\CompanyInvitation as CompanyInvitationModel;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -30,13 +31,15 @@ class CompanyInvitation extends Notification implements ShouldQueue
         $company = $this->invitation->company;
         $inviter = $this->invitation->inviter;
 
-        return (new MailMessage)
-            ->subject(__("You've been invited to join :companyName", ['companyName' => $company->name]))
-            ->line(__(':inviterName has invited you to join the :companyName company.', [
-                'inviterName' => $inviter->name,
-                'companyName' => $company->name,
-            ]))
-            ->action(__('Accept invitation'), url("/invitations/{$this->invitation->code}/accept"));
+        return Locales::forRecipient($notifiable, function () use ($company, $inviter): MailMessage {
+            return (new MailMessage)
+                ->subject(__("You've been invited to join :companyName", ['companyName' => $company->name]))
+                ->line(__(':inviterName has invited you to join the :companyName company.', [
+                    'inviterName' => $inviter->name,
+                    'companyName' => $company->name,
+                ]))
+                ->action(__('Accept invitation'), url("/invitations/{$this->invitation->code}/accept"));
+        }, $company);
     }
 
     /**

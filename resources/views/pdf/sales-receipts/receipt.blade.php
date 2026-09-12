@@ -111,7 +111,7 @@
                     <td>{{ $line->description }}</td>
                     <td class="num">{{ rtrim(rtrim((string) $line->quantity, '0'), '.') }}</td>
                     <td class="num">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
-                    <td>{{ $line->taxCode?->code ?? '—' }}</td>
+                    <td>{{ $line->taxCode?->label() ?? '—' }}</td>
                     <td class="num">{{ number_format($line->line_total_cents / 100, 2) }}</td>
                 </tr>
             @endforeach
@@ -136,6 +136,13 @@
     <div class="footer">
         @if ($settings->show_tax_number && filled($company->tax_number))
             <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
+        @endif
+        @php
+            $provincialTaxNumber = $company->provincialTaxNumber();
+            $provincialTaxLabel = $company->provincialTaxLabel();
+        @endphp
+        @if ($settings->show_tax_number && filled($provincialTaxNumber))
+            <div class="taxno">{{ __(':tax No.', ['tax' => $provincialTaxLabel]) }} {{ $provincialTaxNumber }}</div>
         @endif
         @if (filled($receipt->memo))
             <div class="message">{{ $receipt->memo }}</div>

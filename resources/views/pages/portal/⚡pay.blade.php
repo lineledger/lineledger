@@ -97,7 +97,7 @@ new #[Layout('layouts.portal')] #[Title('Pay')] class extends Component
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <flux:heading size="xl" level="1">{{ __('Pay your balance') }}</flux:heading>
-            <flux:subheading>{{ __('Paying :amount :currency', ['amount' => number_format($this->totalDue / 100, 2), 'currency' => $company->currency_code]) }}</flux:subheading>
+            <flux:subheading>{{ __('Paying :amount', ['amount' => \App\Support\Locales::formatMoney($this->totalDue, $company->currency_code)]) }}</flux:subheading>
         </div>
         <flux:button size="sm" variant="ghost" icon="arrow-left" :href="route('portal.dashboard', ['company' => $company->slug])" wire:navigate>
             {{ __('Back') }}

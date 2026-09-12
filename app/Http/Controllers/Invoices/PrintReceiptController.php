@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CustomerReceipt;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use Illuminate\Http\Response;
 
 class PrintReceiptController extends Controller
@@ -18,10 +19,10 @@ class PrintReceiptController extends Controller
 
         $filename = 'receipt-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $receipt->receipt_no).'.pdf';
 
-        return $pdf->inline('pdf.receipts.receipt', [
+        return Locales::forContactDocument($receipt->contact, $company, fn (): Response => $pdf->inline('pdf.receipts.receipt', [
             'company' => $company,
             'receipt' => $receipt,
             'settings' => $company->invoiceSettingsOrNew(),
-        ], $filename);
+        ], $filename));
     }
 }

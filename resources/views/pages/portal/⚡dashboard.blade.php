@@ -69,8 +69,7 @@ new #[Layout('layouts.portal')] #[Title('Your invoices')] class extends Componen
         <div>
             <flux:subheading>{{ __('Total due') }}</flux:subheading>
             <flux:heading size="2xl" class="font-mono" data-test="portal-total-due">
-                {{ number_format($this->totalDue / 100, 2) }}
-                <span class="text-base text-muted-foreground">{{ $company->currency_code }}</span>
+                {{ \App\Support\Locales::formatMoney($this->totalDue, $company->currency_code) }}
             </flux:heading>
         </div>
 
@@ -103,10 +102,10 @@ new #[Layout('layouts.portal')] #[Title('Your invoices')] class extends Componen
                 @forelse ($this->openInvoices as $invoice)
                     <tr data-test="portal-invoice-row">
                         <td class="px-4 py-2 font-mono">{{ $invoice->invoice_no }}</td>
-                        <td class="px-4 py-2 whitespace-nowrap">{{ $invoice->invoice_date?->toDateString() }}</td>
-                        <td class="px-4 py-2 whitespace-nowrap">{{ $invoice->due_date?->toDateString() }}</td>
-                        <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->total_cents / 100, 2) }}</td>
-                        <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->balanceCents() / 100, 2) }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap">{{ \App\Support\Locales::formatDate($invoice->invoice_date) }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap">{{ \App\Support\Locales::formatDate($invoice->due_date) }}</td>
+                        <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $invoice->total_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
+                        <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney($invoice->balanceCents(), $invoice->currency_code ?: $company->currency_code) }}</td>
                         <td class="px-4 py-2 text-right">
                             <flux:button
                                 size="xs"

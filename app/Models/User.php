@@ -24,7 +24,7 @@ use Laravel\Passport\HasApiTokens;
 // set via forceFill in the few server-controlled spots (CreateNewUser,
 // switchCompany, the site admin portal) so a stray update($validated) can never
 // escalate a user, move them between tenants, or unlock a disabled account.
-#[Fillable(['name', 'email', 'password', 'calculator_mode', 'show_daily_insights'])]
+#[Fillable(['name', 'email', 'password', 'calculator_mode', 'locale', 'show_daily_insights'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable, PasskeyUser
 {

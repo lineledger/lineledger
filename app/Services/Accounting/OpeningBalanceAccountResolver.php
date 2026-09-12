@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Enums\AccountSubtype;
 use App\Models\Account;
+use App\Support\Translation\LocalizedNames;
 use RuntimeException;
 
 /**
@@ -18,7 +19,7 @@ class OpeningBalanceAccountResolver
         return Account::withoutGlobalScopes()
             ->where('company_id', $companyId)
             ->where('subtype', AccountSubtype::Equity->value)
-            ->whereIn('name', Account::OPENING_BALANCE_NAMES)
+            ->whereIn('name', LocalizedNames::any(Account::OPENING_BALANCE_NAMES))
             ->first();
     }
 

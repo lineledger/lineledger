@@ -473,7 +473,7 @@ new #[Title('Items')] class extends Component {
                             class="w-full justify-between font-normal"
                             data-test="item-default-tax"
                         >
-                            <span class="truncate">{{ $this->taxCodes->whereIn('id', $f_default_tax_code_ids)->pluck('code')->implode(', ') ?: __('— None —') }}</span>
+                            <span class="truncate">{{ $this->taxCodes->whereIn('id', $f_default_tax_code_ids)->map->label()->implode(', ') ?: __('— None —') }}</span>
                         </flux:button>
                         <flux:menu>
                             <flux:menu.checkbox.group wire:model.live="f_default_tax_code_ids">

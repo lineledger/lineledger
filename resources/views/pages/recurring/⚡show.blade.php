@@ -191,7 +191,7 @@ new #[Title('Recurring schedule')] class extends Component {
                         <td class="px-4 py-2">{{ optional($line->account)->code }} — {{ optional($line->account)->name }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ rtrim(rtrim((string) $line->quantity, '0'), '.') ?: '0' }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
-                        <td class="px-4 py-2">{{ optional($line->taxCode)->code ?? '—' }}</td>
+                        <td class="px-4 py-2">{{ optional($line->taxCode)->label() ?? '—' }}</td>
                     </tr>
                 @endforeach
             </tbody>

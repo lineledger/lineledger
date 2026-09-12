@@ -19,18 +19,18 @@ enum LegalStructure: string
     public function label(): string
     {
         return match ($this) {
-            self::UnincorporatedAssociation => 'Unincorporated association',
-            self::NonProfitCorporation => 'Non-profit corporation',
-            self::RegisteredCharity => 'Registered charity',
+            self::UnincorporatedAssociation => __('Unincorporated association'),
+            self::NonProfitCorporation => __('Non-profit corporation'),
+            self::RegisteredCharity => __('Registered charity'),
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::UnincorporatedAssociation => 'A club or group with no separate legal incorporation (e.g. a photography club).',
-            self::NonProfitCorporation => 'An incorporated not-for-profit; files a corporate return even though tax-exempt.',
-            self::RegisteredCharity => 'A CRA-registered charity that can issue official donation receipts and files the T3010.',
+            self::UnincorporatedAssociation => __('A club or group with no separate legal incorporation (e.g. a photography club).'),
+            self::NonProfitCorporation => __('An incorporated not-for-profit; files a corporate return even though tax-exempt.'),
+            self::RegisteredCharity => __('A CRA-registered charity that can issue official donation receipts and files the T3010.'),
         };
     }
 

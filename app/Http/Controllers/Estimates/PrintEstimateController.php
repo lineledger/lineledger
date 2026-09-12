@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Estimate;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -19,12 +20,12 @@ class PrintEstimateController extends Controller
 
         $filename = 'estimate-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $estimate->estimate_no).'.pdf';
 
-        return $pdf->inline('pdf.estimates.estimate', [
+        return Locales::forContactDocument($estimate->contact, $company, fn (): Response => $pdf->inline('pdf.estimates.estimate', [
             'company' => $company,
             'estimate' => $estimate,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($estimate),
-        ], $filename);
+        ], $filename));
     }
 
     /**

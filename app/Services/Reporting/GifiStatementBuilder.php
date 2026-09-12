@@ -104,7 +104,7 @@ class GifiStatementBuilder
 
                 $sectionLines[] = [
                     'code' => $catalogEntry['code'],
-                    'label' => $catalogEntry['label'],
+                    'label' => __($catalogEntry['label']),
                     'amount' => $lines[$code]['amount'],
                     'accounts' => $lines[$code]['accounts'],
                 ];
@@ -115,7 +115,7 @@ class GifiStatementBuilder
                 continue;
             }
 
-            $block = ['key' => $section['key'], 'label' => $section['label'], 'lines' => $sectionLines, 'subtotal' => $subtotal];
+            $block = ['key' => $section['key'], 'label' => __($section['label']), 'lines' => $sectionLines, 'subtotal' => $subtotal];
 
             if ($section['statement'] === GifiStatement::BalanceSheet) {
                 $bsHalves[$section['half']]['sections'][] = $block;

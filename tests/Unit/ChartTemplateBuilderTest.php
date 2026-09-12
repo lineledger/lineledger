@@ -6,6 +6,9 @@ use App\Enums\Industry;
 use App\Enums\OrganizationType;
 use App\Models\Account;
 use App\Support\Defaults\ChartTemplateBuilder;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 function codes(array $rows): array
 {

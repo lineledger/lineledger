@@ -300,8 +300,8 @@ new #[Title('Tax codes')] class extends Component {
                         <tbody class="divide-y divide-border">
                             @foreach ($this->taxCodes as $t)
                                 <tr data-test="tax-code-row" class="@if(! $t->is_active) opacity-50 @endif">
-                                    <td class="px-4 py-2 font-mono">{{ $t->code }}</td>
-                                    <td class="px-4 py-2">{{ $t->name }}</td>
+                                    <td class="px-4 py-2 font-mono">{{ $t->label() }}</td>
+                                    <td class="px-4 py-2">{{ __($t->name) }}</td>
                                     <td class="px-4 py-2 text-right font-mono">{{ rtrim(rtrim(number_format($t->rate_basis_points / 100, 3), '0'), '.') }}%</td>
                                     <td class="px-4 py-2 text-muted-foreground">{{ optional($t->agency)->name }}</td>
                                     <td class="px-4 py-2 text-right">

@@ -2,6 +2,7 @@
 
 use App\Actions\Companies\CreateCompany;
 use App\Enums\AccountSubtype;
+use App\Enums\AccountType;
 use App\Enums\ContributionMethod;
 use App\Enums\Country;
 use App\Enums\DataMigrationMode;
@@ -1288,17 +1289,17 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                     <flux:text class="mb-4">{{ __('Uncheck any accounts you do not need. Required system accounts are locked on. You can edit, add, or deactivate accounts later.') }}</flux:text>
 
                     @php
-                        $grouped = collect($this->chartPreview)->groupBy(fn ($row) => $row['subtype']->type()->label());
-                        $order = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'];
+                        $grouped = collect($this->chartPreview)->groupBy(fn ($row) => $row['subtype']->type()->value);
+                        $order = [AccountType::Asset, AccountType::Liability, AccountType::Equity, AccountType::Income, AccountType::Expense];
                     @endphp
 
                     <div class="space-y-5" data-test="wizard-chart-preview">
-                        @foreach ($order as $typeLabel)
-                            @if ($grouped->has($typeLabel))
+                        @foreach ($order as $type)
+                            @if ($grouped->has($type->value))
                                 <div>
-                                    <flux:subheading class="mb-2">{{ $typeLabel === 'Equity' ? $this->equitySectionLabel() : __($typeLabel) }}</flux:subheading>
+                                    <flux:subheading class="mb-2">{{ $type === AccountType::Equity ? $this->equitySectionLabel() : $type->label() }}</flux:subheading>
                                     <div class="divide-y divide-border rounded-lg border border-border">
-                                        @foreach ($grouped->get($typeLabel) as $row)
+                                        @foreach ($grouped->get($type->value) as $row)
                                             <div class="flex items-center justify-between gap-3 px-4 py-2.5">
                                                 <flux:checkbox
                                                     wire:model="selectedAccounts.{{ $row['code'] }}"

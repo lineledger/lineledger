@@ -8,6 +8,7 @@ use App\Enums\AccountType;
 use App\Enums\CashFlowActivity;
 use App\Enums\NormalBalance;
 use App\Observers\AccountObserver;
+use App\Support\Translation\LocalizedNames;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -134,7 +135,7 @@ class Account extends Model
         return $query
             ->where('is_system', true)
             ->where('subtype', AccountSubtype::CurrentLiability->value)
-            ->where('name', 'Employee Reimbursements Payable');
+            ->whereIn('name', LocalizedNames::of('Employee Reimbursements Payable'));
     }
 
     public function scopeSelectableForItemAccount(Builder $query): Builder

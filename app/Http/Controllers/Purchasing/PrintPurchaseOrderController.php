@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\PurchaseOrder;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -19,12 +20,12 @@ class PrintPurchaseOrderController extends Controller
 
         $filename = 'purchase-order-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $purchaseOrder->po_no).'.pdf';
 
-        return $pdf->inline('pdf.purchase-orders.purchase-order', [
+        return Locales::forContactDocument($purchaseOrder->contact, $company, fn (): Response => $pdf->inline('pdf.purchase-orders.purchase-order', [
             'company' => $company,
             'purchaseOrder' => $purchaseOrder,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($purchaseOrder),
-        ], $filename);
+        ], $filename));
     }
 
     /**

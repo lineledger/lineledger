@@ -54,6 +54,8 @@ new class extends Component
 
     public string $timezone = 'UTC';
 
+    public string $locale = 'en';
+
     public bool $autoApplyCustomerCredits = false;
 
     public bool $insightsAiNarration = false;
@@ -168,6 +170,7 @@ new class extends Component
         $this->currencyCode = $company->currency_code;
         $this->fiscalYearStartMonth = $company->fiscal_year_start_month;
         $this->timezone = $company->timezone ?: 'UTC';
+        $this->locale = $company->locale ?: 'en';
         $this->autoApplyCustomerCredits = (bool) $company->auto_apply_customer_credits;
         $this->insightsAiNarration = $company->insightsAiNarrationEnabled();
         $this->warnDuplicateBillNo = (bool) $company->warn_duplicate_bill_no;
@@ -224,6 +227,7 @@ new class extends Component
             'currencyCode' => ['required', 'string', 'size:3'],
             'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
+            'locale' => ['required', 'string', Rule::in(\App\Support\Locales::codes())],
             'autoApplyCustomerCredits' => ['boolean'],
             'requireTwoFactor' => ['boolean'],
             'featuresEmployees' => ['boolean'],
@@ -292,6 +296,7 @@ new class extends Component
                 'currency_code' => strtoupper($validated['currencyCode']),
                 'fiscal_year_start_month' => $validated['fiscalYearStartMonth'],
                 'timezone' => $validated['timezone'],
+                'locale' => $validated['locale'],
                 'auto_apply_customer_credits' => (bool) ($validated['autoApplyCustomerCredits'] ?? false),
                 'warn_duplicate_bill_no' => (bool) ($validated['warnDuplicateBillNo'] ?? false),
                 'cheque_offset_x' => ($validated['chequeOffsetX'] ?? '') !== '' ? (float) $validated['chequeOffsetX'] : null,
@@ -716,6 +721,18 @@ new class extends Component
                             @php
                                 $timezoneOptions = \App\Models\Company::timezoneOptions();
                             @endphp
+                            <flux:select
+                                wire:model="locale"
+                                :label="__('Document language')"
+                                :description="__('Default language for invoices, invoice emails, and the customer payment portal. A customer can override this on their profile.')"
+                                required
+                                data-test="company-locale-select"
+                            >
+                                @foreach (\App\Support\Locales::options() as $code => $label)
+                                    <flux:select.option :value="$code">{{ $label }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+
                             <flux:select
                                 wire:model="timezone"
                                 :label="__('Timezone')"

@@ -5,6 +5,7 @@ namespace App\Services\Charity;
 use App\Models\Company;
 use App\Models\DonationReceipt;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use Illuminate\Http\Response;
 
 /**
@@ -22,12 +23,16 @@ class DonationReceiptPdfRenderer
 
     public function inline(Company $company, DonationReceipt $receipt): Response
     {
-        return $this->pdf->inline('pdf.donations.receipt', $this->data($company, $receipt), $this->filename($receipt));
+        $receipt->loadMissing('contact');
+
+        return Locales::forContactDocument($receipt->contact, $company, fn (): Response => $this->pdf->inline('pdf.donations.receipt', $this->data($company, $receipt), $this->filename($receipt)));
     }
 
     public function raw(Company $company, DonationReceipt $receipt): string
     {
-        return $this->pdf->raw('pdf.donations.receipt', $this->data($company, $receipt));
+        $receipt->loadMissing('contact');
+
+        return Locales::forContactDocument($receipt->contact, $company, fn (): string => $this->pdf->raw('pdf.donations.receipt', $this->data($company, $receipt)));
     }
 
     /**
