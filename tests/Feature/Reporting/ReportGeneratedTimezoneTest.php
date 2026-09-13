@@ -53,3 +53,25 @@ it('falls back to the app timezone when no company is in play', function () {
 
     expect(GeneratedAt::label())->toBe(Carbon::now()->format('Y-m-d H:i'));
 });
+
+it('converts a stored instant to the bound company timezone for display', function () {
+    // Stored as UTC, e.g. a completed_at timestamp — must read the local
+    // afternoon, not the UTC evening, same as the "generated" stamp above.
+    $storedUtc = Carbon::parse('2026-09-10 21:34:00', 'UTC');
+
+    expect(GeneratedAt::at($storedUtc)->format('Y-m-d H:i'))->toBe('2026-09-10 14:34');
+});
+
+it('converts a stored instant using an explicitly handed company over the bound one', function () {
+    $eastern = Company::factory()->create(['timezone' => 'America/Toronto']);
+    $storedUtc = Carbon::parse('2026-09-10 21:34:00', 'UTC');
+
+    expect(GeneratedAt::at($storedUtc, $eastern)->format('Y-m-d H:i'))->toBe('2026-09-10 17:34');
+});
+
+it('converts a stored instant to UTC when no company is in play', function () {
+    app()->forgetInstance('current_company');
+    $storedUtc = Carbon::parse('2026-09-10 21:34:00', 'UTC');
+
+    expect(GeneratedAt::at($storedUtc)->format('Y-m-d H:i'))->toBe('2026-09-10 21:34');
+});

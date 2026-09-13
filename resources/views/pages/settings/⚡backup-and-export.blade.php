@@ -182,7 +182,7 @@ new #[Title('Backup & Export')] class extends Component {
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2.5">
                                     <p class="font-medium tracking-tight">
-                                        {{ $backup->created_at?->format('M j, Y g:i A') }}
+                                        {{ $backup->created_at ? \App\Support\Reporting\GeneratedAt::at($backup->created_at)->format('M j, Y g:i A') : '' }}
                                     </p>
                                     <flux:badge size="sm" :color="$this->statusColor($backup->status)">
                                         {{ $this->statusLabel($backup->status) }}

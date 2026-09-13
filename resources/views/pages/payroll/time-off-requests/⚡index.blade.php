@@ -309,7 +309,7 @@ new #[Title('Time-off requests')] class extends Component {
 
                 @if ($request->manager_decided_at)
                     <flux:text size="sm" class="text-muted-foreground">
-                        {{ __('Absence approved by :name on :date.', ['name' => $request->managerDecidedBy?->name ?? __('—'), 'date' => $request->manager_decided_at->format('Y-m-d')]) }}
+                        {{ __('Absence approved by :name on :date.', ['name' => $request->managerDecidedBy?->name ?? __('—'), 'date' => \App\Support\Reporting\GeneratedAt::at($request->manager_decided_at)->format('Y-m-d')]) }}
                         @if ($request->manager_note) "{{ $request->manager_note }}" @endif
                     </flux:text>
                 @endif

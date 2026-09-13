@@ -121,7 +121,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         $rows->push(['Account', $rec->account->code.' — '.$rec->account->name]);
         $rows->push(['Statement date', $rec->statement_date->toDateString()]);
         $rows->push(['Status', $rec->status->label()]);
-        $rows->push(['Completed at', $rec->completed_at?->toDateTimeString() ?? '']);
+        $rows->push(['Completed at', $rec->completed_at ? \App\Support\Reporting\GeneratedAt::at($rec->completed_at)->toDateTimeString() : '']);
         $rows->push(['Completed by', $rec->completedBy?->name ?? '']);
         $rows->push([]);
         $rows->push(['Summary']);
@@ -292,7 +292,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         </div>
         <div class="rounded-lg border border-border p-3">
             <flux:text class="text-muted-foreground">{{ __('Completed') }}</flux:text>
-            <div class="text-sm">{{ $rec->completed_at?->toDateTimeString() ?? '—' }}</div>
+            <div class="text-sm">{{ $rec->completed_at ? \App\Support\Reporting\GeneratedAt::at($rec->completed_at)->toDateTimeString() : '—' }}</div>
             <div class="text-xs text-muted-foreground">{{ $rec->completedBy?->name }}</div>
         </div>
         <div class="rounded-lg border border-border p-3">
