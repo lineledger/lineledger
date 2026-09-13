@@ -17,9 +17,22 @@ new #[Title('Cheques')] class extends Component {
     #[Url(as: 'q')]
     public string $search = '';
 
+    public string $sortField = 'date';
+
+    public string $sortDir = 'desc';
+
     public function mount(Company $company): void
     {
         $this->company = $company;
+    }
+
+    public function sortBy(string $field): void
+    {
+        if ($field !== 'date') {
+            return;
+        }
+
+        $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
     }
 
     #[Computed]
@@ -82,7 +95,9 @@ new #[Title('Cheques')] class extends Component {
                 ])
             : collect();
 
-        $merged = $expense->concat($payroll)->sortByDesc('sort_key')->values();
+        $merged = $this->sortDir === 'asc'
+            ? $expense->concat($payroll)->sortBy('sort_key')->values()
+            : $expense->concat($payroll)->sortByDesc('sort_key')->values();
 
         $perPage = 25;
         $page = max(1, (int) request()->get('page', 1));
@@ -151,7 +166,7 @@ new #[Title('Cheques')] class extends Component {
         <table class="w-full text-sm">
             <thead class="bg-muted">
                 <tr>
-                    <th class="px-4 py-2 text-left">{{ __('Date') }}</th>
+                    <th class="px-4 py-2 text-left"><x-sort-header field="date" :current-field="$sortField" :current-dir="$sortDir" :label="__('Date')" /></th>
                     <th class="px-4 py-2 text-left">{{ $j->chequeLabel('number') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('Payee') }}</th>
                     @if ($company->usesPayroll())

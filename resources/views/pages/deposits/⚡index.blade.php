@@ -15,9 +15,22 @@ new #[Title('Deposits')] class extends Component {
     #[Url(as: 'q')]
     public string $search = '';
 
+    public string $sortField = 'date';
+
+    public string $sortDir = 'desc';
+
     public function mount(Company $company): void
     {
         $this->company = $company;
+    }
+
+    public function sortBy(string $field): void
+    {
+        if ($field !== 'date') {
+            return;
+        }
+
+        $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
     }
 
     #[Computed]
@@ -26,8 +39,8 @@ new #[Title('Deposits')] class extends Component {
         return Deposit::query()
             ->with('bankAccount')
             ->when($this->search !== '', fn ($q) => $q->where('deposit_no', 'like', '%'.$this->search.'%'))
-            ->orderByDesc('deposit_date')
-            ->orderByDesc('id')
+            ->orderBy('deposit_date', $this->sortDir)
+            ->orderBy('id', $this->sortDir)
             ->paginate(25);
     }
 }; ?>
@@ -73,7 +86,7 @@ new #[Title('Deposits')] class extends Component {
         <table class="w-full text-sm">
             <thead class="bg-muted">
                 <tr>
-                    <th class="px-4 py-2 text-left">{{ __('Date') }}</th>
+                    <th class="px-4 py-2 text-left"><x-sort-header field="date" :current-field="$sortField" :current-dir="$sortDir" :label="__('Date')" /></th>
                     <th class="px-4 py-2 text-left">{{ __('Deposit #') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('Bank') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('Memo') }}</th>
