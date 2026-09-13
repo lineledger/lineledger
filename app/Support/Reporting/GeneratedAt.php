@@ -4,9 +4,11 @@ namespace App\Support\Reporting;
 
 use App\Models\Company;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 /**
- * The "Generated …" stamp every exported report carries.
+ * The "Generated …" stamp every exported report carries, and the general
+ * company-local display conversion it's built on.
  *
  * Reports are read by the people keeping the books, so the stamp belongs in the
  * company's own timezone — the same one `Company::currentDateTime()` uses to
@@ -20,7 +22,7 @@ final class GeneratedAt
 {
     public static function for(?Company $company = null): CarbonImmutable
     {
-        $company ??= app()->bound('current_company') ? app('current_company') : null;
+        $company = self::resolve($company);
 
         return $company instanceof Company
             ? $company->currentDateTime()
@@ -31,5 +33,22 @@ final class GeneratedAt
     public static function label(?Company $company = null): string
     {
         return self::for($company)->format('Y-m-d H:i');
+    }
+
+    /**
+     * Converts a stored (UTC) instant to a company's timezone for display.
+     * Storage and business-logic dates stay in UTC / Company::currentDateTime();
+     * this is display-only and never round-trips back to the database.
+     */
+    public static function at(CarbonInterface $value, ?Company $company = null): CarbonImmutable
+    {
+        $company = self::resolve($company);
+
+        return CarbonImmutable::parse($value)->setTimezone($company?->timezone ?: 'UTC');
+    }
+
+    private static function resolve(?Company $company): ?Company
+    {
+        return $company ?? (app()->bound('current_company') ? app('current_company') : null);
     }
 }

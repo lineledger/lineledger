@@ -222,7 +222,7 @@ new #[Title('Audit Logs')] class extends Component {
                     @forelse ($rows as $row)
                         <tr data-test="audit-row">
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->sequence }}</td>
-                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->toDayDateTimeString() }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap">{{ \App\Support\Reporting\GeneratedAt::at($row->recorded_at)->toDayDateTimeString() }}</td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->action->value }}</td>
                             <td class="px-3 py-2 text-xs">
                                 {{ class_basename($row->auditable_type) }} #{{ $row->auditable_id }}
@@ -272,7 +272,7 @@ new #[Title('Audit Logs')] class extends Component {
                 <tbody class="divide-y divide-border">
                     @forelse ($rows as $row)
                         <tr data-test="security-row">
-                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->toDayDateTimeString() }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap">{{ \App\Support\Reporting\GeneratedAt::at($row->recorded_at)->toDayDateTimeString() }}</td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->event->value }}</td>
                             <td class="px-3 py-2">
                                 @if ($row->user)

@@ -613,7 +613,7 @@ new #[Layout('layouts.employee-portal')] #[Title('My time')] class extends Compo
                         <ul class="mt-2 max-h-48 space-y-2 overflow-y-auto text-xs">
                             @foreach ($this->history as $log)
                                 <li data-test="my-time-history-row">
-                                    <span class="text-muted-foreground">{{ $log->recorded_at->format('Y-m-d H:i') }}</span>
+                                    <span class="text-muted-foreground">{{ \App\Support\Reporting\GeneratedAt::at($log->recorded_at)->format('Y-m-d H:i') }}</span>
                                     <span class="font-medium">{{ $this->historyActor($log) }}</span>
                                     <span>{{ $this->historyLabel($log) }}</span>
                                     @if (isset($log->payload['from'], $log->payload['to']))

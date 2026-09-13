@@ -146,13 +146,13 @@ new #[Title('Tax payment')] class extends Component {
 
     @if ($payment->posted_at)
         <div class="mt-4 text-xs text-muted-foreground">
-            {{ __('Posted') }} {{ $payment->posted_at->toDateTimeString() }}
+            {{ __('Posted') }} {{ \App\Support\Reporting\GeneratedAt::at($payment->posted_at)->toDateTimeString() }}
             {{ optional($payment->postedBy)->name ? __('by').' '.$payment->postedBy->name : '' }}
         </div>
     @endif
     @if ($payment->voided_at)
         <div class="mt-1 text-xs text-rose-500">
-            {{ __('Voided') }} {{ $payment->voided_at->toDateTimeString() }}
+            {{ __('Voided') }} {{ \App\Support\Reporting\GeneratedAt::at($payment->voided_at)->toDateTimeString() }}
             {{ optional($payment->voidedBy)->name ? __('by').' '.$payment->voidedBy->name : '' }}
         </div>
     @endif

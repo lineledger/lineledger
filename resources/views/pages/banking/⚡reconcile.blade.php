@@ -980,7 +980,7 @@ new #[Title('Reconcile')] class extends Component {
                             <td class="px-3 py-2 text-right font-mono">{{ $rec->service_charge_cents ? number_format($rec->service_charge_cents / 100, 2) : '—' }}</td>
                             <td class="px-3 py-2 text-right font-mono">{{ $rec->interest_earned_cents ? number_format($rec->interest_earned_cents / 100, 2) : '—' }}</td>
                             <td class="px-3 py-2 text-muted-foreground">
-                                {{ $rec->completed_at?->toDateTimeString() }}
+                                {{ $rec->completed_at ? \App\Support\Reporting\GeneratedAt::at($rec->completed_at)->toDateTimeString() : '' }}
                                 @if ($rec->completedBy)
                                     <span class="text-muted-foreground"> — {{ $rec->completedBy->name }}</span>
                                 @endif

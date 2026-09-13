@@ -4,7 +4,7 @@
     'metaLines' => array_filter([
         ($rec->account?->code ?? '').' — '.($rec->account?->name ?? ''),
         'Status: '.$rec->status->label(),
-        $rec->completed_at ? 'Completed: '.$rec->completed_at->toDateTimeString().($rec->completedBy ? ' — '.$rec->completedBy->name : '') : null,
+        $rec->completed_at ? 'Completed: '.\App\Support\Reporting\GeneratedAt::at($rec->completed_at)->toDateTimeString().($rec->completedBy ? ' — '.$rec->completedBy->name : '') : null,
     ]),
 ])
 

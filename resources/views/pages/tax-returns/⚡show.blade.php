@@ -116,7 +116,7 @@ new #[Title('Tax return')] class extends Component {
                 @endif
 
                 @if ($taxReturn->filed_at)
-                    <span class="text-xs text-muted-foreground">{{ __('Filed') }} {{ $taxReturn->filed_at->toDateTimeString() }} {{ optional($taxReturn->filedBy)->name ? __('by').' '.$taxReturn->filedBy->name : '' }}</span>
+                    <span class="text-xs text-muted-foreground">{{ __('Filed') }} {{ \App\Support\Reporting\GeneratedAt::at($taxReturn->filed_at)->toDateTimeString() }} {{ optional($taxReturn->filedBy)->name ? __('by').' '.$taxReturn->filedBy->name : '' }}</span>
                 @endif
             </div>
         </div>
@@ -173,7 +173,7 @@ new #[Title('Tax return')] class extends Component {
         <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950">
             <div class="font-medium">{{ __('This return has been voided.') }}</div>
             <div class="mt-1 text-muted-foreground">
-                {{ $taxReturn->voided_at?->toDateTimeString() }}
+                {{ $taxReturn->voided_at ? \App\Support\Reporting\GeneratedAt::at($taxReturn->voided_at)->toDateTimeString() : '' }}
                 {{ optional($taxReturn->voidedBy)->name ? __('by').' '.$taxReturn->voidedBy->name : '' }}
                 — {{ $taxReturn->void_reason }}
             </div>

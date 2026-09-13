@@ -69,7 +69,7 @@ new class extends Component {
                             <flux:badge color="zinc" size="sm">#{{ $entry->sequence }}</flux:badge>
                             <span class="font-medium">{{ $entry->action->value }}</span>
                             <span class="text-xs text-zinc-500">
-                                {{ $entry->recorded_at->toDayDateTimeString() }}
+                                {{ \App\Support\Reporting\GeneratedAt::at($entry->recorded_at)->toDayDateTimeString() }}
                             </span>
                         </div>
                         <div class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
