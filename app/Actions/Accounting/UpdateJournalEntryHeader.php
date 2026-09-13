@@ -8,6 +8,7 @@ use App\Exceptions\Posting\PeriodLockedException;
 use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Reconciliation\BankReconciliationService;
 use Carbon\CarbonImmutable;
@@ -53,56 +54,58 @@ final class UpdateJournalEntryHeader
             throw new RuntimeException('A voided entry cannot be edited.');
         }
 
-        return DB::transaction(function () use ($entry, $data): JournalEntry {
-            $entry->loadMissing('lines', 'company');
+        return PostedMutationGate::within(function () use ($entry, $data): JournalEntry {
+            return DB::transaction(function () use ($entry, $data): JournalEntry {
+                $entry->loadMissing('lines', 'company');
 
-            $company = $entry->company;
-            $originalDate = CarbonImmutable::parse($entry->entry_date);
-            $newDate = CarbonImmutable::parse($data['entry_date']);
+                $company = $entry->company;
+                $originalDate = CarbonImmutable::parse($entry->entry_date);
+                $newDate = CarbonImmutable::parse($data['entry_date']);
 
-            if ($entry->isPosted()) {
-                foreach ([$originalDate, $newDate] as $date) {
-                    if ($company->isLockedFor($date)) {
-                        throw PeriodLockedException::for($date, CarbonImmutable::parse($company->lock_date));
+                if ($entry->isPosted()) {
+                    foreach ([$originalDate, $newDate] as $date) {
+                        if ($company->isLockedFor($date)) {
+                            throw PeriodLockedException::for($date, CarbonImmutable::parse($company->lock_date));
+                        }
                     }
+
+                    // Guard both dates: leaving a reconciled period would alter the
+                    // reconciled balance just as much as entering one.
+                    $accountIds = $entry->lines->pluck('account_id')->all();
+                    $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $originalDate);
+                    $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $newDate);
                 }
 
-                // Guard both dates: leaving a reconciled period would alter the
-                // reconciled balance just as much as entering one.
-                $accountIds = $entry->lines->pluck('account_id')->all();
-                $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $originalDate);
-                $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $newDate);
-            }
+                $header = [
+                    'entry_date' => $newDate->toDateString(),
+                    'memo' => ($data['memo'] ?? null) ?: null,
+                ];
 
-            $header = [
-                'entry_date' => $newDate->toDateString(),
-                'memo' => ($data['memo'] ?? null) ?: null,
-            ];
+                if (! empty($data['entry_no'])) {
+                    $header['entry_no'] = (string) $data['entry_no'];
+                }
 
-            if (! empty($data['entry_no'])) {
-                $header['entry_no'] = (string) $data['entry_no'];
-            }
+                // JournalEntry's saved hook pushes the new entry_date onto the lines.
+                $entry->update($header);
 
-            // JournalEntry's saved hook pushes the new entry_date onto the lines.
-            $entry->update($header);
+                if ($entry->source_type === BankReconciliation::class) {
+                    $this->reconciliations->syncAdjustmentEntry($entry);
+                }
 
-            if ($entry->source_type === BankReconciliation::class) {
-                $this->reconciliations->syncAdjustmentEntry($entry);
-            }
+                $fresh = $entry->fresh(['lines.account']);
 
-            $fresh = $entry->fresh(['lines.account']);
+                if ($fresh->isPosted()) {
+                    $this->auditRecorder->record(
+                        (int) $fresh->company_id,
+                        AuditAction::JournalEntryUpdated,
+                        $fresh,
+                        AccountingAuditRecorder::snapshotJournalEntry($fresh),
+                        $fresh,
+                    );
+                }
 
-            if ($fresh->isPosted()) {
-                $this->auditRecorder->record(
-                    (int) $fresh->company_id,
-                    AuditAction::JournalEntryUpdated,
-                    $fresh,
-                    AccountingAuditRecorder::snapshotJournalEntry($fresh),
-                    $fresh,
-                );
-            }
-
-            return $fresh;
+                return $fresh;
+            });
         });
     }
 }

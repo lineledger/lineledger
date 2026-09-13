@@ -1,11 +1,14 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Models\Account;
+use App\Models\AccountingAuditLog;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Migration\ContactLinkBackfiller;
 use App\Services\Posting\JournalPoster;
 use Carbon\CarbonImmutable;
@@ -47,7 +50,9 @@ function driftedInvoice(Company $company, Contact $customer): array
     app(JournalPoster::class)->post($entry);
 
     // Reconstruction links the entry to the document but the AR line never got the customer.
-    $entry->forceFill(['source_type' => Invoice::class, 'source_id' => $invoice->id])->save();
+    // Mirrors QuickBooksDocumentReconstructor::build(), which is a reviewed exception
+    // to the DB-level immutability trigger on posted journal_entries rows.
+    PostedMutationGate::within(fn () => $entry->forceFill(['source_type' => Invoice::class, 'source_id' => $invoice->id])->save());
 
     return [$invoice, $entry, $ar];
 }
@@ -62,16 +67,30 @@ it('tags an untagged AR control line from its source invoice', function () {
 
     $arLine = $entry->lines()->where('account_id', $ar->id)->first();
     expect((int) $arLine->contact_id)->toBe($customer->id);
+
+    $auditLog = AccountingAuditLog::where('company_id', $this->company->id)
+        ->where('action', AuditAction::ContactLinkBackfillCompleted)
+        ->latest('id')->first();
+
+    expect($auditLog)->not->toBeNull()
+        ->and($auditLog->auditable_type)->toBe($this->company->getMorphClass())
+        ->and($auditLog->auditable_id)->toBe($this->company->id)
+        ->and($auditLog->payload['updated'])->toBe(1);
 });
 
-it('is idempotent — a second run changes nothing', function () {
+it('is idempotent — a second run changes nothing and logs no further audit entry', function () {
     $customer = Contact::create(['company_id' => $this->company->id, 'display_name' => 'Drift Co', 'is_customer' => true]);
     driftedInvoice($this->company, $customer);
 
     app(ContactLinkBackfiller::class)->backfill($this->company->id);
+    $countAfterFirst = AccountingAuditLog::where('company_id', $this->company->id)
+        ->where('action', AuditAction::ContactLinkBackfillCompleted)->count();
+
     $second = app(ContactLinkBackfiller::class)->backfill($this->company->id);
 
     expect($second['updated'])->toBe(0);
+    expect(AccountingAuditLog::where('company_id', $this->company->id)
+        ->where('action', AuditAction::ContactLinkBackfillCompleted)->count())->toBe($countAfterFirst);
 });
 
 it('does not touch lines that already carry a contact', function () {
@@ -80,7 +99,7 @@ it('does not touch lines that already carry a contact', function () {
     [, $entry, $ar] = driftedInvoice($this->company, $customer);
 
     // Pre-tag the AR line to a different contact; the backfill must leave it alone.
-    $entry->lines()->where('account_id', $ar->id)->update(['contact_id' => $other->id]);
+    PostedMutationGate::within(fn () => $entry->lines()->where('account_id', $ar->id)->update(['contact_id' => $other->id]));
 
     $result = app(ContactLinkBackfiller::class)->backfill($this->company->id);
 

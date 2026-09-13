@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
@@ -36,7 +37,10 @@ class JournalPoster
      */
     public function post(JournalEntry $entry, bool $recompute = true): JournalEntry
     {
-        return DB::transaction(function () use ($entry, $recompute) {
+        // Posting a reversal stamps reversed_by_entry_id on the ORIGINAL (already
+        // posted) entry below — a reviewed, audited exception to the DB-level
+        // immutability trigger on posted rows.
+        return PostedMutationGate::within(fn () => DB::transaction(function () use ($entry, $recompute) {
             $entry->loadMissing('lines', 'company');
 
             if ($entry->isPosted()) {
@@ -93,7 +97,7 @@ class JournalPoster
             );
 
             return $entry;
-        });
+        }));
     }
 
     /**
@@ -102,7 +106,10 @@ class JournalPoster
      */
     public function void(JournalEntry $entry, ?CarbonImmutable $voidDate = null, ?string $memo = null): JournalEntry
     {
-        return DB::transaction(function () use ($entry, $voidDate, $memo) {
+        // Stamping voided_at/reversed_by_entry_id on the original (already-posted)
+        // entry below is a reviewed, audited exception to the DB-level immutability
+        // trigger on posted rows.
+        return PostedMutationGate::within(fn () => DB::transaction(function () use ($entry, $voidDate, $memo) {
             $entry->loadMissing('lines', 'company');
 
             if (! $entry->isPosted()) {
@@ -178,7 +185,7 @@ class JournalPoster
             );
 
             return $reversal->fresh(['lines.account']);
-        });
+        }));
     }
 
     protected function recomputeAffectedAccounts(JournalEntry $entry): void

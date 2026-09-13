@@ -13,6 +13,7 @@ use App\Models\OpeningBalanceState;
 use App\Services\Accounting\OpeningBalanceAccountResolver;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\EntryNumberGenerator;
 use App\Services\Posting\JournalPoster;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
@@ -70,7 +71,7 @@ class OpeningBalanceJournalSynchronizer
      */
     public function apply(OpeningBalanceState $state): ?JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($state) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($state) {
             $state->loadMissing('company');
 
             if ($state->isFinalized()) {
@@ -112,7 +113,7 @@ class OpeningBalanceJournalSynchronizer
             $state->forceFill(['journal_entry_id' => $entry->id, 'applied_at' => now(), 'apply_error' => null])->save();
 
             return $entry;
-        }));
+        })));
     }
 
     /**

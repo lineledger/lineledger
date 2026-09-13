@@ -5,6 +5,7 @@ namespace App\Actions\Companies;
 use App\Models\Attachment;
 use App\Models\Company;
 use App\Models\CompanyBackup;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Backup\BackupTableRegistry;
 use App\Support\Storage\StorageDisks;
 use Illuminate\Support\Facades\DB;
@@ -91,7 +92,11 @@ class PurgeCompany
 
         $logoPaths = array_values(array_filter([$company->logo_path, $company->document_logo_path]));
 
-        DB::transaction(function () use ($company, $companyId) {
+        // Deleting a purged company's posted journal_entries rows directly below
+        // is a reviewed exception to the DB-level immutability trigger on posted
+        // rows — legitimate only because the company itself is already
+        // soft-deleted and this is the irreversible admin purge of it.
+        PostedMutationGate::within(fn () => DB::transaction(function () use ($company, $companyId) {
             foreach ($this->purgeOrder() as $table) {
                 // Line tables (invoice_lines, journal_lines, …) carry no
                 // company_id — they cascade from the parent document, which the
@@ -106,7 +111,7 @@ class PurgeCompany
             }
 
             $company->forceDelete();
-        });
+        }));
 
         // Only once the delete has committed: a rolled-back purge must not have
         // already destroyed the files of a company that still exists.

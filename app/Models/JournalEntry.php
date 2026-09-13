@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,7 +29,12 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 ])]
 class JournalEntry extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, GuardsPostedDeletion;
+
+    protected function isPostedForDeletionGuard(): bool
+    {
+        return $this->is_posted;
+    }
 
     /**
      * Source documents whose journal entries may still be edited from the

@@ -6,6 +6,7 @@ use App\Models\BankReconciliation;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\JournalPoster;
 use App\Services\Reconciliation\BankReconciliationService;
 use App\Services\Reconciliation\ReconciliationStampBackfiller;
@@ -42,7 +43,7 @@ beforeEach(function () {
 
         $rec = $this->service->complete($rec);
 
-        $oldLine->fresh()->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save();
+        PostedMutationGate::within(fn () => $oldLine->fresh()->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save());
 
         return [$rec, $oldLine->fresh()];
     };
@@ -103,7 +104,7 @@ it('skips a reconciliation when an unticked cleared line is not one of its own a
     app(JournalPoster::class)->post($deposit->refresh());
 
     $depositLine = $deposit->lines()->where('account_id', $this->bank->id)->firstOrFail();
-    $depositLine->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save();
+    PostedMutationGate::within(fn () => $depositLine->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save());
 
     $result = app(ReconciliationStampBackfiller::class)->backfill($this->company->id);
 

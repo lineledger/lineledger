@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\TaxReturnPaymentDirection;
 use App\Enums\TaxReturnPaymentStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class TaxReturnPayment extends Model
 {
-    use BelongsToCompany, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, SoftDeletes;
 
     /**
      * @return BelongsTo<TaxReturn, $this>

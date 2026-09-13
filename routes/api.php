@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Route;
 // Public machine-readable spec (no auth — documents the surface, no secrets).
 Route::get('v1/openapi.json', OpenApiController::class)->name('api.v1.openapi');
 
-Route::middleware(['throttle:api', 'auth.api_key'])
+Route::middleware(['throttle:api', 'auth.api_key', 'enforce.2fa_api'])
     ->prefix('v1')
     ->name('api.v1.')
     ->group(function () {

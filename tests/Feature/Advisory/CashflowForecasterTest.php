@@ -14,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Insights\Detectors\CashflowRunwayDetector;
 use App\Services\Insights\Detectors\CashflowShortfallDetector;
 use App\Services\Posting\JournalPoster;
@@ -272,7 +273,7 @@ it('ties book cash to the bank: cleared balance, uncleared cheques, deposits in 
     $bank = fcAccount($this->company, AccountSubtype::Bank);
 
     // Mark the opening deposit cleared, then write a cheque that has not cleared.
-    JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]);
+    PostedMutationGate::within(fn () => JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]));
     fcPost($this->company, '2026-06-10', [
         ['account' => fcAccount($this->company, AccountSubtype::Expense), 'debit' => 360268],
         ['account' => $bank, 'credit' => 360268],
@@ -293,7 +294,7 @@ it('ties book cash to the bank: cleared balance, uncleared cheques, deposits in 
 it('does not count a voided cheque or its reversal as outstanding', function () {
     $bank = fcAccount($this->company, AccountSubtype::Bank);
 
-    JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]);
+    PostedMutationGate::within(fn () => JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]));
     fcPost($this->company, '2026-06-10', [
         ['account' => fcAccount($this->company, AccountSubtype::Expense), 'debit' => 360268],
         ['account' => $bank, 'credit' => 360268],
@@ -319,7 +320,7 @@ it('reports the cash position as untracked when no bank line has ever been clear
 
 it('renders the rationale, cash position and doubtful cut-off on the report page', function () {
     $bank = fcAccount($this->company, AccountSubtype::Bank);
-    JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]);
+    PostedMutationGate::within(fn () => JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]));
     fcInvoice($this->company, 200000, '2026-07-01');
     fcInvoice($this->company, 150000, '2026-02-01');
     fcBill($this->company, 100000, '2026-06-10');

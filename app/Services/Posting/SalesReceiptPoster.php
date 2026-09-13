@@ -14,6 +14,7 @@ use App\Models\SalesReceipt;
 use App\Models\StockMovement;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Inventory\InventoryCostingFactory;
 use App\Services\Inventory\MovementContext;
@@ -133,7 +134,7 @@ class SalesReceiptPoster
      */
     public function repost(SalesReceipt $receipt): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($receipt) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($receipt) {
             $receipt->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'lines.item', 'company', 'journalEntry.lines', 'contact');
 
             if (! $receipt->journal_entry_id) {
@@ -217,7 +218,7 @@ class SalesReceiptPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     /**

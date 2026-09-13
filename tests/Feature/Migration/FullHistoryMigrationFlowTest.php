@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Enums\DataMigrationMode;
 use App\Enums\DataMigrationStatus;
 use App\Models\Account;
+use App\Models\AccountingAuditLog;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
@@ -99,6 +101,15 @@ it('rolls back exactly the replayed entries and recomputes balances to zero', fu
 
     $bank->refresh()->recomputeBalance();
     expect((int) $bank->balance_cents)->toBe(0);
+
+    $auditLog = AccountingAuditLog::where('company_id', $this->company->id)
+        ->where('action', AuditAction::DataMigrationRolledBack)
+        ->latest('id')->first();
+
+    expect($auditLog)->not->toBeNull()
+        ->and($auditLog->auditable_type)->toBe($run->getMorphClass())
+        ->and($auditLog->auditable_id)->toBe($run->id)
+        ->and($auditLog->payload['entries_removed'])->toBe(1);
 });
 
 it('reproduces a balanced ledger across a full historical year', function () {

@@ -17,6 +17,7 @@ use App\Models\Contact;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
@@ -125,7 +126,7 @@ class BillPaymentPoster
      */
     public function repost(BillPayment $payment): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($payment) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($payment) {
             $payment->loadMissing('applications.bill', 'contact', 'company', 'journalEntry.lines');
 
             if (! $payment->journal_entry_id) {
@@ -229,7 +230,7 @@ class BillPaymentPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     /**

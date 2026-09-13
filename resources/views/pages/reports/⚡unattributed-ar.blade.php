@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Models\Account;
 use App\Models\Cheque;
 use App\Models\Company;
@@ -9,6 +10,8 @@ use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Models\Deposit;
 use App\Models\Invoice;
+use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Audit\PostedMutationGate;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -198,15 +201,25 @@ new #[Title('Unattributed AR')] class extends Component
             return;
         }
 
-        $updated = DB::table('journal_lines as jl')
+        $updated = PostedMutationGate::within(fn () => DB::table('journal_lines as jl')
             ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
             ->where('je.company_id', $this->company->id)
             ->whereIn('jl.id', $ids)
             ->whereIn('jl.account_id', $this->arAccountIds())
             ->whereNull('jl.contact_id')
-            ->update(['jl.contact_id' => $this->assignToContactId]);
+            ->update(['jl.contact_id' => $this->assignToContactId]));
 
+        $contact = Contact::find($this->assignToContactId);
         $name = $this->selectedCustomerName();
+
+        if ($updated > 0 && $contact !== null) {
+            app(AccountingAuditRecorder::class)->record(
+                $this->company->id,
+                AuditAction::JournalLinesArAttributed,
+                $contact,
+                ['journal_line_ids' => $ids, 'updated' => $updated],
+            );
+        }
 
         $this->selected = [];
         $this->assignToContactId = null;

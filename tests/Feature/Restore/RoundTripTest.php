@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Enums\CompanyBackupStatus;
 use App\Enums\CompanyRestoreStatus;
 use App\Enums\CompanyRole;
 use App\Enums\InvoiceStatus;
 use App\Enums\TaxAppliesTo;
 use App\Models\Account;
+use App\Models\AccountingAuditLog;
 use App\Models\Attachment;
 use App\Models\Bill;
 use App\Models\BillLine;
@@ -252,6 +254,15 @@ it('round-trips a company through export and import', function () {
         ->and($restore->company_id)->not->toBeNull()
         ->and($restore->completed_at)->not->toBeNull();
 
+    $auditLog = AccountingAuditLog::where('company_id', $restore->company_id)
+        ->where('action', AuditAction::CompanyRestoreCompleted)
+        ->latest('id')->first();
+
+    expect($auditLog)->not->toBeNull()
+        ->and($auditLog->auditable_type)->toBe($restore->getMorphClass())
+        ->and($auditLog->auditable_id)->toBe($restore->id)
+        ->and($auditLog->payload['requested_by_user_id'])->toBe($this->alice->id);
+
     $companyB = Company::find($restore->company_id);
     expect($companyB)->not->toBeNull()
         ->and($companyB->id)->not->toBe($this->companyA->id)
@@ -311,7 +322,13 @@ it('round-trips a company through export and import', function () {
             continue;
         }
 
-        expect($bCount)->toBe($aCount, "Row count mismatch for table {$tableName}: A={$aCount}, B={$bCount}");
+        // The restore itself is audited — CompanyImporter records one
+        // CompanyRestoreCompleted entry on company B after the backed-up rows
+        // are copied over, so B legitimately has exactly one more audit row
+        // than A did at export time.
+        $expectedCount = $tableName === 'accounting_audit_logs' ? $aCount + 1 : $aCount;
+
+        expect($bCount)->toBe($expectedCount, "Row count mismatch for table {$tableName}: A={$aCount}, B={$bCount}");
     }
 
     // ---- 2. GL trial balance: posted debits = posted credits in both companies. ----

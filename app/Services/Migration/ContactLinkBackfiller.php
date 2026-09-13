@@ -3,12 +3,16 @@
 namespace App\Services\Migration;
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
+use App\Models\Company;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Models\Invoice;
+use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Audit\PostedMutationGate;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -35,6 +39,10 @@ class ContactLinkBackfiller
         Bill::class => [AccountSubtype::AccountsPayable, 'bills'],
         BillPayment::class => [AccountSubtype::AccountsPayable, 'bill_payments'],
     ];
+
+    public function __construct(
+        protected AccountingAuditRecorder $auditRecorder,
+    ) {}
 
     /**
      * @return array{updated: int}
@@ -64,7 +72,11 @@ class ContactLinkBackfiller
             // `rowid IN (subquery)` form that drops the joined alias from the SET
             // clause. Instead, restrict the rows with a plain IN subquery and pull
             // the contact via a correlated subquery that never touches journal_lines.
-            $updated += DB::table('journal_lines')
+            //
+            // These lines belong to already-posted entries (control-account lines
+            // from a completed migration replay) — a reviewed exception to the
+            // DB-level immutability trigger on posted journal_lines rows.
+            $updated += PostedMutationGate::within(fn () => DB::table('journal_lines')
                 ->whereIn('account_id', $accountIds)
                 ->whereNull('contact_id')
                 ->whereIn('journal_entry_id', function ($query) use ($companyId, $sourceType, $table) {
@@ -81,7 +93,15 @@ class ContactLinkBackfiller
                         ." inner join {$table} as d on d.id = je.source_id"
                         .' where je.id = journal_lines.journal_entry_id)'
                     ),
-                ]);
+                ]));
+        }
+
+        if ($updated > 0) {
+            $company = Company::withoutGlobalScopes()->find($companyId);
+
+            $this->auditRecorder->record($companyId, AuditAction::ContactLinkBackfillCompleted, $company, [
+                'updated' => $updated,
+            ]);
         }
 
         return ['updated' => $updated];

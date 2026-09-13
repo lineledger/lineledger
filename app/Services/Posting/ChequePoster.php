@@ -16,6 +16,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
@@ -138,7 +139,7 @@ class ChequePoster
      */
     public function repost(Cheque $cheque): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($cheque) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($cheque) {
             $cheque->loadMissing('lines.taxCode.agency', 'lines.secondaryTaxCode.agency', 'bankAccount', 'company', 'journalEntry.lines');
 
             if (! $cheque->journal_entry_id) {
@@ -232,7 +233,7 @@ class ChequePoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     public function void(Cheque $cheque, ?CarbonImmutable $voidDate = null): void

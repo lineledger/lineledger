@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\CompanyRole;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -143,6 +144,7 @@ it('paints negative amounts red only under the red style', function () {
 
 it('memorizes and restores the number format', function () {
     $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
 
     Livewire::actingAs($user)
         ->test('pages::reports.income-statement', ['company' => $this->company])

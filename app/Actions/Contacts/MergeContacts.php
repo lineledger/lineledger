@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Models\Contact;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Merge\ContactReferenceRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -105,7 +106,7 @@ final class MergeContacts
             ]);
         }
 
-        return DB::transaction(function () use ($loser, $survivor): Contact {
+        return PostedMutationGate::within(fn () => DB::transaction(function () use ($loser, $survivor): Contact {
             $moved = [];
 
             AuditMute::silence(function () use ($loser, $survivor, &$moved): void {
@@ -188,7 +189,7 @@ final class MergeContacts
             ]);
 
             return $survivor->refresh();
-        });
+        }));
     }
 
     /**

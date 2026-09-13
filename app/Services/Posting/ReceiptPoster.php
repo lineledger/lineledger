@@ -16,6 +16,7 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Currency\ExchangeRateService;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
@@ -129,7 +130,7 @@ class ReceiptPoster
      */
     public function repost(CustomerReceipt $receipt): JournalEntry
     {
-        return DB::transaction(fn () => AuditMute::silence(function () use ($receipt) {
+        return PostedMutationGate::within(fn () => DB::transaction(fn () => AuditMute::silence(function () use ($receipt) {
             $receipt->loadMissing('applications.invoice', 'company', 'journalEntry.lines', 'contact');
 
             if (! $receipt->journal_entry_id) {
@@ -235,7 +236,7 @@ class ReceiptPoster
             );
 
             return $entry;
-        }));
+        })));
     }
 
     /**

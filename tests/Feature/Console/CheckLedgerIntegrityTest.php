@@ -11,6 +11,7 @@ use App\Models\Contact;
 use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Notifications\LedgerIntegrityAlert;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\BillPaymentPoster;
 use App\Services\Posting\BillPoster;
 use App\Services\Posting\InvoicePoster;
@@ -67,9 +68,9 @@ it('fails and alerts when the general ledger is out of balance', function () {
 
     // Tamper a single posted journal line so debits no longer equal credits.
     $lineId = DB::table('journal_lines')->orderBy('id')->value('id');
-    DB::table('journal_lines')->where('id', $lineId)->update([
+    PostedMutationGate::within(fn () => DB::table('journal_lines')->where('id', $lineId)->update([
         'debit_cents' => DB::raw('debit_cents + 100'),
-    ]);
+    ]));
 
     $this->artisan('integrity:check', ['company' => $this->companyId])
         ->assertExitCode(1);
@@ -77,7 +78,9 @@ it('fails and alerts when the general ledger is out of balance', function () {
     Notification::assertSentOnDemand(LedgerIntegrityAlert::class);
 });
 
-it('detects a drifted account-balance cache and heals it with --fix', function () {
+it('detects a drifted account-balance cache and heals it with --fix, but still alerts', function () {
+    Notification::fake();
+
     $income = Account::query()->where('subtype', AccountSubtype::Income->value)->first();
     $income->forceFill(['balance_cents' => 999999])->saveQuietly();
 
@@ -85,20 +88,23 @@ it('detects a drifted account-balance cache and heals it with --fix', function (
     $this->artisan('integrity:check', ['company' => $this->companyId, '--no-alert' => true])
         ->assertExitCode(1);
 
-    // With --fix: the cache is recomputed in place and the run goes green.
+    // With --fix: the cache is recomputed in place, but drift is a real signal —
+    // healing it in the same run must never absorb that signal silently, so the
+    // run still fails and still alerts (Finding #2, 2026-08-18 security review).
     $this->artisan('integrity:check', ['company' => $this->companyId, '--fix' => true])
-        ->assertExitCode(0);
+        ->assertExitCode(1);
 
     expect($income->fresh()->balance_cents)->toBe(10000);
+    Notification::assertSentOnDemand(LedgerIntegrityAlert::class);
 });
 
 it('does not email when --no-alert is set', function () {
     Notification::fake();
 
     $lineId = DB::table('journal_lines')->orderBy('id')->value('id');
-    DB::table('journal_lines')->where('id', $lineId)->update([
+    PostedMutationGate::within(fn () => DB::table('journal_lines')->where('id', $lineId)->update([
         'credit_cents' => DB::raw('credit_cents + 50'),
-    ]);
+    ]));
 
     $this->artisan('integrity:check', ['company' => $this->companyId, '--no-alert' => true])
         ->assertExitCode(1);

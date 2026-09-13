@@ -5,6 +5,7 @@ namespace App\Services\Reconciliation;
 use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Services\Audit\PostedMutationGate;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -65,10 +66,10 @@ class ReconciliationStampBackfiller
             $ids = $stale->pluck('id')->map(fn ($id) => (int) $id)->all();
 
             if (! $dryRun) {
-                DB::transaction(fn () => JournalLine::query()
+                PostedMutationGate::within(fn () => DB::transaction(fn () => JournalLine::query()
                     ->whereIn('id', $ids)
                     ->where('bank_reconciliation_id', $rec->id)
-                    ->update(['cleared_at' => null, 'bank_reconciliation_id' => null]));
+                    ->update(['cleared_at' => null, 'bank_reconciliation_id' => null])));
             }
 
             $unstamped += count($ids);

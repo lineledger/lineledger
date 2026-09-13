@@ -10,6 +10,7 @@ use App\Models\Bill;
 use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Migration\AccountResolver;
 use App\Services\Migration\Csv\CsvParser;
 use App\Services\Migration\Csv\StreamingGeneralLedgerReader;
@@ -397,7 +398,10 @@ class GeneralLedgerReplayImporter implements Importer
         // would be silently dropped.
         if ($ctx->reconstructDocuments) {
             try {
-                $document = DB::transaction(fn () => $this->reconstructor->build($entry, $block, $resolved, $contactId));
+                // $entry was already posted above; build() links the document back
+                // onto it (source_type/source_id), a reviewed exception to the
+                // DB-level immutability trigger on posted journal_entries rows.
+                $document = PostedMutationGate::within(fn () => DB::transaction(fn () => $this->reconstructor->build($entry, $block, $resolved, $contactId)));
 
                 if ($document !== null) {
                     $documentsCreated++;

@@ -196,12 +196,26 @@ class CheckLedgerIntegrity extends Command
                 ? $debits - $credits
                 : $credits - $debits;
 
-            if ((int) $account->balance_cents === $expected) {
+            $cached = (int) $account->balance_cents;
+
+            if ($cached === $expected) {
                 continue;
             }
 
+            // Drift is always reported, --fix or not: it's a real signal (a posting
+            // bug or tampering), and healing it in the same run must never absorb
+            // that signal silently. --fix only changes whether the cache is also
+            // corrected here, not whether the drift gets surfaced.
             if ($fix) {
                 $account->forceFill(['balance_cents' => $expected])->saveQuietly();
+
+                $issues[] = sprintf(
+                    'Account %s (%s) balance cache was %d, recomputed to %d, and has been healed (--fix).',
+                    $account->code,
+                    $account->name,
+                    $cached,
+                    $expected,
+                );
 
                 continue;
             }
@@ -210,7 +224,7 @@ class CheckLedgerIntegrity extends Command
                 'Account %s (%s) balance cache is %d but recomputes to %d.',
                 $account->code,
                 $account->name,
-                (int) $account->balance_cents,
+                $cached,
                 $expected,
             );
         }

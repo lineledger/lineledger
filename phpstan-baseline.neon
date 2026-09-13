@@ -2689,6 +2689,12 @@ parameters:
 			path: app/Services/Reconciliation/BankReconciliationService.php
 
 		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/Reconciliation/BankReconciliationService.php
+
+		-
 			message: '#^Access to an undefined property App\\Models\\RecurringDocumentLine\:\:\$class_id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -3266,6 +3272,12 @@ parameters:
 
 		-
 			message: '#^Property App\\Services\\Restore\\CompanyImporter\:\:\$attachments is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Services/Restore/CompanyImporter.php
+
+		-
+			message: '#^Property App\\Services\\Restore\\CompanyImporter\:\:\$auditRecorder is never read, only written\.$#'
 			identifier: property.onlyWritten
 			count: 1
 			path: app/Services/Restore/CompanyImporter.php

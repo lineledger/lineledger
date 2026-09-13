@@ -10,6 +10,7 @@ use App\Models\Expense;
 use App\Models\JournalLine;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Banking\BankLineMemoBackfiller;
 use App\Services\Posting\ChequePoster;
 use App\Services\Posting\DepositPoster;
@@ -173,10 +174,10 @@ it('backfills bank line memos posted before the memo was carried across', functi
     $deposit = bankLineMemoDeposit('August 2026 Interac Deposits');
 
     // Rewind to what the old poster wrote.
-    JournalLine::query()
+    PostedMutationGate::within(fn () => JournalLine::query()
         ->where('journal_entry_id', $deposit->journal_entry_id)
         ->where('account_id', $this->bank->id)
-        ->update(['memo' => 'Deposit']);
+        ->update(['memo' => 'Deposit']));
 
     $result = app(BankLineMemoBackfiller::class)->backfill($this->company->id);
 
@@ -192,15 +193,17 @@ it('backfill leaves the other legs and hand-edited memos alone', function () {
 
     // The income leg happens to be worded "Deposit" too, and an operator has
     // already reworded the bank leg by hand.
-    JournalLine::query()
-        ->where('journal_entry_id', $deposit->journal_entry_id)
-        ->where('account_id', $this->income->id)
-        ->update(['memo' => 'Deposit']);
+    PostedMutationGate::within(function () use ($deposit) {
+        JournalLine::query()
+            ->where('journal_entry_id', $deposit->journal_entry_id)
+            ->where('account_id', $this->income->id)
+            ->update(['memo' => 'Deposit']);
 
-    JournalLine::query()
-        ->where('journal_entry_id', $deposit->journal_entry_id)
-        ->where('account_id', $this->bank->id)
-        ->update(['memo' => 'Hand written']);
+        JournalLine::query()
+            ->where('journal_entry_id', $deposit->journal_entry_id)
+            ->where('account_id', $this->bank->id)
+            ->update(['memo' => 'Hand written']);
+    });
 
     expect(app(BankLineMemoBackfiller::class)->backfill($this->company->id)['updated'])->toBe(0)
         ->and(bankLineMemoOnBankLeg($deposit))->toBe('Hand written');

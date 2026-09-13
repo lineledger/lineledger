@@ -10,6 +10,7 @@ use App\Models\Deposit;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\User;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\JournalPoster;
 use Livewire\Livewire;
 
@@ -56,7 +57,7 @@ function makeSourceLinkedEntry(): array
     ]);
 
     $entry = makeManualPostedEntry();
-    $entry->update(['source_type' => Deposit::class, 'source_id' => $deposit->id]);
+    PostedMutationGate::within(fn () => $entry->update(['source_type' => Deposit::class, 'source_id' => $deposit->id]));
 
     return [$entry->fresh('lines'), $deposit];
 }
@@ -105,7 +106,7 @@ it('duplicates the journal entry itself for a manual entry', function () {
 
 it('hides Duplicate for a source-linked entry whose document has no duplicate flow', function () {
     $entry = makeManualPostedEntry();
-    $entry->update(['source_type' => Invoice::class, 'source_id' => 999]);
+    PostedMutationGate::within(fn () => $entry->update(['source_type' => Invoice::class, 'source_id' => 999]));
 
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $entry->fresh()])
         ->assertSet('duplicateUrl', null)
