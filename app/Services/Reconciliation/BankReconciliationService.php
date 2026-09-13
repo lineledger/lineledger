@@ -173,7 +173,7 @@ class BankReconciliationService
 
             $this->auditRecorder->record($rec->company_id, AuditAction::BankReconciliationCompleted, $rec, [
                 'account_id' => $rec->account_id,
-                'statement_date' => $rec->statement_date?->toDateString(),
+                'statement_date' => $rec->statement_date->toDateString(),
                 'ending_balance_cents' => $rec->ending_balance_cents,
                 'marked_line_ids' => $ids,
                 'completed_by_user_id' => $user?->id,
@@ -292,7 +292,7 @@ class BankReconciliationService
 
             $this->auditRecorder->record($rec->company_id, AuditAction::BankReconciliationUndone, $rec, [
                 'account_id' => $rec->account_id,
-                'statement_date' => $rec->statement_date?->toDateString(),
+                'statement_date' => $rec->statement_date->toDateString(),
                 'uncleared_line_ids' => $unclearedIds,
                 'voided_entry_ids' => $voidedEntryIds,
             ]);

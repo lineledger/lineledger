@@ -5,7 +5,9 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Services\Posting\InvoicePoster;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -57,30 +59,30 @@ afterEach(function () {
 
 it('rejects a raw UPDATE of a posted journal_entries row outside the app', function () {
     expect(fn () => DB::table('journal_entries')->where('id', $this->entryId)->update(['memo' => 'tampered']))
-        ->toThrow(\Illuminate\Database\QueryException::class, 'immutable at the database layer');
+        ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('rejects a raw DELETE of a posted journal_entries row outside the app', function () {
     expect(fn () => DB::table('journal_entries')->where('id', $this->entryId)->delete())
-        ->toThrow(\Illuminate\Database\QueryException::class, 'immutable at the database layer');
+        ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('rejects a raw UPDATE of a posted journal_lines row outside the app (balance-preserving tamper)', function () {
     $lineId = DB::table('journal_lines')->where('journal_entry_id', $this->entryId)->value('id');
 
     expect(fn () => DB::table('journal_lines')->where('id', $lineId)->update(['account_id' => DB::raw('account_id + 0'), 'debit_cents' => 999999]))
-        ->toThrow(\Illuminate\Database\QueryException::class, 'immutable at the database layer');
+        ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('rejects a raw DELETE of a posted journal_lines row outside the app', function () {
     $lineId = DB::table('journal_lines')->where('journal_entry_id', $this->entryId)->value('id');
 
     expect(fn () => DB::table('journal_lines')->where('id', $lineId)->delete())
-        ->toThrow(\Illuminate\Database\QueryException::class, 'immutable at the database layer');
+        ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('still allows editing a draft (unposted) journal entry directly', function () {
-    $draft = \App\Models\JournalEntry::create([
+    $draft = JournalEntry::create([
         'entry_no' => 'JE-TRG-DRAFT',
         'entry_date' => now()->toDateString(),
         'is_posted' => false,

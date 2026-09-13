@@ -3,6 +3,8 @@
 namespace App\Support\Security;
 
 use App\Enums\CompanyRole;
+use App\Http\Middleware\EnforceTwoFactor;
+use App\Http\Middleware\EnforceTwoFactorForApi;
 use App\Models\Company;
 use App\Models\User;
 
@@ -12,8 +14,8 @@ use App\Models\User;
  * a company that opted into {@see Company::$require_two_factor} requires it
  * of its owners and admins specifically, not every role.
  *
- * Used by {@see \App\Http\Middleware\EnforceTwoFactor} (web, redirects to the
- * security settings page) and {@see \App\Http\Middleware\EnforceTwoFactorForApi}
+ * Used by {@see EnforceTwoFactor} (web, redirects to the
+ * security settings page) and {@see EnforceTwoFactorForApi}
  * (API keys / MCP tokens, which have no page to redirect to and must instead
  * reject the request outright).
  */

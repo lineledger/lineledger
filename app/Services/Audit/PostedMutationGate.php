@@ -2,6 +2,8 @@
 
 namespace App\Services\Audit;
 
+use App\Actions\Accounting\SaveJournalEntry;
+use App\Services\Posting\JournalPoster;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
@@ -17,14 +19,14 @@ use Illuminate\Support\Facades\DB;
  *
  * Only the few reviewed, audit-logged code paths that legitimately touch an
  * already-posted row in place need to call through here:
- * {@see \App\Actions\Accounting\SaveJournalEntry} (repost-in-place) and
- * {@see \App\Services\Posting\JournalPoster::void()}.
+ * {@see SaveJournalEntry} (repost-in-place) and
+ * {@see JournalPoster::void()}.
  */
 final class PostedMutationGate
 {
     /**
      * Reentrancy depth: some gated methods call other gated methods (e.g.
-     * {@see \App\Services\Posting\JournalPoster::void()} calls {@see
+     * {@see JournalPoster::void()} calls {@see
      * \App\Services\Posting\JournalPoster::post()} to post the reversal). Only
      * the outermost call may clear the session variable — otherwise the inner
      * call's `finally` would reset it to NULL while the outer call still needs

@@ -1,5 +1,8 @@
 <?php
 
+use App\Actions\Accounting\SaveJournalEntry;
+use App\Services\Audit\PostedMutationGate;
+use App\Services\Posting\JournalPoster;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -14,12 +17,12 @@ use Illuminate\Support\Facades\DB;
  * bypassing the audit trail entirely (no row written, hash chain silent).
  *
  * Mirrors the accounting_audit_logs trigger pattern, but gated by a session
- * variable ({@see \App\Services\Audit\PostedMutationGate}) rather than an
+ * variable ({@see PostedMutationGate}) rather than an
  * outright block: two reviewed, audit-logged application flows legitimately
  * mutate an already-posted row in place — repost-in-place
- * ({@see \App\Actions\Accounting\SaveJournalEntry}, which updates the entry's
+ * ({@see SaveJournalEntry}, which updates the entry's
  * header and hard-deletes+recreates its lines) and void
- * ({@see \App\Services\Posting\JournalPoster::void()}, which stamps
+ * ({@see JournalPoster::void()}, which stamps
  * voided_at/reversed_by_entry_id on the original entry). Only code that
  * explicitly opts in via the gate can bypass the trigger; a raw connection
  * that doesn't know to set `@ll_allow_posted_mutation` cannot.
