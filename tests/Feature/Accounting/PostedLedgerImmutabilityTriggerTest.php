@@ -58,16 +58,28 @@ afterEach(function () {
 });
 
 it('rejects a raw UPDATE of a posted journal_entries row outside the app', function () {
+    if (DB::getDriverName() !== 'mysql') {
+        $this->markTestSkipped('MySQL trigger-only behavior.');
+    }
+
     expect(fn () => DB::table('journal_entries')->where('id', $this->entryId)->update(['memo' => 'tampered']))
         ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('rejects a raw DELETE of a posted journal_entries row outside the app', function () {
+    if (DB::getDriverName() !== 'mysql') {
+        $this->markTestSkipped('MySQL trigger-only behavior.');
+    }
+
     expect(fn () => DB::table('journal_entries')->where('id', $this->entryId)->delete())
         ->toThrow(QueryException::class, 'immutable at the database layer');
 });
 
 it('rejects a raw UPDATE of a posted journal_lines row outside the app (balance-preserving tamper)', function () {
+    if (DB::getDriverName() !== 'mysql') {
+        $this->markTestSkipped('MySQL trigger-only behavior.');
+    }
+
     $lineId = DB::table('journal_lines')->where('journal_entry_id', $this->entryId)->value('id');
 
     expect(fn () => DB::table('journal_lines')->where('id', $lineId)->update(['account_id' => DB::raw('account_id + 0'), 'debit_cents' => 999999]))
@@ -75,6 +87,10 @@ it('rejects a raw UPDATE of a posted journal_lines row outside the app (balance-
 });
 
 it('rejects a raw DELETE of a posted journal_lines row outside the app', function () {
+    if (DB::getDriverName() !== 'mysql') {
+        $this->markTestSkipped('MySQL trigger-only behavior.');
+    }
+
     $lineId = DB::table('journal_lines')->where('journal_entry_id', $this->entryId)->value('id');
 
     expect(fn () => DB::table('journal_lines')->where('id', $lineId)->delete())
