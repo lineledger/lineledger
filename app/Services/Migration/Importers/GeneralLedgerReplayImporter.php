@@ -571,6 +571,8 @@ class GeneralLedgerReplayImporter implements Importer
             $block['type'] ?? '',
             $block['num'] ?? '',
             $block['date'] ?? '',
+            mb_strtolower(trim($block['name'] ?? '')),
+            mb_strtolower(trim($block['memo'] ?? '')),
             implode(';', $lines),
         ]));
     }

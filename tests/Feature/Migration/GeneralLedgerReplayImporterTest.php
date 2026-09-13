@@ -134,6 +134,20 @@ it('is idempotent — re-running the same file imports nothing the second time',
         ->and(JournalEntry::withoutGlobalScopes()->where('company_id', $this->company->id)->count())->toBe(1);
 });
 
+it('does not dedupe two distinct transactions that share a trans_no, type, date, num, and lines but differ by payee or memo', function () {
+    $csv = "trans_no,type,date,num,name,memo,account,debit,credit\n"
+        ."7001,Invoice,2024-04-01,INV-10,Acme Co,,{$this->ar->name},250.00,\n"
+        .",,,,,,{$this->income->name},,250.00\n"
+        ."7001,Invoice,2024-04-01,INV-10,Beta Co,,{$this->ar->name},250.00,\n"
+        .",,,,,,{$this->income->name},,250.00\n";
+
+    $result = app(GeneralLedgerReplayImporter::class)->commit(writeFile($csv), glContext($this));
+
+    expect($result->summary['committed'])->toBe(2)
+        ->and($result->summary['skipped_duplicate'])->toBe(0)
+        ->and(JournalEntry::withoutGlobalScopes()->where('company_id', $this->company->id)->count())->toBe(2);
+});
+
 it('rejects unknown accounts when auto-create is off', function () {
     $csv = "trans_no,type,date,num,name,memo,account,debit,credit\n"
         ."6001,JE,2024-05-01,,,,Totally Made Up Account,100.00,\n"
