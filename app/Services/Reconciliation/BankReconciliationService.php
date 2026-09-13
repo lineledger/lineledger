@@ -603,10 +603,10 @@ class BankReconciliationService
             return;
         }
 
-        JournalLine::query()
+        PostedMutationGate::within(fn () => JournalLine::query()
             ->whereIn('id', $lineIds)
             ->where('bank_reconciliation_id', $rec->id)
-            ->update(['cleared_at' => null, 'bank_reconciliation_id' => null]);
+            ->update(['cleared_at' => null, 'bank_reconciliation_id' => null]));
     }
 
     /**

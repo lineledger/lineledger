@@ -294,7 +294,7 @@ it('ties book cash to the bank: cleared balance, uncleared cheques, deposits in 
 it('does not count a voided cheque or its reversal as outstanding', function () {
     $bank = fcAccount($this->company, AccountSubtype::Bank);
 
-    JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]);
+    PostedMutationGate::within(fn () => JournalLine::query()->where('account_id', $bank->id)->update(['cleared_at' => now()]));
     fcPost($this->company, '2026-06-10', [
         ['account' => fcAccount($this->company, AccountSubtype::Expense), 'debit' => 360268],
         ['account' => $bank, 'credit' => 360268],

@@ -556,7 +556,7 @@ it('keeps a replaced service charge off the reconcile screen even with a stamp l
     );
 
     // What an in-progress reconciliation edited before the fix looks like.
-    $oldBankLine->fresh()->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save();
+    PostedMutationGate::within(fn () => $oldBankLine->fresh()->forceFill(['cleared_at' => now(), 'bank_reconciliation_id' => $rec->id])->save());
     expect($oldBankLine->fresh()->bank_reconciliation_id)->toBe($rec->id);
 
     $component = Livewire\Livewire::test('pages::banking.reconcile', ['company' => $this->company])
@@ -630,7 +630,7 @@ it('keeps both halves of a void on the reconcile screen when one was cleared in 
     $this->actingAs($user);
 
     $voided = makeBankEntry($this->bank, $this->expense, debitOnBankCents: 0, creditOnBankCents: 4000, date: '2026-04-10');
-    $voided->lines->firstWhere('account_id', $this->bank->id)->update(['cleared_at' => now()]);
+    PostedMutationGate::within(fn () => $voided->lines->firstWhere('account_id', $this->bank->id)->update(['cleared_at' => now()]));
     $reversal = app(JournalPoster::class)->void($voided->fresh(), CarbonImmutable::parse('2026-04-20'));
 
     $this->service->begin($this->bank, Carbon::parse('2026-04-30'), 0);
