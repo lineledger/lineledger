@@ -8,6 +8,7 @@ use App\Exceptions\Posting\PeriodLockedException;
 use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Reconciliation\BankReconciliationService;
 use Carbon\CarbonImmutable;
@@ -53,7 +54,8 @@ final class UpdateJournalEntryHeader
             throw new RuntimeException('A voided entry cannot be edited.');
         }
 
-        return DB::transaction(function () use ($entry, $data): JournalEntry {
+        return PostedMutationGate::within(function () use ($entry, $data): JournalEntry {
+            return DB::transaction(function () use ($entry, $data): JournalEntry {
             $entry->loadMissing('lines', 'company');
 
             $company = $entry->company;
@@ -103,6 +105,7 @@ final class UpdateJournalEntryHeader
             }
 
             return $fresh;
+            });
         });
     }
 }

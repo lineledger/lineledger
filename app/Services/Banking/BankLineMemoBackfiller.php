@@ -11,6 +11,7 @@ use App\Models\PayrollRemittance;
 use App\Models\SalesReceipt;
 use App\Models\TaxReturnPayment;
 use App\Models\Transfer;
+use App\Services\Audit\PostedMutationGate;
 use App\Support\Banking\BankLineMemo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -98,10 +99,10 @@ class BankLineMemoBackfiller
             return 0;
         }
 
-        return DB::table('journal_lines')
+        return PostedMutationGate::within(fn () => DB::table('journal_lines')
             ->where('journal_entry_id', $document->journal_entry_id)
             ->whereIn('account_id', $accountIds)
             ->where('memo', $label)
-            ->update(['memo' => $memo]);
+            ->update(['memo' => $memo]));
     }
 }

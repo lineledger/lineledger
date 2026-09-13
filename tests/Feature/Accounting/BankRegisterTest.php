@@ -7,6 +7,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Services\Audit\PostedMutationGate;
 use App\Services\Posting\ChequePoster;
 use Carbon\CarbonImmutable;
 use Livewire\Livewire;
@@ -85,7 +86,7 @@ it('shows cleared state read-only — the register cannot clear or unclear a lin
     expect($bankLine->fresh()->cleared_at)->toBeNull();
 
     // A line cleared by a reconciliation still reads as cleared here.
-    $bankLine->forceFill(['cleared_at' => now()])->save();
+    PostedMutationGate::within(fn () => $bankLine->forceFill(['cleared_at' => now()])->save());
 
     Livewire::test('pages::banking.register', ['company' => $company])
         ->set('account_id', $bank->id)
