@@ -15,9 +15,22 @@ new #[Title('Transfers')] class extends Component {
     #[Url(as: 'q')]
     public string $search = '';
 
+    public string $sortField = 'date';
+
+    public string $sortDir = 'desc';
+
     public function mount(Company $company): void
     {
         $this->company = $company;
+    }
+
+    public function sortBy(string $field): void
+    {
+        if ($field !== 'date') {
+            return;
+        }
+
+        $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
     }
 
     #[Computed]
@@ -28,8 +41,8 @@ new #[Title('Transfers')] class extends Component {
             ->when($this->search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('transfer_no', 'like', '%'.$this->search.'%')
                 ->orWhere('memo', 'like', '%'.$this->search.'%')))
-            ->orderByDesc('transfer_date')
-            ->orderByDesc('id')
+            ->orderBy('transfer_date', $this->sortDir)
+            ->orderBy('id', $this->sortDir)
             ->paginate(25);
     }
 }; ?>
@@ -75,7 +88,7 @@ new #[Title('Transfers')] class extends Component {
         <table class="w-full text-sm">
             <thead class="bg-muted">
                 <tr>
-                    <th class="px-4 py-2 text-left">{{ __('Date') }}</th>
+                    <th class="px-4 py-2 text-left"><x-sort-header field="date" :current-field="$sortField" :current-dir="$sortDir" :label="__('Date')" /></th>
                     <th class="px-4 py-2 text-left">{{ __('Transfer #') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('From') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('To') }}</th>

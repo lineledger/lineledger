@@ -16,6 +16,12 @@ new #[Title('Bank register')] class extends Component {
 
     public bool $showCleared = true;
 
+    public string $sortField = 'entry_date';
+
+    public string $sortDir = 'asc';
+
+    private const SORT_FIELDS = ['entry_date', 'entry_no'];
+
     public function mount(Company $company): void
     {
         $this->company = $company;
@@ -41,24 +47,47 @@ new #[Title('Bank register')] class extends Component {
         LastBankAccount::remember($this->company, $this->account_id);
     }
 
+    public function sortBy(string $field): void
+    {
+        if (! in_array($field, self::SORT_FIELDS, true)) {
+            return;
+        }
+
+        if ($this->sortField === $field) {
+            $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDir = 'asc';
+        }
+    }
+
     protected function linesQuery()
     {
         return JournalLine::query()
-            ->where('account_id', $this->account_id)
-            ->where('is_posted', true);
+            ->where('journal_lines.account_id', $this->account_id)
+            ->where('journal_lines.is_posted', true);
     }
 
     #[Computed]
     public function lines()
     {
-        return $this->linesQuery()
+        $query = $this->linesQuery()
             ->with(['journalEntry'])
             // Hiding cleared rows leaves what is still outstanding, and a
             // voided cheque and its reversal never are: neither reaches the bank.
-            ->when(! $this->showCleared, fn ($q) => $q->whereNull('cleared_at')->withoutUnsettledVoids())
-            ->orderBy('entry_date')
-            ->orderBy('id')
-            ->get();
+            ->when(! $this->showCleared, fn ($q) => $q->whereNull('cleared_at')->withoutUnsettledVoids());
+
+        if ($this->sortField === 'entry_no') {
+            $query->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+                ->orderBy('journal_entries.entry_no', $this->sortDir)
+                ->orderBy('journal_lines.id', $this->sortDir)
+                ->select('journal_lines.*');
+        } else {
+            $query->orderBy('entry_date', $this->sortDir)
+                ->orderBy('id', $this->sortDir);
+        }
+
+        return $query->get();
     }
 
     /**
@@ -154,8 +183,8 @@ new #[Title('Bank register')] class extends Component {
             <thead class="bg-muted">
                 <tr>
                     <th class="px-3 py-2 w-10"></th>
-                    <th class="px-3 py-2 text-left">{{ __('Date') }}</th>
-                    <th class="px-3 py-2 text-left">{{ __('Entry #') }}</th>
+                    <th class="px-3 py-2 text-left"><x-sort-header field="entry_date" :current-field="$sortField" :current-dir="$sortDir" :label="__('Date')" /></th>
+                    <th class="px-3 py-2 text-left"><x-sort-header field="entry_no" :current-field="$sortField" :current-dir="$sortDir" :label="__('Entry #')" /></th>
                     <th class="px-3 py-2 text-left">{{ __('Memo') }}</th>
                     <th class="px-3 py-2 text-right">{{ __('Payment') }}</th>
                     <th class="px-3 py-2 text-right">{{ __('Deposit') }}</th>
