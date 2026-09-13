@@ -11,7 +11,7 @@
     "dependencies": {
         "@laravel/passkeys": "^0.2.0",
         "@tailwindcss/vite": "^4.1.11",
-        "autoprefixer": "^10.4.20",
+        "autoprefixer": "^10.5.5",
         "chart.js": "^4.5.1",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
