@@ -169,7 +169,7 @@ class ExpensePoster
         $legs = [];
 
         foreach ($this->expenseByAccount($expense) as $leg) {
-            $legs[] = ['account_id' => $leg['account_id'], 'class_id' => $leg['class_id'], 'location_id' => $leg['location_id'], 'foreign' => $leg['cents'], 'home' => Currency::toHomeCents($leg['cents'], $rate), 'memo' => null];
+            $legs[] = ['account_id' => $leg['account_id'], 'class_id' => $leg['class_id'], 'location_id' => $leg['location_id'], 'foreign' => $leg['cents'], 'home' => Currency::toHomeCents($leg['cents'], $rate), 'memo' => $leg['memo']];
         }
 
         foreach ($this->recoverableTaxByPayableAccount($expense) as $payableAccountId => $foreignCents) {
@@ -232,7 +232,10 @@ class ExpensePoster
     }
 
     /**
-     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int}>
+     * One leg per account + dimensions. Its memo is the descriptions of the lines
+     * folded into it — distinct, in line order — so the GL says what was bought.
+     *
+     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int, memo: ?string}>
      */
     protected function expenseByAccount(Expense $expense): array
     {
@@ -254,11 +257,23 @@ class ExpensePoster
                 'class_id' => $line->class_id,
                 'location_id' => $line->location_id,
                 'cents' => 0,
+                'descriptions' => [],
             ];
             $grouped[$key]['cents'] += $cents;
+
+            $description = trim((string) $line->description);
+            if ($description !== '' && ! in_array($description, $grouped[$key]['descriptions'], true)) {
+                $grouped[$key]['descriptions'][] = $description;
+            }
         }
 
-        return array_values($grouped);
+        return array_map(fn (array $leg): array => [
+            'account_id' => $leg['account_id'],
+            'class_id' => $leg['class_id'],
+            'location_id' => $leg['location_id'],
+            'cents' => $leg['cents'],
+            'memo' => $leg['descriptions'] === [] ? null : implode('; ', $leg['descriptions']),
+        ], array_values($grouped));
     }
 
     /**

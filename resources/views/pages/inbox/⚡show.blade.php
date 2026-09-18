@@ -264,6 +264,7 @@ new #[Title('Review document')] class extends Component {
             'bankLineId' => [Rule::requiredIf($this->documentType === 'bank'), 'nullable', 'integer', Rule::exists('bank_statement_lines', 'id')->where('company_id', $companyId)],
             'lines' => ['array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId)],
+            'lines.*.description' => ['nullable', 'string'],
             'lines.*.amount' => ['required', 'string', new MoneyString],
             'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
             'lines.*.secondary_tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],

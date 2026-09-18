@@ -111,3 +111,38 @@ it('filters the expense index by payment method', function () {
     expect($rows->total())->toBe(1)
         ->and($rows->first()->payee_name)->toBe('A');
 });
+
+it('keeps the line description when saving a draft', function () {
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $this->bank->id)
+        ->set('payee_name', 'Cloud Host')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    $exp = Expense::firstOrFail();
+
+    expect($exp->lines->first()->description)->toBe('Hosting');
+
+    // Reopening the draft shows it, so saving again does not clear it.
+    Livewire::test('pages::expenses.form', ['company' => $this->company, 'expense' => $exp])
+        ->assertSet('lines.0.description', 'Hosting')
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    expect($exp->fresh()->lines->first()->description)->toBe('Hosting');
+});
+
+it('keeps the line description when posting', function () {
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $this->bank->id)
+        ->set('payee_name', 'Cloud Host')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('postExpense')
+        ->assertHasNoErrors();
+
+    $exp = Expense::firstOrFail();
+
+    expect($exp->status)->toBe(ExpenseStatus::Posted)
+        ->and($exp->lines->first()->description)->toBe('Hosting');
+});

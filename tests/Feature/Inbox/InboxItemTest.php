@@ -31,6 +31,7 @@ use App\Services\Posting\ExpensePoster;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 
 beforeEach(function () {
     Storage::fake('local');
@@ -293,6 +294,28 @@ it('promotes an item into a DRAFT expense', function () {
         ->and($expense->amount_cents)->toBe(850)
         ->and($item->status)->toBe(InboxItemStatus::Promoted)
         ->and($item->promoted_document_type)->toBe('expense');
+});
+
+it('keeps the line description when filing a receipt as an expense from the review page', function () {
+    $account = Account::query()->where('type', AccountType::Expense->value)->orderBy('code')->firstOrFail();
+    $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->firstOrFail();
+
+    $item = stageInboxItem($this->company, $this->user);
+    $item->forceFill([
+        'status' => InboxItemStatus::NeedsReview->value,
+        'suggested_document_type' => 'expense',
+        'extracted' => ['vendor' => 'Coffee Shop', 'amount_cents' => 850, 'currency' => 'CAD', 'date' => '2026-06-10'],
+    ])->save();
+
+    Livewire::test('pages::inbox.show', ['company' => $this->company, 'item' => $item->refresh()])
+        ->set('documentType', 'expense')
+        ->set('paymentAccountId', $bank->id)
+        ->set('lines.0.account_id', $account->id)
+        ->set('lines.0.description', 'Team coffee')
+        ->call('promote')
+        ->assertHasNoErrors();
+
+    expect(Expense::firstOrFail()->lines->first()->description)->toBe('Team coffee');
 });
 
 it('scopes inbox items to the current company', function () {

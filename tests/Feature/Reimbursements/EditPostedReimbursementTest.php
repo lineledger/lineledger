@@ -85,6 +85,18 @@ it('reposts a posted reimbursement in place when edited', function () {
         ->and($entry->totalCreditsCents())->toBe(25000);
 });
 
+it('keeps the line description when a posted reimbursement is edited', function () {
+    $bill = makePostedReimbursement($this);
+
+    Livewire::test('pages::reimbursements.form', ['company' => $this->company, 'bill' => $bill])
+        ->assertSet('lines.0.description', 'Mileage')
+        ->set('lines.0.description', 'Mileage to the client site')
+        ->call('post')
+        ->assertHasNoErrors();
+
+    expect($bill->fresh()->lines->first()->description)->toBe('Mileage to the client site');
+});
+
 it('deletes a draft reimbursement from the show page', function () {
     $bill = Bill::create([
         'contact_id' => $this->employee->id,

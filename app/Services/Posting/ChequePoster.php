@@ -295,7 +295,7 @@ class ChequePoster
         $legs = [];
 
         foreach ($this->expenseByAccount($cheque) as $expense) {
-            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'contact_id' => $expense['contact_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => null];
+            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'contact_id' => $expense['contact_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => $expense['memo']];
         }
 
         foreach ($this->recoverableTaxByPayableAccount($cheque) as $payableAccountId => $foreignCents) {
@@ -440,7 +440,11 @@ class ChequePoster
     }
 
     /**
-     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, contact_id: ?int, cents: int}>
+     * One leg per account + dimensions + contact. Its memo is the descriptions of
+     * the lines folded into it — distinct, in line order — so the GL says what
+     * was paid for.
+     *
+     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, contact_id: ?int, cents: int, memo: ?string}>
      */
     protected function expenseByAccount(Cheque $cheque): array
     {
@@ -468,11 +472,24 @@ class ChequePoster
                 'location_id' => $line->location_id,
                 'contact_id' => $contactId,
                 'cents' => 0,
+                'descriptions' => [],
             ];
             $grouped[$key]['cents'] += $cents;
+
+            $description = trim((string) $line->description);
+            if ($description !== '' && ! in_array($description, $grouped[$key]['descriptions'], true)) {
+                $grouped[$key]['descriptions'][] = $description;
+            }
         }
 
-        return array_values($grouped);
+        return array_map(fn (array $leg): array => [
+            'account_id' => $leg['account_id'],
+            'class_id' => $leg['class_id'],
+            'location_id' => $leg['location_id'],
+            'contact_id' => $leg['contact_id'],
+            'cents' => $leg['cents'],
+            'memo' => $leg['descriptions'] === [] ? null : implode('; ', $leg['descriptions']),
+        ], array_values($grouped));
     }
 
     /**
