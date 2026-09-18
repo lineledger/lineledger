@@ -34,6 +34,7 @@ use RuntimeException;
  */
 class VendorCreditPoster
 {
+    use Concerns\JoinsLineDescriptions;
     use Concerns\PlugsForeignRounding;
     use Concerns\SplitsLineTax;
 
@@ -278,7 +279,7 @@ class VendorCreditPoster
         $legs = [];
 
         foreach ($this->expenseByAccount($credit) as $expense) {
-            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => null];
+            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => $this->descriptionMemo($expense['descriptions'])];
         }
 
         foreach ($this->taxByAgencyPayableAccount($credit) as $payableAccountId => $foreignCents) {
@@ -345,9 +346,10 @@ class VendorCreditPoster
 
     /**
      * Expense grouped by the composite (account, class, location); collapses to the
-     * account when no dimensions are set.
+     * account when no dimensions are set. Each leg carries the descriptions of the
+     * lines folded into it for its memo.
      *
-     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int}>
+     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int, descriptions: list<?string>}>
      */
     protected function expenseByAccount(VendorCredit $credit): array
     {
@@ -360,8 +362,10 @@ class VendorCreditPoster
                 'class_id' => $line->class_id,
                 'location_id' => $line->location_id,
                 'cents' => 0,
+                'descriptions' => [],
             ];
             $grouped[$key]['cents'] += (int) $line->line_subtotal_cents;
+            $grouped[$key]['descriptions'][] = $line->description;
         }
 
         return array_values($grouped);

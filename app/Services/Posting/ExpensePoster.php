@@ -32,6 +32,7 @@ use RuntimeException;
  */
 class ExpensePoster
 {
+    use Concerns\JoinsLineDescriptions;
     use Concerns\PlugsForeignRounding;
     use Concerns\SplitsLineTax;
 
@@ -169,7 +170,7 @@ class ExpensePoster
         $legs = [];
 
         foreach ($this->expenseByAccount($expense) as $leg) {
-            $legs[] = ['account_id' => $leg['account_id'], 'class_id' => $leg['class_id'], 'location_id' => $leg['location_id'], 'foreign' => $leg['cents'], 'home' => Currency::toHomeCents($leg['cents'], $rate), 'memo' => $leg['memo']];
+            $legs[] = ['account_id' => $leg['account_id'], 'class_id' => $leg['class_id'], 'location_id' => $leg['location_id'], 'foreign' => $leg['cents'], 'home' => Currency::toHomeCents($leg['cents'], $rate), 'memo' => $this->descriptionMemo($leg['descriptions'])];
         }
 
         foreach ($this->recoverableTaxByPayableAccount($expense) as $payableAccountId => $foreignCents) {
@@ -232,10 +233,10 @@ class ExpensePoster
     }
 
     /**
-     * One leg per account + dimensions. Its memo is the descriptions of the lines
-     * folded into it — distinct, in line order — so the GL says what was bought.
+     * One leg per account + dimensions, with the descriptions of the lines folded
+     * into it for the leg's memo.
      *
-     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int, memo: ?string}>
+     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int, descriptions: list<?string>}>
      */
     protected function expenseByAccount(Expense $expense): array
     {
@@ -260,20 +261,10 @@ class ExpensePoster
                 'descriptions' => [],
             ];
             $grouped[$key]['cents'] += $cents;
-
-            $description = trim((string) $line->description);
-            if ($description !== '' && ! in_array($description, $grouped[$key]['descriptions'], true)) {
-                $grouped[$key]['descriptions'][] = $description;
-            }
+            $grouped[$key]['descriptions'][] = $line->description;
         }
 
-        return array_map(fn (array $leg): array => [
-            'account_id' => $leg['account_id'],
-            'class_id' => $leg['class_id'],
-            'location_id' => $leg['location_id'],
-            'cents' => $leg['cents'],
-            'memo' => $leg['descriptions'] === [] ? null : implode('; ', $leg['descriptions']),
-        ], array_values($grouped));
+        return array_values($grouped);
     }
 
     /**

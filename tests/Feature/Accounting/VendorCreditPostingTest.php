@@ -158,3 +158,37 @@ it('voids a vendor credit and restores the vendor AP balance', function () {
     expect($credit->fresh()->status)->toBe(VendorCreditStatus::Void)
         ->and($this->vendor->fresh()->ap_balance_cents)->toBe(30000);
 });
+
+it('carries the line description onto the expense leg, leaving the AP leg alone', function () {
+    $lines = postedVendorCredit($this->vendor, $this->expense, 'VC-MEMO-1', 5000)->journalEntry->lines;
+
+    expect($lines->firstWhere('account_id', $this->expense->id)->memo)->toBe('Return to vendor')
+        ->and($lines->firstWhere('account_id', $this->ap->id)->memo)->toBe('AP — Acme Supply');
+});
+
+it('joins the descriptions of vendor credit lines that share an expense leg', function () {
+    $credit = VendorCredit::create([
+        'contact_id' => $this->vendor->id,
+        'vendor_credit_no' => 'VC-MEMO-2',
+        'vendor_credit_date' => now()->toDateString(),
+    ]);
+
+    foreach (['Damaged chairs', '', 'Short shipment', 'Damaged chairs'] as $i => $description) {
+        $credit->lines()->create([
+            'account_id' => $this->expense->id,
+            'description' => $description,
+            'quantity' => '1',
+            'unit_price_cents' => 500,
+            'line_subtotal_cents' => 500,
+            'line_tax_cents' => 0,
+            'line_total_cents' => 500,
+            'line_order' => $i,
+        ]);
+    }
+
+    $legs = app(VendorCreditPoster::class)->post($credit)->lines->where('account_id', $this->expense->id);
+
+    expect($legs)->toHaveCount(1)
+        ->and((int) $legs->first()->credit_cents)->toBe(2000)
+        ->and($legs->first()->memo)->toBe('Damaged chairs; Short shipment');
+});

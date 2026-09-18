@@ -173,3 +173,65 @@ it('voids a posted bill and reverses the GL entry', function () {
     expect($ap->fresh()->balance_cents)->toBe(0);
     expect($this->expenseAccount->fresh()->balance_cents)->toBe(0);
 });
+
+it('carries the line description onto the expense leg, leaving the tax and AP legs alone', function () {
+    $gst = TaxCode::where('code', 'GST')->firstOrFail();
+
+    $bill = Bill::create([
+        'contact_id' => $this->vendor->id,
+        'bill_type' => BillType::Vendor,
+        'bill_no' => 'BILL-MEMO-1',
+        'bill_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+    ]);
+
+    $totals = app(TaxCalculator::class)->line('1', 10000, $gst);
+
+    $bill->lines()->create([
+        'account_id' => $this->expenseAccount->id,
+        'description' => 'Printer toner',
+        'quantity' => '1',
+        'unit_price_cents' => 10000,
+        'tax_code_id' => $gst->id,
+        'line_subtotal_cents' => $totals['subtotal_cents'],
+        'line_tax_cents' => $totals['tax_cents'],
+        'line_total_cents' => $totals['total_cents'],
+        'line_order' => 0,
+    ]);
+
+    $lines = app(BillPoster::class)->post($bill)->lines;
+    $ap = Account::query()->where('subtype', AccountSubtype::AccountsPayable->value)->where('is_system', true)->first();
+
+    expect($lines->firstWhere('account_id', $this->expenseAccount->id)->memo)->toBe('Printer toner')
+        ->and($lines->firstWhere('account_id', $gst->agency->payable_account_id)->memo)->toBe('Input tax credit')
+        ->and($lines->firstWhere('account_id', $ap->id)->memo)->toBe(BillType::Vendor->label().' — Office Supplies Co');
+});
+
+it('joins the descriptions of bill lines that share an expense leg', function () {
+    $bill = Bill::create([
+        'contact_id' => $this->vendor->id,
+        'bill_type' => BillType::Vendor,
+        'bill_no' => 'BILL-MEMO-2',
+        'bill_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+    ]);
+
+    foreach (['Paper', '  ', 'Toner', 'Paper'] as $i => $description) {
+        $bill->lines()->create([
+            'account_id' => $this->expenseAccount->id,
+            'description' => $description,
+            'quantity' => '1',
+            'unit_price_cents' => 500,
+            'line_subtotal_cents' => 500,
+            'line_tax_cents' => 0,
+            'line_total_cents' => 500,
+            'line_order' => $i,
+        ]);
+    }
+
+    $legs = app(BillPoster::class)->post($bill)->lines->where('account_id', $this->expenseAccount->id);
+
+    expect($legs)->toHaveCount(1)
+        ->and((int) $legs->first()->debit_cents)->toBe(2000)
+        ->and($legs->first()->memo)->toBe('Paper; Toner');
+});

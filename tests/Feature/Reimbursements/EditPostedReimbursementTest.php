@@ -94,7 +94,11 @@ it('keeps the line description when a posted reimbursement is edited', function 
         ->call('post')
         ->assertHasNoErrors();
 
-    expect($bill->fresh()->lines->first()->description)->toBe('Mileage to the client site');
+    $bill->refresh();
+
+    expect($bill->lines->first()->description)->toBe('Mileage to the client site')
+        // The repost rewrites the expense leg's memo to match.
+        ->and($bill->journalEntry->lines->firstWhere('account_id', $this->expense->id)->memo)->toBe('Mileage to the client site');
 });
 
 it('deletes a draft reimbursement from the show page', function () {

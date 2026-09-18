@@ -44,6 +44,7 @@ use RuntimeException;
  */
 class BillPoster
 {
+    use Concerns\JoinsLineDescriptions;
     use Concerns\PlugsForeignRounding;
     use Concerns\SplitsLineTax;
 
@@ -308,7 +309,7 @@ class BillPoster
         $legs = [];
 
         foreach ($this->expenseByAccount($bill) as $expense) {
-            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => null];
+            $legs[] = ['account_id' => $expense['account_id'], 'class_id' => $expense['class_id'], 'location_id' => $expense['location_id'], 'foreign' => $expense['cents'], 'home' => Currency::toHomeCents($expense['cents'], $rate), 'memo' => $this->descriptionMemo($expense['descriptions'])];
         }
 
         foreach ($this->recoverableTaxByPayableAccount($bill) as $payableAccountId => $foreignCents) {
@@ -376,8 +377,9 @@ class BillPoster
      * Expense grouped by the composite (effective debit account, class, location)
      * so dimension-tagged lines post as separate GL legs. With no dimensions the
      * key collapses to the account, reproducing the pre-dimension grouping exactly.
+     * Each leg carries the descriptions of the lines folded into it for its memo.
      *
-     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int}>
+     * @return list<array{account_id: int, class_id: ?int, location_id: ?int, cents: int, descriptions: list<?string>}>
      */
     protected function expenseByAccount(Bill $bill): array
     {
@@ -401,8 +403,10 @@ class BillPoster
                 'class_id' => $line->class_id,
                 'location_id' => $line->location_id,
                 'cents' => 0,
+                'descriptions' => [],
             ];
             $grouped[$key]['cents'] += $cents;
+            $grouped[$key]['descriptions'][] = $line->description;
         }
 
         return array_values($grouped);
