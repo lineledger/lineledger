@@ -15,7 +15,7 @@ class BackfillBankLineMemosCommand extends Command
         {company? : Company ID or slug; all companies when omitted}
         {--dry-run : Report what would change without writing}';
 
-    protected $description = "Append each posted document's own memo to its bank journal line so the register reads \"Deposit: <memo>\" instead of a bare \"Deposit\".";
+    protected $description = "Append each posted document's own memo to its bank journal line so the register reads \"Deposit: August rent\" instead of a bare \"Deposit\".";
 
     public function __construct(private BankLineMemoBackfiller $backfiller)
     {
@@ -34,7 +34,15 @@ class BackfillBankLineMemosCommand extends Command
             ? $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)->get()
             : Company::query()->withoutGlobalScopes()->orderBy('id')->get();
 
+        // A named company that matches nothing is an operator error; no companies
+        // at all (a fresh install, which app:upgrade runs on first boot) is not.
         if ($companies->isEmpty()) {
+            if ($arg === null) {
+                $this->info('No companies yet; nothing to backfill.');
+
+                return self::SUCCESS;
+            }
+
             $this->error('No matching company.');
 
             return self::FAILURE;

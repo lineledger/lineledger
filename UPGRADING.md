@@ -98,6 +98,9 @@ docker compose exec app php artisan app:upgrade --dry-run
 docker compose exec app php artisan app:upgrade --verify
 ```
 
+On a 1.0.0 database the dry run lists the 21 pending migrations and reports the two
+backfills as running after them: it can only preview them once the schema is current.
+
 Do it straight away: with `MIGRATE_ON_BOOT=false` the site serves 1.1.0 code against the
 old schema until you do.
 
@@ -192,7 +195,9 @@ a memo still exactly equal to the old label, on the document's own bank-account 
 hand-edited memos and every other leg are left alone; amounts are untouched and nothing
 reposts. **If skipped:** rows posted before 1.1.0 keep the bare label. Cosmetic.
 `--dry-run` prints how many memos each organization would rewrite ("would rewrite N bank
-line memo(s)") without writing them; `app:upgrade --dry-run` passes it through.
+line memo(s)") without writing them. `app:upgrade --dry-run` passes it through once the
+schema is current; while migrations are still pending it lists them and reports the
+backfills as running after them.
 
 **`banking:backfill-reconciliation-stamps [--dry-run]`** — a service-charge or interest
 adjustment that a reconciliation replaced mid-edit, or left unticked, kept the cleared

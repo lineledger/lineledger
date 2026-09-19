@@ -22,8 +22,10 @@ use Illuminate\Database\Migrations\Migrator;
  * nothing, both backfills match nothing — so re-running after a failure is
  * safe, and so is running it on every deploy. --dry-run lists the pending
  * migrations and what each backfill would change without writing (the
- * integrity check is read-only, so --verify still runs under it). --company
- * limits the backfills and the check to one tenant.
+ * integrity check is read-only, so --verify still runs under it); while
+ * migrations are pending the data steps are reported, not run, because they
+ * read the schema those migrations create. --company limits the backfills
+ * and the check to one tenant.
  *
  * Future post-migration steps get appended to {@see steps()}, in the order
  * they must run: a title plus a closure returning [exit code, one-line outcome].
@@ -42,9 +44,13 @@ class UpgradeCommand extends Command
     /** The company --company resolved to, when given. */
     private ?Company $company = null;
 
+    /** Migrations not yet applied when the run started. */
+    private int $pending = 0;
+
     public function handle(Migrator $migrator): int
     {
         $dryRun = (bool) $this->option('dry-run');
+        $this->pending = $this->pendingMigrations($migrator);
 
         // Resolve the scope before touching anything, so a typo does nothing at
         // all. Only id and slug are read: a tenant's identity columns are the
@@ -107,12 +113,12 @@ class UpgradeCommand extends Command
     {
         $steps = [
             ['Migrations', fn (): array => $this->migrate($migrator, $dryRun)],
-            ['Bank line memos', fn (): array => $this->backfill('banking:backfill-line-memos', $dryRun)],
-            ['Reconciliation stamps', fn (): array => $this->backfill('banking:backfill-reconciliation-stamps', $dryRun)],
+            ['Bank line memos', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('banking:backfill-line-memos', $dryRun)],
+            ['Reconciliation stamps', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('banking:backfill-reconciliation-stamps', $dryRun)],
         ];
 
         if ($this->option('verify')) {
-            $steps[] = ['Integrity check', fn (): array => $this->verify()];
+            $steps[] = ['Integrity check', fn (): array => $this->afterMigrating($dryRun) ?? $this->verify()];
         }
 
         return $steps;
@@ -123,7 +129,7 @@ class UpgradeCommand extends Command
      */
     private function migrate(Migrator $migrator, bool $dryRun): array
     {
-        $pending = $this->pendingMigrations($migrator);
+        $pending = $this->pending;
 
         if ($dryRun) {
             // migrate:status --pending exits non-zero whenever anything is pending
@@ -143,6 +149,22 @@ class UpgradeCommand extends Command
         }
 
         return [self::SUCCESS, $pending === 0 ? 'Up to date.' : sprintf('Applied %d migration(s).', $pending)];
+    }
+
+    /**
+     * On a dry run with migrations still pending, the data steps cannot be
+     * previewed: they read the schema those migrations create (on a fresh
+     * database, no tables at all). Say so instead of running them.
+     *
+     * @return array{int, string}|null
+     */
+    private function afterMigrating(bool $dryRun): ?array
+    {
+        if (! $dryRun || $this->pending === 0) {
+            return null;
+        }
+
+        return [self::SUCCESS, sprintf('Runs after the %d pending migration(s); dry-run again once they are applied to preview it.', $this->pending)];
     }
 
     /**

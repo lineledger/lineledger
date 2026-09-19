@@ -31,7 +31,15 @@ class BackfillReconciliationStampsCommand extends Command
             ? $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)->get()
             : Company::query()->withoutGlobalScopes()->orderBy('id')->get();
 
+        // A named company that matches nothing is an operator error; no companies
+        // at all (a fresh install, which app:upgrade runs on first boot) is not.
         if ($companies->isEmpty()) {
+            if ($arg === null) {
+                $this->info('No companies yet; nothing to backfill.');
+
+                return self::SUCCESS;
+            }
+
             $this->error('No matching company.');
 
             return self::FAILURE;
