@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LineLedger REST API
-  version: "1.0.0"
+  version: "1.1.0"
   description: >
     Programmatic access to a single company's accounting data over REST.
 
@@ -14,26 +14,40 @@ info:
     (`sales`, `purchases`, `banking`, `accounting`, `inventory`, `tax`,
     `settings`). A `write` scope implies the matching `read`. A key with no
     scopes has full access. Read endpoints require `:read`; writes require `:write`.
+    Every operation can answer **401** (missing or invalid key), **403** (key
+    lacks the scope) and **429** (rate limited); 401 and 403 are shown on the list
+    operations only and not repeated on every write.
 
     **Money & dates** — all monetary amounts are integer cents (e.g. `1050` =
-    $10.50). Dates are `YYYY-MM-DD`; timestamps are ISO-8601.
+    $10.50). Dates are `YYYY-MM-DD`; timestamps are ISO-8601. Quantities are
+    decimal strings.
 
     **Rate limits** — 120 requests/minute per IP and 60 requests/minute per key,
     whichever is hit first. Exceeding either returns **429** with the standard
     `Retry-After` and `X-RateLimit-*` headers. The throttle runs before key
     authentication, so malformed keys are limited too.
 
-    **Pagination** — list endpoints return `data`, `meta` (current_page, per_page,
-    total, last_page) and `links`. Page size defaults to 25 and is capped at 100.
+    **Pagination, filtering & sorting** — list endpoints return `data`, `meta`
+    (current_page, per_page, total, last_page) and `links`. Page size defaults
+    to 25 and is capped at 100. Every list accepts `search` (LIKE over the
+    columns named in its description), `sort` (one of the sortable columns
+    named in its description) and `direction` (`asc` or `desc`, default `desc`,
+    applied only together with `sort`). Dated documents also accept `from` /
+    `to` on the date named in the description, and documents with a lifecycle
+    accept `status`.
 
     **Document lifecycle** — `POST` creates and **posts** a document by default;
-    send `"post": false` to leave it as a draft. `PATCH` edits a draft, or
-    reposts a posted document in place where the document type supports it
-    (invoices, credit memos, receipts, bills, bill payments, journal entries,
-    deposits, cheques). Document types without an in-place repost (stock
-    adjustments, transfers, tax-return payments) return **409** if edited after
-    posting — void and recreate instead. `DELETE` hard-deletes a draft or **voids** a
-    posted document with a reversing journal entry.
+    send `"post": false` to leave it as a draft. `PATCH` (or `PUT`, an alias)
+    edits a draft, or reposts a posted document in place where the document
+    type supports it (invoices, credit memos, receipts, bills, bill payments,
+    journal entries, deposits, cheques). Document types without an in-place
+    repost (stock adjustments, transfers, tax-return payments) return **409** if
+    edited after posting — void and recreate instead. `DELETE` hard-deletes a
+    draft or **voids** a posted document with a reversing journal entry.
+    Document numbers (`invoice_no`, `receipt_no`, `credit_memo_no`, `bill_no`,
+    `payment_no`, `deposit_no`, `transfer_no`, `entry_no`, …) are optional on
+    create — omit one and the next number in the company's sequence is
+    assigned — and, except where a schema says otherwise, ignored on update.
 
     **Edit locks** — while a member has a record open for editing in the web app,
     updates, deletes and actions on that record return **423** with a
@@ -52,11 +66,11 @@ security:
 
 tags:
   - name: Sales
-    description: Customers, invoices, receipts, credit memos.
+    description: Customers, sales orders, invoices, receipts, credit memos.
   - name: Purchasing
     description: Vendors, employees, bills, bill payments.
   - name: Banking
-    description: Cheques, deposits, bank reconciliations.
+    description: Cheques, deposits, transfers, bank reconciliations.
   - name: Accounting
     description: Chart of accounts, journal entries, fixed assets.
   - name: Inventory
@@ -67,37 +81,21 @@ tags:
     description: Payment terms and payment methods.
 
 paths:
+  # ---- Sales -------------------------------------------------------------
   /customers:
     get: { $ref: '#/components/x-ops/contactIndex', tags: [Sales] }
-    post: { $ref: '#/components/x-ops/contactStore', tags: [Sales] }
+    post: { $ref: '#/components/x-ops/contactStore', tags: [Sales], summary: Create a customer }
   /customers/{contact}:
     parameters: [{ $ref: '#/components/parameters/contact' }]
-    get: { $ref: '#/components/x-ops/contactShow', tags: [Sales] }
-    patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Sales] }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Sales] }
-
-  /vendors:
-    get: { tags: [Purchasing], summary: List vendors, security: [{bearerAuth: []}], parameters: [{$ref: '#/components/parameters/page'},{$ref: '#/components/parameters/perPage'},{$ref: '#/components/parameters/search'}], responses: { '200': {$ref: '#/components/responses/ContactCollection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Purchasing], summary: Create a vendor, requestBody: {$ref: '#/components/requestBodies/Contact'}, responses: { '201': {$ref: '#/components/responses/Contact'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /vendors/{contact}:
-    parameters: [{ $ref: '#/components/parameters/contact' }]
-    get: { tags: [Purchasing], summary: Get a vendor, responses: { '200': {$ref: '#/components/responses/Contact'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Purchasing], summary: Update a vendor, requestBody: {$ref: '#/components/requestBodies/Contact'}, responses: { '200': {$ref: '#/components/responses/Contact'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing] }
-
-  /employees:
-    get: { tags: [Purchasing], summary: List employees, responses: { '200': {$ref: '#/components/responses/ContactCollection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Purchasing], summary: Create an employee, requestBody: {$ref: '#/components/requestBodies/Contact'}, responses: { '201': {$ref: '#/components/responses/Contact'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /employees/{contact}:
-    parameters: [{ $ref: '#/components/parameters/contact' }]
-    get: { tags: [Purchasing], summary: Get an employee, responses: { '200': {$ref: '#/components/responses/Contact'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Purchasing], summary: Update an employee, requestBody: {$ref: '#/components/requestBodies/Contact'}, responses: { '200': {$ref: '#/components/responses/Contact'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing] }
+    get: { $ref: '#/components/x-ops/contactShow', tags: [Sales], summary: Get a customer }
+    patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Sales], summary: Update a customer }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Sales], summary: Delete a customer }
 
   /sales-orders:
     get:
       tags: [Sales]
       summary: List sales orders
+      description: "Sortable: order_date, expected_date, order_no, total_cents, id. from/to filter order_date; search matches order_no and memo. status filters the stored status (open, cancelled); partial and closed are derived from invoicing and appear only in the response."
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/perPage' }
@@ -106,8 +104,9 @@ paths:
         - { $ref: '#/components/parameters/status' }
         - { $ref: '#/components/parameters/search' }
         - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
       responses:
-        '200': { $ref: '#/components/responses/Collection' }
+        '200': { $ref: '#/components/responses/SalesOrderCollection' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -116,25 +115,26 @@ paths:
       summary: Create a sales order
       requestBody: { $ref: '#/components/requestBodies/SalesOrder' }
       responses:
-        '201': { $ref: '#/components/responses/Document' }
+        '201': { $ref: '#/components/responses/SalesOrder' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
   /sales-orders/{salesOrder}:
     parameters: [{ $ref: '#/components/parameters/salesOrder' }]
-    get: { tags: [Sales], summary: Get a sales order, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Sales], summary: Update an open sales order, requestBody: {$ref: '#/components/requestBodies/SalesOrder'}, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Sales] }
+    get: { tags: [Sales], summary: Get a sales order, responses: { '200': {$ref: '#/components/responses/SalesOrder'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Sales], summary: Update an open sales order, requestBody: {$ref: '#/components/requestBodies/SalesOrder'}, responses: { '200': {$ref: '#/components/responses/SalesOrder'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: Delete a sales order (409 once it has invoices — cancel instead), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /sales-orders/{salesOrder}/fulfill:
     parameters: [{ $ref: '#/components/parameters/salesOrder' }]
-    post: { tags: [Sales], summary: Invoice requested quantities (partial fulfillment), requestBody: {$ref: '#/components/requestBodies/SalesOrderFulfillment'}, responses: { '201': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Sales], summary: Invoice requested quantities (partial fulfillment), description: "Creates a draft invoice for the requested quantities and returns it.", requestBody: {$ref: '#/components/requestBodies/SalesOrderFulfillment'}, responses: { '201': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /sales-orders/{salesOrder}/cancel:
     parameters: [{ $ref: '#/components/parameters/salesOrder' }]
-    post: { tags: [Sales], summary: Cancel a sales order, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Sales], summary: Cancel a sales order, responses: { '200': {$ref: '#/components/responses/SalesOrder'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /invoices:
     get:
       tags: [Sales]
       summary: List invoices
+      description: "Sortable: invoice_date, due_date, invoice_no, total_cents, id. from/to filter invoice_date; search matches invoice_no and memo."
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/perPage' }
@@ -143,6 +143,7 @@ paths:
         - { $ref: '#/components/parameters/status' }
         - { $ref: '#/components/parameters/search' }
         - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
       responses:
         '200': { $ref: '#/components/responses/InvoiceCollection' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -160,220 +161,606 @@ paths:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
     get: { tags: [Sales], summary: Get an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Sales], summary: Update a draft / repost a posted invoice, requestBody: {$ref: '#/components/requestBodies/Invoice'}, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Sales], summary: Void a posted invoice or delete a draft, responses: { '200': {$ref: '#/components/responses/Invoice'}, '204': {description: Draft deleted}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: Void a posted invoice or delete a draft, responses: { '200': {$ref: '#/components/responses/Invoice'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /invoices/{invoice}/post:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
-    post: { tags: [Sales], summary: Post a draft / repost an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Sales], summary: Post a draft / repost an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /receipts:
-    get: { tags: [Sales], summary: List customer receipts, parameters: [{$ref: '#/components/parameters/page'},{$ref: '#/components/parameters/perPage'},{$ref: '#/components/parameters/from'},{$ref: '#/components/parameters/to'},{$ref: '#/components/parameters/status'}], responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Sales], summary: Create (and post) a receipt, requestBody: {$ref: '#/components/requestBodies/Receipt'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Sales]
+      summary: List customer receipts
+      description: "Sortable: receipt_date, receipt_no, amount_cents, id. from/to filter receipt_date; search matches receipt_no, reference and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/ReceiptCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Sales], summary: Create (and post) a receipt, requestBody: {$ref: '#/components/requestBodies/Receipt'}, responses: { '201': {$ref: '#/components/responses/Receipt'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /receipts/{receipt}:
     parameters: [{ $ref: '#/components/parameters/receipt' }]
-    get: { tags: [Sales], summary: Get a receipt, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Sales], summary: Update / repost a receipt, requestBody: {$ref: '#/components/requestBodies/Receipt'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Sales] }
+    get: { tags: [Sales], summary: Get a receipt, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Sales], summary: Update / repost a receipt, description: "Send the full header and the complete applications list — the list replaces what is stored, so omitting an application unapplies it.", requestBody: {$ref: '#/components/requestBodies/Receipt'}, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: Void a posted receipt or delete a draft, responses: { '200': {$ref: '#/components/responses/Receipt'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /receipts/{receipt}/post:
     parameters: [{ $ref: '#/components/parameters/receipt' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Sales] }
+    post: { tags: [Sales], summary: Post a draft receipt, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /credit-memos:
-    get: { tags: [Sales], summary: List credit memos, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Sales], summary: Create (and post) a credit memo, requestBody: {$ref: '#/components/requestBodies/CreditMemo'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Sales]
+      summary: List credit memos
+      description: "Sortable: credit_memo_date, credit_memo_no, total_cents, id. from/to filter credit_memo_date; search matches credit_memo_no and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/CreditMemoCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Sales], summary: Create (and post) a credit memo, requestBody: {$ref: '#/components/requestBodies/CreditMemo'}, responses: { '201': {$ref: '#/components/responses/CreditMemo'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /credit-memos/{creditMemo}:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
-    get: { tags: [Sales], summary: Get a credit memo, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Sales], summary: Update / repost a credit memo, requestBody: {$ref: '#/components/requestBodies/CreditMemo'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Sales] }
+    get: { tags: [Sales], summary: Get a credit memo, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Sales], summary: Update / repost a credit memo, requestBody: {$ref: '#/components/requestBodies/CreditMemo'}, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: Void a posted credit memo or delete a draft, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /credit-memos/{creditMemo}/post:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Sales] }
+    post: { tags: [Sales], summary: Post a draft credit memo, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /credit-memos/{creditMemo}/refund:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
-    post: { tags: [Sales], summary: Refund a posted credit memo, description: 'Records and posts a refund (money out) against a posted credit memo as a negative customer receipt (DR Accounts Receivable, CR the deposit account). The amount cannot exceed the memo''s remaining refundable balance; only a posted credit memo can be refunded.', requestBody: {$ref: '#/components/requestBodies/CreditMemoRefund'}, responses: { '201': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Sales], summary: Refund a posted credit memo, description: 'Records and posts a refund (money out) against a posted credit memo as a negative customer receipt (DR Accounts Receivable, CR the deposit account). The amount cannot exceed the memo''s remaining refundable balance; only a posted credit memo can be refunded. Returns the receipt.', requestBody: {$ref: '#/components/requestBodies/CreditMemoRefund'}, responses: { '201': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  # ---- Purchasing --------------------------------------------------------
+  /vendors:
+    get: { $ref: '#/components/x-ops/contactIndex', tags: [Purchasing], summary: List vendors }
+    post: { $ref: '#/components/x-ops/contactStore', tags: [Purchasing], summary: Create a vendor }
+  /vendors/{contact}:
+    parameters: [{ $ref: '#/components/parameters/contact' }]
+    get: { $ref: '#/components/x-ops/contactShow', tags: [Purchasing], summary: Get a vendor }
+    patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Purchasing], summary: Update a vendor }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: Delete a vendor }
+
+  /employees:
+    get: { $ref: '#/components/x-ops/contactIndex', tags: [Purchasing], summary: List employees }
+    post: { $ref: '#/components/x-ops/contactStore', tags: [Purchasing], summary: Create an employee }
+  /employees/{contact}:
+    parameters: [{ $ref: '#/components/parameters/contact' }]
+    get: { $ref: '#/components/x-ops/contactShow', tags: [Purchasing], summary: Get an employee }
+    patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Purchasing], summary: Update an employee }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: Delete an employee }
 
   /bills:
-    get: { tags: [Purchasing], summary: List bills, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Purchasing], summary: Create (and post) a bill, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Purchasing]
+      summary: List bills
+      description: "Sortable: bill_date, due_date, bill_no, total_cents, id. from/to filter bill_date; search matches bill_no, vendor_reference and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/billType' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/BillCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Purchasing], summary: Create (and post) a bill, requestBody: {$ref: '#/components/requestBodies/Bill'}, responses: { '201': {$ref: '#/components/responses/Bill'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bills/{bill}:
     parameters: [{ $ref: '#/components/parameters/bill' }]
-    get: { tags: [Purchasing], summary: Get a bill, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Purchasing], summary: Update / repost a bill, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Purchasing] }
+    get: { tags: [Purchasing], summary: Get a bill, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Purchasing], summary: Update / repost a bill, requestBody: {$ref: '#/components/requestBodies/Bill'}, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Purchasing], summary: Void a posted bill or delete a draft, responses: { '200': {$ref: '#/components/responses/Bill'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bills/{bill}/post:
     parameters: [{ $ref: '#/components/parameters/bill' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Purchasing] }
+    post: { tags: [Purchasing], summary: Post a draft bill, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /bill-payments:
-    get: { tags: [Purchasing], summary: List bill payments, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Purchasing], summary: Create (and post) a bill payment, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Purchasing]
+      summary: List bill payments
+      description: "Sortable: payment_date, payment_no, amount_cents, id. from/to filter payment_date; search matches payment_no, reference and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/BillPaymentCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Purchasing], summary: Create (and post) a bill payment, requestBody: {$ref: '#/components/requestBodies/BillPayment'}, responses: { '201': {$ref: '#/components/responses/BillPayment'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bill-payments/{billPayment}:
     parameters: [{ $ref: '#/components/parameters/billPayment' }]
-    get: { tags: [Purchasing], summary: Get a bill payment, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Purchasing], summary: Update / repost a bill payment, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Purchasing] }
+    get: { tags: [Purchasing], summary: Get a bill payment, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Purchasing], summary: Update / repost a bill payment, description: "Send the full header and the complete applications list — the list replaces what is stored.", requestBody: {$ref: '#/components/requestBodies/BillPayment'}, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Purchasing], summary: Void a posted bill payment or delete a draft, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bill-payments/{billPayment}/post:
     parameters: [{ $ref: '#/components/parameters/billPayment' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Purchasing] }
+    post: { tags: [Purchasing], summary: Post a draft bill payment, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
+  # ---- Banking -----------------------------------------------------------
   /cheques:
-    get: { tags: [Banking], summary: List cheques, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Banking], summary: Create (and post) a cheque, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Banking]
+      summary: List cheques
+      description: "Sortable: cheque_date, cheque_no, amount_cents, id. from/to filter cheque_date; search matches cheque_no, payee_name and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/ChequeCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Banking], summary: Create (and post) a cheque, requestBody: {$ref: '#/components/requestBodies/Cheque'}, responses: { '201': {$ref: '#/components/responses/Cheque'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /cheques/{cheque}:
     parameters: [{ $ref: '#/components/parameters/cheque' }]
-    get: { tags: [Banking], summary: Get a cheque, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Banking], summary: "Update a cheque (a posted one is reposted in place)", requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Banking] }
+    get: { tags: [Banking], summary: Get a cheque, responses: { '200': {$ref: '#/components/responses/Cheque'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch:
+      tags: [Banking]
+      summary: Update a cheque (a posted one is reposted in place)
+      description: >
+        A draft is rebuilt and stays a draft. A posted cheque is rebuilt and its
+        journal entry reposted in place, keeping the same journal_entry_id; the
+        Accounts Receivable / Payable contact rule on lines is enforced on that
+        repost. A voided cheque cannot be edited (409).
+      requestBody: { $ref: '#/components/requestBodies/Cheque' }
+      responses:
+        '200': { $ref: '#/components/responses/Cheque' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete: { tags: [Banking], summary: Void a posted cheque or delete a draft, responses: { '200': {$ref: '#/components/responses/Cheque'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /cheques/{cheque}/post:
     parameters: [{ $ref: '#/components/parameters/cheque' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Banking] }
+    post: { tags: [Banking], summary: Post a draft cheque (409 if already posted — edit it with PATCH instead), responses: { '200': {$ref: '#/components/responses/Cheque'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /deposits:
-    get: { tags: [Banking], summary: List deposits, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Banking], summary: Create (and post) a deposit, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Banking]
+      summary: List deposits
+      description: "Sortable: deposit_date, deposit_no, amount_cents, id. from/to filter deposit_date; search matches deposit_no and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/DepositCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Banking], summary: Create (and post) a deposit, requestBody: {$ref: '#/components/requestBodies/Deposit'}, responses: { '201': {$ref: '#/components/responses/Deposit'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /deposits/{deposit}:
     parameters: [{ $ref: '#/components/parameters/deposit' }]
-    get: { tags: [Banking], summary: Get a deposit, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Banking], summary: "Update a deposit (a posted one is reposted in place)", requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Banking] }
+    get: { tags: [Banking], summary: Get a deposit, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Banking], summary: Update a deposit (a posted one is reposted in place), requestBody: {$ref: '#/components/requestBodies/Deposit'}, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Banking], summary: Void a posted deposit or delete a draft, responses: { '200': {$ref: '#/components/responses/Deposit'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /deposits/{deposit}/post:
     parameters: [{ $ref: '#/components/parameters/deposit' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Banking] }
+    post: { tags: [Banking], summary: Post a draft deposit, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  /transfers:
+    get:
+      tags: [Banking]
+      summary: List transfers
+      description: "Sortable: transfer_date, transfer_no, from_amount_cents, id. from/to filter transfer_date; search matches transfer_no and memo."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/TransferCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Banking]
+      summary: Create (and post) a transfer between two bank or credit-card accounts
+      requestBody: { $ref: '#/components/requestBodies/Transfer' }
+      responses:
+        '201': { $ref: '#/components/responses/Transfer' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /transfers/{transfer}:
+    parameters: [{ $ref: '#/components/parameters/transfer' }]
+    get: { tags: [Banking], summary: Get a transfer, responses: { '200': {$ref: '#/components/responses/Transfer'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch:
+      tags: [Banking]
+      summary: "Update a draft transfer (posted: 409 — no repost, void and recreate)"
+      requestBody: { $ref: '#/components/requestBodies/Transfer' }
+      responses:
+        '200': { $ref: '#/components/responses/Transfer' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete: { tags: [Banking], summary: Void a posted transfer or delete a draft, responses: { '200': {$ref: '#/components/responses/Transfer'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /transfers/{transfer}/post:
+    parameters: [{ $ref: '#/components/parameters/transfer' }]
+    post: { tags: [Banking], summary: Post a draft transfer (409 if already posted or voided), responses: { '200': {$ref: '#/components/responses/Transfer'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /bank-reconciliations:
-    get: { tags: [Banking], summary: List bank reconciliations, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Banking], summary: Begin a reconciliation, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Banking]
+      summary: List bank reconciliations
+      description: "Sortable: statement_date, completed_at, id (default statement_date desc). from/to filter statement_date; status is in_progress or completed. No free-text search."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/accountId' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/BankReconciliationCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Banking], summary: Begin a reconciliation, description: "Opens an in-progress session for the account, optionally posting a service-charge and/or interest-earned journal entry.", requestBody: {$ref: '#/components/requestBodies/BankReconciliationBegin'}, responses: { '201': {$ref: '#/components/responses/BankReconciliation'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bank-reconciliations/{bankReconciliation}:
     parameters: [{ $ref: '#/components/parameters/bankReconciliation' }]
-    get: { tags: [Banking], summary: Get a reconciliation, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Banking], summary: Set marked lines / adjustments, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Banking], summary: Cancel in-progress or undo the latest completed reconciliation, responses: { '204': {description: Cancelled/undone}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get: { tags: [Banking], summary: Get a reconciliation, responses: { '200': {$ref: '#/components/responses/BankReconciliation'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Banking], summary: Replace the set of marked (cleared-candidate) lines, description: "Full-set replacement, like the web app's mark-all / unmark-all — not a per-line toggle. Only an in-progress reconciliation can be updated (409).", requestBody: {$ref: '#/components/requestBodies/BankReconciliationUpdate'}, responses: { '200': {$ref: '#/components/responses/BankReconciliation'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Banking], summary: Cancel an in-progress reconciliation or undo the latest completed one, responses: { '204': {description: Cancelled / undone.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bank-reconciliations/{bankReconciliation}/complete:
     parameters: [{ $ref: '#/components/parameters/bankReconciliation' }]
-    post: { tags: [Banking], summary: Finalize a reconciliation, responses: { '200': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Banking], summary: Finalize a reconciliation, description: "Validates that the marked lines balance to the statement, clears them and marks the session completed. Only an in-progress reconciliation can be completed (409).", responses: { '200': {$ref: '#/components/responses/BankReconciliation'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
+  # ---- Accounting --------------------------------------------------------
   /accounts:
-    get: { tags: [Accounting], summary: List chart of accounts, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Accounting], summary: Create an account, requestBody: {$ref: '#/components/requestBodies/Account'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Accounting]
+      summary: List chart of accounts
+      description: "Sortable: code, name, balance_cents, id (default code asc). search matches code and name. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/AccountCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Accounting], summary: Create an account, requestBody: {$ref: '#/components/requestBodies/Account'}, responses: { '201': {$ref: '#/components/responses/Account'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /accounts/{account}:
     parameters: [{ $ref: '#/components/parameters/account' }]
-    get: { tags: [Accounting], summary: Get an account, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Accounting], summary: Update an account (system accounts can be renamed only), requestBody: {$ref: '#/components/requestBodies/Account'}, responses: { '200': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Accounting], summary: Delete an account (409 if it has transactions), responses: { '204': {description: Deleted}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get: { tags: [Accounting], summary: Get an account, responses: { '200': {$ref: '#/components/responses/Account'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Accounting], summary: Update an account (system accounts can be renamed only), requestBody: {$ref: '#/components/requestBodies/Account'}, responses: { '200': {$ref: '#/components/responses/Account'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Accounting], summary: Delete an account (409 if it has transactions), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /journal-entries:
-    get: { tags: [Accounting], summary: List journal entries, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Accounting], summary: Create (and post) a journal entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Accounting]
+      summary: List journal entries
+      description: "Sortable: entry_date, entry_no, id (default entry_date desc). from/to filter entry_date; search matches entry_no and memo. No status filter — read is_posted / status on each row."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/JournalEntryCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Accounting], summary: Create (and post) a journal entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '201': {$ref: '#/components/responses/JournalEntry'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /journal-entries/{journalEntry}:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
-    get: { tags: [Accounting], summary: Get a journal entry, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Accounting], summary: Update a draft / amend a posted entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '200': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDelete', tags: [Accounting] }
+    get: { tags: [Accounting], summary: Get a journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Accounting], summary: Update a draft / amend a posted entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Accounting], summary: Void a posted entry or delete a draft, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /journal-entries/{journalEntry}/post:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
-    post: { $ref: '#/components/x-ops/documentPost', tags: [Accounting] }
-
-  /items:
-    get: { tags: [Inventory], summary: List items, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Inventory], summary: Create an item, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /items/{item}:
-    parameters: [{ $ref: '#/components/parameters/item' }]
-    get: { tags: [Inventory], summary: Get an item, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Inventory], summary: Update an item, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Inventory] }
-
-  /stock-adjustments:
-    get: { tags: [Inventory], summary: List stock adjustments, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Inventory], summary: Create (and post) a stock adjustment, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /stock-adjustments/{stockAdjustment}:
-    parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
-    get: { tags: [Inventory], summary: Get a stock adjustment, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Inventory], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDeleteNoEditLock', tags: [Inventory] }
-  /stock-adjustments/{stockAdjustment}/post:
-    parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
-    post: { $ref: '#/components/x-ops/documentPostNoEditLock', tags: [Inventory] }
-
-  /tax-codes:
-    get: { tags: [Tax], summary: List tax codes, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Tax], summary: Create a tax code, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-codes/{taxCode}:
-    parameters: [{ $ref: '#/components/parameters/taxCode' }]
-    get: { tags: [Tax], summary: Get a tax code, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Tax], summary: Update a tax code, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Tax] }
-
-  /tax-agencies:
-    get: { tags: [Tax], summary: List tax agencies, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Tax], summary: Create a tax agency, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-agencies/{taxAgency}:
-    parameters: [{ $ref: '#/components/parameters/taxAgency' }]
-    get: { tags: [Tax], summary: Get a tax agency, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Tax], summary: Update a tax agency, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Tax], summary: Delete a tax agency (409 if it has tax codes), responses: { '204': {description: Deleted}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-
-  /tax-returns:
-    get: { tags: [Tax], summary: List tax returns, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Tax], summary: Create a draft tax return, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-returns/{taxReturn}:
-    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
-    get: { tags: [Tax], summary: Get a tax return, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Tax], summary: "Update a draft (filed: 409)", requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Tax], summary: Delete a draft return, responses: { '204': {description: Deleted}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-returns/{taxReturn}/file:
-    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
-    post: { tags: [Tax], summary: File a tax return (snapshots lines), responses: { '200': {$ref: '#/components/responses/Document'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-returns/{taxReturn}/void:
-    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
-    post: { tags: [Tax], summary: Void a filed tax return, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-
-  /tax-return-payments:
-    get: { tags: [Tax], summary: List tax return payments, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Tax], summary: Create (and post) a tax return payment, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
-  /tax-return-payments/{taxReturnPayment}:
-    parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
-    get: { tags: [Tax], summary: Get a tax return payment, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Tax], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/documentDeleteNoEditLock', tags: [Tax] }
-  /tax-return-payments/{taxReturnPayment}/post:
-    parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
-    post: { $ref: '#/components/x-ops/documentPostNoEditLock', tags: [Tax] }
+    post: { tags: [Accounting], summary: Post a draft journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /assets:
-    get: { tags: [Accounting], summary: List fixed assets, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Accounting], summary: Create an asset, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Accounting]
+      summary: List fixed assets
+      description: "Sortable: acquired_date, asset_no, name, cost_cents, id. from/to filter acquired_date; status is in-service, disposed, sold or lost; search matches asset_no, name, serial_number and location."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/AssetCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Accounting], summary: Create an asset, requestBody: {$ref: '#/components/requestBodies/Asset'}, responses: { '201': {$ref: '#/components/responses/Asset'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /assets/{asset}:
     parameters: [{ $ref: '#/components/parameters/asset' }]
-    get: { tags: [Accounting], summary: Get an asset, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Accounting], summary: Update an asset, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Accounting] }
+    get: { tags: [Accounting], summary: Get an asset, responses: { '200': {$ref: '#/components/responses/Asset'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Accounting], summary: Update an asset, requestBody: {$ref: '#/components/requestBodies/Asset'}, responses: { '200': {$ref: '#/components/responses/Asset'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Accounting], summary: Delete an asset }
 
   /asset-categories:
-    get: { tags: [Accounting], summary: List asset categories, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Accounting], summary: Create an asset category, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Accounting]
+      summary: List asset categories
+      description: "Sortable: name, created_at, id (default name asc). search matches name and description. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/AssetCategoryCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Accounting], summary: Create an asset category, requestBody: {$ref: '#/components/requestBodies/AssetCategory'}, responses: { '201': {$ref: '#/components/responses/AssetCategory'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /asset-categories/{assetCategory}:
     parameters: [{ $ref: '#/components/parameters/assetCategory' }]
-    get: { tags: [Accounting], summary: Get an asset category, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Accounting], summary: Update an asset category, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Accounting] }
+    get: { tags: [Accounting], summary: Get an asset category, responses: { '200': {$ref: '#/components/responses/AssetCategory'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Accounting], summary: Update an asset category, requestBody: {$ref: '#/components/requestBodies/AssetCategory'}, responses: { '200': {$ref: '#/components/responses/AssetCategory'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Accounting], summary: Delete an asset category }
 
+  # ---- Inventory ---------------------------------------------------------
+  /items:
+    get:
+      tags: [Inventory]
+      summary: List items
+      description: "Sortable: name, sku, default_price_cents, id (default name asc). search matches name and sku. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/ItemCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Inventory], summary: Create an item, requestBody: {$ref: '#/components/requestBodies/Item'}, responses: { '201': {$ref: '#/components/responses/Item'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /items/{item}:
+    parameters: [{ $ref: '#/components/parameters/item' }]
+    get: { tags: [Inventory], summary: Get an item, responses: { '200': {$ref: '#/components/responses/Item'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Inventory], summary: Update an item, requestBody: {$ref: '#/components/requestBodies/Item'}, responses: { '200': {$ref: '#/components/responses/Item'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Inventory], summary: Delete an item }
+
+  /stock-adjustments:
+    get:
+      tags: [Inventory]
+      summary: List stock adjustments
+      description: "Sortable: adjustment_date, adjustment_no, id. from/to filter adjustment_date; search matches adjustment_no and notes. No status filter — read posted_at / voided_at on each row."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/StockAdjustmentCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Inventory], summary: Create (and post) a stock adjustment, requestBody: {$ref: '#/components/requestBodies/StockAdjustment'}, responses: { '201': {$ref: '#/components/responses/StockAdjustment'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /stock-adjustments/{stockAdjustment}:
+    parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
+    get: { tags: [Inventory], summary: Get a stock adjustment, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Inventory], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/StockAdjustment'}, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Inventory], summary: Void a posted stock adjustment or delete a draft, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /stock-adjustments/{stockAdjustment}/post:
+    parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
+    post: { tags: [Inventory], summary: Post a draft stock adjustment, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  # ---- Tax ---------------------------------------------------------------
+  /tax-codes:
+    get:
+      tags: [Tax]
+      summary: List tax codes
+      description: "Sortable: code, name, rate_basis_points, id (default code asc). search matches code and name. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/TaxCodeCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Tax], summary: Create a tax code, requestBody: {$ref: '#/components/requestBodies/TaxCode'}, responses: { '201': {$ref: '#/components/responses/TaxCode'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-codes/{taxCode}:
+    parameters: [{ $ref: '#/components/parameters/taxCode' }]
+    get: { tags: [Tax], summary: Get a tax code, responses: { '200': {$ref: '#/components/responses/TaxCode'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Tax], summary: Update a tax code, requestBody: {$ref: '#/components/requestBodies/TaxCode'}, responses: { '200': {$ref: '#/components/responses/TaxCode'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Tax], summary: Delete a tax code }
+
+  /tax-agencies:
+    get:
+      tags: [Tax]
+      summary: List tax agencies
+      description: "Sortable: name, id (default name asc). search matches name and registration_number. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/TaxAgencyCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Tax], summary: Create a tax agency, requestBody: {$ref: '#/components/requestBodies/TaxAgency'}, responses: { '201': {$ref: '#/components/responses/TaxAgency'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-agencies/{taxAgency}:
+    parameters: [{ $ref: '#/components/parameters/taxAgency' }]
+    get: { tags: [Tax], summary: Get a tax agency, responses: { '200': {$ref: '#/components/responses/TaxAgency'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Tax], summary: Update a tax agency, requestBody: {$ref: '#/components/requestBodies/TaxAgency'}, responses: { '200': {$ref: '#/components/responses/TaxAgency'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Tax], summary: Delete a tax agency (409 if it has tax codes), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  /tax-returns:
+    get:
+      tags: [Tax]
+      summary: List tax returns
+      description: "Sortable: period_end, period_start, tax_return_no, net_cents, id. from/to filter period_end; status is draft, filed or void; search matches tax_return_no and filing_reference."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/TaxReturnCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Tax], summary: Create a draft tax return, requestBody: {$ref: '#/components/requestBodies/TaxReturn'}, responses: { '201': {$ref: '#/components/responses/TaxReturn'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-returns/{taxReturn}:
+    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
+    get: { tags: [Tax], summary: Get a tax return, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Tax], summary: "Update a draft (filed: 409)", requestBody: {$ref: '#/components/requestBodies/TaxReturn'}, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Tax], summary: Delete a draft return (filed or voided returns cannot be deleted), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-returns/{taxReturn}/file:
+    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
+    post: { tags: [Tax], summary: File a draft tax return (snapshots the contributing lines), responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-returns/{taxReturn}/void:
+    parameters: [{ $ref: '#/components/parameters/taxReturn' }]
+    post: { tags: [Tax], summary: Void a filed tax return (record-keeping only — no GL impact), requestBody: {$ref: '#/components/requestBodies/TaxReturnVoid'}, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  /tax-return-payments:
+    get:
+      tags: [Tax]
+      summary: List tax return payments
+      description: "Sortable: payment_date, payment_no, total_cents, id. from/to filter payment_date; search matches payment_no and reference."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { $ref: '#/components/parameters/status' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/TaxReturnPaymentCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Tax], summary: Create (and post) a tax return payment, requestBody: {$ref: '#/components/requestBodies/TaxReturnPayment'}, responses: { '201': {$ref: '#/components/responses/TaxReturnPayment'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-return-payments/{taxReturnPayment}:
+    parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
+    get: { tags: [Tax], summary: Get a tax return payment, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Tax], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/TaxReturnPayment'}, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Tax], summary: Void a posted payment or delete a draft, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-return-payments/{taxReturnPayment}/post:
+    parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
+    post: { tags: [Tax], summary: Post a draft tax return payment, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+
+  # ---- Settings ----------------------------------------------------------
   /payment-terms:
-    get: { tags: [Settings], summary: List payment terms, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Settings], summary: Create a payment term, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Settings]
+      summary: List payment terms
+      description: "Sortable: name, days, id (default days asc). search matches name. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/PaymentTermCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Settings], summary: Create a payment term, requestBody: {$ref: '#/components/requestBodies/PaymentTerm'}, responses: { '201': {$ref: '#/components/responses/PaymentTerm'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /payment-terms/{paymentTerm}:
     parameters: [{ $ref: '#/components/parameters/paymentTerm' }]
-    get: { tags: [Settings], summary: Get a payment term, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Settings], summary: Update a payment term, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings] }
+    get: { tags: [Settings], summary: Get a payment term, responses: { '200': {$ref: '#/components/responses/PaymentTerm'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Settings], summary: Update a payment term, requestBody: {$ref: '#/components/requestBodies/PaymentTerm'}, responses: { '200': {$ref: '#/components/responses/PaymentTerm'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: Delete a payment term }
 
   /payment-methods:
-    get: { tags: [Settings], summary: List payment methods, responses: { '200': {$ref: '#/components/responses/Collection'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    post: { tags: [Settings], summary: Create a payment method, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '201': {$ref: '#/components/responses/Document'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    get:
+      tags: [Settings]
+      summary: List payment methods
+      description: "Sortable: name, id (default name asc). search matches name. No status or date filters."
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/perPage' }
+        - { $ref: '#/components/parameters/search' }
+        - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
+      responses:
+        '200': { $ref: '#/components/responses/PaymentMethodCollection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post: { tags: [Settings], summary: Create a payment method, requestBody: {$ref: '#/components/requestBodies/PaymentMethod'}, responses: { '201': {$ref: '#/components/responses/PaymentMethod'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /payment-methods/{paymentMethod}:
     parameters: [{ $ref: '#/components/parameters/paymentMethod' }]
-    get: { tags: [Settings], summary: Get a payment method, responses: { '200': {$ref: '#/components/responses/Document'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    patch: { tags: [Settings], summary: Update a payment method, requestBody: {$ref: '#/components/requestBodies/Document'}, responses: { '200': {$ref: '#/components/responses/Document'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings] }
+    get: { tags: [Settings], summary: Get a payment method, responses: { '200': {$ref: '#/components/responses/PaymentMethod'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    patch: { tags: [Settings], summary: Update a payment method, requestBody: {$ref: '#/components/requestBodies/PaymentMethod'}, responses: { '200': {$ref: '#/components/responses/PaymentMethod'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: Delete a payment method }
 
 components:
   securitySchemes:
@@ -387,13 +774,16 @@ components:
       name: X-Api-Key
 
   parameters:
-    page: { name: page, in: query, schema: { type: integer, minimum: 1 }, description: Page number. }
-    perPage: { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Items per page (capped at 100). }
-    from: { name: from, in: query, schema: { type: string, format: date }, description: Filter by document date ≥ this date. }
-    to: { name: to, in: query, schema: { type: string, format: date }, description: Filter by document date ≤ this date. }
-    status: { name: status, in: query, schema: { type: string }, description: "Filter by status (e.g. draft, posted, partial, paid, void)." }
-    search: { name: search, in: query, schema: { type: string }, description: Free-text search over the resource's text columns. }
-    sort: { name: sort, in: query, schema: { type: string }, description: "Sort column (whitelisted per resource); pair with direction=asc|desc." }
+    page: { name: page, in: query, schema: { type: integer, minimum: 1 }, description: "Page number." }
+    perPage: { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Items per page (capped at 100)." }
+    from: { name: from, in: query, schema: { type: string, format: date }, description: "Only rows whose document date (named in the list's description) is on or after this date." }
+    to: { name: to, in: query, schema: { type: string, format: date }, description: "Only rows whose document date (named in the list's description) is on or before this date." }
+    status: { name: status, in: query, schema: { type: string }, description: "Exact match on the row's status (e.g. draft, posted, partial, paid, void). The values each list accepts are its status enum in the response schema." }
+    search: { name: search, in: query, schema: { type: string }, description: "Case-insensitive substring match over the columns named in the list's description." }
+    sort: { name: sort, in: query, schema: { type: string }, description: "Sort column; each list names its sortable columns in its description. A value that is not on that list is ignored and the default order applies." }
+    direction: { name: direction, in: query, schema: { type: string, enum: [asc, desc], default: desc }, description: "Sort direction. Only applied together with a valid sort; any value other than asc is treated as desc." }
+    billType: { name: bill_type, in: query, schema: { type: string, enum: [vendor, reimbursement] }, description: "Only bills of this type." }
+    accountId: { name: account_id, in: query, schema: { type: integer }, description: "Only reconciliations of this bank or credit-card account." }
     contact: { name: contact, in: path, required: true, schema: { type: integer } }
     invoice: { name: invoice, in: path, required: true, schema: { type: integer } }
     salesOrder: { name: salesOrder, in: path, required: true, schema: { type: integer } }
@@ -403,6 +793,7 @@ components:
     billPayment: { name: billPayment, in: path, required: true, schema: { type: integer } }
     cheque: { name: cheque, in: path, required: true, schema: { type: integer } }
     deposit: { name: deposit, in: path, required: true, schema: { type: integer } }
+    transfer: { name: transfer, in: path, required: true, schema: { type: integer } }
     bankReconciliation: { name: bankReconciliation, in: path, required: true, schema: { type: integer } }
     account: { name: account, in: path, required: true, schema: { type: integer } }
     journalEntry: { name: journalEntry, in: path, required: true, schema: { type: integer } }
@@ -418,6 +809,7 @@ components:
     paymentMethod: { name: paymentMethod, in: path, required: true, schema: { type: integer } }
 
   schemas:
+    # ---- Envelopes & errors ---------------------------------------------
     Error:
       type: object
       properties:
@@ -438,92 +830,181 @@ components:
         per_page: { type: integer }
         total: { type: integer }
         last_page: { type: integer }
+    PaginationLinks:
+      type: object
+      properties:
+        first: { type: [string, "null"] }
+        last: { type: [string, "null"] }
+        prev: { type: [string, "null"] }
+        next: { type: [string, "null"] }
+
+    # ---- Shared fragments -----------------------------------------------
     Address:
       type: object
       properties:
-        line1: { type: [string, "null"] }
-        line2: { type: [string, "null"] }
-        city: { type: [string, "null"] }
-        region: { type: [string, "null"] }
-        postal_code: { type: [string, "null"] }
-        country: { type: [string, "null"], description: Two-letter country code. }
+        line1: { type: [string, "null"], maxLength: 255 }
+        line2: { type: [string, "null"], maxLength: 255 }
+        city: { type: [string, "null"], maxLength: 255 }
+        region: { type: [string, "null"], maxLength: 255 }
+        postal_code: { type: [string, "null"], maxLength: 255 }
+        country: { type: [string, "null"], minLength: 2, maxLength: 2, description: "Two-letter country code." }
+    DocumentLine:
+      type: object
+      description: A priced line on an invoice, credit memo or bill.
+      properties:
+        id: { type: integer }
+        description: { type: [string, "null"] }
+        quantity: { type: string, description: "Decimal quantity as a string." }
+        unit_price_cents: { type: integer }
+        account_id: { type: integer }
+        item_id: { type: [integer, "null"] }
+        tax_code_id: { type: [integer, "null"] }
+        secondary_tax_code_id: { type: [integer, "null"] }
+        line_subtotal_cents: { type: integer }
+        line_tax_cents: { type: integer }
+        secondary_tax_cents: { type: integer }
+        line_total_cents: { type: integer }
+    DocumentLineInput:
+      type: object
+      description: A priced line for a sales order, credit memo or bill. Between 1 and 1000 lines per document.
+      required: [quantity, unit_price_cents, account_id]
+      properties:
+        description: { type: [string, "null"], maxLength: 1000 }
+        quantity: { type: [string, number], description: "Decimal quantity, greater than 0 and at most 1,000,000." }
+        unit_price_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+        account_id: { type: integer }
+        item_id: { type: [integer, "null"] }
+        tax_code_id: { type: [integer, "null"] }
+        secondary_tax_code_id: { type: [integer, "null"], description: "Second tax on the same line (e.g. QST alongside GST)." }
+    InvoiceLineInput:
+      type: object
+      description: >
+        A priced line on an invoice. Between 1 and 1000 lines per invoice. Unlike
+        the other documents, unit_price_cents MAY BE NEGATIVE — a discount or
+        credit recorded as its own line — while quantity stays positive (the sign
+        lives on the price). The lines as a whole must still net to a total
+        greater than zero; a payload whose lines net to zero or to a credit is
+        refused with 422 ("Use a credit memo for a net credit"). A leg that nets
+        negative is posted as a debit to its account.
+      required: [quantity, unit_price_cents, account_id]
+      properties:
+        description: { type: [string, "null"], maxLength: 1000 }
+        quantity: { type: [string, number], description: "Decimal quantity, greater than 0 and at most 1,000,000." }
+        unit_price_cents: { type: integer, minimum: -999999999999, maximum: 999999999999, description: "May be negative (discount / credit line); the invoice total must still be greater than zero." }
+        account_id: { type: integer }
+        item_id: { type: [integer, "null"] }
+        tax_code_id: { type: [integer, "null"] }
+        secondary_tax_code_id: { type: [integer, "null"], description: "Second tax on the same line (e.g. QST alongside GST)." }
+
+    # ---- Contacts -------------------------------------------------------
     Contact:
       type: object
       properties:
         id: { type: integer }
         display_name: { type: string }
         company_name: { type: [string, "null"] }
+        first_name: { type: [string, "null"] }
+        last_name: { type: [string, "null"] }
         email: { type: [string, "null"] }
         phone: { type: [string, "null"] }
+        tax_number: { type: [string, "null"] }
         is_customer: { type: boolean }
         is_vendor: { type: boolean }
         is_employee: { type: boolean }
-        invoice_emails_enabled: { type: boolean, description: Whether invoices are emailed to this contact. Opt-in; defaults to false. }
-        reminder_emails_enabled: { type: boolean, description: Whether payment reminders are emailed to this contact. Opt-in; defaults to false. }
+        invoice_emails_enabled: { type: boolean, description: "Whether invoices are emailed to this contact. Opt-in; defaults to false." }
+        reminder_emails_enabled: { type: boolean, description: "Whether payment reminders are emailed to this contact. Opt-in; defaults to false." }
         billing_address: { $ref: '#/components/schemas/Address' }
         shipping_address: { $ref: '#/components/schemas/Address' }
         default_terms_id: { type: [integer, "null"] }
         default_tax_code_id: { type: [integer, "null"] }
+        default_income_account_id: { type: [integer, "null"] }
+        notes: { type: [string, "null"] }
+        created_at: { type: [string, "null"], format: date-time }
     ContactInput:
       type: object
+      description: >
+        The role (customer, vendor, employee) comes from the endpoint the contact
+        is created through, not from the body. account_no, is_active and
+        default_expense_account_id are accepted and stored but not echoed in the
+        response.
       required: [display_name]
       properties:
-        display_name: { type: string }
-        company_name: { type: string }
-        email: { type: string, format: email }
-        phone: { type: string }
-        tax_number: { type: string }
-        notes: { type: string }
+        display_name: { type: string, maxLength: 255 }
+        company_name: { type: [string, "null"], maxLength: 255 }
+        account_no: { type: [string, "null"], maxLength: 100, description: "Your reference number for this contact." }
+        first_name: { type: [string, "null"], maxLength: 255 }
+        last_name: { type: [string, "null"], maxLength: 255 }
+        email: { type: [string, "null"], format: email, maxLength: 255 }
+        phone: { type: [string, "null"], maxLength: 255 }
+        tax_number: { type: [string, "null"], maxLength: 255 }
+        notes: { type: [string, "null"] }
         is_active: { type: boolean }
-        invoice_emails_enabled: { type: boolean, description: Opt this contact in to emailed invoices. Defaults to false. }
-        reminder_emails_enabled: { type: boolean, description: Opt this contact in to payment reminders. Defaults to false. }
+        invoice_emails_enabled: { type: boolean, description: "Opt this contact in to emailed invoices. Defaults to false." }
+        reminder_emails_enabled: { type: boolean, description: "Opt this contact in to payment reminders. Defaults to false." }
         billing_address: { $ref: '#/components/schemas/Address' }
         shipping_address: { $ref: '#/components/schemas/Address' }
-        default_terms_id: { type: integer }
-        default_tax_code_id: { type: integer }
-        default_income_account_id: { type: integer }
-        default_expense_account_id: { type: integer }
-    InvoiceLineInput:
+        default_terms_id: { type: [integer, "null"], description: "An active payment term." }
+        default_tax_code_id: { type: [integer, "null"], description: "An active tax code." }
+        default_income_account_id: { type: [integer, "null"], description: "An active income account." }
+        default_expense_account_id: { type: [integer, "null"], description: "An active expense account." }
+
+    # ---- Sales orders ---------------------------------------------------
+    SalesOrder:
       type: object
-      required: [quantity, unit_price_cents, account_id]
       properties:
-        description: { type: string }
-        quantity: { type: string, description: Decimal quantity as a string. }
-        unit_price_cents: { type: integer }
-        account_id: { type: integer }
-        item_id: { type: integer }
-        tax_code_id: { type: integer }
-    InvoiceInput:
-      type: object
-      required: [contact_id, invoice_date, lines]
-      properties:
-        post: { type: boolean, default: true, description: Set false to create a draft. }
+        id: { type: integer }
+        order_no: { type: string }
         contact_id: { type: integer }
-        sales_rep_id: { type: integer, description: "Employee contact credited with the sale. Must be a contact with is_employee set; reps only surface in the UI when the Employees feature is on." }
-        invoice_date: { type: string, format: date }
-        due_date: { type: string, format: date }
-        terms_id: { type: integer }
-        memo: { type: string }
-        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLineInput' } }
+        order_date: { type: string, format: date }
+        expected_date: { type: [string, "null"], format: date }
+        terms_id: { type: [integer, "null"] }
+        status: { type: string, enum: [open, partial, closed, cancelled], description: "Derived: partial once any line is invoiced, closed once every line is." }
+        subtotal_cents: { type: integer }
+        tax_cents: { type: integer }
+        total_cents: { type: integer }
+        memo: { type: [string, "null"] }
+        customer_message: { type: [string, "null"] }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              description: { type: [string, "null"] }
+              qty_ordered: { type: string }
+              qty_invoiced: { type: string }
+              qty_backordered: { type: string }
+              unit_price_cents: { type: integer }
+              account_id: { type: integer }
+              item_id: { type: [integer, "null"] }
+              tax_code_id: { type: [integer, "null"] }
+              secondary_tax_code_id: { type: [integer, "null"] }
+              line_subtotal_cents: { type: integer }
+              line_tax_cents: { type: integer }
+              secondary_tax_cents: { type: integer }
+              line_total_cents: { type: integer }
     SalesOrderInput:
       type: object
       required: [contact_id, order_date, lines]
       properties:
-        contact_id: { type: integer }
+        contact_id: { type: integer, description: "A customer contact." }
         order_date: { type: string, format: date }
-        expected_date: { type: string, format: date }
-        terms_id: { type: integer }
-        memo: { type: string }
-        customer_message: { type: string }
-        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLineInput' } }
+        expected_date: { type: [string, "null"], format: date, description: "On or after order_date." }
+        terms_id: { type: [integer, "null"] }
+        memo: { type: [string, "null"] }
+        customer_message: { type: [string, "null"] }
+        lines: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/DocumentLineInput' } }
     SalesOrderFulfillmentInput:
       type: object
       required: [lines]
-      description: Quantities to invoice, keyed by sales_order_line_id.
+      description: Quantities to invoice, keyed by sales_order_line_id. Over-fulfilment and unknown line ids are refused with 422.
       properties:
         lines:
           type: object
-          additionalProperties: { type: number, description: Quantity to invoice for this line. }
+          minProperties: 1
+          additionalProperties: { type: number, exclusiveMinimum: 0, maximum: 1000000, description: "Quantity to invoice for this line." }
+
+    # ---- Invoices -------------------------------------------------------
     Invoice:
       type: object
       properties:
@@ -533,15 +1014,35 @@ components:
         sales_rep_id: { type: [integer, "null"] }
         sales_order_id: { type: [integer, "null"] }
         invoice_date: { type: string, format: date }
-        due_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date }
+        terms_id: { type: [integer, "null"] }
+        form_style_id: { type: [integer, "null"] }
         status: { type: string, enum: [draft, posted, partial, paid, void] }
         subtotal_cents: { type: integer }
         tax_cents: { type: integer }
         total_cents: { type: integer }
         amount_paid_cents: { type: integer }
         balance_cents: { type: integer, description: "What is still owed: total less receipts applied less any balance reconciled away by a journal entry. Prefer this over computing total_cents minus amount_paid_cents." }
+        memo: { type: [string, "null"] }
+        posted_at: { type: [string, "null"], format: date-time }
         journal_entry_id: { type: [integer, "null"] }
-        lines: { type: array, items: { type: object } }
+        lines: { type: array, items: { $ref: '#/components/schemas/DocumentLine' } }
+    InvoiceInput:
+      type: object
+      required: [contact_id, invoice_date, lines]
+      properties:
+        post: { type: boolean, default: true, description: "Set false to create a draft. Create only." }
+        invoice_no: { type: [string, "null"], maxLength: 50, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        contact_id: { type: integer, description: "A customer contact." }
+        sales_rep_id: { type: [integer, "null"], description: "Employee contact credited with the sale. Must be a contact with is_employee set; reps only surface in the UI when the Employees feature is on." }
+        invoice_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date, description: "On or after invoice_date." }
+        terms_id: { type: [integer, "null"] }
+        form_style_id: { type: [integer, "null"], description: "The form style used when the invoice is printed or emailed." }
+        memo: { type: [string, "null"] }
+        lines: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/InvoiceLineInput' } }
+
+    # ---- Receipts -------------------------------------------------------
     Receipt:
       type: object
       properties:
@@ -552,7 +1053,7 @@ components:
         deposit_to_account_id: { type: integer }
         payment_method_id: { type: [integer, "null"] }
         reference: { type: [string, "null"] }
-        amount_cents: { type: integer }
+        amount_cents: { type: integer, description: "Negative on a refund receipt created through /credit-memos/{creditMemo}/refund." }
         unapplied_cents: { type: integer, description: "The part of amount_cents not yet applied to any invoice (the customer's credit on this receipt). To apply it, update the receipt with its full header and the complete applications list." }
         memo: { type: [string, "null"] }
         status: { type: string, enum: [draft, posted, void] }
@@ -570,113 +1071,825 @@ components:
       type: object
       required: [contact_id, receipt_date, deposit_to_account_id, amount_cents]
       properties:
-        post: { type: boolean, default: true }
-        contact_id: { type: integer }
+        post: { type: boolean, default: true, description: "Create only." }
+        receipt_no: { type: [string, "null"], maxLength: 50, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        contact_id: { type: integer, description: "A customer contact." }
         receipt_date: { type: string, format: date }
-        deposit_to_account_id: { type: integer }
-        payment_method_id: { type: integer }
-        reference: { type: string }
-        amount_cents: { type: integer }
-        memo: { type: string }
+        deposit_to_account_id: { type: integer, description: "Bank or Undeposited Funds account." }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"], maxLength: 100 }
+        amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }
+        memo: { type: [string, "null"] }
         applications:
           type: array
+          maxItems: 1000
+          description: "Invoices this receipt pays. The sum may not exceed amount_cents and every invoice must belong to contact_id. On create the invoice must be posted or partial; on update paid is also accepted (the receipt being edited may already have driven it to paid)."
           items:
             type: object
             required: [invoice_id, amount_cents]
             properties:
               invoice_id: { type: integer }
-              amount_cents: { type: integer }
+              amount_cents: { type: integer, minimum: 1 }
+
+    # ---- Credit memos ---------------------------------------------------
+    CreditMemo:
+      type: object
+      properties:
+        id: { type: integer }
+        credit_memo_no: { type: string }
+        contact_id: { type: integer }
+        sales_rep_id: { type: [integer, "null"] }
+        credit_memo_date: { type: string, format: date }
+        status: { type: string, enum: [draft, posted, void] }
+        subtotal_cents: { type: integer }
+        tax_cents: { type: integer }
+        total_cents: { type: integer }
+        memo: { type: [string, "null"] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+        lines: { type: array, items: { $ref: '#/components/schemas/DocumentLine' } }
     CreditMemoInput:
       type: object
       required: [contact_id, credit_memo_date, lines]
       properties:
-        post: { type: boolean, default: true }
-        contact_id: { type: integer }
-        sales_rep_id: { type: integer, description: "Employee contact credited with the sale. Must be a contact with is_employee set; reps only surface in the UI when the Employees feature is on." }
+        post: { type: boolean, default: true, description: "Create only." }
+        credit_memo_no: { type: [string, "null"], maxLength: 50, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        contact_id: { type: integer, description: "A customer contact." }
+        sales_rep_id: { type: [integer, "null"], description: "Employee contact credited with the sale. Must be a contact with is_employee set; reps only surface in the UI when the Employees feature is on." }
         credit_memo_date: { type: string, format: date }
-        memo: { type: string }
-        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLineInput' } }
+        memo: { type: [string, "null"] }
+        lines: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/DocumentLineInput' } }
     CreditMemoRefundInput:
       type: object
       required: [refund_date, amount_cents, deposit_to_account_id]
       properties:
         refund_date: { type: string, format: date }
-        amount_cents: { type: integer, minimum: 1, description: Positive amount to refund; may not exceed the memo's remaining refundable balance. }
-        deposit_to_account_id: { type: integer, description: Bank or Undeposited Funds account the refund is paid from. }
-        payment_method_id: { type: integer }
-        reference: { type: string, maxLength: 100 }
-        memo: { type: string }
-    AccountInput:
+        receipt_no: { type: [string, "null"], maxLength: 50, description: "Number for the refund receipt that is created; must be unique within the company. Omit for the next number in sequence." }
+        amount_cents: { type: integer, minimum: 1, maximum: 999999999999, description: "Positive amount to refund; may not exceed the memo's remaining refundable balance." }
+        deposit_to_account_id: { type: integer, description: "Bank or Undeposited Funds account the refund is paid from." }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"], maxLength: 100 }
+        memo: { type: [string, "null"] }
+
+    # ---- Bills ----------------------------------------------------------
+    Bill:
       type: object
-      required: [code, name, subtype]
       properties:
-        code: { type: string }
-        name: { type: string }
-        subtype: { type: string, description: AccountSubtype value. }
-        parent_id: { type: integer }
-        description: { type: string }
-        is_active: { type: boolean }
-    JournalEntryInput:
+        id: { type: integer }
+        bill_no: { type: string }
+        bill_type: { type: string, enum: [vendor, reimbursement] }
+        contact_id: { type: integer }
+        vendor_reference: { type: [string, "null"] }
+        bill_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date }
+        terms_id: { type: [integer, "null"] }
+        status: { type: string, enum: [draft, posted, partial, paid, void] }
+        subtotal_cents: { type: integer }
+        tax_cents: { type: integer }
+        total_cents: { type: integer }
+        amount_paid_cents: { type: integer }
+        memo: { type: [string, "null"] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+        lines: { type: array, items: { $ref: '#/components/schemas/DocumentLine' } }
+    BillInput:
       type: object
-      required: [entry_date, lines]
+      required: [contact_id, bill_date, lines]
       properties:
-        post: { type: boolean, default: true }
-        entry_date: { type: string, format: date }
-        memo: { type: string }
+        post: { type: boolean, default: true, description: "Create only." }
+        bill_type: { type: string, enum: [vendor, reimbursement], default: vendor, description: "Create only. A reimbursement is owed to an employee; a vendor bill to a vendor." }
+        bill_no: { type: [string, "null"], maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        contact_id: { type: integer, description: "A vendor contact — or an employee contact when bill_type is reimbursement." }
+        vendor_reference: { type: [string, "null"], maxLength: 100, description: "The supplier's own invoice number." }
+        bill_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date, description: "On or after bill_date." }
+        terms_id: { type: [integer, "null"] }
+        memo: { type: [string, "null"] }
+        lines: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/DocumentLineInput' } }
+
+    # ---- Bill payments --------------------------------------------------
+    BillPayment:
+      type: object
+      properties:
+        id: { type: integer }
+        payment_no: { type: string }
+        payment_type: { type: string, enum: [vendor, reimbursement] }
+        contact_id: { type: integer }
+        payment_date: { type: string, format: date }
+        paid_from_account_id: { type: integer }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"] }
+        amount_cents: { type: integer }
+        memo: { type: [string, "null"] }
+        status: { type: string, enum: [draft, posted, void] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+        applications:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              bill_id: { type: integer }
+              amount_cents: { type: integer }
+    BillPaymentInput:
+      type: object
+      required: [contact_id, payment_date, paid_from_account_id, amount_cents]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        payment_type: { type: string, enum: [vendor, reimbursement], default: vendor, description: "Create only; must match the bills being paid." }
+        payment_no: { type: [string, "null"], maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        contact_id: { type: integer, description: "A vendor contact — or an employee contact when payment_type is reimbursement." }
+        payment_date: { type: string, format: date }
+        paid_from_account_id: { type: integer, description: "Bank or credit-card account the payment comes from." }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"], maxLength: 100 }
+        amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }
+        memo: { type: [string, "null"] }
+        applications:
+          type: array
+          maxItems: 1000
+          description: "Bills this payment settles. The sum may not exceed amount_cents; each bill must belong to contact_id, be of payment_type and be open (posted or partial; paid is also accepted on update)."
+          items:
+            type: object
+            required: [bill_id, amount_cents]
+            properties:
+              bill_id: { type: integer }
+              amount_cents: { type: integer, minimum: 1 }
+
+    # ---- Cheques --------------------------------------------------------
+    ChequeLine:
+      type: object
+      properties:
+        id: { type: integer }
+        account_id: { type: integer }
+        contact_id: { type: [integer, "null"], description: "The customer or vendor whose receivable / payable this line settles." }
+        description: { type: [string, "null"] }
+        amount_cents: { type: integer }
+        tax_code_id: { type: [integer, "null"] }
+        secondary_tax_code_id: { type: [integer, "null"] }
+        tax_cents: { type: integer }
+        secondary_tax_cents: { type: integer }
+    ChequeLineInput:
+      type: object
+      description: >
+        Lines with amount_cents of 0 are dropped. A line coded to the Accounts
+        Receivable control account must carry the customer's contact_id, and a
+        line coded to Accounts Payable the vendor's; that rule is enforced when
+        the cheque is posted (POST with post=true, or PATCH of a posted cheque),
+        not while it is a draft. Every tax field is ignored on such a control-
+        account line: the receivable or payable already includes the tax its
+        invoice or bill recorded, so taxing the settlement again would
+        double-count it.
+      required: [account_id, amount_cents]
+      properties:
+        account_id: { type: integer }
+        contact_id: { type: [integer, "null"], description: "Customer (AR line) or vendor (AP line) whose sub-ledger this line moves; distinct from the header payee." }
+        description: { type: [string, "null"], maxLength: 1000 }
+        amount_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+        tax_code_id: { type: [integer, "null"], description: "Ignored on an AR / AP control-account line." }
+        secondary_tax_code_id: { type: [integer, "null"], description: "Ignored on an AR / AP control-account line." }
+    Cheque:
+      type: object
+      properties:
+        id: { type: integer }
+        cheque_no: { type: string }
+        bank_account_id: { type: integer }
+        cheque_date: { type: string, format: date }
+        payee_contact_id: { type: [integer, "null"] }
+        payee_name: { type: [string, "null"] }
+        credit_memo_id: { type: [integer, "null"], description: "Set when the cheque refunds a credit memo." }
+        memo: { type: [string, "null"] }
+        amount_cents: { type: integer, description: "Sum of the lines including tax." }
+        status: { type: string, enum: [draft, posted, void] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+        payee_address: { $ref: '#/components/schemas/Address', description: "The mailing address snapshotted onto the cheque." }
+        lines: { type: array, items: { $ref: '#/components/schemas/ChequeLine' } }
+    ChequeInput:
+      type: object
+      required: [bank_account_id, cheque_no, cheque_date, lines]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        bank_account_id: { type: integer, description: "An account with subtype bank." }
+        cheque_no: { type: string, maxLength: 40, description: "Required. Not unique — the same number may be reused (e.g. across bank accounts or after a void); accepted on update too." }
+        cheque_date: { type: string, format: date }
+        payee_contact_id: { type: [integer, "null"] }
+        payee_name: { type: [string, "null"], maxLength: 255, description: "Required unless payee_contact_id is given; then it defaults to that contact's display name." }
+        memo: { type: [string, "null"] }
+        payee_address:
+          allOf: [{ $ref: '#/components/schemas/Address' }]
+          description: "Mailing address snapshotted onto the cheque. Omit the key and the payee contact's billing address is used; send it (even with null fields) to override."
+        lines: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/ChequeLineInput' } }
+
+    # ---- Deposits -------------------------------------------------------
+    Deposit:
+      type: object
+      properties:
+        id: { type: integer }
+        deposit_no: { type: string }
+        bank_account_id: { type: integer }
+        deposit_date: { type: string, format: date }
+        memo: { type: [string, "null"] }
+        amount_cents: { type: integer }
+        status: { type: string, enum: [draft, posted, void] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
         lines:
           type: array
           items:
             type: object
-            required: [account_id]
             properties:
-              account_id: { type: integer }
-              debit_cents: { type: integer }
-              credit_cents: { type: integer }
-              memo: { type: string }
-              contact_id: { type: integer }
-    Resource:
+              id: { type: integer }
+              customer_receipt_id: { type: [integer, "null"] }
+              account_id: { type: [integer, "null"] }
+              contact_id: { type: [integer, "null"] }
+              description: { type: [string, "null"] }
+              amount_cents: { type: integer }
+    DepositInput:
       type: object
-      description: A single resource, shape varies by endpoint.
-      additionalProperties: true
-    GenericInput:
+      required: [bank_account_id, deposit_date, lines]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        bank_account_id: { type: integer, description: "An account with subtype bank." }
+        deposit_no: { type: [string, "null"], maxLength: 40, description: "Must be unique within the company; accepted on update too. Omit for the next number in sequence." }
+        deposit_date: { type: string, format: date }
+        memo: { type: [string, "null"] }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          description: "Each line is either a receipt being deposited from Undeposited Funds (customer_receipt_id; amount_cents defaults to the receipt's amount when omitted) or an 'other' line credited to account_id, which then requires amount_cents."
+          items:
+            type: object
+            properties:
+              customer_receipt_id: { type: [integer, "null"] }
+              account_id: { type: [integer, "null"], description: "Required when customer_receipt_id is absent." }
+              contact_id: { type: [integer, "null"] }
+              description: { type: [string, "null"], maxLength: 1000 }
+              amount_cents: { type: [integer, "null"], minimum: 1, maximum: 999999999999, description: "Required on an account line. On a receipt line it defaults to the receipt's amount when omitted; a supplied value is used as sent." }
+
+    # ---- Transfers ------------------------------------------------------
+    Transfer:
+      type: object
+      properties:
+        id: { type: integer }
+        transfer_no: { type: [string, "null"] }
+        from_account_id: { type: integer }
+        to_account_id: { type: integer }
+        transfer_date: { type: string, format: date }
+        memo: { type: [string, "null"] }
+        from_amount_cents: { type: integer, description: "Amount leaving from_account_id, in that account's currency." }
+        to_amount_cents: { type: integer, description: "Amount arriving in to_account_id, in that account's currency." }
+        from_currency_code: { type: [string, "null"] }
+        to_currency_code: { type: [string, "null"] }
+        from_fx_rate: { type: [string, number, "null"], description: "Decimal rate locked at posting; null for a home-currency account." }
+        to_fx_rate: { type: [string, number, "null"], description: "Decimal rate locked at posting; null for a home-currency account." }
+        home_amount_cents: { type: [integer, "null"], description: "The home-currency amount posted to the ledger; null until posted." }
+        status: { type: string, enum: [draft, posted, void] }
+        posted_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+    TransferInput:
       type: object
       description: >
-        Resource-specific body. See the matching create form in the app, or the
-        relevant FormRequest, for the exact fields. Postable documents accept a
-        `post` boolean (default true) to control immediate posting.
-      additionalProperties: true
+        Moves money between two of the company's bank or credit-card accounts.
+        For two accounts in the same currency send the same value in both amount
+        fields. For a cross-currency transfer send each side in its own account's
+        currency; the rate is **not** derived from the pair. Each foreign side is
+        converted to home currency at the company's exchange rate for that
+        account's currency on `transfer_date` (locked into `from_fx_rate` /
+        `to_fx_rate` at posting), and any difference between the two home values
+        is posted as a realized gain or loss to the company's Exchange Gain/Loss
+        account — which must exist, or posting fails with **422**.
+      required: [from_account_id, to_account_id, transfer_date, from_amount_cents, to_amount_cents]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        from_account_id: { type: integer, description: "An account with subtype bank or credit_card." }
+        to_account_id: { type: integer, description: "An account with subtype bank or credit_card; must differ from from_account_id." }
+        transfer_no: { type: [string, "null"], maxLength: 40, description: "Create only; ignored on update. Omit for the next number in sequence." }
+        transfer_date: { type: string, format: date }
+        from_amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }
+        to_amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }
+        memo: { type: [string, "null"] }
+
+    # ---- Bank reconciliations -------------------------------------------
+    BankReconciliation:
+      type: object
+      properties:
+        id: { type: integer }
+        account_id: { type: integer }
+        statement_date: { type: string, format: date }
+        beginning_balance_cents: { type: integer }
+        ending_balance_cents: { type: integer }
+        service_charge_cents: { type: integer }
+        service_charge_date: { type: [string, "null"], format: date }
+        service_charge_account_id: { type: [integer, "null"] }
+        service_charge_entry_id: { type: [integer, "null"], description: "Journal entry posted for the service charge." }
+        interest_earned_cents: { type: integer }
+        interest_earned_date: { type: [string, "null"], format: date }
+        interest_earned_account_id: { type: [integer, "null"] }
+        interest_earned_entry_id: { type: [integer, "null"], description: "Journal entry posted for the interest." }
+        status: { type: string, enum: [in_progress, completed] }
+        marked_line_ids: { type: array, items: { type: integer }, description: "Journal line ids currently marked as cleared candidates." }
+        completed_at: { type: [string, "null"], format: date-time }
+        completed_by_user_id: { type: [integer, "null"] }
+    BankReconciliationBeginInput:
+      type: object
+      required: [account_id, statement_date, ending_balance_cents]
+      properties:
+        account_id: { type: integer, description: "An account with subtype bank or credit_card." }
+        statement_date: { type: string, format: date }
+        ending_balance_cents: { type: integer, minimum: -999999999999, maximum: 999999999999 }
+        service_charge:
+          type: [object, "null"]
+          description: Posts a service-charge journal entry when the session opens. Can only be set here, not later.
+          required: [cents, account_id]
+          properties:
+            cents: { type: integer, minimum: 1 }
+            date: { type: [string, "null"], format: date, description: "Defaults to statement_date." }
+            account_id: { type: integer, description: "Expense account for the charge." }
+        interest_earned:
+          type: [object, "null"]
+          description: Posts an interest-earned journal entry when the session opens. Can only be set here, not later.
+          required: [cents, account_id]
+          properties:
+            cents: { type: integer, minimum: 1 }
+            date: { type: [string, "null"], format: date, description: "Defaults to statement_date." }
+            account_id: { type: integer, description: "Income account for the interest." }
+    BankReconciliationUpdateInput:
+      type: object
+      required: [marked_line_ids]
+      properties:
+        marked_line_ids:
+          type: array
+          maxItems: 100000
+          description: "The complete replacement set of journal line ids to mark as cleared candidates. Every id must be a journal line on the reconciliation's account. Send [] to unmark everything."
+          items: { type: integer }
+
+    # ---- Accounts -------------------------------------------------------
+    Account:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [asset, liability, equity, income, expense] }
+        subtype: { $ref: '#/components/schemas/AccountSubtype' }
+        normal_balance: { type: string, enum: [debit, credit] }
+        currency_code: { type: [string, "null"], description: "Null for a home-currency account." }
+        parent_id: { type: [integer, "null"] }
+        default_tax_code_id: { type: [integer, "null"] }
+        description: { type: [string, "null"] }
+        cash_flow_activity: { type: [string, "null"], enum: [operating, investing, financing, null] }
+        is_system: { type: boolean, description: "System accounts (control accounts) can be renamed but not otherwise changed or deleted." }
+        is_active: { type: boolean }
+        balance_cents: { type: integer, description: "Posted balance in the account's normal-balance sense." }
+        created_at: { type: [string, "null"], format: date-time }
+    AccountSubtype:
+      type: string
+      description: The account's subtype; the type and normal balance follow from it.
+      enum:
+        - bank
+        - accounts_receivable
+        - undeposited_funds
+        - inventory
+        - current_asset
+        - fixed_asset
+        - other_asset
+        - accounts_payable
+        - credit_card
+        - tax_payable
+        - current_liability
+        - long_term_liability
+        - other_liability
+        - equity
+        - retained_earnings
+        - unrestricted_net_assets
+        - restricted_net_assets
+        - endowment_net_assets
+        - income
+        - other_income
+        - cost_of_goods_sold
+        - expense
+        - other_expense
+    AccountInput:
+      type: object
+      required: [code, name, subtype]
+      properties:
+        code: { type: string, maxLength: 20, description: "Unique within the company." }
+        name: { type: string, maxLength: 255 }
+        subtype: { $ref: '#/components/schemas/AccountSubtype' }
+        parent_id: { type: [integer, "null"], description: "A parent account of a compatible subtype (validated)." }
+        description: { type: [string, "null"] }
+        cash_flow_activity: { type: [string, "null"], enum: [operating, investing, financing, null], description: "Section of the cash-flow statement this account reports under." }
+        default_tax_code_id: { type: [integer, "null"], description: "Tax code pre-selected when this account is chosen on a line." }
+        currency_code: { type: [string, "null"], description: "Three-letter code of one of the company's enabled foreign currencies (case-insensitive). Null or omitted means the home currency." }
+        is_active: { type: boolean }
+
+    # ---- Journal entries ------------------------------------------------
+    JournalEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        entry_no: { type: [string, "null"] }
+        entry_date: { type: string, format: date }
+        memo: { type: [string, "null"] }
+        is_posted: { type: boolean }
+        status: { type: string, enum: [draft, posted, void] }
+        total_debits_cents: { type: integer }
+        total_credits_cents: { type: integer }
+        posted_at: { type: [string, "null"], format: date-time }
+        voided_at: { type: [string, "null"], format: date-time }
+        reversed_by_entry_id: { type: [integer, "null"], description: "The reversing entry written when this one was voided." }
+        reverses_entry_id: { type: [integer, "null"], description: "Set on a reversing entry, pointing at the entry it voids." }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              account_id: { type: integer }
+              contact_id: { type: [integer, "null"] }
+              tax_code_id: { type: [integer, "null"] }
+              debit_cents: { type: integer }
+              credit_cents: { type: integer }
+              memo: { type: [string, "null"] }
+    JournalEntryInput:
+      type: object
+      required: [entry_date, lines]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        entry_no: { type: [string, "null"], maxLength: 40, description: "Accepted on create and update. Omit for the next number in sequence." }
+        entry_date: { type: string, format: date }
+        memo: { type: [string, "null"] }
+        lines:
+          type: array
+          minItems: 2
+          maxItems: 1000
+          description: "Debits must equal credits (422 otherwise). A line on the Accounts Receivable control account must name a customer in contact_id, and a line on Accounts Payable a vendor."
+          items:
+            type: object
+            required: [account_id, debit_cents, credit_cents]
+            properties:
+              account_id: { type: integer }
+              debit_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+              credit_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+              memo: { type: [string, "null"], maxLength: 1000 }
+              contact_id: { type: [integer, "null"] }
+              tax_code_id: { type: [integer, "null"], description: "Tags the line for the sales-tax return." }
+
+    # ---- Fixed assets ---------------------------------------------------
+    Asset:
+      type: object
+      properties:
+        id: { type: integer }
+        asset_no: { type: [string, "null"] }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        asset_category_id: { type: [integer, "null"] }
+        asset_account_id: { type: integer }
+        accumulated_depreciation_account_id: { type: [integer, "null"] }
+        depreciation_expense_account_id: { type: [integer, "null"] }
+        serial_number: { type: [string, "null"] }
+        location: { type: [string, "null"] }
+        acquired_date: { type: string, format: date }
+        in_service_date: { type: [string, "null"], format: date }
+        cost_cents: { type: integer }
+        salvage_value_cents: { type: integer }
+        useful_life_months: { type: [integer, "null"] }
+        status: { type: string, enum: [in-service, disposed, sold, lost] }
+        disposed_at: { type: [string, "null"], format: date }
+        disposal_notes: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        is_active: { type: boolean }
+        source_type: { type: [string, "null"], description: "The document the asset was created from, if any." }
+        source_id: { type: [integer, "null"] }
+        created_at: { type: [string, "null"], format: date-time }
+    AssetInput:
+      type: object
+      required: [name, asset_account_id, acquired_date, cost_cents]
+      properties:
+        asset_no: { type: string, maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        name: { type: string, maxLength: 255 }
+        description: { type: [string, "null"] }
+        asset_category_id: { type: [integer, "null"] }
+        asset_account_id: { type: integer, description: "An account with subtype fixed_asset." }
+        accumulated_depreciation_account_id: { type: [integer, "null"] }
+        depreciation_expense_account_id: { type: [integer, "null"] }
+        serial_number: { type: [string, "null"], maxLength: 255 }
+        location: { type: [string, "null"], maxLength: 255 }
+        acquired_date: { type: string, format: date }
+        in_service_date: { type: [string, "null"], format: date }
+        cost_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+        salvage_value_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999 }
+        useful_life_months: { type: [integer, "null"], minimum: 1, maximum: 1200 }
+        status: { type: string, enum: [in-service, disposed, sold, lost] }
+        disposed_at: { type: [string, "null"], format: date, description: "Required when status is disposed, sold or lost." }
+        disposal_notes: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        is_active: { type: boolean }
+    AssetCategory:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        default_asset_account_id: { type: [integer, "null"] }
+        default_accumulated_depreciation_account_id: { type: [integer, "null"] }
+        default_depreciation_expense_account_id: { type: [integer, "null"] }
+        default_useful_life_months: { type: [integer, "null"] }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    AssetCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 255, description: "Unique within the company." }
+        description: { type: [string, "null"] }
+        default_asset_account_id: { type: [integer, "null"], description: "An account with subtype fixed_asset." }
+        default_accumulated_depreciation_account_id: { type: [integer, "null"], description: "An account with subtype fixed_asset." }
+        default_depreciation_expense_account_id: { type: [integer, "null"], description: "An expense account." }
+        default_useful_life_months: { type: [integer, "null"], minimum: 1, maximum: 1200 }
+        is_active: { type: boolean }
+
+    # ---- Items & stock --------------------------------------------------
+    Item:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        sku: { type: [string, "null"] }
+        description: { type: [string, "null"] }
+        income_account_id: { type: integer }
+        expense_account_id: { type: [integer, "null"] }
+        default_tax_code_id: { type: [integer, "null"] }
+        default_secondary_tax_code_id: { type: [integer, "null"] }
+        default_price_cents: { type: integer }
+        track_inventory: { type: boolean }
+        inventory_asset_account_id: { type: [integer, "null"] }
+        cogs_account_id: { type: [integer, "null"] }
+        reorder_point: { type: [string, "null"], description: "Decimal quantity as a string." }
+        qty_on_hand: { type: string, description: "Decimal quantity as a string (cached)." }
+        unit_cost_cents: { type: integer, description: "Current average unit cost (cached)." }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    ItemInput:
+      type: object
+      required: [name, income_account_id]
+      properties:
+        name: { type: string, maxLength: 255 }
+        sku: { type: [string, "null"], maxLength: 100 }
+        description: { type: [string, "null"] }
+        income_account_id: { type: integer }
+        expense_account_id: { type: [integer, "null"] }
+        default_tax_code_id: { type: [integer, "null"] }
+        default_secondary_tax_code_id: { type: [integer, "null"] }
+        default_price_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999 }
+        is_active: { type: boolean }
+        track_inventory: { type: boolean, default: false }
+        inventory_asset_account_id: { type: [integer, "null"], description: "Required when track_inventory is true." }
+        cogs_account_id: { type: [integer, "null"], description: "Required when track_inventory is true." }
+        reorder_point: { type: [string, number, "null"], description: "Decimal quantity ≥ 0." }
+        opening_qty: { type: [string, number, "null"], description: "Opening quantity on hand ≥ 0 (tracked items)." }
+        opening_cost_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999, description: "Opening cost per unit for opening_qty." }
+    StockAdjustment:
+      type: object
+      properties:
+        id: { type: integer }
+        adjustment_no: { type: [string, "null"] }
+        adjustment_date: { type: string, format: date }
+        reason: { type: string, enum: [opening_balance, shrinkage, damage, recount, write_off, other] }
+        notes: { type: [string, "null"] }
+        journal_entry_id: { type: [integer, "null"] }
+        posted_at: { type: [string, "null"], format: date-time }
+        voided_at: { type: [string, "null"], format: date-time }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              item_id: { type: integer }
+              qty_change: { type: string, description: "Signed decimal quantity as a string." }
+              unit_cost_cents: { type: integer }
+              notes: { type: [string, "null"] }
+    StockAdjustmentInput:
+      type: object
+      required: [adjustment_date, reason, lines]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        adjustment_no: { type: string, maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        adjustment_date: { type: string, format: date }
+        reason: { type: string, enum: [opening_balance, shrinkage, damage, recount, write_off, other] }
+        notes: { type: [string, "null"], maxLength: 2000 }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            required: [item_id, qty_change]
+            properties:
+              item_id: { type: integer, description: "An item with track_inventory on." }
+              qty_change: { type: [string, number], description: "Signed decimal quantity; must not be 0." }
+              unit_cost_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999, description: "Cost per unit for an increase. Omitted means 0 — the stock is received at zero cost and dilutes the item's average — so send it for any positive qty_change. Ignored on a decrease, which relieves stock at the current average." }
+              notes: { type: [string, "null"], maxLength: 1000 }
+
+    # ---- Tax ------------------------------------------------------------
+    TaxCode:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        rate_basis_points: { type: number, description: "Rate in basis points (500 = 5%). Whole rates are integers; fractional rates such as QST's 997.5 keep their decimals." }
+        agency_id: { type: [integer, "null"] }
+        applies_to: { type: string, enum: [sale_only, purchase_only, both] }
+        is_recoverable: { type: boolean }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    TaxCodeInput:
+      type: object
+      required: [code, name, rate_basis_points, applies_to]
+      properties:
+        code: { type: string, maxLength: 20, description: "Unique within the company." }
+        name: { type: string, maxLength: 255 }
+        rate_basis_points: { type: number, minimum: 0, maximum: 100000, description: "Rate in basis points (500 = 5%); decimals allowed." }
+        agency_id: { type: [integer, "null"] }
+        applies_to: { type: string, enum: [sale_only, purchase_only, both] }
+        is_recoverable: { type: boolean }
+        is_active: { type: boolean }
+    TaxAgency:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        registration_number: { type: [string, "null"] }
+        payable_account_id: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    TaxAgencyInput:
+      type: object
+      required: [name, payable_account_id]
+      properties:
+        name: { type: string, maxLength: 255 }
+        registration_number: { type: [string, "null"], maxLength: 50 }
+        payable_account_id: { type: integer, description: "The liability account tax collected for this agency accrues to." }
+        is_active: { type: boolean }
+    TaxReturn:
+      type: object
+      properties:
+        id: { type: integer }
+        tax_return_no: { type: [string, "null"] }
+        tax_agency_id: { type: integer }
+        period_start: { type: string, format: date }
+        period_end: { type: string, format: date }
+        status: { type: string, enum: [draft, filed, void] }
+        collected_cents: { type: integer }
+        paid_cents: { type: integer }
+        net_cents: { type: integer, description: "collected less paid; positive means owing." }
+        filing_reference: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        filed_at: { type: [string, "null"], format: date-time }
+        voided_at: { type: [string, "null"], format: date-time }
+        void_reason: { type: [string, "null"] }
+        lines:
+          type: array
+          description: The journal lines snapshotted when the return was filed (empty on a draft).
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              bucket: { type: string }
+              amount_cents: { type: integer }
+              entry_no: { type: [string, "null"] }
+              entry_date: { type: [string, "null"], format: date }
+              journal_entry_id: { type: [integer, "null"] }
+              journal_line_id: { type: [integer, "null"] }
+              source_type: { type: [string, "null"] }
+              source_id: { type: [integer, "null"] }
+              doc_label: { type: [string, "null"] }
+              is_reversal: { type: boolean }
+    TaxReturnInput:
+      type: object
+      required: [tax_agency_id, period_start, period_end]
+      properties:
+        tax_agency_id: { type: integer }
+        tax_return_no: { type: string, maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        period_start: { type: string, format: date }
+        period_end: { type: string, format: date, description: "On or after period_start." }
+        filing_reference: { type: [string, "null"], maxLength: 120 }
+        notes: { type: [string, "null"], maxLength: 2000 }
+    TaxReturnVoidInput:
+      type: object
+      properties:
+        void_reason: { type: string, description: 'Recorded on the return. Defaults to "Voided via API".' }
+    TaxReturnPayment:
+      type: object
+      properties:
+        id: { type: integer }
+        tax_return_id: { type: integer }
+        payment_no: { type: [string, "null"] }
+        payment_date: { type: string, format: date }
+        direction: { type: string, enum: [outgoing, incoming], description: "outgoing pays the agency; incoming records a refund from it." }
+        status: { type: string, enum: [draft, posted, void] }
+        bank_account_id: { type: integer }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"] }
+        net_amount_cents: { type: integer }
+        penalty_cents: { type: integer }
+        penalty_account_id: { type: [integer, "null"] }
+        interest_cents: { type: integer }
+        interest_account_id: { type: [integer, "null"] }
+        commission_cents: { type: integer }
+        commission_account_id: { type: [integer, "null"] }
+        total_cents: { type: integer }
+        notes: { type: [string, "null"] }
+        posted_at: { type: [string, "null"], format: date-time }
+        voided_at: { type: [string, "null"], format: date-time }
+        journal_entry_id: { type: [integer, "null"] }
+    TaxReturnPaymentInput:
+      type: object
+      description: "penalty_* and commission_* are only valid on an outgoing payment; whenever an amount is greater than 0 its matching account id is required."
+      required: [payment_date, direction, bank_account_id, net_amount_cents]
+      properties:
+        post: { type: boolean, default: true, description: "Create only." }
+        tax_return_id: { type: integer, description: "Create only (required there); the return must be filed." }
+        payment_no: { type: string, maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
+        payment_date: { type: string, format: date }
+        direction: { type: string, enum: [outgoing, incoming] }
+        bank_account_id: { type: integer, description: "An account with subtype bank." }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"], maxLength: 120 }
+        net_amount_cents: { type: integer, minimum: 0, maximum: 999999999999 }
+        penalty_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999 }
+        penalty_account_id: { type: [integer, "null"] }
+        interest_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999 }
+        interest_account_id: { type: [integer, "null"] }
+        commission_cents: { type: [integer, "null"], minimum: 0, maximum: 999999999999 }
+        commission_account_id: { type: [integer, "null"] }
+        notes: { type: [string, "null"], maxLength: 2000 }
+
+    # ---- Settings -------------------------------------------------------
+    PaymentTerm:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        days: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    PaymentTermInput:
+      type: object
+      required: [name, days]
+      properties:
+        name: { type: string, maxLength: 255 }
+        days: { type: integer, minimum: 0, maximum: 365 }
+        is_active: { type: boolean }
+    PaymentMethod:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        is_cheque: { type: boolean }
+        is_active: { type: boolean }
+        created_at: { type: [string, "null"], format: date-time }
+    PaymentMethodInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 255 }
+        is_cheque: { type: boolean, description: "Marks the method as a cheque so receipts using it feed the deposit workflow." }
+        is_active: { type: boolean }
 
   requestBodies:
-    Contact:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } }
-    Invoice:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceInput' } } }
-    SalesOrder:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/SalesOrderInput' } } }
-    SalesOrderFulfillment:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/SalesOrderFulfillmentInput' } } }
-    Receipt:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptInput' } } }
-    CreditMemo:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoInput' } } }
-    CreditMemoRefund:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoRefundInput' } } }
-    Account:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/AccountInput' } } }
-    JournalEntry:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntryInput' } } }
-    Document:
-      required: true
-      content: { application/json: { schema: { $ref: '#/components/schemas/GenericInput' } } }
+    Contact: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } } }
+    SalesOrder: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SalesOrderInput' } } } }
+    SalesOrderFulfillment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SalesOrderFulfillmentInput' } } } }
+    Invoice: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceInput' } } } }
+    Receipt: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptInput' } } } }
+    CreditMemo: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoInput' } } } }
+    CreditMemoRefund: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoRefundInput' } } } }
+    Bill: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BillInput' } } } }
+    BillPayment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BillPaymentInput' } } } }
+    Cheque: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChequeInput' } } } }
+    Deposit: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DepositInput' } } } }
+    Transfer: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TransferInput' } } } }
+    BankReconciliationBegin: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BankReconciliationBeginInput' } } } }
+    BankReconciliationUpdate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BankReconciliationUpdateInput' } } } }
+    Account: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AccountInput' } } } }
+    JournalEntry: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntryInput' } } } }
+    Asset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AssetInput' } } } }
+    AssetCategory: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AssetCategoryInput' } } } }
+    Item: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ItemInput' } } } }
+    StockAdjustment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustmentInput' } } } }
+    TaxCode: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxCodeInput' } } } }
+    TaxAgency: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxAgencyInput' } } } }
+    TaxReturn: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnInput' } } } }
+    TaxReturnVoid: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnVoidInput' } } } }
+    TaxReturnPayment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnPaymentInput' } } } }
+    PaymentTerm: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentTermInput' } } } }
+    PaymentMethod: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentMethodInput' } } } }
 
   responses:
     Unauthorized:
@@ -710,34 +1923,67 @@ components:
     InternalError:
       description: An unexpected server error. Details are not exposed; the request can be retried later.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
-    Contact:
-      description: A contact.
-      content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } }
-    ContactCollection:
-      description: A paginated list of contacts.
-      content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Contact' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { type: object } } } } }
-    Invoice:
-      description: An invoice.
-      content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } }
-    InvoiceCollection:
-      description: A paginated list of invoices.
-      content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Invoice' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { type: object } } } } }
-    Document:
-      description: A single resource.
-      content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Resource' } } } } }
-    Collection:
-      description: A paginated list.
-      content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Resource' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { type: object } } } } }
 
-  # Reusable operation fragments referenced via $ref from the paths above.
+    Contact: { description: "A contact.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } } }
+    ContactCollection: { description: "A paginated list of contacts.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Contact' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    SalesOrder: { description: "A sales order.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/SalesOrder' } } } } } }
+    SalesOrderCollection: { description: "A paginated list of sales orders.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/SalesOrder' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Invoice: { description: "An invoice.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } }
+    InvoiceCollection: { description: "A paginated list of invoices.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Invoice' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Receipt: { description: "A customer receipt.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Receipt' } } } } } }
+    ReceiptCollection: { description: "A paginated list of receipts.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Receipt' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    CreditMemo: { description: "A credit memo.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/CreditMemo' } } } } } }
+    CreditMemoCollection: { description: "A paginated list of credit memos.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/CreditMemo' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Bill: { description: "A bill.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Bill' } } } } } }
+    BillCollection: { description: "A paginated list of bills.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Bill' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    BillPayment: { description: "A bill payment.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/BillPayment' } } } } } }
+    BillPaymentCollection: { description: "A paginated list of bill payments.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/BillPayment' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Cheque: { description: "A cheque.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Cheque' } } } } } }
+    ChequeCollection: { description: "A paginated list of cheques.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Cheque' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Deposit: { description: "A deposit.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Deposit' } } } } } }
+    DepositCollection: { description: "A paginated list of deposits.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Deposit' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Transfer: { description: "A transfer.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Transfer' } } } } } }
+    TransferCollection: { description: "A paginated list of transfers.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Transfer' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    BankReconciliation: { description: "A bank reconciliation.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/BankReconciliation' } } } } } }
+    BankReconciliationCollection: { description: "A paginated list of bank reconciliations.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/BankReconciliation' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Account: { description: "An account.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Account' } } } } } }
+    AccountCollection: { description: "A paginated list of accounts.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Account' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    JournalEntry: { description: "A journal entry.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/JournalEntry' } } } } } }
+    JournalEntryCollection: { description: "A paginated list of journal entries.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/JournalEntry' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Asset: { description: "A fixed asset.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Asset' } } } } } }
+    AssetCollection: { description: "A paginated list of fixed assets.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Asset' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    AssetCategory: { description: "An asset category.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/AssetCategory' } } } } } }
+    AssetCategoryCollection: { description: "A paginated list of asset categories.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/AssetCategory' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    Item: { description: "An item.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Item' } } } } } }
+    ItemCollection: { description: "A paginated list of items.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Item' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    StockAdjustment: { description: "A stock adjustment.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/StockAdjustment' } } } } } }
+    StockAdjustmentCollection: { description: "A paginated list of stock adjustments.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/StockAdjustment' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    TaxCode: { description: "A tax code.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/TaxCode' } } } } } }
+    TaxCodeCollection: { description: "A paginated list of tax codes.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/TaxCode' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    TaxAgency: { description: "A tax agency.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/TaxAgency' } } } } } }
+    TaxAgencyCollection: { description: "A paginated list of tax agencies.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/TaxAgency' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    TaxReturn: { description: "A tax return.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/TaxReturn' } } } } } }
+    TaxReturnCollection: { description: "A paginated list of tax returns.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/TaxReturn' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    TaxReturnPayment: { description: "A tax return payment.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/TaxReturnPayment' } } } } } }
+    TaxReturnPaymentCollection: { description: "A paginated list of tax return payments.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/TaxReturnPayment' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    PaymentTerm: { description: "A payment term.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/PaymentTerm' } } } } } }
+    PaymentTermCollection: { description: "A paginated list of payment terms.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/PaymentTerm' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+    PaymentMethod: { description: "A payment method.", content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/PaymentMethod' } } } } } }
+    PaymentMethodCollection: { description: "A paginated list of payment methods.", content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/PaymentMethod' } }, meta: { $ref: '#/components/schemas/PaginationMeta' }, links: { $ref: '#/components/schemas/PaginationLinks' } } } } } }
+
+  # Reusable operation fragments referenced via $ref from the paths above and
+  # inlined by OpenApiController; sibling keys (tags, summary) override the
+  # fragment's.
   x-ops:
     contactIndex:
       summary: List contacts
+      description: "Sortable: display_name, created_at, id (default display_name asc). search matches display_name, company_name and email. No status or date filters."
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/perPage' }
         - { $ref: '#/components/parameters/search' }
         - { $ref: '#/components/parameters/sort' }
+        - { $ref: '#/components/parameters/direction' }
       responses:
         '200': { $ref: '#/components/responses/ContactCollection' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -768,42 +2014,8 @@ components:
     resourceDelete:
       summary: Delete the resource
       responses:
-        '204': { description: Deleted. }
+        '204': { description: "Deleted." }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '423': { $ref: '#/components/responses/Locked' }
-        '500': { $ref: '#/components/responses/InternalError' }
-    documentDelete:
-      summary: Void a posted document or delete a draft
-      responses:
-        '200': { $ref: '#/components/responses/Document' }
-        '204': { description: Draft deleted. }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '423': { $ref: '#/components/responses/Locked' }
-        '500': { $ref: '#/components/responses/InternalError' }
-    documentPost:
-      summary: Post a draft (or repost where supported)
-      responses:
-        '200': { $ref: '#/components/responses/Document' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/ValidationError' }
-        '423': { $ref: '#/components/responses/Locked' }
-        '500': { $ref: '#/components/responses/InternalError' }
-    # The same two operations for documents with no web editor (stock adjustments,
-    # tax-return payments): nobody can hold an edit lock on them, so never 423.
-    documentDeleteNoEditLock:
-      summary: Void a posted document or delete a draft
-      responses:
-        '200': { $ref: '#/components/responses/Document' }
-        '204': { description: Draft deleted. }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '500': { $ref: '#/components/responses/InternalError' }
-    documentPostNoEditLock:
-      summary: Post a draft (or repost where supported)
-      responses:
-        '200': { $ref: '#/components/responses/Document' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
