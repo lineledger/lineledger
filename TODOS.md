@@ -61,6 +61,25 @@ land on S3.
 **Priority:** P1
 **Depends on:** None
 
+## Documentation
+
+### Sync the marketing-site docs mirror to 1.1.0
+
+**What:** Bring `~/Code/lineledger-site` up to date with the in-app docs: the 29 pages under
+`src/content/docs`, the `public/images/docs` screenshots, the three tutorials, and the
+`src/config/docs-nav.ts` grouping, now that the in-app docs nav mirrors the app sidebar.
+
+**Why:** The site was last synced 2026-08-15 and already contradicts the app — pages, nav
+order, and screenshots have all moved since.
+
+**Context:** The in-app docs are the source of truth (`resources/views/pages/docs/`, screenshots
+in `public/docs/screenshots/<page>/`). Mirror them page by page rather than rewriting; the site's
+nav grouping should follow the app sidebar order the in-app nav now uses.
+
+**Effort:** M
+**Priority:** P1
+**Depends on:** None
+
 ## Testing
 
 ### End-to-end test for the guest country-switcher banner
@@ -81,5 +100,19 @@ cross-origin link meaningfully. The banner and its Alpine block are
 **Effort:** M
 **Priority:** P2
 **Depends on:** Stand up the US app deployment at books.lineledger.com
+
+### Add the new in-app docs pages to the marketing site's docs-nav slug test
+
+**What:** The marketing site's docs-nav test enforces slug pairing between its nav and its
+content pages, so each new in-app docs page — `opening-balances`, `insights`,
+`employee-portal`, `site-administration`, `self-hosting` — must be added there (nav entry +
+content page) or that suite fails once the mirror is synced.
+
+**Why:** Without the pairing, the site build passes while the new pages are silently
+unreachable from its nav.
+
+**Effort:** S
+**Priority:** P2
+**Depends on:** Sync the marketing-site docs mirror to 1.1.0
 
 ## Completed
