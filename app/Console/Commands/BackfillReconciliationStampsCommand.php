@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Models\Company;
 use App\Services\Reconciliation\ReconciliationStampBackfiller;
 use Illuminate\Console\Command;
 
 class BackfillReconciliationStampsCommand extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'banking:backfill-reconciliation-stamps
         {company? : Company ID or slug; all companies when omitted}
         {--dry-run : Report what would change without writing}';
@@ -25,7 +28,7 @@ class BackfillReconciliationStampsCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         $companies = $arg !== null
-            ? Company::query()->withoutGlobalScopes()->where('id', $arg)->orWhere('slug', $arg)->get()
+            ? $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)->get()
             : Company::query()->withoutGlobalScopes()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {

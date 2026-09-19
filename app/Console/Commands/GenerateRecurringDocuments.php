@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Jobs\GenerateRecurringDocumentsForCompany;
 use App\Models\Company;
 use App\Models\RecurringDocument;
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
 
 class GenerateRecurringDocuments extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'recurring:generate {company? : Company ID or slug; all companies when omitted} {--sync : Generate inline instead of dispatching a queued job per company}';
 
     protected $description = 'Generate Draft invoices, bills, and journal entries from recurring schedules whose next run date has arrived.';
@@ -24,7 +27,7 @@ class GenerateRecurringDocuments extends Command
         // enumerating without scopes queued work for deleted tenants that the
         // per-company job could then never load (nightly failed jobs).
         $companies = $arg !== null
-            ? Company::query()->where(fn ($q) => $q->where('id', $arg)->orWhere('slug', $arg))->get()
+            ? $this->whereCompanyArgument(Company::query(), $arg)->get()
             : Company::query()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {

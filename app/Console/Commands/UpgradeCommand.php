@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Models\Company;
 use Closure;
 use Illuminate\Console\Command;
@@ -29,6 +30,8 @@ use Illuminate\Database\Migrations\Migrator;
  */
 class UpgradeCommand extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'app:upgrade
         {--dry-run : Show pending migrations and what the backfills would change, without writing}
         {--verify : Run integrity:check afterwards}
@@ -50,13 +53,7 @@ class UpgradeCommand extends Command
         // because MySQL coerces `id = '1st-street-bakery'` to `id = 1` and the
         // lowest id would win over the tenant the operator actually named.
         if (($arg = $this->option('company')) !== null) {
-            $this->company = Company::query()
-                ->withoutGlobalScopes()
-                ->when(
-                    ctype_digit((string) $arg),
-                    fn ($query) => $query->whereKey((int) $arg),
-                    fn ($query) => $query->where('slug', $arg),
-                )
+            $this->company = $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)
                 ->first(['id', 'slug']);
 
             if ($this->company === null) {

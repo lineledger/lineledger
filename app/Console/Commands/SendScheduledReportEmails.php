@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Jobs\SendScheduledReportEmailsForCompany;
 use App\Models\Company;
 use App\Services\Recurring\NextRunDateCalculator;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class SendScheduledReportEmails extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'reports:send-scheduled {company? : Company ID or slug; all companies when omitted} {--sync : Send inline instead of dispatching a queued job per company}';
 
     protected $description = 'Email memorized reports whose schedule\'s next run date has arrived.';
@@ -21,7 +24,7 @@ class SendScheduledReportEmails extends Command
         // enumerating without scopes queued work for deleted tenants that the
         // per-company job could then never load (nightly failed jobs).
         $companies = $arg !== null
-            ? Company::query()->where(fn ($q) => $q->where('id', $arg)->orWhere('slug', $arg))->get()
+            ? $this->whereCompanyArgument(Company::query(), $arg)->get()
             : Company::query()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {

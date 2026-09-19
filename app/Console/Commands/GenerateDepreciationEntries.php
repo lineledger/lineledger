@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Jobs\GenerateDepreciationForCompany;
 use App\Models\Company;
 use App\Services\Assets\DepreciationGenerator;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class GenerateDepreciationEntries extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'depreciation:generate {company? : Company ID or slug; all companies when omitted} {--sync : Generate inline instead of dispatching a queued job per company}';
 
     protected $description = 'Generate Draft monthly book-depreciation journal entries for assets with auto-depreciation enabled.';
@@ -21,7 +24,7 @@ class GenerateDepreciationEntries extends Command
         // enumerating without scopes queued work for deleted tenants that the
         // per-company job could then never load (nightly failed jobs).
         $companies = $arg !== null
-            ? Company::query()->where(fn ($q) => $q->where('id', $arg)->orWhere('slug', $arg))->get()
+            ? $this->whereCompanyArgument(Company::query(), $arg)->get()
             : Company::query()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {

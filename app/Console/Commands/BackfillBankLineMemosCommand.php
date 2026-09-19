@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Models\Company;
 use App\Services\Banking\BankLineMemoBackfiller;
 use Illuminate\Console\Command;
 
 class BackfillBankLineMemosCommand extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'banking:backfill-line-memos
         {company? : Company ID or slug; all companies when omitted}
         {--dry-run : Report what would change without writing}';
@@ -28,14 +31,7 @@ class BackfillBankLineMemosCommand extends Command
         // `id OR slug`, because MySQL coerces `id = '1st-street-bakery'` to
         // `id = 1` (and `slug = 5` matches '5abc'), pulling in a second tenant.
         $companies = $arg !== null
-            ? Company::query()
-                ->withoutGlobalScopes()
-                ->when(
-                    ctype_digit((string) $arg),
-                    fn ($query) => $query->whereKey((int) $arg),
-                    fn ($query) => $query->where('slug', $arg),
-                )
-                ->get()
+            ? $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)->get()
             : Company::query()->withoutGlobalScopes()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {

@@ -3,12 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Actions\Payroll\EnsurePayrollAccounts;
+use App\Console\Concerns\ResolvesCompanyArgument;
 use App\Enums\Country;
 use App\Models\Company;
 use Illuminate\Console\Command;
 
 class BackfillPayrollAccountsCommand extends Command
 {
+    use ResolvesCompanyArgument;
+
     protected $signature = 'payroll:backfill-accounts {company? : Company ID or slug; all Canadian companies when omitted}';
 
     protected $description = 'Create the system payroll accounts (CPP/EI/Income Tax Payable, Net Pay Clearing, Wages & employer-cost expenses) on existing Canadian companies so pay runs can post.';
@@ -18,7 +21,7 @@ class BackfillPayrollAccountsCommand extends Command
         $arg = $this->argument('company');
 
         $companies = $arg !== null
-            ? Company::query()->withoutGlobalScopes()->where('id', $arg)->orWhere('slug', $arg)->get()
+            ? $this->whereCompanyArgument(Company::query()->withoutGlobalScopes(), $arg)->get()
             : Company::query()->withoutGlobalScopes()->orderBy('id')->get();
 
         if ($companies->isEmpty()) {
