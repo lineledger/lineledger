@@ -116,3 +116,31 @@ unreachable from its nav.
 **Depends on:** Sync the marketing-site docs mirror to 1.1.0
 
 ## Completed
+
+## Known issues found during the 1.1.0 docs audit
+
+### Template-based import steps can't read a Windows-1252 CSV
+
+**What:** The Items, Open invoices (template layout), Open bills, Inventory on hand, Fixed
+assets and Trial balance steps read the file byte for byte through `CsvParser`, which does no
+encoding conversion and does not strip a UTF-8 byte-order mark. Excel's plain "CSV" on
+Windows is Windows-1252, so accented names (Café, Montréal) arrive as invalid UTF-8; Excel's
+"CSV UTF-8" adds a BOM that hides the first column.
+
+**Why:** The QuickBooks-export readers (chart of accounts, contacts, open invoices in the QB
+layout) already convert Windows-1252; the template steps should behave the same. The docs
+currently tell users to export from Google Sheets or LibreOffice instead.
+
+**Effort:** S · **Priority:** P2 · **Depends on:** None
+
+### A copied 2210 account gets the new organization's provincial agency
+
+**What:** When the setup wizard copies another organization's chart, `seedProvincialSalesTax()`
+attaches the NEW organization's provincial agency and tax code to any non-system tax-payable
+account coded 2210, whatever tax it was for (e.g. a BC "PST Payable" copied into a Manitoba
+organization gets Manitoba RST).
+
+**Why:** The account name and the agency then disagree. Either rename the account to match or
+skip the provincial seeding when the copied account's tax does not match the new province.
+
+**Effort:** S · **Priority:** P3 · **Depends on:** None
