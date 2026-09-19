@@ -333,3 +333,156 @@ it('leaves JSON-column array values as PHP arrays in the output (orchestrator en
         ->and($result['row']['consumed_layers'])->toHaveCount(2)
         ->and($result['row']['consumed_layers'][0]['layer_id'])->toBe(1);
 });
+
+it('remaps opening_balance_states onto the restored journal entry and user', function () {
+    $transformer = buildTransformer(
+        userIdMap: [3 => 300],
+        idMap: ['journal_entries' => [55 => 5500]],
+        newCompanyId: 7,
+    );
+
+    $result = $transformer->transform('opening_balance_states', [
+        'id' => 9,
+        'company_id' => 1,
+        'as_of_date' => '2025-12-31',
+        'status' => 'active',
+        'journal_entry_id' => 55,
+        'applied_at' => null,
+        'apply_error' => null,
+        'created_by_user_id' => 3,
+    ]);
+
+    expect($result['old_id'])->toBe(9)
+        ->and($result['row']['company_id'])->toBe(7)
+        ->and($result['row']['journal_entry_id'])->toBe(5500)
+        ->and($result['row']['created_by_user_id'])->toBe(300)
+        ->and($result['row']['as_of_date'])->toBe('2025-12-31')
+        ->and($result['row']['status'])->toBe('active')
+        ->and($result['deferred'])->toBe([]);
+});
+
+it('remaps opening_balance_rows onto the restored state and account', function () {
+    $transformer = buildTransformer(
+        userIdMap: [3 => 300],
+        idMap: [
+            'opening_balance_states' => [9 => 90],
+            'accounts' => [12 => 1200],
+        ],
+        newCompanyId: 7,
+    );
+
+    $result = $transformer->transform('opening_balance_rows', [
+        'id' => 1,
+        'company_id' => 1,
+        'opening_balance_state_id' => 9,
+        'account_id' => 12,
+        'debit_cents' => 250_000,
+        'credit_cents' => 0,
+        'updated_by_user_id' => 3,
+    ]);
+
+    expect($result['old_id'])->toBe(1)
+        ->and($result['row']['company_id'])->toBe(7)
+        ->and($result['row']['opening_balance_state_id'])->toBe(90)
+        ->and($result['row']['account_id'])->toBe(1200)
+        ->and($result['row']['updated_by_user_id'])->toBe(300)
+        ->and($result['row']['debit_cents'])->toBe(250_000)
+        ->and($result['row']['credit_cents'])->toBe(0);
+});
+
+it('remaps the sub-ledger contact on cheque_lines alongside its account and cheque', function () {
+    $transformer = buildTransformer(idMap: [
+        'cheques' => [4 => 40],
+        'accounts' => [12 => 1200],
+        'contacts' => [8 => 80],
+        'tax_codes' => [2 => 20],
+    ]);
+
+    $result = $transformer->transform('cheque_lines', [
+        'id' => 1,
+        'cheque_id' => 4,
+        'account_id' => 12,
+        'contact_id' => 8,
+        'tax_code_id' => 2,
+        'amount_cents' => 12_500,
+    ]);
+
+    expect($result['row']['cheque_id'])->toBe(40)
+        ->and($result['row']['account_id'])->toBe(1200)
+        ->and($result['row']['contact_id'])->toBe(80)
+        ->and($result['row']['tax_code_id'])->toBe(20)
+        ->and($result['row']['amount_cents'])->toBe(12_500);
+});
+
+it('carries the cheque payee address snapshot through untouched while remapping its FKs', function () {
+    $transformer = buildTransformer(idMap: [
+        'accounts' => [12 => 1200],
+        'contacts' => [8 => 80],
+        'credit_memos' => [6 => 60],
+        'journal_entries' => [55 => 5500],
+    ]);
+
+    $result = $transformer->transform('cheques', [
+        'id' => 3,
+        'company_id' => 1,
+        'bank_account_id' => 12,
+        'payee_contact_id' => 8,
+        'credit_memo_id' => 6,
+        'journal_entry_id' => 55,
+        'payee_name' => 'Acme Supplies',
+        'payee_line1' => '100 Main St',
+        'payee_line2' => 'Unit 4',
+        'payee_city' => 'Kelowna',
+        'payee_region' => 'BC',
+        'payee_postal_code' => 'V1Y 1A1',
+        'payee_country' => 'CA',
+        'is_opening_balance' => true,
+    ]);
+
+    expect($result['row']['bank_account_id'])->toBe(1200)
+        ->and($result['row']['payee_contact_id'])->toBe(80)
+        ->and($result['row']['credit_memo_id'])->toBe(60)
+        ->and($result['row']['journal_entry_id'])->toBe(5500)
+        ->and($result['row']['payee_line1'])->toBe('100 Main St')
+        ->and($result['row']['payee_line2'])->toBe('Unit 4')
+        ->and($result['row']['payee_city'])->toBe('Kelowna')
+        ->and($result['row']['payee_region'])->toBe('BC')
+        ->and($result['row']['payee_postal_code'])->toBe('V1Y 1A1')
+        ->and($result['row']['payee_country'])->toBe('CA')
+        ->and($result['row']['is_opening_balance'])->toBeTrue();
+});
+
+it('remaps the fund dimension on employee_payroll_profiles', function () {
+    $transformer = buildTransformer(idMap: [
+        'contacts' => [8 => 80],
+        'funds' => [5 => 50],
+    ]);
+
+    $result = $transformer->transform('employee_payroll_profiles', [
+        'id' => 1,
+        'company_id' => 1,
+        'contact_id' => 8,
+        'fund_id' => 5,
+    ]);
+
+    expect($result['row']['contact_id'])->toBe(80)
+        ->and($result['row']['fund_id'])->toBe(50);
+});
+
+it('translates the polymorphic source pair snapshotted on tax_return_lines', function () {
+    $transformer = buildTransformer(idMap: [
+        'invoices' => [5 => 50],
+        'tax_returns' => [2 => 20],
+    ]);
+
+    $result = $transformer->transform('tax_return_lines', [
+        'id' => 1,
+        'tax_return_id' => 2,
+        'source_type' => Invoice::class,
+        'source_id' => 5,
+    ]);
+
+    expect($result['row']['tax_return_id'])->toBe(20)
+        ->and($result['row']['source_type'])->toBe(Invoice::class)
+        ->and($result['row']['source_id'])->toBe(50);
+});

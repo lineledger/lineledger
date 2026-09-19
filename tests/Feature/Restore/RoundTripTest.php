@@ -26,6 +26,8 @@ use App\Models\InvoiceLine;
 use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\Membership;
+use App\Models\OpeningBalanceRow;
+use App\Models\OpeningBalanceState;
 use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
 use App\Models\StockAdjustment;
@@ -160,6 +162,31 @@ beforeEach(function () {
         'debit_cents' => 0,
         'credit_cents' => 100_000,
         'line_order' => 1,
+    ]);
+
+    // ---- Opening Balances workspace: the state anchors on the JE above and
+    //      carries two draft trial-balance targets. Exercises the
+    //      journal_entries, opening_balance_states and accounts remaps plus
+    //      the created_by / updated_by user remap. ----
+    $this->openingState = OpeningBalanceState::create([
+        'as_of_date' => '2026-04-30',
+        'status' => OpeningBalanceState::STATUS_ACTIVE,
+        'journal_entry_id' => $this->journalEntry->id,
+        'created_by_user_id' => $this->bob->id,
+    ]);
+    OpeningBalanceRow::create([
+        'opening_balance_state_id' => $this->openingState->id,
+        'account_id' => $this->bankAccount->id,
+        'debit_cents' => 100_000,
+        'credit_cents' => 0,
+        'updated_by_user_id' => $this->bob->id,
+    ]);
+    OpeningBalanceRow::create([
+        'opening_balance_state_id' => $this->openingState->id,
+        'account_id' => $this->incomeAccount->id,
+        'debit_cents' => 0,
+        'credit_cents' => 100_000,
+        'updated_by_user_id' => $this->bob->id,
     ]);
 
     // A real attachment blob — gets copied through the round-trip.
@@ -368,6 +395,50 @@ it('round-trips a company through export and import', function () {
         ->firstOrFail();
 
     expect($expenseAccountB->default_tax_code_id)->toBe($taxCodeB->id);
+
+    // ---- 3c. Opening Balances workspace re-links to Company B's JE + accounts. ----
+    // Without the PARENT_FK_MAP entries the restore still "succeeds" — the
+    // rows just keep Company A's ids, which are valid FKs on this instance, so
+    // the assertions below are what catches the cross-tenant pointer.
+    $stateB = OpeningBalanceState::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->first();
+    $jeB = JournalEntry::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->where('entry_no', 'JE-001')
+        ->firstOrFail();
+
+    expect($stateB)->not->toBeNull()
+        ->and($stateB->id)->not->toBe($this->openingState->id)
+        ->and($stateB->journal_entry_id)->toBe($jeB->id)
+        ->and($stateB->journal_entry_id)->not->toBe($this->journalEntry->id)
+        ->and($stateB->as_of_date->toDateString())->toBe('2026-04-30')
+        ->and($stateB->status)->toBe(OpeningBalanceState::STATUS_ACTIVE)
+        ->and($stateB->created_by_user_id)->toBe($this->bob->id);
+
+    $bankAccountB = Account::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->where('code', $this->bankAccount->code)
+        ->firstOrFail();
+    $incomeAccountB = Account::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->where('code', $this->incomeAccount->code)
+        ->firstOrFail();
+
+    $rowsB = OpeningBalanceRow::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->get();
+
+    expect($rowsB)->toHaveCount(2)
+        ->and($rowsB->pluck('opening_balance_state_id')->unique()->all())->toBe([$stateB->id])
+        ->and($rowsB->pluck('account_id')->all())->not->toContain($this->bankAccount->id)
+        ->and($rowsB->pluck('account_id')->all())->not->toContain($this->incomeAccount->id)
+        ->and($rowsB->pluck('updated_by_user_id')->unique()->all())->toBe([$this->bob->id]);
+
+    $targetsB = $rowsB->mapWithKeys(fn (OpeningBalanceRow $row) => [$row->account_id => $row->signedCents()]);
+
+    expect($targetsB->get($bankAccountB->id))->toBe(100_000)
+        ->and($targetsB->get($incomeAccountB->id))->toBe(-100_000);
 
     // ---- 4. Attachment bytes round-trip identically. ----
     $attachmentsB = Attachment::query()
