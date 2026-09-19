@@ -265,8 +265,18 @@ viewed, downloaded, or emailed. Reporting gains a **Vendor Activity** report and
 - **The API-keys panel is pinned to the organization it loaded with** — with
   another organization open in a second tab, creating, rotating, or revoking a
   key could hit the other organization's keys.
-- **Restore orders the opening-balance tables correctly** so a backup that
-  includes an opening balances workspace restores without foreign-key errors.
+- **Restore remaps every reference into the new organization.** A restored
+  opening balances workspace kept pointing at the source organization's journal
+  entry and accounts, as did an employee payroll profile's fund and a filed tax
+  return's line sources. A new test derives the foreign keys from the schema so a
+  table registered for backup can no longer be left out of the restore map.
+- **A command run for one organization stays with that organization.** The
+  per-company commands (`recurring:generate`, `reminders:send`,
+  `depreciation:generate`, `insights:generate`, `reports:send-scheduled`, the time-off
+  accrual, and the backfills) matched their `{company}` argument as an id *or* a
+  slug, and MySQL coerces `149st-street-bakery` to `149`, so naming one organization
+  could sweep a second one into the run. An all-digit argument is now an id and
+  anything else a slug.
 
 ### Security
 
