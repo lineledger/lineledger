@@ -5,10 +5,51 @@ resources**, plus the lifecycle actions (post, void, fulfill, file, complete) th
 drive documents through the general ledger.
 
 > **Two documents, one API.** This guide is the narrative — auth, conventions,
-> lifecycle, and worked examples. The exhaustive per-endpoint reference is the
-> machine-readable OpenAPI 3.1 spec, served **unauthenticated** at
-> **`GET /api/v1/openapi.json`** (source: `resources/api/openapi.yaml`). Point your
-> client generator at that; read this to understand how the API behaves.
+> lifecycle, and worked examples. The complete per-endpoint reference is the
+> machine-readable OpenAPI 3.1 spec (version `1.1.0`), served **unauthenticated** at
+> **`GET /api/v1/openapi.json`** (source: `resources/api/openapi.yaml`). It covers
+> every resource in [§3](#3-the-resource-map). Point your client generator at that;
+> read this to understand how the API behaves.
+
+## What's new in 1.1.0 for integrators
+
+No endpoint or field was removed or renamed. One requirement was added: a cheque line
+coded to Accounts Receivable or Payable now needs `lines.*.contact_id` to post (see
+[Cheques](#cheques)); everything else is additive. Each item is checked against the
+1.1.0 controllers, requests and resources.
+
+- **`423 Locked` on a record someone is editing.** `PATCH`/`PUT`, `DELETE` and every
+  `POST /{resource}/{id}/{action}` return `423` with a `Retry-After` header while a
+  member has that record open in the web app. Never for `GET` or for creates; never
+  for `bank-reconciliations`, `stock-adjustments` or `tax-return-payments`, which
+  take no edit lock; and a wrong-role contact (`/vendors/{id}` on a customer) still
+  answers `404`, not `423`. See [Being edited (423)](#being-edited-423).
+- **Negative invoice lines.** `unit_price_cents` may be negative on an invoice line
+  (a discount or credit). The invoice must still net **above zero**, or the request
+  fails with `422` — a net credit is a credit memo. Credit memos and sales orders
+  keep `unit_price_cents >= 0`. See [§2](#2-conventions).
+- **`balance_cents` on invoices, `unapplied_cents` on receipts.** The server's own
+  figures for what is still owed and what a receipt has not yet applied — stop
+  computing `total_cents - amount_paid_cents`. See
+  [§5.3](#53-invoice--payment-end-to-end).
+- **`sales_rep_id` on invoices and credit memos.** Accepted on create and update and
+  echoed in the response. The contact must be an employee (`is_employee = true`) in
+  the calling key's company. See [§8](#8-reference-foreign-key-tables-per-company).
+- **`PATCH /cheques/{id}` reposts a posted cheque** instead of returning `409`; only a
+  voided cheque is frozen. Cheques also take `payee_address`, carry no tax on Accounts
+  Receivable / Payable lines, and accept a `cheque_no` that may repeat. The one new
+  requirement: `lines.*.contact_id` on an AR/AP line when the cheque posts. See
+  [Cheques](#cheques).
+- **Document numbers are now validated everywhere.** A duplicate `bill_no`,
+  `deposit_no` or bill-payment `payment_no` is a `422` naming the field, as
+  `invoice_no`, `credit_memo_no` and `receipt_no` already were, and
+  `PATCH /deposits/{id}` checks the same way. Server-assigned numbers skip any that
+  already exist. See [§2.2](#22-document-numbers).
+- **The OpenAPI spec is version `1.1.0`** and now documents `/transfers`, which was
+  missing, so a generated client covers every resource in [§3](#3-the-resource-map).
+
+Rate limits are unchanged: 120 requests/minute per IP and 60 per key
+([§1.2](#12-rate-limits)).
 
 ---
 
@@ -93,7 +134,8 @@ throttle runs *before* key authentication, so requests with bad keys are limited
 | Content type | `application/json` for both request and response |
 | Money | All money fields are **integer cents** (e.g. `total_cents: 10500` = $105.00). Never floats. |
 | Quantities | Strings, up to 4 decimal places (e.g. `"quantity": "1.5"`). |
-| Negative lines | `unit_price_cents` may be **negative** on an invoice line to record a discount or credit against the invoice (e.g. a member discount posted to a contra-revenue account). `quantity` stays positive — the sign lives on the price. The invoice **total must stay above zero**; a net credit is a credit memo, not an invoice. |
+| Negative lines | `unit_price_cents` may be **negative** on an invoice line to record a discount or credit against the invoice (e.g. a member discount posted to a contra-revenue account). `quantity` stays positive — the sign lives on the price. The invoice **total must stay above zero**; a net credit is a credit memo, not an invoice. Credit memos and sales orders reject a negative price. |
+| Document numbers | Optional on create for every numbered document except sales orders (`invoice_no`, `bill_no`, `deposit_no`, …); omit the field and the server assigns the next free number. **Unique per organization** — a duplicate is a `422` naming the field. See [§2.2](#22-document-numbers). |
 | Dates | ISO `YYYY-MM-DD`. |
 | Timestamps | ISO 8601 in the response. |
 | Single resource | `{ "data": { … } }`. |
@@ -132,6 +174,48 @@ GET /api/v1/invoices?status=posted&from=2026-01-01&to=2026-03-31&sort=invoice_da
   "links": { "first": "…", "last": "…", "prev": null, "next": "…" }
 }
 ```
+
+### 2.2 Document numbers
+
+Every numbered document except sales orders takes its number on create. Omit the
+field and the server assigns the next free number in the organization's own format
+(`INV-000124`, `DEP-000012`, …), skipping any that already exist.
+
+| Resource | Field | On `PATCH`/`PUT` |
+|---|---|---|
+| `invoices` | `invoice_no` | ignored |
+| `bills` | `bill_no` | ignored |
+| `credit-memos` | `credit_memo_no` | ignored |
+| `receipts`, `POST /credit-memos/{id}/refund` | `receipt_no` | ignored |
+| `sales-orders` | `order_no` | not accepted on create or update; always server-assigned |
+| `bill-payments`, `tax-return-payments` | `payment_no` | ignored |
+| `deposits` | `deposit_no` | accepted |
+| `journal-entries` | `entry_no` | accepted |
+| `transfers` | `transfer_no` | ignored |
+| `cheques` | `cheque_no` (**required**) | accepted |
+| `assets` | `asset_no` | ignored |
+| `stock-adjustments` | `adjustment_no` | ignored |
+| `tax-returns` | `tax_return_no` | ignored |
+
+Numbers are **unique per organization**. Sending one that already exists fails
+validation with a `422` naming the field — on `PATCH /deposits/{id}` too, which
+checks against every deposit but the one being edited. Two exceptions:
+
+- **`cheque_no` may repeat.** "DD", "EFT" or "e-transfer" are ordinary labels for a
+  payment made without a physical cheque, and the API accepts a reused number
+  silently (the web form only warns).
+- **`entry_no` and `transfer_no` are not checked by validation.** The database's own
+  unique index refuses a duplicate instead, so it does not come back as a field
+  error. Supply these only from a source you know is unique.
+
+Where the table says *ignored*, the number is fixed once the document exists —
+sending the field on an update neither errors nor changes anything. Invoices, credit
+memos, receipts, bills, bill payments and deposits can be renumbered in the web app;
+transfers, assets, stock adjustments, tax returns and tax-return payments keep the
+number they were created with. Because a number you supply is unique, it also works
+as a retry guard: create with your own number, and a retried request that would
+duplicate it gets a `422` instead of a second document (see
+[§5.4](#54-reconcile-what-youve-sent)).
 
 ---
 
@@ -196,7 +280,7 @@ have a posted state, and the HTTP verbs map onto it:
 |---|---|---|
 | `POST /{resource}` | Creates **and posts** by default. Send `"post": false` to leave a draft. | — |
 | `PATCH /{resource}/{id}` | Edits the draft. | **Reposts in place** where supported; `409` where not. |
-| `POST /{resource}/{id}/post` | Posts it. | Reposts it. |
+| `POST /{resource}/{id}/post` | Posts it. | Reposts invoices, bills, receipts, credit memos and bill payments. `409` for cheques, deposits and journal entries (edit those with `PATCH`) and for the types that never repost. |
 | `DELETE /{resource}/{id}` | **Hard-deletes**, returns `204`. | **Voids** with a reversing journal entry, returns `200` and the voided document. |
 
 `PATCH`/`PUT`, `DELETE` and `POST /{resource}/{id}/{action}` on an existing record
@@ -204,7 +288,7 @@ return **`423`** while someone has that record open for editing in the web app
 (bank reconciliations, stock adjustments and tax-return payments excepted) — see
 [Being edited (423)](#being-edited-423).
 
-### Cheques: the mailing address
+### Cheques
 
 `POST`/`PATCH /api/v1/cheques` accept an optional `payee_address` object —
 `line1`, `line2`, `city`, `region`, `postal_code`, `country` (a two-letter code):
@@ -219,15 +303,35 @@ never changes a cheque already written, and it is what prints on the cheque. The
 response echoes it back under `data.payee_address`. Updating the contact's own
 record is a separate call to `/api/v1/vendors/{id}` or `/customers/{id}`.
 
-Two consequences worth designing around:
+Four more cheque rules, enforced by the same code path the web form uses:
+
+- **`bank_account_id` must be a bank account** — an account whose subtype is `bank`.
+  Any other account of yours is a `422`.
+- **A line coded to Accounts Receivable or Accounts Payable names its contact.**
+  `lines.*.contact_id` is the customer (AR) or vendor (AP) whose balance the line
+  settles — a refund cheque, say — and it may differ from the header payee. It is
+  required when the cheque is posted: on `POST /cheques` unless `"post": false`, and
+  on `PATCH` of a cheque that is already posted. The response echoes it per line.
+- **Those lines carry no tax.** A receivable or payable already includes the tax its
+  invoice or bill recorded, so `tax_code_id` and `secondary_tax_code_id` on an AR/AP
+  line pass validation (the id must still be one of yours) but are dropped: the line
+  is saved with no tax code, `tax_cents` and `secondary_tax_cents` come back `0`, and
+  the cheque's `amount_cents` includes no tax for that line. Nothing warns you — read
+  the response back if you rely on the tax.
+- **`cheque_no` is required and may repeat.** See [§2.2](#22-document-numbers).
+
+Three consequences worth designing around:
 
 - **`DELETE` is not idempotent in the usual sense.** On a posted document it writes
   a reversing entry and returns the resource; calling it again returns `409`
   (`"Invoice is already voided."`). Check the status code, not just success.
 - **Repost support is per document type.** Invoices, credit memos, receipts, bills,
-  bill payments, journal entries, and deposits repost in place. Cheques, stock
-  adjustments, and tax-return payments do **not** — editing one after posting
-  returns `409`, and you should void and recreate.
+  bill payments, journal entries, deposits and — since 1.1.0 — cheques repost in
+  place. Stock adjustments, transfers and tax-return payments do **not** — editing
+  one after posting returns `409` (`"This posted document cannot be edited; void and
+  recreate."`). Two more `409`s to expect: a voided document of any type can't be
+  edited, and a journal entry another document owns (an invoice's, a bill's, …)
+  can't be edited from `/journal-entries` — edit the source document instead.
 - **A record open in the web app is off-limits.** While a member is editing an
   invoice, contact, account, … in LineLedger, writes to that record through the API
   return `423` with a `Retry-After` header. Reads and creates are never affected.
@@ -340,6 +444,11 @@ curl -s "https://your-host/api/v1/invoices?search=YOUR-REF-123" \
 
 Put your own reference in `memo` on create, then search it before retrying.
 
+Or supply the document number yourself (`invoice_no`, `bill_no`, `deposit_no`, … —
+[§2.2](#22-document-numbers)). Numbers are unique per organization, so a retry
+that would create the document a second time fails with `422` on that field, and
+that `422` tells you the first attempt went through.
+
 ---
 
 ## 6. Error reference
@@ -349,7 +458,7 @@ Put your own reference in `memo` on create, then search it before retrying.
 | `401` | Missing, unknown, or revoked API key. |
 | `403` | The key is valid but lacks the required scope. |
 | `404` | No such record **in this company** (also returned for a wrong-role contact). |
-| `409` | The operation conflicts with the document's state — already voided, or an edit to a posted document that can't repost. |
+| `409` | The operation conflicts with the document's state — already voided, an edit to a posted document that can't repost, or a journal entry another document owns. |
 | `422` | Validation failed, or the post was rejected (locked period, unbalanced, zero total, filed tax period). |
 | `423` | Someone is editing the record in the web app right now. Wait `Retry-After` seconds and try again. |
 | `429` | Rate limit exceeded. |
@@ -382,6 +491,9 @@ Common causes:
   customer and AP a vendor. Checked only when the document is being posted —
   a cheque sent with `"post": false` may leave it out.
 - `sales_rep_id` points at a contact that isn't an employee (`is_employee = false`).
+- A document number that already exists in the organization (`invoice_no`,
+  `bill_no`, `deposit_no`, … — [§2.2](#22-document-numbers)).
+- `bank_account_id` on a cheque that isn't a `bank`-subtype account.
 - `applications.*.invoice_id` doesn't belong to the same `contact_id`, or is in
   `draft` / `void` / `paid`.
 - Sum of `applications[].amount_cents` exceeds `amount_cents`.
@@ -429,8 +541,9 @@ Content-Type: application/json
 ```
 
 - **`Retry-After`** is the number of seconds left on the web user's current lease
-  (at least 1, at most 120 with the default settings). Their open page renews the
-  lease while they work, so the record may still be busy when it runs out.
+  (at least 1, at most 120 with the default `EDIT_LOCKS_TTL_SECONDS`). Their open
+  page renews the lease while they work, so the record may still be busy when it
+  runs out.
 - **The message names the kind of record** (invoice, customer, vendor, employee,
   account, …) and never the person editing it.
 - **Affected:** `PATCH`/`PUT` (update), `DELETE`, and every `POST /{resource}/{id}/{action}`
@@ -441,7 +554,16 @@ Content-Type: application/json
   as your request — there the last write wins.)
 - **Never affected:** `GET` requests and creates (`POST /{resource}`). A new receipt
   applied to an invoice that someone is editing still succeeds.
+- **A wrong-role contact is a `404`, not a `423`.** `PATCH /vendors/{id}` on a contact
+  that is only a customer answers `404` even while someone is editing it — the lock
+  never reveals that the record exists.
 - **Nothing is written** when you get a `423` — the request can be sent again unchanged.
+- **Your write invalidates a stale web page.** Once a request gets past the lock
+  check, the record's edit version is replaced whether or not the write succeeds, so
+  a member whose page loaded the record earlier can no longer save over it — they
+  have to reopen it.
+- **The operator can turn edit locks off** (`EDIT_LOCKS_ENABLED=false` on the server).
+  Then nothing ever returns `423`, and the last write wins everywhere.
 
 **What to do:** wait at least `Retry-After` seconds, then retry the same request a
 limited number of times. Don't loop tightly on it — a person may keep the record
@@ -456,7 +578,9 @@ Intentional omissions — call them out if a coder asks.
 
 - **No bulk endpoints.** One document per request.
 - **No idempotency keys.** Retrying after a network error may create duplicates —
-  see [§5.4](#54-reconcile-what-youve-sent) for the search-then-create pattern.
+  see [§5.4](#54-reconcile-what-youve-sent) for the search-then-create pattern, or
+  supply your own document number, which is unique per organization and turns the
+  duplicate into a `422`.
 - **No webhooks.** Payment state changes won't push to you; poll the relevant
   index endpoint with a `from` filter.
 - **No cross-company access.** One key, one company, always. To integrate with
