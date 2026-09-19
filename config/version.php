@@ -18,7 +18,7 @@ return [
 
     'app' => is_file($versionFile)
         ? trim((string) file_get_contents($versionFile))
-        : '1.0.0',
+        : '1.1.0',
 
     /*
     |--------------------------------------------------------------------------

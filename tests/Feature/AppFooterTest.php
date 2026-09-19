@@ -46,3 +46,16 @@ test('the login page surfaces the license and source links', function () {
     $response->assertSee('https://www.gnu.org/licenses/agpl-3.0.html', false);
     $response->assertSee('https://github.com/lineledger/lineledger', false);
 });
+
+test('the footer shows the running version and links to its release notes', function () {
+    $user = User::factory()->create();
+
+    $version = (string) config('version.app');
+
+    $this
+        ->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSeeText('v'.$version)
+        ->assertSee('https://github.com/lineledger/lineledger/releases/tag/v'.$version, false);
+});
