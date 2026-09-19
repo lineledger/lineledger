@@ -58,6 +58,8 @@ new class extends Component
 
     public bool $insightsAiNarration = false;
 
+    public bool $agenticWrites = false;
+
     public bool $warnDuplicateBillNo = true;
 
     public string $chequeOffsetX = '';
@@ -170,6 +172,7 @@ new class extends Component
         $this->timezone = $company->timezone ?: 'UTC';
         $this->autoApplyCustomerCredits = (bool) $company->auto_apply_customer_credits;
         $this->insightsAiNarration = $company->insightsAiNarrationEnabled();
+        $this->agenticWrites = $company->agenticWritesEnabled();
         $this->warnDuplicateBillNo = (bool) $company->warn_duplicate_bill_no;
         $this->chequeOffsetX = $company->cheque_offset_x !== null ? (string) $company->cheque_offset_x : '';
         $this->chequeOffsetY = $company->cheque_offset_y !== null ? (string) $company->cheque_offset_y : '';
@@ -438,6 +441,32 @@ new class extends Component
         $this->companyModel->setInsightsState(['ai_narration' => $value]);
 
         Flux::toast(variant: 'success', text: __('Daily insight preference saved.'));
+    }
+
+    /**
+     * Instant-save toggle for agentic (write-enabled) MCP — the per-company
+     * opt-in half of the double gate (the operator half is
+     * config('mcp.write_enabled'); see ProposesWrites::requireAgenticWritesEnabled()).
+     * Owner/Admin only, gated by the same `update` policy as the company form.
+     * While the operator switch is off the UI renders the switch disabled, and
+     * this guard refuses to persist an opt-in so the flag can never be armed
+     * ahead of the operator; opting *out* is always allowed.
+     */
+    public function updatedAgenticWrites(bool $value): void
+    {
+        Gate::authorize('update', $this->companyModel);
+
+        if ($value && ! (bool) config('mcp.write_enabled', false)) {
+            $this->agenticWrites = $this->companyModel->agenticWritesEnabled();
+
+            Flux::toast(variant: 'warning', text: __('The site operator has not enabled AI assistant writes on this server.'));
+
+            return;
+        }
+
+        $this->companyModel->setMcpState(['agentic_writes' => $value]);
+
+        Flux::toast(variant: 'success', text: __('AI assistant write preference saved.'));
     }
 
     /**
@@ -776,6 +805,26 @@ new class extends Component
                                     />
                                 </div>
                             @endif
+
+                            @php
+                                $mcpWritesOperatorEnabled = (bool) config('mcp.write_enabled', false);
+                            @endphp
+                            <div class="space-y-3 rounded-lg border border-border p-4" data-test="company-agentic-writes-section">
+                                <div>
+                                    <flux:heading size="sm">{{ __('AI assistant writes (MCP)') }}</flux:heading>
+                                    <flux:subheading>{{ __('Let an AI assistant connected over MCP draft invoices, bills, expenses, and journal entries for this organization. The assistant can only propose a document; nothing is saved until the proposal is confirmed in a second, explicit step — it never writes directly.') }}</flux:subheading>
+                                </div>
+                                <flux:switch
+                                    wire:model.live="agenticWrites"
+                                    :label="__('Allow AI assistant writes')"
+                                    :description="__('Applies to this organization only. The site operator must also turn on writes on the server (MCP_WRITE_ENABLED); both switches must be on before any proposal is accepted.')"
+                                    :disabled="! $mcpWritesOperatorEnabled"
+                                    data-test="company-agentic-writes-input"
+                                />
+                                @unless ($mcpWritesOperatorEnabled)
+                                    <flux:text class="text-sm text-muted-foreground" data-test="company-agentic-writes-operator-off">{{ __('The site operator has not enabled AI assistant writes on this server, so this switch cannot be turned on yet.') }}</flux:text>
+                                @endunless
+                            </div>
 
                             <div class="space-y-3 rounded-lg border border-border p-4">
                                 <div>
