@@ -270,6 +270,10 @@ viewed, downloaded, or emailed. Reporting gains a **Vendor Activity** report and
   entry and accounts, as did an employee payroll profile's fund and a filed tax
   return's line sources. A new test derives the foreign keys from the schema so a
   table registered for backup can no longer be left out of the restore map.
+- **Copying another organization's chart leaves out its deleted accounts.** The setup
+  wizard's *Copy an existing organization* option read the source chart without the
+  soft-delete filter, so an account merged away in the source came back, active, in the
+  new organization.
 - **A command run for one organization stays with that organization.** The
   per-company commands (`recurring:generate`, `reminders:send`,
   `depreciation:generate`, `insights:generate`, `reports:send-scheduled`, the time-off
