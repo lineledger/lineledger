@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\DB;
  * sitting on that document's own bank account — so an operator-edited memo, and
  * every other leg of the entry, are left alone. Amounts are untouched, which is
  * why it does not repost: the GL is identical afterwards, only the wording differs.
- * Idempotent — a second run matches nothing.
+ * Idempotent — a second run matches nothing. A dry run counts the same lines the
+ * live run would rewrite, and writes nothing.
  */
 class BankLineMemoBackfiller
 {
@@ -48,9 +49,10 @@ class BankLineMemoBackfiller
     ];
 
     /**
+     * @param  bool  $dryRun  Count the lines a live run would rewrite, without writing.
      * @return array{updated: int}
      */
-    public function backfill(int $companyId): array
+    public function backfill(int $companyId, bool $dryRun = false): array
     {
         $updated = 0;
 
@@ -66,9 +68,9 @@ class BankLineMemoBackfiller
                 $query->withTrashed();
             }
 
-            $query->chunkById(200, function ($documents) use ($columns, &$updated) {
+            $query->chunkById(200, function ($documents) use ($columns, $dryRun, &$updated) {
                 foreach ($documents as $document) {
-                    $updated += $this->rewrite($document, $columns);
+                    $updated += $this->rewrite($document, $columns, $dryRun);
                 }
             });
         }
@@ -79,7 +81,7 @@ class BankLineMemoBackfiller
     /**
      * @param  list<string>  $columns
      */
-    private function rewrite(Deposit|Cheque|Expense|Transfer|CustomerReceipt|SalesReceipt|BillPayment|TaxReturnPayment|PayrollRemittance $document, array $columns): int
+    private function rewrite(Deposit|Cheque|Expense|Transfer|CustomerReceipt|SalesReceipt|BillPayment|TaxReturnPayment|PayrollRemittance $document, array $columns, bool $dryRun): int
     {
         $label = BankLineMemo::labelFor($document);
         $memo = BankLineMemo::forSource($document);
@@ -98,10 +100,11 @@ class BankLineMemoBackfiller
             return 0;
         }
 
-        return DB::table('journal_lines')
+        $lines = DB::table('journal_lines')
             ->where('journal_entry_id', $document->journal_entry_id)
             ->whereIn('account_id', $accountIds)
-            ->where('memo', $label)
-            ->update(['memo' => $memo]);
+            ->where('memo', $label);
+
+        return $dryRun ? $lines->count() : $lines->update(['memo' => $memo]);
     }
 }
