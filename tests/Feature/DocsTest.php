@@ -29,6 +29,9 @@ test('authenticated users can visit each documentation page', function (string $
     'docs.getting-started',
     'docs.creating-a-company',
     'docs.dashboard',
+    'docs.insights',
+    'docs.banking',
+    'docs.fundraising',
     'docs.customers',
     'docs.members',
     'docs.estimates',
@@ -38,16 +41,16 @@ test('authenticated users can visit each documentation page', function (string $
     'docs.customer-portal',
     'docs.vendors',
     'docs.purchase-orders',
+    'docs.inventory',
     'docs.employees',
+    'docs.employee-portal',
     'docs.payroll',
     'docs.accounting',
-    'docs.banking',
-    'docs.inventory',
+    'docs.opening-balances',
     'docs.fixed-assets',
     'docs.multi-currency',
     'docs.reports',
     'docs.budgets',
-    'docs.fundraising',
     'docs.tax-returns',
     'docs.documents',
     'docs.inbox',
@@ -55,6 +58,8 @@ test('authenticated users can visit each documentation page', function (string $
     'docs.settings',
     'docs.migration',
     'docs.api',
+    'docs.self-hosting',
+    'docs.site-administration',
 ]);
 
 test('the docs nav lists every topic on a page', function () {
@@ -66,7 +71,7 @@ test('the docs nav lists every topic on a page', function () {
 
     $response->assertOk();
 
-    foreach (['Getting started', 'Create an organization', 'Dashboard', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Vendors', 'Purchase orders', 'Employees', 'Payroll', 'Accounting', 'Banking', 'Inventory', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Fundraising', 'Tax returns', 'Documents', 'Inbox', 'Lists', 'Settings', 'Import from QuickBooks', 'API'] as $label) {
+    foreach (['Getting started', 'Create an organization', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
         $response->assertSeeText($label);
     }
 });
