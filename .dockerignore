@@ -33,6 +33,9 @@ storage/app/private/*
 !storage/app/private/.gitignore
 storage/app/public/*
 !storage/app/public/.gitignore
+storage/app/proof/*
+storage/app/restores/*
+storage/app/slip-templates/*
 storage/logs/*
 !storage/logs/.gitignore
 storage/framework/cache/*

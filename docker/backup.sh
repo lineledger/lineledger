@@ -143,7 +143,8 @@ mv "$OUT_DIR/$db_file.part" "$OUT_DIR/$db_file"
 echo "==> Archiving volume $STORAGE_VOLUME to $OUT_DIR/$storage_file"
 # A throwaway container reads the volume as root (the files belong to the app
 # user inside the image), then hands the archive to the invoking host user so
-# it can be managed and deleted without sudo.
+# it can be managed and deleted without sudo. Compiled views and the framework
+# cache are left out: the entrypoint recreates and re-warms them on every boot.
 docker run --rm \
     -v "$STORAGE_VOLUME:/from:ro" \
     -v "$OUT_DIR:/to" \
@@ -151,7 +152,7 @@ docker run --rm \
     -e "FINAL=/to/$storage_file" \
     -e "OWNER=$(id -u):$(id -g)" \
     alpine:3 sh -c '
-        if tar czf "$PART" -C /from . && chmod 600 "$PART"; then
+        if tar czf "$PART" --exclude=./framework/views --exclude=./framework/cache -C /from . && chmod 600 "$PART"; then
             chown "$OWNER" "$PART" 2>/dev/null || true
             mv "$PART" "$FINAL"
         else
