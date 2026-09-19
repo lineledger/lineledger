@@ -50,8 +50,13 @@ phpstan.neon
 phpstan-baseline.neon
 pint.json
 
-docker/docker-compose.yml
-docker/.env.example
+# Only two files under docker/ are part of the image (see the Dockerfile COPY
+# lines). Everything else there is host-side tooling — and docker/backups/ is
+# where docker/backup.sh and the backup profile write database dumps and a
+# copy of .env, which must never be baked into a locally built image.
+docker/*
+!docker/php.ini
+!docker/entrypoint.sh
 
 *.md
 !README.md

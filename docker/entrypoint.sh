@@ -60,7 +60,16 @@ mkdir -p \
     storage/framework/testing
 
 if [ "$ROLE" = "app" ]; then
-    php artisan migrate --force
+    # app:upgrade = migrations + every post-upgrade step. MIGRATE_ON_BOOT=false
+    # lets an operator take a backup first and run it by hand.
+    case "$(printf '%s' "${MIGRATE_ON_BOOT:-true}" | tr '[:upper:]' '[:lower:]')" in
+        false|0|no)
+            echo "MIGRATE_ON_BOOT=false: skipping migrations and post-upgrade steps. Run: docker compose exec app php artisan app:upgrade"
+            ;;
+        *)
+            php artisan app:upgrade
+            ;;
+    esac
     php artisan storage:link
     if [ ! -f storage/oauth-private.key ]; then
         php artisan passport:keys

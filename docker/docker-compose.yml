@@ -20,6 +20,10 @@ services:
     environment:
       CONTAINER_ROLE: app
       SERVER_NAME: ${SERVER_NAME:-:8080}
+      # Run php artisan app:upgrade (migrations + post-upgrade steps) on every
+      # boot. false/0/no skips it so an operator can back up first and run
+      # `docker compose exec app php artisan app:upgrade` by hand.
+      MIGRATE_ON_BOOT: ${MIGRATE_ON_BOOT:-true}
     ports:
       - "${HTTP_PORT:-8080}:8080"
       # For direct exposure with automatic HTTPS, set SERVER_NAME to your
@@ -66,6 +70,10 @@ services:
       mysql:
         condition: service_healthy
 
+  # mysql is pinned to the 8.4 LTS line on purpose: 8.4.x patch releases
+  # arrive with a normal `docker compose pull`, but a MAJOR version change
+  # (e.g. to 9.x) is a separate procedure — back up with backup.sh, read the
+  # MySQL upgrade notes for the target version, then change the tag.
   mysql:
     image: mysql:8.4
     restart: unless-stopped
@@ -87,6 +95,63 @@ services:
       retries: 20
 
   # ---- Optional services: docker compose --profile mail up -d, etc. ----
+
+  # Scheduled database dumps: docker compose --profile backup up -d
+  # Every BACKUP_INTERVAL_SECONDS it writes lineledger-db-<ts>.sql.gz into
+  # BACKUP_DIR and prunes dumps older than BACKUP_KEEP_DAYS. Database only:
+  # attachments and other uploads live in the storage volume, which backup.sh
+  # archives alongside a dump on demand.
+  backup:
+    image: mysql:8.4
+    profiles: [backup]
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE:-lineledger}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    # The image entrypoint execs anything that isn't mysqld, so this loop runs
+    # as-is. `$$` is Compose's escape for a literal `$` inside the container.
+    command:
+      - bash
+      - -eo
+      - pipefail
+      - -c
+      - |
+        umask 077
+        # A `.gitignore` of `*` keeps git from ever listing or adding the
+        # dumps when BACKUP_DIR sits inside a git checkout (see the volume
+        # comment below). World-readable on purpose: git reads it as the
+        # deploy user, and this container runs as root.
+        if [ ! -e /backups/.gitignore ]; then
+          printf '*\n' > /backups/.gitignore && chmod 644 /backups/.gitignore
+        fi
+        while true; do
+          ts="$$(date -u +%Y%m%d-%H%M%S)"
+          out="/backups/lineledger-db-$$ts.sql.gz"
+          if mysqldump --single-transaction --triggers --routines --events -h mysql -uroot -p"$$MYSQL_ROOT_PASSWORD" "$$MYSQL_DATABASE" | gzip > "$$out.part"; then
+            mv "$$out.part" "$$out"
+            echo "backup: wrote $$out"
+          else
+            rm -f "$$out.part"
+            echo "backup: mysqldump failed; retrying in $$BACKUP_INTERVAL_SECONDS s" >&2
+          fi
+          find /backups -name 'lineledger-db-*.sql.gz' -mtime +"$$BACKUP_KEEP_DAYS" -delete
+          sleep "$$BACKUP_INTERVAL_SECONDS"
+        done
+    volumes:
+      # A host bind mount on purpose, not a named volume: `docker compose
+      # down -v` deletes named volumes (dbdata, storage, ...) but never touches
+      # a bind mount, so the dumps outlive a full teardown of the stack.
+      # A relative BACKUP_DIR resolves against this directory, so the default
+      # is docker/backups/ — inside the checkout on a git-clone install. The
+      # loop above drops a `.gitignore` there so git never sees the dumps,
+      # but an out-of-tree path (e.g. BACKUP_DIR=/var/backups/lineledger) is
+      # the better choice.
+      - ${BACKUP_DIR:-./backups}:/backups
 
   mailpit:
     image: axllent/mailpit
