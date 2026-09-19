@@ -962,3 +962,34 @@ test('fromCompanyAccounts maps an existing chart into sorted preview rows', func
     expect($childRow['locked'])->toBeFalse();
     expect($childRow['default_selected'])->toBeTrue();
 });
+
+test('copy mode leaves out accounts the source organization deleted or merged away', function () {
+    $source = sourceCompanyWithCustomChart($this->user);
+
+    $merged = Account::withoutGlobalScopes()->create([
+        'company_id' => $source->id,
+        'code' => '6520',
+        'name' => 'Print Ads (merged away)',
+        'type' => AccountSubtype::Expense->type(),
+        'subtype' => AccountSubtype::Expense,
+        'normal_balance' => AccountSubtype::Expense->type()->normalBalance(),
+        'is_system' => false,
+        'is_active' => false,
+    ]);
+    $merged->delete();
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('companyName', 'Clone Without Merged')
+        ->set('country', 'CA')
+        ->set('region', 'BC')
+        ->set('chartMode', 'copy')
+        ->set('sourceCompanyId', $source->id)
+        ->call('createCompany')
+        ->assertHasNoErrors();
+
+    $company = Company::where('name', 'Clone Without Merged')->firstOrFail();
+    $accounts = seededAccounts($company);
+
+    expect($accounts->firstWhere('code', '6510'))->not->toBeNull();
+    expect($accounts->firstWhere('code', '6520'))->toBeNull();
+});

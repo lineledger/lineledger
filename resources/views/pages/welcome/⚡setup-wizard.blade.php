@@ -287,7 +287,10 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 return [];
             }
 
-            $accounts = Account::withoutGlobalScopes()
+            // Only the tenant scope is dropped (the source is another organization);
+            // soft deletion must still apply, or accounts merged away in the source
+            // come back to life, active, in the copy.
+            $accounts = Account::withoutGlobalScope(\App\Scopes\CompanyScope::class)
                 ->where('company_id', $company->id)
                 ->orderBy('code')
                 ->get();
