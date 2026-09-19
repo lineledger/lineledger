@@ -270,6 +270,8 @@ viewed, downloaded, or emailed. Reporting gains a **Vendor Activity** report and
   entry and accounts, as did an employee payroll profile's fund and a filed tax
   return's line sources. A new test derives the foreign keys from the schema so a
   table registered for backup can no longer be left out of the restore map.
+- **The Transactions report prints dates without a time.** Every row, and the CSV, Excel,
+  and PDF exports, showed a line's date as `2026-05-01 00:00:00`.
 - **Copying another organization's chart leaves out its deleted accounts.** The setup
   wizard's *Copy an existing organization* option read the source chart without the
   soft-delete filter, so an account merged away in the source came back, active, in the
