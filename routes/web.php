@@ -39,6 +39,7 @@ use App\Http\Middleware\EnforceTwoFactor;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsureSectionAccess;
 use App\Http\Middleware\EnsureSectionEnabled;
+use App\Http\Middleware\EnsureSupportEnabled;
 use App\Models\Attachment;
 use App\Models\Company;
 use App\Models\DocumentFolder;
@@ -107,8 +108,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // In-app support tickets. Platform-level (not tenant-scoped), so they live here
 // beside settings rather than under the {company} prefix; per-page mount() guards
-// enforce that a user only sees their own tickets.
-Route::middleware(['auth', 'verified'])->group(function () {
+// enforce that a user only sees their own tickets. EnsureSupportEnabled 404s the
+// pair on a deployment that handles support elsewhere (SUPPORT_ENABLED=false),
+// leaving the route names resolvable for anything still linking to a ticket.
+Route::middleware(['auth', 'verified', EnsureSupportEnabled::class])->group(function () {
     Route::livewire('support', 'pages::support.index')->name('support.index');
     Route::livewire('support/{ticket}', 'pages::support.show')->name('support.show');
 });

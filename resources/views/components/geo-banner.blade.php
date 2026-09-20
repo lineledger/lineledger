@@ -1,15 +1,31 @@
 @php
     use App\Enums\Country;
 
-    // The country this deployment serves: an explicit APP_REGION wins (handy on
-    // host-agnostic environments like local dev), otherwise it's derived from
-    // the request host (books.lineledger.ca → CA, anything else → US).
-    $current = Country::tryFrom(mb_strtoupper((string) config('app.region')))
-        ?? Country::fromHost(request()->getHost());
-    $other = $current === Country::Canada ? Country::UnitedStates : Country::Canada;
-    $otherUrl = config('app.app_urls')[$other->value] ?? '';
+    // The switcher only belongs on the project's own sibling deployments, so it
+    // renders when — and only when — the request host is one of the hosts in
+    // config('app.app_urls'). That makes it self-configuring: a self-hosted
+    // instance on its own domain matches neither, and so never offers to send
+    // its users to someone else's app. (APP_REGION still picks the marketing
+    // site the legal links point at; it deliberately has no say here, or every
+    // self-host that set it to get the right legal documents would get the
+    // banner along with them.)
+    $appUrls = array_filter(array_map('strval', (array) config('app.app_urls', [])));
+    $hosts = array_map(
+        fn (string $url): string => mb_strtolower((string) parse_url($url, PHP_URL_HOST)),
+        $appUrls,
+    );
+
+    $region = array_search(mb_strtolower(request()->getHost()), $hosts, true);
+    $current = is_string($region) ? Country::tryFrom($region) : null;
+    $other = match ($current) {
+        Country::Canada => Country::UnitedStates,
+        Country::UnitedStates => Country::Canada,
+        default => null,
+    };
+    $otherUrl = $other === null ? '' : (string) ($appUrls[$other->value] ?? '');
 @endphp
 
+@if ($current !== null && $other !== null && $otherUrl !== '')
 @persist('geo-banner')
     <div
         x-data="geoBanner({ current: @js(mb_strtolower($current->value)), other: @js(mb_strtolower($other->value)), otherUrl: @js($otherUrl) })"
@@ -45,3 +61,4 @@
         </div>
     </div>
 @endpersist
+@endif

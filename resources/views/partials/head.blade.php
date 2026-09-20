@@ -3,7 +3,7 @@
 
 @php
     $companyName = app()->bound('current_company') ? app('current_company')->brandDisplayName() : null;
-    $appName = 'Line Ledger';
+    $appName = (string) config('app.name', 'Line Ledger');
     $sectionTitle = filled($title ?? null) ? $title : null;
     $documentTitle = match (true) {
         $companyName !== null && $sectionTitle !== null => $companyName.' - '.$sectionTitle,

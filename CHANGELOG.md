@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Branding from the environment** — a self-hosted instance replaces the mark on
+  the sign-in, registration and onboarding screens with `BRAND_LOGO` (and, for a
+  separate dark-theme variant, `BRAND_LOGO_DARK`), and names its own operating
+  company in the footer's copyright line with `BRAND_FOOTER_OWNER`. Any path the
+  browser can fetch works, including a `/storage/…` path that survives a deploy.
+  `BRAND_SHOW_PROJECT_LINKS=false` drops the upstream version, licence, source and
+  legal links beside it, keeping the copyright line and a plain version number —
+  read the note in `config/brand.php` about AGPL-3.0 §13 before you do. Together
+  with `APP_NAME` and the favicons in `public/`, this is the whole of what the
+  trademark notice asks a self-host to replace, with no fork to maintain.
+- **Support desk switch** — `SUPPORT_ENABLED=false` on a deployment whose support
+  runs somewhere else: the Support entry leaves both account menus and `/support`
+  stops answering. Nothing is deleted — tickets already raised stay readable in
+  the admin portal, so switching it back on loses nothing. See
+  `config/support.php`.
+
+### Changed
+
+- **The browser tab title follows `APP_NAME`** instead of a hardcoded "Line
+  Ledger". Deployments that want the spaced form should set
+  `APP_NAME="Line Ledger"`.
+- **The guest country-switcher banner now renders only on the project's own two
+  deployments** — the hosts in `APP_URL_CA` / `APP_URL_US` — rather than on every
+  installation. `APP_REGION` still picks which marketing site the legal links
+  point at, but no longer forces the banner, so a self-host that set it to get the
+  right legal documents is no longer offered a trip to someone else's app.
+
 ## [1.1.0] - 2026-09-18
 
 **Highlights.** An **Opening balances** workspace lets an organization that was set

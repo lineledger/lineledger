@@ -138,3 +138,29 @@ it('shows the in-app support link and drops the external ones', function () {
         ->assertDontSee('lineledger.com/requests')
         ->assertDontSee('lineledger.com/support');
 });
+
+it('hides the support entry and stops answering when the desk is switched off', function () {
+    config(['support.enabled' => false]);
+
+    $ticket = SupportTicket::factory()->for($this->user, 'owner')->create();
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('data-test="support-link"', false)
+        ->assertDontSee('data-test="support-link-mobile"', false);
+
+    $this->get(route('support.index'))->assertNotFound();
+    $this->get(route('support.show', $ticket))->assertNotFound();
+});
+
+it('keeps existing tickets readable in the admin console when the desk is off', function () {
+    config(['support.enabled' => false]);
+
+    $admin = User::factory()->siteAdmin()->create();
+    $ticket = SupportTicket::factory()->for($this->user, 'owner')->create(['subject' => 'Invoices will not email']);
+
+    Livewire::actingAs($admin)
+        ->test('pages::admin.support-ticket-show', ['ticket' => $ticket])
+        ->assertOk()
+        ->assertSee('Invoices will not email');
+});

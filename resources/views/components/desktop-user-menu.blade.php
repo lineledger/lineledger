@@ -1,6 +1,7 @@
 @props(['showCompany' => true])
 
-@php($supportUnread = auth()->user()->unreadSupportRepliesCount())
+@php($supportEnabled = (bool) config('support.enabled'))
+@php($supportUnread = $supportEnabled ? auth()->user()->unreadSupportRepliesCount() : 0)
 
 <flux:dropdown position="bottom" align="start">
     <button type="button" class="group flex w-full items-center rounded-lg p-1 hover:bg-muted" data-test="sidebar-menu-button">
@@ -35,12 +36,14 @@
             <flux:menu.item :href="route('docs.getting-started')" icon="book-open" wire:navigate>
                 {{ __('Documentation') }}
             </flux:menu.item>
-            <flux:menu.item :href="route('support.index')" icon="lifebuoy" wire:navigate data-test="support-link">
-                {{ __('Support') }}
-                @if ($supportUnread)
-                    <flux:badge size="sm" color="sky" class="ms-auto">{{ $supportUnread }}</flux:badge>
-                @endif
-            </flux:menu.item>
+            @if ($supportEnabled)
+                <flux:menu.item :href="route('support.index')" icon="lifebuoy" wire:navigate data-test="support-link">
+                    {{ __('Support') }}
+                    @if ($supportUnread)
+                        <flux:badge size="sm" color="sky" class="ms-auto">{{ $supportUnread }}</flux:badge>
+                    @endif
+                </flux:menu.item>
+            @endif
             <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
                 {{ __('Settings') }}
             </flux:menu.item>

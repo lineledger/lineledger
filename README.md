@@ -313,9 +313,12 @@ unlock specific subsystems. Set the same keys in production via Forge → Site �
 | `APP_NAME` | App name shown in UI & emails | `LineLedger` | `LineLedger` |
 | `APP_URL` | Absolute base URL (links, passkey RP ID, Stripe redirects) | `http://localhost:8000` | `https://books.lineledger.ca` |
 | `APP_KEY` | Encryption key | `php artisan key:generate` | generated once, kept secret |
-| `APP_REGION` | Country this deployment serves (`CA` / `US`). Drives the guest country-switcher banner and which marketing site legal links point at. Leave **unset in production** to derive it from the request host (a `.ca` host → CA, anything else → US); set it explicitly on host-agnostic environments like local dev | `CA` (`.env.example` ships it blank) | unset (derived from host) |
-| `APP_URL_CA` / `APP_URL_US` | The two sibling app deployments, used by the country-switcher banner's "Go to …" link | `https://books.lineledger.ca` / `https://books.lineledger.com` | your two app hosts |
+| `APP_REGION` | Country this deployment serves (`CA` / `US`). Picks which marketing site the footer's legal links point at. Leave **unset in production** to derive it from the request host (a `.ca` host → CA, anything else → US); set it explicitly on host-agnostic environments like local dev | `CA` (`.env.example` ships it blank) | unset (derived from host) |
+| `APP_URL_CA` / `APP_URL_US` | The project's two sibling app deployments. The guest country-switcher banner offers a visitor the other one, and **renders only on these two hosts** — so a self-hosted instance on its own domain never shows it, whatever `APP_REGION` says | `https://books.lineledger.ca` / `https://books.lineledger.com` | your two app hosts |
 | `MARKETING_URL_CA` / `MARKETING_URL_US` | Marketing sites hosting the legal documents linked from the footer, chosen by region | `https://lineledger.ca` / `https://lineledger.com` | your marketing sites |
+| `BRAND_LOGO` / `BRAND_LOGO_DARK` | The mark on the sign-in, registration and onboarding screens, and in the sidebar until an organization uploads its own. Any path the browser can fetch: a file under `public/`, a `/storage/…` path (which survives a deploy), or an absolute URL. The dark variant is optional — unset, the one logo serves both themes. The name beside it is `APP_NAME` | `/logo/line-ledger-logo.png` / unset | your logo |
+| `BRAND_FOOTER_OWNER` | Who operates this deployment — the name in the footer's copyright line | `Local Foundry Inc.` | your company |
+| `BRAND_SHOW_PROJECT_LINKS` | The upstream links beside it (version → release notes, licence, source, legal). `false` keeps the copyright line and a plain version number. **Read `config/brand.php` first**: the source link is how this app offers its source to the people using it, which AGPL-3.0 §13 requires of a modified version run as a network service | `true` | `true` |
 | `DB_CONNECTION` / `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | MySQL connection | `mysql` @ `127.0.0.1:3306`, db `lineledger` | the DB + user you create in Forge → **Database** |
 | `QUEUE_CONNECTION` | Queue driver (backups, restores, recurring, mail) | `database` | `database` or `redis` |
 | `DB_QUEUE_RETRY_AFTER` / `REDIS_QUEUE_RETRY_AFTER` | Seconds before a reserved job is handed to another worker (default 90). Must exceed the worker's `--timeout` **and** the longest job — exports/restores run up to 1800 s, the QuickBooks GL replay up to 3600 s. Both shipped workers run `--timeout=120`, so set it on either path — Docker: [Optional services](#optional-services); Forge: [step 6](#one-time-setup) of the deploy guide | default | `3700` |
@@ -374,6 +377,7 @@ you need the full set of knobs; the keys below are the ones that turn the featur
 | **Bank-import AI fallback** | `BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY`; `BANK_IMPORT_PDF_EXTRACTOR`, `BANK_IMPORT_AI_MODEL` / `_DRIVER` / `_TIMEOUT` / `_SAMPLE_ROWS`, `BANK_IMPORT_MAX_KILOBYTES`, `BANK_IMPORT_DATE_TOLERANCE_DAYS` | `config/banking.php` |
 | **Transaction classification** | The history-based suggester is on by default; tune history depth with `CLASSIFICATION_HISTORY_DAYS`, `CLASSIFICATION_MAX_HISTORY_ROWS`, `CLASSIFICATION_DESCRIPTION_HISTORY_LIMIT`. The AI fallback (`CLASSIFICATION_AI_MAX_DESCRIPTIONS` batches it) has no switch of its own — it rides the inbox OCR gate above, so nothing leaves the server unless OCR is on | `config/classification.php` |
 | **Edit locks** (one member edits a record at a time) | On by default; `EDIT_LOCKS_ENABLED=false` switches it off. Tune with `EDIT_LOCKS_TTL_SECONDS` (lease length, 120 — keep it above 60, since hidden tabs renew about once a minute), `EDIT_LOCKS_HEARTBEAT_SECONDS` (30), `EDIT_LOCKS_IDLE_MINUTES` (15) and `EDIT_LOCKS_PRUNE_AFTER_DAYS` (7). None of these are in `.env.example`; add the ones you change | `config/edit_locks.php` |
+| **In-app support tickets** | On by default; `SUPPORT_ENABLED=false` drops the Support entry from both account menus and 404s `/support`. Tickets already raised are kept and stay readable in the admin portal | `config/support.php` |
 | **Bot challenge on auth forms** | `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` (see the [Environment](#environment) table); `TURNSTILE_ENABLED=false` kills it regardless of keys | `config/turnstile.php` |
 | **Content-Security-Policy** | Always emitted by `SecurityHeaders`; `CSP_MODE` picks `report-only` (default — observe, don't block), `enforce`, or `off` (the escape hatch for a self-host with customized assets). `CSP_REPORTING` / `CSP_REPORT_SAMPLE` control the `POST /csp-report` violation log in `storage/logs/csp.log` | `config/security.php` |
 | **Cheque print alignment** | No env vars. `config/cheque.php` holds the Intuit voucher-stock grid — every field's `[x, y]` baseline, font sizes, the `Ymd` date comb, the payee address block and the voucher columns — plus `offset_x` / `offset_y` to nudge the whole page for a printer. It is a config file, so a change needs `php artisan config:cache` (or a redeploy) to take | `config/cheque.php` |
@@ -1109,7 +1113,10 @@ Without the prior written permission of Local Foundry Inc., you may **not**:
   AGPLv3.
 
 If you fork or self-host this project, you must remove or replace the
-LineLedger Marks with your own branding. Permitted nominative references
+LineLedger Marks with your own branding. No fork is needed to do it: set
+`APP_NAME`, `BRAND_LOGO` (and optionally `BRAND_LOGO_DARK`) and
+`BRAND_FOOTER_OWNER` in your environment, and replace the favicons in `public/`.
+See [Environment](#environment) and `config/brand.php`. Permitted nominative references
 (e.g., "compatible with LineLedger", "imported from LineLedger") must be
 truthful, non-misleading, and must not suggest endorsement or affiliation.
 
