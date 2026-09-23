@@ -606,7 +606,7 @@ new #[Title('Credit memo')] class extends Component
     public function totals(): array
     {
         $sub = array_sum(array_column($this->lines, 'subtotal'));
-        $tax = array_sum(array_column($this->lines, 'tax'));
+        $tax = array_sum(array_column($this->lines, 'tax')) + array_sum(array_column($this->lines, 'secondary_tax'));
 
         return ['subtotal' => $sub, 'tax' => $tax, 'total' => $sub + $tax];
     }

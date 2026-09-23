@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Include in transfers" now saves.** The switch on a Chart of Accounts
   account was shown and read back, but saving never stored it, so a line of
   credit or other non-bank account could not be added to the transfer form.
+- **A credit memo's form total now counts both taxes.** With two taxes on a line
+  (GST and PST), the Total on the new / edit credit memo form added only the
+  first, so a memo the credit memo page showed as 140.00 read 130.75 while being
+  edited. Display only — the saved memo, its journal entry and refunds always used
+  the right amount.
 
 ## [1.1.0] - 2026-09-18
 
