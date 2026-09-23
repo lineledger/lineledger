@@ -53,6 +53,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first, so a memo the credit memo page showed as 140.00 read 130.75 while being
   edited. Display only — the saved memo, its journal entry and refunds always used
   the right amount.
+- **Cheque and expense lines list every account.** The line Account picker on the
+  cheque and expense forms left out revenue accounts, so a customer refund or a
+  reversed commission couldn't be coded there. It now lists every active account,
+  as the journal entry form does. Picking a revenue account doesn't bring along a
+  sales-only default tax code, which never applies to a purchase.
 
 ## [1.1.0] - 2026-09-18
 

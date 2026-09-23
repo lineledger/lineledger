@@ -3,7 +3,6 @@
 use App\Actions\Banking\SaveCheque;
 use App\Actions\Contacts\UpdateContactAddress;
 use App\Enums\AccountSubtype;
-use App\Enums\AccountType;
 use App\Enums\ChequeStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
@@ -442,9 +441,16 @@ new #[Title('Cheque')] class extends Component
                 $this->resetLineContactState($i);
 
                 // Picking an account fills a blank tax code from the account's
-                // default — never overwriting one already on the line.
+                // default — never overwriting one already on the line. Only a
+                // code that applies to purchases qualifies: a revenue account's
+                // sales-only default has no place on a cheque.
                 if ($value && empty($this->lines[$i]['tax_code_id'])) {
-                    $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                    $defaultTaxCodeId = Account::find($value)?->default_tax_code_id;
+
+                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId !== null
+                        && TaxCode::query()->whereKey($defaultTaxCodeId)->forPurchases()->exists()
+                            ? $defaultTaxCodeId
+                            : null;
                 }
             } else {
                 $this->prefillLineContactFromPayee($i);
@@ -802,11 +808,12 @@ new #[Title('Cheque')] class extends Component
     }
 
     #[Computed]
-    public function expenseAccountOptions()
+    public function lineAccountOptions()
     {
-        // Accounts already coded on the cheque (e.g. the Accounts Receivable
-        // control account on a refund cheque) must always appear, even if they
-        // are inactive or otherwise outside the normal expense-coding set.
+        // Every active account, of every type — a cheque line can pay a tax
+        // liability, refund a sale, or reverse revenue, so the list matches the
+        // journal form's. Accounts already coded on the cheque must always
+        // appear too, even if they have since been made inactive.
         $lineAccountIds = collect($this->lines)
             ->pluck('account_id')
             ->filter()
@@ -814,10 +821,7 @@ new #[Title('Cheque')] class extends Component
 
         return Account::query()
             ->where(function ($q) use ($lineAccountIds) {
-                $q->where(function ($inner) {
-                    $inner->whereIn('type', [AccountType::Expense->value, AccountType::Asset->value, AccountType::Liability->value, AccountType::Equity->value])
-                        ->where('is_active', true);
-                });
+                $q->where('is_active', true);
 
                 if ($lineAccountIds !== []) {
                     $q->orWhereIn('id', $lineAccountIds);
@@ -1023,7 +1027,7 @@ new #[Title('Cheque')] class extends Component
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
                                 <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account" data-line-first="{{ $i }}">
                                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->expenseAccountOptions as $opt)
+                                    @foreach ($this->lineAccountOptions as $opt)
                                         <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
                                     @endforeach
                                 </flux:select>

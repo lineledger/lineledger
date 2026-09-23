@@ -2,7 +2,6 @@
 
 use App\Actions\Purchasing\SaveExpense;
 use App\Enums\AccountSubtype;
-use App\Enums\AccountType;
 use App\Enums\ExpenseStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
@@ -368,18 +367,15 @@ new #[Title('Expense')] class extends Component
     }
 
     #[Computed]
-    public function expenseAccountOptions()
+    public function lineAccountOptions()
     {
-        // Mirror the cheque form: expense/asset/liability/equity accounts, plus
-        // any account already on a line so editing never drops one.
+        // Mirror the cheque form: every active account, of every type, plus any
+        // account already on a line so editing never drops one.
         $lineAccountIds = collect($this->lines)->pluck('account_id')->filter()->all();
 
         return Account::query()
             ->where(function ($q) use ($lineAccountIds) {
-                $q->where(function ($inner) {
-                    $inner->whereIn('type', [AccountType::Expense->value, AccountType::Asset->value, AccountType::Liability->value, AccountType::Equity->value])
-                        ->where('is_active', true);
-                });
+                $q->where('is_active', true);
 
                 if ($lineAccountIds !== []) {
                     $q->orWhereIn('id', $lineAccountIds);
@@ -568,7 +564,7 @@ new #[Title('Expense')] class extends Component
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
                                 <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account" data-line-first="{{ $i }}">
                                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->expenseAccountOptions as $opt)
+                                    @foreach ($this->lineAccountOptions as $opt)
                                         <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
