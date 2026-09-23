@@ -11,6 +11,7 @@ use App\Services\AttachmentService;
 use App\Services\Posting\ChequePoster;
 use App\Support\Contacts\AddressLines;
 use App\Support\Contacts\ContactLinkResolver;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -226,9 +227,9 @@ new #[Title('Cheque')] class extends Component {
                         </td>
                         <td class="px-4 py-2 text-muted-foreground">{{ $line->description }}</td>
                         <td class="px-4 py-2 text-muted-foreground">
-                            {{ optional($line->taxCode)->code }}
+                            {{ optional($line->taxCode)->label() }}
                             @if ($line->secondaryTaxCode)
-                                <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->amount_cents / 100, 2) }}</td>
@@ -256,9 +257,9 @@ new #[Title('Cheque')] class extends Component {
                 @endforeach
             </tbody>
             <tfoot class="bg-muted">
-                @foreach (\App\Support\Tax\LineTaxBreakdown::forLines($cheque->lines) as $taxRow)
+                @foreach (LineTaxBreakdown::forLines($cheque->lines) as $taxRow)
                     <tr data-test="cheque-tax-row">
-                        <td colspan="3" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="3" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td colspan="2" class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @endforeach

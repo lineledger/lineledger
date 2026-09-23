@@ -25,6 +25,7 @@ use App\Support\Accounting\ControlAccountRoles;
 use App\Support\Banking\LastBankAccount;
 use App\Support\Contacts\AddressLines;
 use App\Support\Money;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -885,7 +886,7 @@ new #[Title('Cheque')] class extends Component
 
     /**
      * Per-tax-code breakdown of the line tax, so the totals can show each tax
-     * (e.g. GST and PST) on its own row. Mirrors {@see \App\Support\Tax\LineTaxBreakdown}
+     * (e.g. GST and PST) on its own row. Mirrors {@see LineTaxBreakdown}
      * but reads the unsaved component state.
      *
      * @return array<int, array{label: string, rate: float, tax_cents: int}>
@@ -907,7 +908,7 @@ new #[Title('Cheque')] class extends Component
 
                 $code = $codes[$id] ?? null;
                 $rows[$id] ??= [
-                    'label' => $code ? (string) $code->name : '',
+                    'label' => $code?->label() ?? '',
                     'rate' => $code ? $code->ratePercent() : 0.0,
                     'tax_cents' => 0,
                 ];
@@ -1083,12 +1084,12 @@ new #[Title('Cheque')] class extends Component
                                     @php($selectedTaxIds = $line['tax_code_ids'] ?? [])
                                     <flux:dropdown>
                                         <flux:button variant="outline" size="sm" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="line-tax">
-                                            <span class="truncate">{{ $this->taxCodeOptions->whereIn('id', $selectedTaxIds)->pluck('code')->implode(', ') ?: __('Select tax') }}</span>
+                                            <span class="truncate">{{ $this->taxCodeOptions->whereIn('id', $selectedTaxIds)->map->label()->implode(', ') ?: __('Select tax') }}</span>
                                         </flux:button>
                                         <flux:menu>
                                             <flux:menu.checkbox.group wire:model.live="lines.{{ $i }}.tax_code_ids">
                                                 @foreach ($this->taxCodeOptions as $opt)
-                                                    <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->code }}</flux:menu.checkbox>
+                                                    <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->label() }}</flux:menu.checkbox>
                                                 @endforeach
                                             </flux:menu.checkbox.group>
                                         </flux:menu>
@@ -1136,7 +1137,7 @@ new #[Title('Cheque')] class extends Component
                 <tfoot class="hidden bg-muted lg:table-footer-group">
                     @foreach ($this->taxBreakdown as $taxRow)
                         <tr data-test="cheque-tax-row">
-                            <td colspan="{{ 4 + $this->dimensionColumns }}" class="px-2 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                            <td colspan="{{ 4 + $this->dimensionColumns }}" class="px-2 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                             <td class="px-2 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                             <td></td>
                         </tr>
@@ -1152,7 +1153,7 @@ new #[Title('Cheque')] class extends Component
             {{-- Mobile totals (tfoot is desktop-only) --}}
             <div class="space-y-1 border-t border-border bg-muted px-3 py-3 text-sm lg:hidden">
                 @foreach ($this->taxBreakdown as $taxRow)
-                    <div class="flex justify-between"><span class="font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
+                    <div class="flex justify-between"><span class="font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
                 @endforeach
                 <div class="flex justify-between text-base"><span class="font-semibold">{{ __('Total') }}</span><span class="font-mono font-semibold">{{ number_format($this->totalCents() / 100, 2) }}</span></div>
             </div>

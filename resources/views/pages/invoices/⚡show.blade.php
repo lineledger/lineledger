@@ -13,6 +13,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Services\Sales\PaymentRequestScheduleStatus;
 use App\Support\Money;
+use App\Support\Tax\LineTaxBreakdown;
 use App\Services\AttachmentService;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\InvoiceReconciler;
@@ -498,9 +499,9 @@ new #[Title('Invoice')] class extends Component {
                         @endif
                         @if ($fieldVisibility['tax_column'])
                             <td class="px-4 py-2 text-muted-foreground">
-                                {{ optional($line->taxCode)->code }}
+                                {{ optional($line->taxCode)->label() }}
                                 @if ($line->secondaryTaxCode)
-                                    <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                    <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                                 @endif
                             </td>
                         @endif
@@ -521,11 +522,11 @@ new #[Title('Invoice')] class extends Component {
                     <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->subtotal_cents / 100, 2) }}</td>
                 </tr>
                 @php
-                    $taxRows = \App\Support\Tax\LineTaxBreakdown::forLines($invoice->lines);
+                    $taxRows = LineTaxBreakdown::forLines($invoice->lines);
                 @endphp
                 @forelse ($taxRows as $taxRow)
                     <tr data-test="invoice-tax-row">
-                        <td colspan="{{ $this->lineLeadingColspan }}" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="{{ $this->lineLeadingColspan }}" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty
@@ -623,7 +624,7 @@ new #[Title('Invoice')] class extends Component {
     @if ($taxRegistrations->isNotEmpty())
         <div class="mt-4 space-y-1 text-sm text-muted-foreground" data-test="invoice-tax-registrations">
             @foreach ($taxRegistrations as $agency)
-                <div>{{ $agency->name }}: <span class="font-mono">{{ $agency->registration_number }}</span></div>
+                <div>{{ $agency->label() }}: <span class="font-mono">{{ $agency->registration_number }}</span></div>
             @endforeach
         </div>
     @endif

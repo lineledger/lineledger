@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\DB;
     'default_terms_id', 'default_tax_code_id', 'default_income_account_id', 'default_expense_account_id',
     'preferred_payment_method_id', 'credit_limit_cents',
     'currency_code',
+    'locale',
     'notes', 'is_active', 'invoice_emails_enabled', 'reminder_emails_enabled',
 ])]
 class Contact extends Model implements AuthenticatableContract

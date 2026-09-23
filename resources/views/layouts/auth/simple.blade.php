@@ -13,6 +13,7 @@
                 <div class="flex flex-col gap-6">
                     {{ $slot }}
                 </div>
+                <x-language-switcher class="mt-2" />
                 <x-app-footer class="mt-2 text-center text-xs" />
             </div>
         </div>

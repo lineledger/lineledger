@@ -3,6 +3,8 @@
 namespace App\Notifications\Portal;
 
 use App\Models\Company;
+use App\Models\Contact;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,13 +31,16 @@ class PortalLoginLinkNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $name = $this->company->brand_name ?: $this->company->name;
+        $contact = $notifiable instanceof Contact ? $notifiable : null;
 
-        return (new MailMessage)
-            ->subject(__('Sign in to :company', ['company' => $name]))
-            ->greeting(__('Sign in to your account'))
-            ->line(__('Click the button below to securely view and pay your invoices from :company.', ['company' => $name]))
-            ->action(__('View my invoices'), $this->url)
-            ->line(__('This link expires in :minutes minutes and can only be used once.', ['minutes' => $this->ttlMinutes]))
-            ->line(__('If you did not request this, you can safely ignore this email.'));
+        return Locales::forContactDocument($contact, $this->company, function () use ($name): MailMessage {
+            return (new MailMessage)
+                ->subject(__('Sign in to :company', ['company' => $name]))
+                ->greeting(__('Sign in to your account'))
+                ->line(__('Click the button below to securely view and pay your invoices from :company.', ['company' => $name]))
+                ->action(__('View my invoices'), $this->url)
+                ->line(__('This link expires in :minutes minutes and can only be used once.', ['minutes' => $this->ttlMinutes]))
+                ->line(__('If you did not request this, you can safely ignore this email.'));
+        });
     }
 }

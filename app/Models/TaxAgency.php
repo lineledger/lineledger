@@ -24,6 +24,15 @@ class TaxAgency extends Model
     }
 
     /**
+     * Locale-aware name for document chrome. Stored names stay English so
+     * lookups by "Canada Revenue Agency" keep working.
+     */
+    public function label(): string
+    {
+        return __($this->name);
+    }
+
+    /**
      * @return HasMany<TaxCode, $this>
      */
     public function taxCodes(): HasMany

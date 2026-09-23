@@ -4,6 +4,7 @@ namespace App\Notifications\Reports;
 
 use App\Models\Company;
 use App\Services\Reporting\Render\ReportRenderer;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -50,6 +51,11 @@ class ReportEmailNotification extends Notification implements ShouldQueue
     }
 
     public function toMail(object $notifiable): MailMessage
+    {
+        return Locales::forRecipient($notifiable, fn (): MailMessage => $this->buildMail(), $this->company);
+    }
+
+    private function buildMail(): MailMessage
     {
         $companyName = $this->company->brand_name ?: $this->company->name;
         $senderName = $this->senderName ?: $companyName;

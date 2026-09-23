@@ -5,6 +5,7 @@ namespace App\Services\Reporting;
 use App\Models\Company;
 use App\Models\FormStyle;
 use App\Models\Invoice;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -27,7 +28,10 @@ class InvoicePdfRenderer
      */
     public function inline(Company $company, Invoice $invoice): Response
     {
-        return $this->pdf->inline('pdf.invoices.invoice', $this->data($company, $invoice), $this->filename($invoice));
+        return Locales::using(
+            $this->locale($company, $invoice),
+            fn (): Response => $this->pdf->inline('pdf.invoices.invoice', $this->data($company, $invoice), $this->filename($invoice)),
+        );
     }
 
     /**
@@ -35,7 +39,21 @@ class InvoicePdfRenderer
      */
     public function raw(Company $company, Invoice $invoice): string
     {
-        return $this->pdf->raw('pdf.invoices.invoice', $this->data($company, $invoice));
+        return Locales::using(
+            $this->locale($company, $invoice),
+            fn (): string => $this->pdf->raw('pdf.invoices.invoice', $this->data($company, $invoice)),
+        );
+    }
+
+    /**
+     * HTML of the invoice blade (tests / previews). Honours document locale.
+     */
+    public function html(Company $company, Invoice $invoice): string
+    {
+        return Locales::using(
+            $this->locale($company, $invoice),
+            fn (): string => view('pdf.invoices.invoice', $this->data($company, $invoice))->render(),
+        );
     }
 
     /**
@@ -72,5 +90,12 @@ class InvoicePdfRenderer
     private function taxSummary(Invoice $invoice): array
     {
         return LineTaxBreakdown::forLines($invoice->lines);
+    }
+
+    private function locale(Company $company, Invoice $invoice): string
+    {
+        $invoice->loadMissing('contact');
+
+        return Locales::forDocument($invoice->contact, $company);
     }
 }

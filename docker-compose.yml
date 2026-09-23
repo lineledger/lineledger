@@ -1,0 +1,136 @@
+# Development stack. From a clone:
+#   docker compose up --build
+# App: http://localhost:8000  Vite: :5173  Mailpit: :8025
+#
+# Self-hosting (GHCR image, no bind mount, production caches) is
+# docker/docker-compose.yml — see README → Self-hosting with Docker.
+
+name: lineledger-dev
+
+x-app-env: &app-env
+  APP_ENV: local
+  APP_DEBUG: "true"
+  APP_URL: http://localhost:8000
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_DATABASE: lineledger
+  DB_USERNAME: root
+  DB_PASSWORD: ""
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  MAIL_FROM_ADDRESS: hello@example.com
+  QUEUE_CONNECTION: database
+  SESSION_DRIVER: database
+  CACHE_STORE: database
+  HOME: /tmp
+  XDG_CONFIG_HOME: /tmp
+
+x-app-base: &app-base
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.dev
+  user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+  env_file:
+    - path: .env
+      required: false
+  volumes:
+    - .:/app
+  working_dir: /app
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: app
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/up"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 300s
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  # listen (not work): bind-mounted PHP must pick up file changes.
+  queue:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: queue
+    command: php artisan queue:listen --tries=1 --timeout=0
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
+  vite:
+    <<: *app-base
+    environment:
+      CONTAINER_ROLE: vite
+      VITE_HOST: "0.0.0.0"
+      VITE_HMR_HOST: localhost
+      VITE_ORIGIN: http://localhost:5173
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: scheduler
+    command: php artisan schedule:work
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    # No binlog: with it on, MySQL blocks the app user from creating the
+    # audit-log immutability triggers (error 1419) during migration.
+    command: --skip-log-bin
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: lineledger
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-dev-data:/var/lib/mysql
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+
+volumes:
+  mysql-dev-data:

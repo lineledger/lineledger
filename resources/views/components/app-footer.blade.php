@@ -14,9 +14,9 @@
         &middot;
         <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener" class="{{ $linkClass }}">AGPL-3.0</a>
         &middot;
-        <a href="https://github.com/lineledger/lineledger" target="_blank" rel="noopener" class="{{ $linkClass }}">Source</a>
+        <a href="https://github.com/lineledger/lineledger" target="_blank" rel="noopener" class="{{ $linkClass }}">{{ __('Source') }}</a>
         &middot;
-        <a href="{{ app(\App\Support\Legal\LegalDocuments::class)->marketingBaseUrl() }}/legal" target="_blank" rel="noopener" class="{{ $linkClass }}">Legal</a>
+        <a href="{{ app(\App\Support\Legal\LegalDocuments::class)->marketingBaseUrl() }}/legal" target="_blank" rel="noopener" class="{{ $linkClass }}">{{ __('Legal') }}</a>
     @else
         v{{ $version }}
     @endif

@@ -27,6 +27,16 @@ test('calculator mode preference can be updated', function () {
     expect($user->refresh()->calculator_mode)->toBe(CalculatorMode::AddingMachine);
 });
 
+test('calculator modes are translated in French', function () {
+    app()->setLocale('fr');
+
+    $this->actingAs(User::factory()->create());
+
+    Livewire::test('pages::settings.appearance')
+        ->assertSee('Machine à additionner')
+        ->assertDontSee('Adding machine');
+});
+
 test('calculator mode rejects an invalid value', function () {
     $user = User::factory()->create();
 

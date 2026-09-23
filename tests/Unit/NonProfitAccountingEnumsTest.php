@@ -7,6 +7,9 @@ use App\Enums\LegalStructure;
 use App\Enums\NormalBalance;
 use App\Enums\OrganizationType;
 use App\Support\Gifi\GifiCatalog;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 test('legal structure flags only the registered charity for CRA registration and T3010', function () {
     expect(LegalStructure::RegisteredCharity->requiresCharityRegistration())->toBeTrue();

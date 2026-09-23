@@ -221,9 +221,9 @@ class GifiCatalog
         $grouped = [];
 
         foreach (self::all() as $entry) {
-            $grouped[$entry['section_label']][] = [
+            $grouped[__($entry['section_label'])][] = [
                 'value' => $entry['code'],
-                'label' => "{$entry['code']} — {$entry['label']}",
+                'label' => "{$entry['code']} — ".__($entry['label']),
             ];
         }
 

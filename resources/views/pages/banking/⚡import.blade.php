@@ -1221,7 +1221,7 @@ new #[Title('Import statement')] class extends Component {
                                                 <flux:menu>
                                                     <flux:menu.checkbox.group wire:model.live="lineTax.{{ $line->id }}">
                                                         @foreach ($this->purchaseTaxCodes as $code)
-                                                            <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                                            <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                                         @endforeach
                                                     </flux:menu.checkbox.group>
                                                 </flux:menu>

@@ -827,7 +827,7 @@ new #[Title('For Review')] class extends Component {
                                     <flux:menu>
                                         <flux:menu.checkbox.group wire:model.live="lineTax.{{ $line->id }}">
                                             @foreach ($this->purchaseTaxCodes as $code)
-                                                <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                                <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                             @endforeach
                                         </flux:menu.checkbox.group>
                                     </flux:menu>
@@ -939,12 +939,12 @@ new #[Title('For Review')] class extends Component {
                     @if ($splitIsOutflow)
                         <flux:dropdown class="col-span-3">
                             <flux:button variant="outline" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="split-tax">
-                                <span class="truncate">{{ $this->purchaseTaxCodes->whereIn('id', $splitTaxIds)->pluck('code')->implode(', ') ?: __('No tax') }}</span>
+                                <span class="truncate">{{ $this->purchaseTaxCodes->whereIn('id', $splitTaxIds)->map->label()->implode(', ') ?: __('No tax') }}</span>
                             </flux:button>
                             <flux:menu>
                                 <flux:menu.checkbox.group wire:model.live="splits.{{ $i }}.tax_code_ids">
                                     @foreach ($this->purchaseTaxCodes as $code)
-                                        <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($splitTaxIds) === 2 && ! in_array($code->id, $splitTaxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                        <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($splitTaxIds) === 2 && ! in_array($code->id, $splitTaxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                     @endforeach
                                 </flux:menu.checkbox.group>
                             </flux:menu>
