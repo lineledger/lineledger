@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\Expense;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Support\Banking\LastBankAccount;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -145,4 +146,78 @@ it('keeps the line description when posting', function () {
 
     expect($exp->status)->toBe(ExpenseStatus::Posted)
         ->and($exp->lines->first()->description)->toBe('Hosting');
+});
+
+function expensePaidFromAccount(string $code, string $name, AccountSubtype $subtype, bool $system = false): Account
+{
+    return Account::create([
+        'code' => $code,
+        'name' => $name,
+        'subtype' => $subtype->value,
+        'type' => $subtype->type()->value,
+        'normal_balance' => $subtype->type()->normalBalance()->value,
+        'is_system' => $system,
+    ]);
+}
+
+it('offers non-system liability accounts under Paid from, but not control accounts', function () {
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
+    $longTerm = expensePaidFromAccount('2790', 'Loan from Director', AccountSubtype::LongTermLiability);
+    $payroll = expensePaidFromAccount('2499', 'Payroll Clearing', AccountSubtype::CurrentLiability, system: true);
+    $payables = Account::query()->where('subtype', AccountSubtype::AccountsPayable->value)->pluck('id');
+    $taxPayables = Account::query()->where('subtype', AccountSubtype::TaxPayable->value)->pluck('id');
+
+    $offered = Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->instance()->paymentAccounts->pluck('id');
+
+    expect($offered)->toContain($this->bank->id, $loan->id, $longTerm->id)
+        ->not->toContain($payroll->id)
+        ->and($offered->intersect($payables))->toBeEmpty()
+        ->and($offered->intersect($taxPayables))->toBeEmpty();
+});
+
+it('posts an expense paid from a shareholder loan: the loan is credited', function () {
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $loan->id)
+        ->set('payee_name', 'Cloud Host')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('postExpense')
+        ->assertHasNoErrors();
+
+    $exp = Expense::firstOrFail();
+
+    expect($exp->status)->toBe(ExpenseStatus::Posted)
+        ->and($exp->payment_account_id)->toBe($loan->id)
+        // Liability is credit-normal: a credit of 8000 → owed to the shareholder +8000
+        ->and($loan->fresh()->balance_cents)->toBe(8000)
+        ->and($this->bank->fresh()->balance_cents)->toBe(0);
+});
+
+it('rejects a system or control liability as Paid from', function (AccountSubtype $subtype, bool $system) {
+    $account = expensePaidFromAccount('2498', 'Control', $subtype, $system);
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $account->id)
+        ->set('payee_name', 'Cloud Host')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('postExpense')
+        ->assertHasErrors(['payment_account_id']);
+
+    expect(Expense::count())->toBe(0);
+})->with([
+    'system current liability' => [AccountSubtype::CurrentLiability, true],
+    'accounts payable' => [AccountSubtype::AccountsPayable, false],
+    'tax payable' => [AccountSubtype::TaxPayable, false],
+]);
+
+it('does not remember a liability pick as the last banking account', function () {
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $this->bank->id)
+        ->set('payment_account_id', $loan->id);
+
+    expect(LastBankAccount::recall($this->company, [$this->bank->id, $loan->id]))->toBe($this->bank->id);
 });

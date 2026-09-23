@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A pay-now expense (QuickBooks "Expense"): money out via card, Interac, EFT,
- * debit, online, or cash — paid from a bank or credit-card account, tagged with
+ * debit, online, or cash — paid from a bank, credit-card, or loan account, tagged with
  * a payment method. Mirrors {@see Cheque}, which stays the dedicated print-a-
  * cheque document.
  *
@@ -31,7 +31,7 @@ class Expense extends Model
     use BelongsToCompany, SoftDeletes;
 
     /**
-     * The bank (asset) or credit-card (liability) account the money came from.
+     * The bank (asset), credit-card, or loan (liability) account the money came from.
      *
      * @return BelongsTo<Account, $this>
      */

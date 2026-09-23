@@ -137,6 +137,32 @@ class Account extends Model
             ->where('name', 'Employee Reimbursements Payable');
     }
 
+    /**
+     * Accounts a pay-now expense can be paid from: bank and credit-card
+     * accounts, plus the user's own loan-style liabilities (a Shareholder Loan
+     * when an owner pays personally). AP, tax payables, and system liabilities
+     * such as the payroll payables are excluded — their balances are settled
+     * by their own workflows.
+     *
+     * @param  Builder<Account>  $query
+     * @return Builder<Account>
+     */
+    public function scopeExpensePaymentSources(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])
+                ->orWhere(function (Builder $liability) {
+                    $liability
+                        ->whereIn('subtype', [
+                            AccountSubtype::CurrentLiability->value,
+                            AccountSubtype::LongTermLiability->value,
+                            AccountSubtype::OtherLiability->value,
+                        ])
+                        ->where('is_system', false);
+                });
+        });
+    }
+
     public function scopeSelectableForItemAccount(Builder $query): Builder
     {
         return $query

@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stops answering. Nothing is deleted — tickets already raised stay readable in
   the admin portal, so switching it back on loses nothing. See
   `config/support.php`.
+- **Pay an expense from a loan account** — an expense's Paid from now offers your
+  own liability accounts (current, long-term, or other) alongside bank and credit
+  card, so when an owner pays a business cost personally you can post it straight
+  to their Shareholder Loan: debit the expense and any recoverable tax, credit the
+  loan, in one entry with no clearing account. Accounts Payable, the sales-tax
+  payables, and system liabilities such as the payroll payables are not offered.
+  ([#50](https://github.com/lineledger/lineledger/issues/50))
 
 ### Changed
 

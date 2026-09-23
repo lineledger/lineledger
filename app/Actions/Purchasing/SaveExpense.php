@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  * posted expense must be voided and recreated (mirrors the cheque flow).
  *
  * Expected $data shape (cents-based, framework-agnostic):
- *   payment_account_id: int       (bank asset OR credit-card liability)
+ *   payment_account_id: int       (bank asset, credit card, or loan liability — see Account::scopeExpensePaymentSources)
  *   payment_method_id:  ?int
  *   reference:          ?string   (confirmation / cheque number, optional)
  *   expense_date:       string

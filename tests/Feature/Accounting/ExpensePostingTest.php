@@ -109,6 +109,44 @@ it('posts an expense with recoverable GST: DR expense + DR tax payable / CR bank
         ->and($gstPayable->fresh()->balance_cents)->toBe(-500); // ITC reduces payable
 });
 
+it('posts an expense paid by a shareholder: DR expense + DR tax payable / CR shareholder loan', function () {
+    $gst = TaxCode::where('code', 'GST')->firstOrFail();
+    $loan = Account::create([
+        'code' => '2780',
+        'name' => 'Shareholder Loan',
+        'subtype' => AccountSubtype::CurrentLiability->value,
+        'type' => AccountSubtype::CurrentLiability->type()->value,
+        'normal_balance' => AccountSubtype::CurrentLiability->type()->normalBalance()->value,
+    ]);
+
+    $exp = Expense::create([
+        'payment_account_id' => $loan->id,
+        'expense_date' => now()->toDateString(),
+        'payee_name' => 'Staples',
+    ]);
+    $exp->lines()->create([
+        'account_id' => $this->expense->id,
+        'description' => 'Printer paper',
+        'amount_cents' => 10000,
+        'tax_code_id' => $gst->id,
+        'tax_cents' => $gst->taxFor(10000),
+        'line_order' => 0,
+    ]);
+
+    app(ExpensePoster::class)->post($exp);
+    $exp->refresh();
+
+    $gstPayable = $gst->agency->payableAccount;
+
+    expect($exp->status)->toBe(ExpenseStatus::Posted)
+        ->and($exp->amount_cents)->toBe(10500)
+        // Owed to the shareholder for the gross amount; no cash moves.
+        ->and($loan->fresh()->balance_cents)->toBe(10500)
+        ->and($this->bank->fresh()->balance_cents)->toBe(0)
+        ->and($this->expense->fresh()->balance_cents)->toBe(10000)
+        ->and($gstPayable->fresh()->balance_cents)->toBe(-500);
+});
+
 it('voids a posted expense and reverses the GL', function () {
     $exp = Expense::create([
         'payment_account_id' => $this->bank->id,
