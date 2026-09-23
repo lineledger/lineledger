@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\DB;
  *   parent_id:          ?int
  *   description:        ?string
  *   is_active:          ?bool
+ *   use_in_transfers:   ?bool    (offer the account on the transfer form)
  *   cash_flow_activity: ?string  (CashFlowActivity value; ignored for accounts
  *                                 that are not their own cash-flow activity line)
  */
@@ -56,6 +57,10 @@ final class SaveAccount
 
             if (array_key_exists('is_active', $data)) {
                 $attributes['is_active'] = (bool) $data['is_active'];
+            }
+
+            if (array_key_exists('use_in_transfers', $data)) {
+                $attributes['use_in_transfers'] = (bool) $data['use_in_transfers'];
             }
 
             // Code is editable everywhere; subtype/type derivations stay protected on system accounts.

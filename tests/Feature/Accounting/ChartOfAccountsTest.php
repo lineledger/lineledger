@@ -313,3 +313,33 @@ it('links each account code and name to its General Ledger report', function () 
         ->assertSeeHtml('>'.$bank->code.'</a>')
         ->assertSeeHtml('>'.e($bank->name).'</a>');
 });
+
+it('persists the Include in transfers switch', function () {
+    $company = Company::factory()->create();
+    app()->instance('current_company', $company);
+
+    $loc = Account::create([
+        'code' => '2150',
+        'name' => 'Line of Credit',
+        'subtype' => AccountSubtype::CurrentLiability->value,
+        'type' => AccountSubtype::CurrentLiability->type()->value,
+        'normal_balance' => AccountSubtype::CurrentLiability->type()->normalBalance()->value,
+    ]);
+
+    Livewire::test('pages::accounts.index', ['company' => $company])
+        ->call('openEdit', $loc->id)
+        ->set('form_use_in_transfers', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($loc->fresh()->use_in_transfers)->toBeTrue();
+
+    Livewire::test('pages::accounts.index', ['company' => $company])
+        ->call('openEdit', $loc->id)
+        ->assertSet('form_use_in_transfers', true)
+        ->set('form_use_in_transfers', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($loc->fresh()->use_in_transfers)->toBeFalse();
+});

@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   point at, but no longer forces the banner, so a self-host that set it to get the
   right legal documents is no longer offered a trip to someone else's app.
 
+### Fixed
+
+- **"Include in transfers" now saves.** The switch on a Chart of Accounts
+  account was shown and read back, but saving never stored it, so a line of
+  credit or other non-bank account could not be added to the transfer form.
+
 ## [1.1.0] - 2026-09-18
 
 **Highlights.** An **Opening balances** workspace lets an organization that was set
