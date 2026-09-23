@@ -80,6 +80,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             <li>{{ __('With multi-currency on, a Bank or Credit Card account also offers a Currency. It is fixed once the account has activity.') }}</li>
             <li>{{ __('For most balance-sheet accounts you can enter an Opening balance (optional) and the As of date it starts from — see Opening balances below.') }}</li>
             <li>{{ __('Switch on Include in transfers if this account should appear in the From / To dropdowns when recording a transfer (a line of credit, for example). Bank and credit card accounts are always included.') }}</li>
+            <li>{{ __('On a current, long-term, or other liability, switch on Use to pay expenses if the account should appear under Paid from on an expense — a Shareholder Loan, for example, so a cost an owner paid personally posts straight to what the business owes them. Bank and credit card accounts are always offered; system accounts such as the payroll payables cannot be switched on.') }}</li>
             <li>{{ __('Leave Active on and select Save.') }}</li>
         </ol>
 

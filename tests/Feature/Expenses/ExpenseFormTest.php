@@ -148,7 +148,7 @@ it('keeps the line description when posting', function () {
         ->and($exp->lines->first()->description)->toBe('Hosting');
 });
 
-function expensePaidFromAccount(string $code, string $name, AccountSubtype $subtype, bool $system = false): Account
+function expensePaidFromAccount(string $code, string $name, AccountSubtype $subtype, bool $forExpenses = false, bool $system = false): Account
 {
     return Account::create([
         'code' => $code,
@@ -156,28 +156,28 @@ function expensePaidFromAccount(string $code, string $name, AccountSubtype $subt
         'subtype' => $subtype->value,
         'type' => $subtype->type()->value,
         'normal_balance' => $subtype->type()->normalBalance()->value,
+        'use_for_expenses' => $forExpenses,
         'is_system' => $system,
     ]);
 }
 
-it('offers non-system liability accounts under Paid from, but not control accounts', function () {
-    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
-    $longTerm = expensePaidFromAccount('2790', 'Loan from Director', AccountSubtype::LongTermLiability);
-    $payroll = expensePaidFromAccount('2499', 'Payroll Clearing', AccountSubtype::CurrentLiability, system: true);
-    $payables = Account::query()->where('subtype', AccountSubtype::AccountsPayable->value)->pluck('id');
-    $taxPayables = Account::query()->where('subtype', AccountSubtype::TaxPayable->value)->pluck('id');
+it('offers only liabilities switched on with Use to pay expenses under Paid from', function () {
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
+    $vehicle = expensePaidFromAccount('2710', 'Vehicle Loan', AccountSubtype::LongTermLiability);
+    $payroll = expensePaidFromAccount('2499', 'Payroll Clearing', AccountSubtype::CurrentLiability, forExpenses: true, system: true);
+    $payables = expensePaidFromAccount('2001', 'Other AP', AccountSubtype::AccountsPayable, forExpenses: true);
 
     $offered = Livewire::test('pages::expenses.form', ['company' => $this->company])
         ->instance()->paymentAccounts->pluck('id');
 
-    expect($offered)->toContain($this->bank->id, $loan->id, $longTerm->id)
+    expect($offered)->toContain($this->bank->id, $loan->id)
+        ->not->toContain($vehicle->id)
         ->not->toContain($payroll->id)
-        ->and($offered->intersect($payables))->toBeEmpty()
-        ->and($offered->intersect($taxPayables))->toBeEmpty();
+        ->not->toContain($payables->id);
 });
 
 it('posts an expense paid from a shareholder loan: the loan is credited', function () {
-    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
 
     Livewire::test('pages::expenses.form', ['company' => $this->company])
         ->set('payment_account_id', $loan->id)
@@ -195,8 +195,8 @@ it('posts an expense paid from a shareholder loan: the loan is credited', functi
         ->and($this->bank->fresh()->balance_cents)->toBe(0);
 });
 
-it('rejects a system or control liability as Paid from', function (AccountSubtype $subtype, bool $system) {
-    $account = expensePaidFromAccount('2498', 'Control', $subtype, $system);
+it('rejects an account not switched on for expenses as Paid from', function (AccountSubtype $subtype, bool $forExpenses, bool $system) {
+    $account = expensePaidFromAccount('2498', 'Not allowed', $subtype, $forExpenses, $system);
 
     Livewire::test('pages::expenses.form', ['company' => $this->company])
         ->set('payment_account_id', $account->id)
@@ -207,13 +207,38 @@ it('rejects a system or control liability as Paid from', function (AccountSubtyp
 
     expect(Expense::count())->toBe(0);
 })->with([
-    'system current liability' => [AccountSubtype::CurrentLiability, true],
-    'accounts payable' => [AccountSubtype::AccountsPayable, false],
-    'tax payable' => [AccountSubtype::TaxPayable, false],
+    'liability left switched off' => [AccountSubtype::CurrentLiability, false, false],
+    'system liability switched on' => [AccountSubtype::CurrentLiability, true, true],
+    'accounts payable switched on' => [AccountSubtype::AccountsPayable, true, false],
+    'tax payable switched on' => [AccountSubtype::TaxPayable, true, false],
+    'expense account switched on' => [AccountSubtype::Expense, true, false],
 ]);
 
+it('keeps a draft on its loan account after the switch is turned off', function () {
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $loan->id)
+        ->set('payee_name', 'Cloud Host')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    $loan->update(['use_for_expenses' => false]);
+    $exp = Expense::firstOrFail();
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company, 'expense' => $exp])
+        ->assertSet('payment_account_id', $loan->id)
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    // A new expense can no longer pick it.
+    expect(Livewire::test('pages::expenses.form', ['company' => $this->company])->instance()->paymentAccounts->pluck('id'))
+        ->not->toContain($loan->id);
+});
+
 it('does not remember a liability pick as the last banking account', function () {
-    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability);
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
 
     Livewire::test('pages::expenses.form', ['company' => $this->company])
         ->set('payment_account_id', $this->bank->id)

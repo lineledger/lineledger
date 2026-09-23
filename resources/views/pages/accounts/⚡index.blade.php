@@ -67,6 +67,8 @@ new #[Title('Chart of Accounts')] class extends Component {
 
     public bool $form_use_in_transfers = false;
 
+    public bool $form_use_for_expenses = false;
+
     public string $form_opening_balance = '';
 
     public string $form_opening_balance_as_of = '';
@@ -158,6 +160,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         $this->form_currency_code = $account->currency_code;
         $this->form_is_active = $account->is_active;
         $this->form_use_in_transfers = (bool) $account->use_in_transfers;
+        $this->form_use_for_expenses = (bool) $account->use_for_expenses;
         $this->form_opening_balance = '';
         $this->form_opening_balance_as_of = '';
 
@@ -223,6 +226,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             'form_currency_code' => ['nullable', 'string', Rule::in($this->currencyOptions->all())],
             'form_is_active' => ['boolean'],
             'form_use_in_transfers' => ['boolean'],
+            'form_use_for_expenses' => ['boolean'],
             'form_opening_balance' => [
                 'nullable', 'string', new MoneyString,
                 function (string $attribute, mixed $value, \Closure $fail): void {
@@ -259,6 +263,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                     ...($this->company->isMulticurrencyEnabled() ? ['currency_code' => $validated['form_currency_code'] ?: null] : []),
                     'is_active' => $validated['form_is_active'],
                     'use_in_transfers' => $validated['form_use_in_transfers'],
+                    'use_for_expenses' => $validated['form_use_for_expenses'],
                 ], $editing);
 
                 if ($openingCents > 0) {
@@ -676,6 +681,17 @@ new #[Title('Chart of Accounts')] class extends Component {
     }
 
     /**
+     * "Use to pay expenses" only shows for a non-system current, long-term,
+     * or other liability — bank and credit card are always offered.
+     */
+    #[Computed]
+    public function showUseForExpensesField(): bool
+    {
+        return (AccountSubtype::tryFrom($this->form_subtype)?->canOptIntoExpensePayments() ?? false)
+            && ! $this->isSystemBeingEdited();
+    }
+
+    /**
      * The default tax code select only shows for Income / Expense accounts.
      */
     #[Computed]
@@ -859,7 +875,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             'form_code', 'form_name', 'form_subtype',
             'form_parent_id', 'form_description', 'form_cash_flow_activity',
             'form_gifi_code', 'form_default_tax_code_id', 'form_currency_code',
-            'form_is_active', 'form_use_in_transfers', 'editingId',
+            'form_is_active', 'form_use_in_transfers', 'form_use_for_expenses', 'editingId',
             'form_opening_balance', 'form_opening_balance_as_of',
         ]);
         $this->form_is_active = true;
@@ -1187,6 +1203,10 @@ new #[Title('Chart of Accounts')] class extends Component {
 
             @if ($form_subtype && $form_subtype !== \App\Enums\AccountSubtype::Bank->value)
                 <flux:switch wire:model="form_use_in_transfers" :label="__('Include in transfers')" :description="__('Makes this account available in the From / To dropdowns when recording a transfer (e.g. a line of credit).')" />
+            @endif
+
+            @if ($this->showUseForExpensesField)
+                <flux:switch wire:model="form_use_for_expenses" :label="__('Use to pay expenses')" :description="__('Makes this account available under Paid from on an expense (e.g. a Shareholder Loan when an owner pays a business cost personally).')" data-test="account-use-for-expenses" />
             @endif
 
             <flux:switch wire:model="form_is_active" :label="__('Active')" />

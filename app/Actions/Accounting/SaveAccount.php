@@ -30,6 +30,9 @@ use Illuminate\Support\Facades\DB;
  *   description:        ?string
  *   is_active:          ?bool
  *   use_in_transfers:   ?bool    (offer the account on the transfer form)
+ *   use_for_expenses:   ?bool    (offer the account as an expense's Paid from;
+ *                                 kept only on non-system current, long-term,
+ *                                 or other liabilities)
  *   cash_flow_activity: ?string  (CashFlowActivity value; ignored for accounts
  *                                 that are not their own cash-flow activity line)
  */
@@ -83,6 +86,17 @@ final class SaveAccount
                 $attributes['subtype'] = $subtype;
                 $attributes['type'] = $subtype->type();
                 $attributes['normal_balance'] = $subtype->type()->normalBalance();
+            }
+
+            // "Use to pay expenses" only sticks on a user's own loan-style
+            // liability; anything else (including a system account, or an
+            // account retyped away from a liability) has it cleared.
+            if (array_key_exists('use_for_expenses', $data)) {
+                $effectiveSubtype = $typeLocked ? $account->subtype : $subtype;
+
+                $attributes['use_for_expenses'] = (bool) $data['use_for_expenses']
+                    && $effectiveSubtype->canOptIntoExpensePayments()
+                    && ! ($account !== null && $account->is_system);
             }
 
             // Only Bank / Credit Card accounts may be foreign-denominated, and the

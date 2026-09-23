@@ -252,7 +252,7 @@ new #[Title('Documentation — Vendors')] class extends Component {}; ?>
         <p><strong>{{ __('To record a pay-now expense:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open Purchases → Expenses from the sidebar, then select New expense.') }}</li>
-            <li>{{ __('In Paid from, choose the bank or credit-card account the money came out of, and pick a Payment method. If an owner paid personally, choose their Shareholder Loan (or any loan account you have set up) instead — the expense is then owed to them rather than taken from the bank, in one entry with no clearing account. Accounts Payable, sales-tax, and payroll payables are not offered.') }}</li>
+            <li>{{ __('In Paid from, choose the bank or credit-card account the money came out of, and pick a Payment method. If an owner paid personally, choose their Shareholder Loan instead — the expense is then owed to them rather than taken from the bank, in one entry with no clearing account. A liability appears here only once Use to pay expenses is switched on for it in the Chart of Accounts.') }}</li>
             <li>{{ __('Set the Date and add a Reference no. (a confirmation or cheque number) if you have one.') }}</li>
             <li>{{ __('In Paid to, start typing and pick who received the money — a vendor, customer, employee, or other name. For a one-off payee, choose Add “…” as Other name and it is created on the spot.') }}</li>
             <li>{{ __('The Memo prefills with the payee’s Account no. when they have one.') }}</li>

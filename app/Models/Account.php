@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'is_system',
     'is_active',
     'use_in_transfers',
+    'use_for_expenses',
     'description',
     'balance_cents',
 ])]
@@ -138,26 +139,29 @@ class Account extends Model
     }
 
     /**
-     * Accounts a pay-now expense can be paid from: bank and credit-card
-     * accounts, plus the user's own loan-style liabilities (a Shareholder Loan
-     * when an owner pays personally). AP, tax payables, and system liabilities
-     * such as the payroll payables are excluded — their balances are settled
-     * by their own workflows.
+     * Accounts a pay-now expense can be paid from: every bank and credit-card
+     * account, plus any liability the user has switched on with "Use to pay
+     * expenses" (a Shareholder Loan when an owner pays personally). The subtype
+     * and is_system checks repeat what SaveAccount enforces, so a flag left on
+     * an account later retyped or seeded as a system account is ignored.
      *
      * @param  Builder<Account>  $query
      * @return Builder<Account>
      */
     public function scopeExpensePaymentSources(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
+        $optInSubtypes = collect(AccountSubtype::cases())
+            ->filter(fn (AccountSubtype $subtype) => $subtype->canOptIntoExpensePayments())
+            ->map(fn (AccountSubtype $subtype) => $subtype->value)
+            ->values()
+            ->all();
+
+        return $query->where(function (Builder $q) use ($optInSubtypes) {
             $q->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])
-                ->orWhere(function (Builder $liability) {
-                    $liability
-                        ->whereIn('subtype', [
-                            AccountSubtype::CurrentLiability->value,
-                            AccountSubtype::LongTermLiability->value,
-                            AccountSubtype::OtherLiability->value,
-                        ])
+                ->orWhere(function (Builder $optedIn) use ($optInSubtypes) {
+                    $optedIn
+                        ->where('use_for_expenses', true)
+                        ->whereIn('subtype', $optInSubtypes)
                         ->where('is_system', false);
                 });
         });
@@ -246,6 +250,7 @@ class Account extends Model
             'is_system' => 'boolean',
             'is_active' => 'boolean',
             'use_in_transfers' => 'boolean',
+            'use_for_expenses' => 'boolean',
             'balance_cents' => 'integer',
         ];
     }
