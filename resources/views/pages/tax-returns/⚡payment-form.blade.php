@@ -305,7 +305,7 @@ new #[Title('Record tax payment')] class extends Component {
                     </flux:select>
                 @endif
 
-                <flux:input :label="__('Commission / processing fee')" wire:model.live="commission" data-test="commission-input" />
+                <flux:input :label="__('Commission / processing fee')" :description="__('A fee paid on top of the remittance. A collector’s commission you keep belongs on the return as an adjustment, not here.')" wire:model.live="commission" data-test="commission-input" />
                 @if (((float) $commission) > 0)
                     <flux:select wire:model="commission_account_id" :label="__('Commission account')" data-test="commission-account-select">
                         <flux:select.option value="">{{ __('Choose expense account…') }}</flux:select.option>

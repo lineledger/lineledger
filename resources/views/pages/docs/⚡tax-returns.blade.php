@@ -15,7 +15,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
         </flux:text>
 
         <flux:text>
-            {{ __('Tax returns live in the Reports area. Open Reports → All Reports from the sidebar and select Tax Returns under the Sales Tax heading. The list leads with the Period end and the Return # — the number opens the return’s page — followed by the Agency, the Period, the Collected, Paid, and Net amounts, and the Status: Draft, Filed, or Void. Filter by status, or search by return number or agency name. A draft shows 0.00 in the three amount columns until it is filed; its live figures are on the Edit form.') }}
+            {{ __('Tax returns live in the Reports area. Open Reports → All Reports from the sidebar and select Tax Returns under the Sales Tax heading. The list leads with the Period end and the Return # — the number opens the return’s page — followed by the Agency, the Period, the Collected, Paid, and Net amounts, and the Status: Draft, Filed, or Void. Filter by status, or search by return number or agency name. A draft shows its figures as of its last save; filing recalculates them from the ledger.') }}
         </flux:text>
 
         <x-docs.callout type="tip">
@@ -25,7 +25,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
         <x-docs.figure
             src="{{ asset('docs/screenshots/tax-returns/list.png') }}"
             alt="{{ __('The Tax returns list showing each return’s period end, return number, agency, period, collected and paid amounts, net, and a Draft or Filed status badge, with the search box, status filter, and File new return button above') }}"
-            caption="{{ __('The Tax returns list. The Return # opens the return; filter by status or search by return number or agency. A draft shows 0.00 until it is filed.') }}"
+            caption="{{ __('The Tax returns list. The Return # opens the return; filter by status or search by return number or agency.') }}"
         />
 
         {{-- ──────────────────── Which returns apply to you ───────────────────── --}}
@@ -57,8 +57,10 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
             <li>{{ __('The Return # is filled in for you — TR-000001, then counting up. You can type your own, but it must be unique within the organization — a duplicate is refused when you save.') }}</li>
             <li>{{ __('Choose the Tax agency you are filing with. Only active agencies are listed.') }}</li>
             <li>{{ __('Set the Period start and Period end. The form defaults to the previous calendar quarter; change the dates to match your filing period. A click anywhere in a date field opens the calendar.') }}</li>
-            <li>{{ __('Review the Preview. The Collected, Paid (ITCs), and Net owing tiles total the lines below, and the table lists each one with its Date, Entry #, Document, Bucket, and Amount. Tax on an invoice is Collected; tax on a bill or cheque is Paid — an input tax credit; anything else — a sales receipt, an expense, a credit memo, a manual journal entry — is classified by which side of the payable account it hit. An empty period reads “No transactions in this period for this agency.”') }}</li>
-            <li>{{ __('Uncheck Include on any line you want to leave out — for example an imported opening-balance line that belongs to an earlier filing. Excluded lines fade out and the tiles update as you toggle them.') }}</li>
+            <li>{{ __('Review the Preview. The Collected, Paid (ITCs), Adjustments, and Net owing tiles total the return, and the table lists each line on it with its Date, Entry #, Document, Bucket, and Amount. Tax on an invoice or sales receipt is Collected, and a credit memo lowers it; tax on a bill, cheque, or expense is Paid — an input tax credit — and a vendor credit lowers it. A manual journal entry is classified by which side of the payable account it hit. An empty period reads “No transactions in this period for this agency.”') }}</li>
+            <li>{{ __('Uncheck Include on any line you want to leave out. Excluded lines fade out and the tiles update as you toggle them.') }}</li>
+            <li>{{ __('Add any adjustments — a correction to the tax collected or the ITCs, a collector’s commission, a fee — with Add adjustment. See Adjustments and the reconciliation below.') }}</li>
+            <li>{{ __('Check the Reconciliation panel beneath: the return’s net owing beside what the agency’s payable account will hold once you file. The Difference should be 0.00. If it isn’t and you are sure of the return, tick File with a difference to accept it.') }}</li>
             <li>{{ __('Add an optional Filing reference (the government confirmation number) and any Notes.') }}</li>
             <li>{{ __('Select Save draft to come back to it later, or File return and confirm to lock in the snapshot. Either way you land on the return’s page, where a saved draft can also be filed later.') }}</li>
         </ol>
@@ -70,7 +72,22 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('What filing does') }}">
-            {{ __('Filing has no effect on your ledger — it is record-keeping only. A draft stores no figures of its own: every time you open it for editing, the Preview recalculates from your journal entries, and filing recalculates once more before it captures the contributing lines as a permanent, audit-ready snapshot. From then on the period is locked for that agency: posting, editing, or back-dating a transaction that uses that agency’s tax codes inside the filed period is refused, so the snapshot stays a faithful record of what you reported.') }}
+            {{ __('A draft’s figures recalculate from your journal entries every time you open it, and filing recalculates once more before it captures the contributing lines and the reconciliation as a permanent, audit-ready snapshot. Filing touches your ledger only through adjustments coded to an account other than the agency’s payable account: those post one journal entry, dated the last day of the period. From then on the period is locked for that agency: posting, editing, or back-dating a transaction that uses that agency’s tax codes inside the filed period is refused, so the snapshot stays a faithful record of what you reported.') }}
+        </x-docs.callout>
+
+        {{-- ────────────────── Adjustments and the reconciliation ────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('Adjustments and the reconciliation') }}</flux:heading>
+        <flux:text>
+            {{ __('An adjustment changes the return by any amount before you file it. Each one has a Type, an Account, an Amount, and a Memo. Collected and ITC adjustments add to that box — enter a negative amount to lower it. Other covers everything else on the return: a collector’s commission, a bank fee, or a balance carried from an earlier period. Its amount is signed by its effect on the net owing, so a commission you keep is negative.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The Account decides what filing does with it. Coded to the agency’s payable account, listed first as “no ledger entry”, an adjustment only changes the return — use it for an amount that is already in the ledger, such as a small underpayment left over from last period. Coded to any other account, filing posts it against the payable account. A −100.00 commission coded to a PST Commission Income account posts debit PST Payable 100.00, credit PST Commission Income 100.00. When you later pay the agency, the payment debits PST Payable for the net owing, adjustments included.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The Reconciliation panel sets the return beside the agency’s payable account in the general ledger. On the ledger side it starts from the Opening balance on the first day of the period, then adds the Payments and refunds made in the period, the tax Collected and the ITCs, and any lines you left off the return, to reach the Balance at the end of the period. It then adds the adjustments filing will post, giving the Balance after filing. The Difference is that balance less the return’s Net owing. When last period’s payment didn’t clear the account exactly, the leftover shows up here as the difference; add it as an Other adjustment on the payable account and the difference comes to 0.00.') }}
+        </flux:text>
+        <x-docs.callout type="note" heading="{{ __('Payments are not ITCs') }}">
+            {{ __('A payment to the agency is not tax, so it never counts on the return. That covers a payment recorded against a return, and a cheque, expense, deposit, or journal entry that moves money straight between the payable account and a bank or credit card. It appears only in the reconciliation, listed under the panel. One case looks like a payment but isn’t: a cheque that pays nothing but customs GST. Add its amount as an ITC adjustment on the payable account to claim it.') }}
         </x-docs.callout>
 
         <x-docs.callout type="warning">
@@ -89,7 +106,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
             {{ __('Selecting a Return # opens the return’s page, headed Tax return and its number, with the agency and period beneath. Badges show the status — Draft, Filed, or Void — plus Ref: with your filing reference once you have entered one, and a Filed stamp with the date, time, and who filed it. The buttons in the top-right corner depend on the status: a draft shows File return and an Actions menu holding Edit; a filed return shows Record payment (or Record refund, when the agency owes you) until a payment is posted, and an Actions menu holding Void.') }}
         </flux:text>
         <flux:text>
-            {{ __('Below the header, three tiles show Collected, Paid (ITCs), and Net owing, and the table lists the snapshot lines with their Date, Entry #, Document, Bucket, and Amount. For a draft the tiles read 0.00 and the table says “No snapshot lines yet — file the return to capture them”, because nothing is stored until you file — open Actions → Edit to see the live Preview. Beneath the table the agency’s registration number appears when one is on file, followed by your Notes. Only a draft can be edited; a filed return is frozen, so to change one, void it and file a new return.') }}
+            {{ __('Below the header, four tiles show Collected, Paid (ITCs), Adjustments, and Net owing, and the table lists the lines on the return with their Date, Entry #, Document, Bucket, and Amount. For a draft these are worked out live from the ledger and recalculate until you file; for a filed return they are the frozen snapshot. Any adjustments follow in their own table — a filed return links to the journal entry they posted — and then the Reconciliation panel. Beneath them the agency’s registration number appears when one is on file, followed by your Notes. Only a draft can be edited; a filed return is frozen, so to change one, void it and file a new return.') }}
         </flux:text>
 
         <x-docs.callout type="tip">
@@ -117,7 +134,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
             <li>{{ __('Open the filed return and select Record payment (or Record refund).') }}</li>
             <li>{{ __('The Payment # (TRP-000001 and counting, editable and unique like any document number) and the Payment date (today) are filled in for you. The Bank account defaults to your first bank account — change it if the money moves through a different one. Optionally pick a Payment method and type a Reference (the confirmation or tracking number).') }}</li>
             <li>{{ __('Under Amounts, the Net tax payment (Net tax refund on a refund) is pre-filled with the return’s net — adjust it if you are paying a different amount.') }}</li>
-            <li>{{ __('If they apply, enter a Penalty, Interest paid, or Commission / processing fee. Each amount you enter reveals its own selector — Penalty account, Interest account, or Commission account — listing your expense accounts, and you must pick one before the payment can be recorded. On a refund the only extra is Interest received, which needs an Interest income account.') }}</li>
+            <li>{{ __('If they apply, enter a Penalty, Interest paid, or Commission / processing fee. Each amount you enter reveals its own selector — Penalty account, Interest account, or Commission account — listing your expense accounts, and you must pick one before the payment can be recorded. The commission here is a fee paid on top of the remittance; a collector’s commission you keep belongs on the return as an adjustment instead. On a refund the only extra is Interest received, which needs an Interest income account.') }}</li>
             <li>{{ __('Add Notes if you like — they appear on the bank register row for this payment.') }}</li>
             <li>{{ __('Check the Total moving through bank, then select Record payment (or Record refund) and confirm. It posts to your books immediately and opens the payment’s page.') }}</li>
         </ol>
@@ -151,7 +168,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
         {{-- ──────────────────────────── Statuses ─────────────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Statuses') }}</flux:heading>
         <flux:text>
-            {{ __('A return moves through three statuses: Draft → Filed → Void. A draft can still be edited from Actions → Edit, and its numbers keep recalculating from your journal entries. Filing freezes the snapshot, locks the period for that agency, and unlocks Record payment. Voiding does not touch the ledger — it marks the return Void, keeps the snapshot rows for your audit trail, and unlocks the period so you can post in it again.') }}
+            {{ __('A return moves through three statuses: Draft → Filed → Void. A draft can still be edited from Actions → Edit, and its numbers keep recalculating from your journal entries. Filing freezes the snapshot, posts any adjustments coded to other accounts, locks the period for that agency, and unlocks Record payment. Voiding reverses the adjustments’ journal entry on its original date (refused if that date is on or before your closing date), marks the return Void, keeps the snapshot rows for your audit trail, and unlocks the period so you can post in it again.') }}
         </flux:text>
 
         <p><strong>{{ __('To void a filed return:') }}</strong></p>

@@ -111,6 +111,7 @@ use App\Models\StockMovement;
 use App\Models\TaxAgency;
 use App\Models\TaxCode;
 use App\Models\TaxReturn;
+use App\Models\TaxReturnAdjustment;
 use App\Models\TaxReturnLine;
 use App\Models\TaxReturnPayment;
 use App\Models\TimeEntry;
@@ -264,6 +265,7 @@ final class BackupTableRegistry
             // === Tax / Reconciliation / Assets ===
             ['table' => 'tax_returns', 'model' => TaxReturn::class, 'group' => 'tax'],
             ['table' => 'tax_return_lines', 'model' => TaxReturnLine::class, 'group' => 'tax'],
+            ['table' => 'tax_return_adjustments', 'model' => TaxReturnAdjustment::class, 'group' => 'tax'],
             ['table' => 'tax_return_payments', 'model' => TaxReturnPayment::class, 'group' => 'tax'],
             // partners (T5013 allocation) carry only company_id — no parent FK, so
             // no PARENT_FK_MAP entry is needed; the generic company_id swap suffices.

@@ -6,15 +6,24 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\NormalBalance;
 use App\Enums\ReportStatement;
+use App\Enums\SalesTaxBucket;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\CreditMemo;
+use App\Models\Deposit;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\OpeningBalanceState;
 use App\Models\ReportSection;
+use App\Models\SalesReceipt;
 use App\Models\TaxAgency;
+use App\Models\TaxReturn;
+use App\Models\TaxReturnPayment;
+use App\Models\VendorCredit;
 use App\Support\Reporting\CashFlowBucket;
 use App\Support\Reporting\SectionPartitioner;
 use Carbon\CarbonImmutable;
@@ -36,6 +45,19 @@ use Illuminate\Support\Facades\DB;
  */
 class ReportCalculator
 {
+    /**
+     * Source types whose entry is a remittance when it moves money straight
+     * between the payable account and a bank: a cheque, expense or deposit coded
+     * to the tax account, a journal entry, or a QuickBooks-imported one.
+     */
+    protected const REMITTANCE_CAPABLE_SOURCES = [
+        null,
+        'qbd_import',
+        Cheque::class,
+        Expense::class,
+        Deposit::class,
+    ];
+
     /**
      * Net balance for an account as of the end of the given date (inclusive).
      */
@@ -971,10 +993,13 @@ class ReportCalculator
         $collected = 0;
         $paid = 0;
 
+        // Only the two return buckets count. Payments, a filed return's own
+        // adjustment entry and the opening balance move the payable account too,
+        // but they are not tax collected or input tax credits.
         foreach ($this->salesTaxLines($agency, $start, $end) as $line) {
-            if ($line['bucket'] === 'collected') {
+            if ($line['bucket'] === SalesTaxBucket::Collected->value) {
                 $collected += $line['amount_cents'];
-            } else {
+            } elseif ($line['bucket'] === SalesTaxBucket::Paid->value) {
                 $paid += $line['amount_cents'];
             }
         }
@@ -987,40 +1012,58 @@ class ReportCalculator
     }
 
     /**
-     * Source documents contributing to the agency's collected / paid totals for the period.
+     * Every posted line on the agency's payable account dated in the period,
+     * classified into a {@see SalesTaxBucket}.
      *
-     * Lines are classified by the originating document — invoices contribute to "collected"
-     * regardless of debit/credit polarity, bills and cheques contribute to "paid". A reversal
-     * inherits the bucket of the document it reverses, so voiding an invoice subtracts from
+     * Lines are classified by the originating document — invoices, sales
+     * receipts and credit memos contribute to "collected"; bills, cheques,
+     * expenses and vendor credits to "paid" — so a credit memo lowers the tax
+     * collected rather than posing as an input tax credit. A reversal inherits
+     * the bucket of the entry it reverses, so voiding an invoice subtracts from
      * "collected" rather than turning into a negative ITC.
      *
-     * @return Collection<int, array{bucket: 'collected'|'paid', amount_cents: int, journal_line_id: int, entry_id: int, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: ?int, doc_label: string, is_reversal: bool}>
+     * `amount_cents` is signed for its bucket (positive on a normal sale for
+     * "collected", on a normal purchase or remittance for "paid"/"payment");
+     * `balance_effect_cents` is credit − debit, the line's effect on what is owed.
+     *
+     * Filters on the lines' own denormalised `entry_date` (always a Y-m-d string)
+     * with date-string bounds, so a line dated on the period's first day is never
+     * dropped on SQLite by a `Y-m-d 00:00:00` comparison.
+     *
+     * @return Collection<int, array{bucket: 'collected'|'paid'|'payment'|'adjustment'|'opening', amount_cents: int, balance_effect_cents: int, journal_line_id: int, entry_id: int, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: int<0, max>|null, doc_label: string, is_reversal: bool}>
      */
     public function salesTaxLines(TaxAgency $agency, CarbonInterface $start, CarbonInterface $end): Collection
     {
         $lines = JournalLine::query()
             ->where('account_id', $agency->payable_account_id)
-            ->whereHas('journalEntry', fn ($q) => $q
-                ->where('is_posted', true)
-                ->whereBetween('entry_date', [$start, $end])
-            )
+            ->where('is_posted', true)
+            ->where('entry_date', '>=', CarbonImmutable::parse($start)->toDateString())
+            ->where('entry_date', '<=', CarbonImmutable::parse($end)->toDateString())
             ->with(['journalEntry.source', 'journalEntry.reverses.source'])
+            ->orderBy('entry_date')
+            ->orderBy('id')
             ->get();
 
-        return $lines->map(function (JournalLine $line) {
+        $remittances = $this->remittanceEntryIds(
+            $lines->map(fn (JournalLine $line) => $line->journalEntry->reverses ?: $line->journalEntry),
+            (int) $agency->payable_account_id,
+        );
+
+        return $lines->map(function (JournalLine $line) use ($remittances) {
             $entry = $line->journalEntry;
             $origin = $entry->reverses ?: $entry;
             $isReversal = $entry->reverses_entry_id !== null;
 
-            [$bucket, $signedAmount] = $this->classifySalesTaxLine($origin, $line, $isReversal);
+            [$bucket, $signedAmount] = $this->classifySalesTaxLine($origin, $line, isset($remittances[(int) $origin->id]));
 
             if ($bucket === null) {
                 return null;
             }
 
             return [
-                'bucket' => $bucket,
+                'bucket' => $bucket->value,
                 'amount_cents' => $signedAmount,
+                'balance_effect_cents' => (int) $line->credit_cents - (int) $line->debit_cents,
                 'journal_line_id' => (int) $line->id,
                 'entry_id' => (int) $entry->id,
                 'entry_no' => (string) $entry->entry_no,
@@ -1034,32 +1077,124 @@ class ReportCalculator
     }
 
     /**
-     * @return array{0: 'collected'|'paid'|null, 1: int}
+     * Opening balance owed to the agency — credit − debit on its payable account
+     * across every posted line dated before $start.
      */
-    protected function classifySalesTaxLine(JournalEntry $origin, JournalLine $line, bool $isReversal): array
+    public function salesTaxOpeningBalance(TaxAgency $agency, CarbonInterface $start): int
+    {
+        return $this->salesTaxBalanceWhere($agency, '<', $start);
+    }
+
+    /**
+     * Closing balance owed to the agency — credit − debit on its payable account
+     * across every posted line dated on or before $end.
+     */
+    public function salesTaxClosingBalance(TaxAgency $agency, CarbonInterface $end): int
+    {
+        return $this->salesTaxBalanceWhere($agency, '<=', $end);
+    }
+
+    protected function salesTaxBalanceWhere(TaxAgency $agency, string $operator, CarbonInterface $date): int
+    {
+        $row = JournalLine::query()
+            ->where('account_id', $agency->payable_account_id)
+            ->where('is_posted', true)
+            ->where('entry_date', $operator, CarbonImmutable::parse($date)->toDateString())
+            ->selectRaw('COALESCE(SUM(credit_cents), 0) AS credits, COALESCE(SUM(debit_cents), 0) AS debits')
+            ->first();
+
+        return (int) ($row->credits ?? 0) - (int) ($row->debits ?? 0);
+    }
+
+    /**
+     * The origin entries that are remittances to (or refunds from) the agency,
+     * as an id-keyed set.
+     *
+     * Classified by the entry's shape, never its memos: an imported cheque
+     * carries its tax as an ordinary body line coded to the payable account, so
+     * the only reliable sign of a remittance is that every other leg is money —
+     * a bank, credit card or undeposited-funds account (or another agency's
+     * payable, when one cheque pays two agencies). A purchase always has an
+     * expense or asset leg beside its input tax credit.
+     *
+     * @param  Collection<int, JournalEntry>  $origins
+     * @return array<int, true>
+     */
+    protected function remittanceEntryIds(Collection $origins, int $payableAccountId): array
+    {
+        $candidateIds = $origins
+            ->filter(fn (JournalEntry $origin) => in_array($origin->source_type, self::REMITTANCE_CAPABLE_SOURCES, true))
+            ->map(fn (JournalEntry $origin) => (int) $origin->id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($candidateIds === []) {
+            return [];
+        }
+
+        $money = [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value, AccountSubtype::UndepositedFunds->value];
+        $allowed = [...$money, AccountSubtype::TaxPayable->value];
+
+        $legs = JournalLine::query()
+            ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->whereIn('journal_lines.journal_entry_id', $candidateIds)
+            ->where('journal_lines.account_id', '!=', $payableAccountId)
+            ->get(['journal_lines.journal_entry_id', 'accounts.subtype'])
+            ->groupBy('journal_entry_id');
+
+        $remittances = [];
+
+        foreach ($legs as $entryId => $entryLegs) {
+            $subtypes = $entryLegs->pluck('subtype')->map(fn ($subtype) => $subtype instanceof AccountSubtype ? $subtype->value : (string) $subtype);
+
+            if ($subtypes->intersect($money)->isNotEmpty() && $subtypes->diff($allowed)->isEmpty()) {
+                $remittances[(int) $entryId] = true;
+            }
+        }
+
+        return $remittances;
+    }
+
+    /**
+     * @return array{0: ?SalesTaxBucket, 1: int}
+     */
+    protected function classifySalesTaxLine(JournalEntry $origin, JournalLine $line, bool $isRemittance): array
     {
         $credit = (int) $line->credit_cents;
         $debit = (int) $line->debit_cents;
         $salesContribution = $credit - $debit;   // positive on a normal sale
-        $itcContribution = $debit - $credit;     // positive on a normal purchase
+        $itcContribution = $debit - $credit;     // positive on a normal purchase or remittance
 
         $sourceType = $origin->source_type;
 
-        if ($sourceType === Invoice::class) {
-            return ['collected', $salesContribution];
+        if ($sourceType === TaxReturnPayment::class || $isRemittance) {
+            return [SalesTaxBucket::Payment, $itcContribution];
         }
 
-        if ($sourceType === Bill::class || $sourceType === Cheque::class) {
-            return ['paid', $itcContribution];
+        if ($sourceType === TaxReturn::class) {
+            return [SalesTaxBucket::Adjustment, $salesContribution];
+        }
+
+        if ($sourceType === OpeningBalanceState::class) {
+            return [SalesTaxBucket::Opening, $salesContribution];
+        }
+
+        if (in_array($sourceType, [Invoice::class, SalesReceipt::class, CreditMemo::class], true)) {
+            return [SalesTaxBucket::Collected, $salesContribution];
+        }
+
+        if (in_array($sourceType, [Bill::class, Cheque::class, Expense::class, VendorCredit::class], true)) {
+            return [SalesTaxBucket::Paid, $itcContribution];
         }
 
         // Manual JE or unknown source: classify by polarity. Reversal of a manual JE
         // still inherits the original's polarity since `$origin` is the original.
         if ($credit > 0 && $debit === 0) {
-            return ['collected', $credit];
+            return [SalesTaxBucket::Collected, $credit];
         }
         if ($debit > 0 && $credit === 0) {
-            return ['paid', $debit];
+            return [SalesTaxBucket::Paid, $debit];
         }
 
         return [null, 0];
@@ -1073,6 +1208,14 @@ class ReportCalculator
             $source instanceof Invoice => 'Invoice '.($source->invoice_no ?? ('#'.$source->id)),
             $source instanceof Bill => 'Bill '.($source->bill_no ?? ('#'.$source->id)),
             $source instanceof Cheque => 'Cheque '.($source->cheque_no ?? ('#'.$source->id)),
+            $source instanceof SalesReceipt => 'Sales receipt '.($source->sales_receipt_no ?? ('#'.$source->id)),
+            $source instanceof CreditMemo => 'Credit memo '.($source->credit_memo_no ?? ('#'.$source->id)),
+            $source instanceof VendorCredit => 'Vendor credit '.($source->vendor_credit_no ?? ('#'.$source->id)),
+            $source instanceof Expense => 'Expense '.($source->reference ?: ('#'.$source->id)),
+            $source instanceof Deposit => 'Deposit '.($source->deposit_no ?? ('#'.$source->id)),
+            $source instanceof TaxReturnPayment => 'Tax payment '.($source->payment_no ?? ('#'.$source->id)),
+            $source instanceof TaxReturn => 'Tax return '.($source->tax_return_no ?? ('#'.$source->id)).' adjustments',
+            $source instanceof OpeningBalanceState => 'Opening balance',
             default => 'Journal '.$origin->entry_no,
         };
 

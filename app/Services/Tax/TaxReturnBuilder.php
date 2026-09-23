@@ -10,16 +10,16 @@ use Illuminate\Support\Collection;
 
 /**
  * Pure read service. Given an agency + period, returns the live list of journal
- * lines that contribute to its tax balance — the candidate rows that filing
- * would snapshot. Reused by both the create-form preview and the show page for
- * draft returns.
+ * lines on its payable account, each classified into a SalesTaxBucket — the
+ * collected / paid rows are the candidates filing would snapshot. A return's
+ * full figures and reconciliation come from {@see TaxReturnCalculator}.
  */
 class TaxReturnBuilder
 {
     public function __construct(protected ReportCalculator $reports) {}
 
     /**
-     * @return Collection<int, array{bucket: 'collected'|'paid', amount_cents: int, entry_id: int, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: ?int, doc_label: string, is_reversal: bool, journal_line_id: ?int}>
+     * @return Collection<int, array{bucket: 'collected'|'paid'|'payment'|'adjustment'|'opening', amount_cents: int, balance_effect_cents: int, journal_line_id: int, entry_id: int, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: int<0, max>|null, doc_label: string, is_reversal: bool}>
      */
     public function build(TaxAgency $agency, CarbonInterface $start, CarbonInterface $end): Collection
     {

@@ -184,6 +184,10 @@ final class RowTransformer
             'journal_line_id' => 'journal_lines',
             'journal_entry_id' => 'journal_entries',
         ],
+        'tax_return_adjustments' => [
+            'tax_return_id' => 'tax_returns',
+            'account_id' => 'accounts',
+        ],
         'stock_adjustment_lines' => [
             'stock_adjustment_id' => 'stock_adjustments',
             'item_id' => 'items',
@@ -398,6 +402,7 @@ final class RowTransformer
         ],
         'tax_returns' => [
             'tax_agency_id' => 'tax_agencies',
+            'adjustment_journal_entry_id' => 'journal_entries',
         ],
         'tax_return_payments' => [
             'tax_return_id' => 'tax_returns',

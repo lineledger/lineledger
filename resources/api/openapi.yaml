@@ -681,10 +681,10 @@ paths:
     delete: { tags: [Tax], summary: Delete a draft return (filed or voided returns cannot be deleted), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /tax-returns/{taxReturn}/file:
     parameters: [{ $ref: '#/components/parameters/taxReturn' }]
-    post: { tags: [Tax], summary: File a draft tax return (snapshots the contributing lines), responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Tax], summary: "File a draft tax return (snapshots the contributing lines and posts the adjustments coded to other accounts; 422 when it doesn't agree with the tax payable account unless accepted_difference_cents names the difference)", requestBody: {$ref: '#/components/requestBodies/TaxReturnFile'}, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /tax-returns/{taxReturn}/void:
     parameters: [{ $ref: '#/components/parameters/taxReturn' }]
-    post: { tags: [Tax], summary: Void a filed tax return (record-keeping only — no GL impact), requestBody: {$ref: '#/components/requestBodies/TaxReturnVoid'}, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    post: { tags: [Tax], summary: Void a filed tax return (reverses the journal entry its adjustments posted), requestBody: {$ref: '#/components/requestBodies/TaxReturnVoid'}, responses: { '200': {$ref: '#/components/responses/TaxReturn'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /tax-return-payments:
     get:
@@ -1745,14 +1745,41 @@ components:
         period_start: { type: string, format: date }
         period_end: { type: string, format: date }
         status: { type: string, enum: [draft, filed, void] }
-        collected_cents: { type: integer }
-        paid_cents: { type: integer }
-        net_cents: { type: integer, description: "collected less paid; positive means owing." }
+        collected_cents: { type: integer, description: "Tax collected, including collected adjustments. Provisional on a draft; frozen on filing." }
+        paid_cents: { type: integer, description: "Input tax credits, including ITC adjustments." }
+        other_adjustments_cents: { type: integer, description: "Sum of the Other adjustments, signed by their effect on the net owing (a commission is negative)." }
+        net_cents: { type: integer, description: "collected less paid plus other adjustments; positive means owing." }
+        adjustment_journal_entry_id: { type: [integer, "null"], description: "The journal entry filing posted for adjustments coded to an account other than the tax payable account." }
+        reconciliation:
+          type: [object, "null"]
+          description: "The return set beside the tax payable account, frozen on filing (null on a draft and on returns filed before reconciliation existed). Ledger figures are each an effect on what is owed: tax collected positive, ITCs and payments negative."
+          additionalProperties: { type: integer }
+          properties:
+            opening_cents: { type: integer }
+            opening_entries_cents: { type: integer }
+            payments_cents: { type: integer }
+            collected_cents: { type: integer }
+            itc_cents: { type: integer }
+            excluded_cents: { type: integer }
+            prior_adjustments_cents: { type: integer }
+            unclassified_cents: { type: integer }
+            closing_cents: { type: integer }
+            to_post_cents: { type: integer }
+            projected_cents: { type: integer }
+            return_collected_cents: { type: integer }
+            return_itc_cents: { type: integer }
+            return_other_cents: { type: integer }
+            return_net_cents: { type: integer }
+            difference_cents: { type: integer, description: "projected_cents less return_net_cents." }
+            accepted_difference_cents: { type: integer }
         filing_reference: { type: [string, "null"] }
         notes: { type: [string, "null"] }
         filed_at: { type: [string, "null"], format: date-time }
         voided_at: { type: [string, "null"], format: date-time }
         void_reason: { type: [string, "null"] }
+        adjustments:
+          type: array
+          items: { $ref: '#/components/schemas/TaxReturnAdjustment' }
         lines:
           type: array
           description: The journal lines snapshotted when the return was filed (empty on a draft).
@@ -1780,6 +1807,34 @@ components:
         period_end: { type: string, format: date, description: "On or after period_start." }
         filing_reference: { type: [string, "null"], maxLength: 120 }
         notes: { type: [string, "null"], maxLength: 2000 }
+        excluded_journal_line_ids:
+          type: array
+          description: "Journal lines to leave off the return. Omit to keep the saved list; an empty array clears it."
+          items: { type: integer }
+        adjustments:
+          type: array
+          description: "Replaces the return's adjustments. Omit to keep the saved ones; an empty array clears them."
+          items: { $ref: '#/components/schemas/TaxReturnAdjustmentInput' }
+    TaxReturnAdjustment:
+      type: object
+      properties:
+        id: { type: integer }
+        kind: { type: string, enum: [collected, paid, other] }
+        account_id: { type: integer }
+        amount_cents: { type: integer }
+        memo: { type: [string, "null"] }
+    TaxReturnAdjustmentInput:
+      type: object
+      required: [kind, account_id, amount_cents]
+      properties:
+        kind: { type: string, enum: [collected, paid, other], description: "collected and paid add to that box; other is signed by its effect on the net owing (a commission is negative)." }
+        account_id: { type: integer, description: "The agency's tax payable account for an amount already in the ledger (no entry is posted); any other account posts against the tax payable account on filing, dated the period's last day. Not an AR/AP control account." }
+        amount_cents: { type: integer, description: "Non-zero." }
+        memo: { type: [string, "null"], maxLength: 255 }
+    TaxReturnFileInput:
+      type: object
+      properties:
+        accepted_difference_cents: { type: [integer, "null"], description: "The difference from the tax payable account you accept filing with. Must equal the live difference." }
     TaxReturnVoidInput:
       type: object
       properties:
@@ -1886,6 +1941,7 @@ components:
     TaxCode: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxCodeInput' } } } }
     TaxAgency: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxAgencyInput' } } } }
     TaxReturn: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnInput' } } } }
+    TaxReturnFile: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnFileInput' } } } }
     TaxReturnVoid: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnVoidInput' } } } }
     TaxReturnPayment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxReturnPaymentInput' } } } }
     PaymentTerm: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentTermInput' } } } }

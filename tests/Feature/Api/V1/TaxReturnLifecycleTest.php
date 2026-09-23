@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\TaxCode;
 use App\Models\TaxReturn;
+use App\Models\TaxReturnAdjustment;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\TaxCalculator;
 
@@ -171,4 +172,91 @@ it('forbids writes with a read-only key', function () {
 
     $this->postJson('/api/v1/tax-returns', taxReturnPayload(), ['Authorization' => "Bearer {$readPlain}"])
         ->assertStatus(403);
+});
+
+it('creates a draft with adjustments and reports its provisional figures', function () {
+    seedTaxableInvoice(10000);
+    $payableId = $this->gst->agency->payable_account_id;
+
+    $response = $this->postJson('/api/v1/tax-returns', taxReturnPayload([
+        'adjustments' => [
+            ['kind' => 'collected', 'account_id' => $payableId, 'amount_cents' => 200, 'memo' => 'Cash sale'],
+        ],
+    ]), taxAuthHeader())->assertStatus(201);
+
+    $response->assertJsonPath('data.status', 'draft')
+        ->assertJsonPath('data.collected_cents', 700)
+        ->assertJsonPath('data.net_cents', 700)
+        ->assertJsonPath('data.adjustments.0.kind', 'collected')
+        ->assertJsonPath('data.adjustments.0.amount_cents', 200)
+        ->assertJsonPath('data.adjustments.0.memo', 'Cash sale');
+});
+
+it('keeps adjustments and excluded lines when an update omits them', function () {
+    seedTaxableInvoice(10000);
+    $payableId = $this->gst->agency->payable_account_id;
+
+    $id = $this->postJson('/api/v1/tax-returns', taxReturnPayload([
+        'excluded_journal_line_ids' => [987654],
+        'adjustments' => [['kind' => 'other', 'account_id' => $payableId, 'amount_cents' => 150]],
+    ]), taxAuthHeader())->json('data.id');
+
+    $this->patchJson("/api/v1/tax-returns/{$id}", taxReturnPayload(['notes' => 'Edited']), taxAuthHeader())
+        ->assertOk()
+        ->assertJsonPath('data.notes', 'Edited')
+        ->assertJsonCount(1, 'data.adjustments');
+
+    expect(TaxReturn::withoutGlobalScopes()->findOrFail($id)->excluded_journal_line_ids)->toBe([987654]);
+
+    $this->patchJson("/api/v1/tax-returns/{$id}", taxReturnPayload(['adjustments' => []]), taxAuthHeader())
+        ->assertOk()
+        ->assertJsonCount(0, 'data.adjustments');
+});
+
+it('refuses to file a return that differs from the ledger until the difference is accepted', function () {
+    seedTaxableInvoice(10000);
+    $payableId = $this->gst->agency->payable_account_id;
+
+    // 10.00 on the return that the ledger doesn't hold: the return is 10.00 over.
+    $id = $this->postJson('/api/v1/tax-returns', taxReturnPayload([
+        'adjustments' => [['kind' => 'other', 'account_id' => $payableId, 'amount_cents' => 1000]],
+    ]), taxAuthHeader())->json('data.id');
+
+    $this->postJson("/api/v1/tax-returns/{$id}/file", [], taxAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'The return does not agree with the tax payable account; adjust it or accept the difference to file anyway.');
+
+    $this->postJson("/api/v1/tax-returns/{$id}/file", ['accepted_difference_cents' => -500], taxAuthHeader())
+        ->assertStatus(422);
+
+    $this->postJson("/api/v1/tax-returns/{$id}/file", ['accepted_difference_cents' => -1000], taxAuthHeader())
+        ->assertOk()
+        ->assertJsonPath('data.status', 'filed')
+        ->assertJsonPath('data.net_cents', 1500)
+        ->assertJsonPath('data.reconciliation.difference_cents', -1000)
+        ->assertJsonPath('data.reconciliation.accepted_difference_cents', -1000);
+});
+
+it('deletes a draft together with its adjustments', function () {
+    $payableId = $this->gst->agency->payable_account_id;
+
+    $id = $this->postJson('/api/v1/tax-returns', taxReturnPayload([
+        'adjustments' => [['kind' => 'other', 'account_id' => $payableId, 'amount_cents' => 150]],
+    ]), taxAuthHeader())->json('data.id');
+
+    $this->deleteJson("/api/v1/tax-returns/{$id}", [], taxAuthHeader())->assertStatus(204);
+
+    expect(TaxReturnAdjustment::withoutGlobalScopes()->where('tax_return_id', $id)->exists())->toBeFalse();
+});
+
+it('rejects an adjustment with a zero amount or another company’s account', function () {
+    $foreignAccount = Account::withoutGlobalScopes()
+        ->where('company_id', Company::factory()->create()->id)
+        ->firstOrFail();
+
+    $this->postJson('/api/v1/tax-returns', taxReturnPayload([
+        'adjustments' => [['kind' => 'other', 'account_id' => $foreignAccount->id, 'amount_cents' => 0]],
+    ]), taxAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['adjustments.0.account_id', 'adjustments.0.amount_cents']);
 });

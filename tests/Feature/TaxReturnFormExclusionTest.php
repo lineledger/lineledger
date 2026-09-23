@@ -117,12 +117,12 @@ it('drops an unchecked line from the preview totals', function () {
         ->set('period_start', $this->start->toDateString())
         ->set('period_end', $this->end->toDateString());
 
-    expect($component->get('preview')['paid'])->toBe(250);
+    expect($component->instance()->preview->paidCents)->toBe(250);
 
     $component->call('toggleLine', $lineId);
 
-    expect($component->get('preview')['paid'])->toBe(0);
-    expect($component->get('preview')['collected'])->toBe(500);
+    expect($component->instance()->preview->paidCents)->toBe(0);
+    expect($component->instance()->preview->collectedCents)->toBe(500);
 });
 
 it('persists exclusions on save draft and omits them when filed', function () {
@@ -141,7 +141,9 @@ it('persists exclusions on save draft and omits them when filed', function () {
     $return = TaxReturn::where('tax_return_no', 'TR-FORM-EXCL')->firstOrFail();
     expect($return->excluded_journal_line_ids)->toBe([$lineId]);
 
-    $filed = app(TaxReturnFiler::class)->file($return);
+    // The excluded ITC is still in the ledger, so the return is 2.50 short of
+    // the payable account and files only with that difference accepted.
+    $filed = app(TaxReturnFiler::class)->file($return, -250);
 
     expect($filed->status)->toBe(TaxReturnStatus::Filed);
     expect($filed->lines)->toHaveCount(1);

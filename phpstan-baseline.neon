@@ -2977,12 +2977,6 @@ parameters:
 			path: app/Services/Reporting/ReportCalculator.php
 
 		-
-			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:salesTaxLines\(\) should return Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, \.\.\.\}\> but returns Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\<0, max\>\|null, \.\.\.\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Reporting/ReportCalculator.php
-
-		-
 			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:trialBalance\(\) should return Illuminate\\Support\\Collection\<int, array\{account\: App\\Models\\Account, balance\: int\}\> but returns Illuminate\\Support\\Collection\<int, array\{account\: App\\Models\\Account, balance\: int\<min, \-1\>\|int\<1, max\>\}\>\.$#'
 			identifier: return.type
 			count: 1
@@ -3275,12 +3269,6 @@ parameters:
 			identifier: property.nonObject
 			count: 1
 			path: app/Services/Tax/CcaCalculator.php
-
-		-
-			message: '#^Method App\\Services\\Tax\\TaxReturnBuilder\:\:build\(\) should return Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, doc_label\: string, \.\.\.\}\> but returns Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, \.\.\.\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Tax/TaxReturnBuilder.php
 
 		-
 			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaxReturnStatus\:\:Draft will always evaluate to true\.$#'

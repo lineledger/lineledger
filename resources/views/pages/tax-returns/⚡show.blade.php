@@ -9,9 +9,12 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\TaxReturn;
+use App\Services\Tax\TaxReturnCalculator;
+use App\Services\Tax\TaxReturnFigures;
 use App\Services\Tax\TaxReturnFiler;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -24,6 +27,9 @@ new #[Title('Tax return')] class extends Component {
 
     public string $voidReason = '';
 
+    /** What the page shows of a return, loaded on mount and after every change. */
+    private const RELATIONS = ['lines', 'taxAgency.payableAccount', 'filedBy', 'voidedBy', 'payments', 'adjustments.account', 'adjustmentJournalEntry'];
+
     protected function editLockRecord(): ?Model
     {
         return $this->taxReturn;
@@ -32,7 +38,43 @@ new #[Title('Tax return')] class extends Component {
     public function mount(Company $company, TaxReturn $tax_return): void
     {
         $this->company = $company;
-        $this->taxReturn = $tax_return->load('lines', 'taxAgency.payableAccount', 'filedBy', 'voidedBy', 'payments');
+        $this->taxReturn = $tax_return->load(self::RELATIONS);
+    }
+
+    /**
+     * A draft's figures, worked out live from the ledger — it stores no
+     * snapshot until it is filed. Null once the return is filed or void.
+     */
+    #[Computed]
+    public function draftFigures(): ?TaxReturnFigures
+    {
+        return $this->taxReturn->status === TaxReturnStatus::Draft
+            ? app(TaxReturnCalculator::class)->forReturn($this->taxReturn)
+            : null;
+    }
+
+    /**
+     * The lines on the return: a draft's live ones, or a filed return's
+     * snapshot, in one shape.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function returnRows(): \Illuminate\Support\Collection
+    {
+        if ($this->draftFigures) {
+            return $this->draftFigures->includedLines();
+        }
+
+        return $this->taxReturn->lines->map(fn ($line) => [
+            'entry_date' => $line->entry_date,
+            'entry_no' => $line->entry_no,
+            'entry_id' => $line->journal_entry_id,
+            'doc_label' => $line->doc_label,
+            'bucket' => $line->bucket,
+            'amount_cents' => (int) $line->amount_cents,
+            'source_type' => $line->source_type,
+            'source_id' => $line->source_id,
+        ]);
     }
 
     #[GuardsEditLock]
@@ -40,6 +82,12 @@ new #[Title('Tax return')] class extends Component {
     {
         try {
             $filed = $filer->file($this->taxReturn);
+        } catch (\App\Exceptions\Posting\TaxReturnOutOfBalanceException $e) {
+            Flux::toast(variant: 'danger', text: __('This return differs from the ledger by :amount. Open Edit to adjust it, or to file with the difference.', [
+                'amount' => number_format(($this->draftFigures?->differenceCents() ?? 0) / 100, 2),
+            ]));
+
+            return;
         } catch (\RuntimeException $e) {
             Flux::toast(variant: 'danger', text: $e->getMessage());
 
@@ -47,7 +95,8 @@ new #[Title('Tax return')] class extends Component {
         }
 
         Flux::toast(variant: 'success', text: __('Tax return filed.'));
-        $this->taxReturn = $filed;
+        $this->taxReturn = $filed->load(self::RELATIONS);
+        unset($this->draftFigures);
     }
 
     #[GuardsEditLock]
@@ -72,23 +121,27 @@ new #[Title('Tax return')] class extends Component {
         Flux::toast(variant: 'success', text: __('Tax return voided. Period is unlocked.'));
         $this->voidReason = '';
         Flux::modal('void-tax-return')->close();
-        $this->taxReturn = $this->taxReturn->fresh(['lines', 'taxAgency', 'voidedBy']);
+        $this->taxReturn = $this->taxReturn->fresh(self::RELATIONS);
     }
 
-    public function drillUrl(\App\Models\TaxReturnLine $line): ?string
+    /**
+     * Where a return line drills to: its source document, or its journal entry.
+     * Takes the line's fields so a snapshot row and a draft's live row share it.
+     */
+    public function drillUrl(?string $sourceType, ?int $sourceId, ?int $journalEntryId): ?string
     {
-        return match ($line->source_type) {
-            Invoice::class => $line->source_id
-                ? route('invoices.show', ['company' => $this->company->slug, 'invoice' => $line->source_id])
+        return match ($sourceType) {
+            Invoice::class => $sourceId
+                ? route('invoices.show', ['company' => $this->company->slug, 'invoice' => $sourceId])
                 : null,
-            Bill::class => $line->source_id
-                ? route('bills.show', ['company' => $this->company->slug, 'bill' => $line->source_id])
+            Bill::class => $sourceId
+                ? route('bills.show', ['company' => $this->company->slug, 'bill' => $sourceId])
                 : null,
-            Cheque::class => $line->source_id
-                ? route('cheques.show', ['company' => $this->company->slug, 'cheque' => $line->source_id])
+            Cheque::class => $sourceId
+                ? route('cheques.show', ['company' => $this->company->slug, 'cheque' => $sourceId])
                 : null,
-            default => $line->journal_entry_id
-                ? route('journal.show', ['company' => $this->company->slug, 'entry' => $line->journal_entry_id])
+            default => $journalEntryId
+                ? route('journal.show', ['company' => $this->company->slug, 'entry' => $journalEntryId])
                 : null,
         };
     }
@@ -154,20 +207,20 @@ new #[Title('Tax return')] class extends Component {
         </div>
     </div>
 
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="rounded-lg border border-border p-4">
-            <div class="text-xs uppercase text-muted-foreground">{{ __('Collected') }}</div>
-            <div class="text-2xl font-mono font-semibold">{{ number_format($taxReturn->collected_cents / 100, 2) }}</div>
-        </div>
-        <div class="rounded-lg border border-border p-4">
-            <div class="text-xs uppercase text-muted-foreground">{{ __('Paid (ITCs)') }}</div>
-            <div class="text-2xl font-mono font-semibold">{{ number_format($taxReturn->paid_cents / 100, 2) }}</div>
-        </div>
-        <div class="rounded-lg border border-border p-4">
-            <div class="text-xs uppercase text-muted-foreground">{{ __('Net owing') }}</div>
-            <div class="text-2xl font-mono font-semibold">{{ number_format($taxReturn->net_cents / 100, 2) }}</div>
-        </div>
-    </div>
+    @php($draft = $this->draftFigures)
+
+    @if ($draft)
+        <flux:text class="mb-2 text-sm text-muted-foreground" data-test="draft-live-note">{{ __('Draft — these figures are worked out live from the ledger and recalculate until the return is filed.') }}</flux:text>
+    @endif
+
+    <x-tax-return.tiles
+        class="!mt-0"
+        :collected="$draft?->collectedCents ?? $taxReturn->collected_cents"
+        :paid="$draft?->paidCents ?? $taxReturn->paid_cents"
+        :other="$draft?->otherAdjustmentsCents ?? $taxReturn->other_adjustments_cents"
+        :net="$draft?->netCents ?? $taxReturn->net_cents"
+        test-prefix="tax-return"
+    />
 
     @if ($taxReturn->status === TaxReturnStatus::Void)
         <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950">
@@ -192,33 +245,80 @@ new #[Title('Tax return')] class extends Component {
                 </tr>
             </thead>
             <tbody class="divide-y divide-border">
-                @forelse ($taxReturn->lines as $line)
+                @forelse ($this->returnRows() as $line)
                     <tr>
-                        <td class="px-4 py-2 whitespace-nowrap">{{ $line->entry_date->toDateString() }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap">{{ $line['entry_date']->toDateString() }}</td>
                         <td class="px-4 py-2 font-mono">
-                            @php($url = $this->drillUrl($line))
+                            @php($url = $this->drillUrl($line['source_type'], $line['source_id'], $line['entry_id']))
                             @if ($url)
-                                <a href="{{ $url }}" wire:navigate class="underline">{{ $line->entry_no }}</a>
+                                <a href="{{ $url }}" wire:navigate class="underline">{{ $line['entry_no'] }}</a>
                             @else
-                                {{ $line->entry_no }}
+                                {{ $line['entry_no'] }}
                             @endif
                         </td>
-                        <td class="px-4 py-2">{{ $line->doc_label }}</td>
-                        <td class="px-4 py-2">
-                            @if ($line->bucket === 'collected')
-                                <flux:badge color="emerald">{{ __('Collected') }}</flux:badge>
-                            @else
-                                <flux:badge color="amber">{{ __('Paid') }}</flux:badge>
-                            @endif
-                        </td>
-                        <td class="px-4 py-2 text-right font-mono">{{ number_format($line->amount_cents / 100, 2) }}</td>
+                        <td class="px-4 py-2">{{ $line['doc_label'] }}</td>
+                        <td class="px-4 py-2"><x-tax-return.bucket-badge :bucket="$line['bucket']" /></td>
+                        <td class="px-4 py-2 text-right font-mono">{{ number_format($line['amount_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-muted-foreground">{{ __('No snapshot lines yet — file the return to capture them.') }}</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-muted-foreground">{{ $draft ? __('No transactions in this period for this agency.') : __('No lines were snapshotted when this return was filed.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+
+    @if ($taxReturn->adjustments->isNotEmpty())
+        <div class="mt-8">
+            <flux:heading size="lg">{{ __('Adjustments') }}</flux:heading>
+            <div class="mt-3 overflow-x-auto rounded-lg border border-border">
+                <table class="w-full text-sm" data-test="tax-return-adjustments">
+                    <thead class="bg-muted">
+                        <tr>
+                            <th class="px-4 py-2 text-left">{{ __('Type') }}</th>
+                            <th class="px-4 py-2 text-left">{{ __('Account') }}</th>
+                            <th class="px-4 py-2 text-left">{{ __('Memo') }}</th>
+                            <th class="px-4 py-2 text-left">{{ __('Ledger') }}</th>
+                            <th class="px-4 py-2 text-right">{{ __('Amount') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        @foreach ($taxReturn->adjustments as $adjustment)
+                            <tr>
+                                <td class="px-4 py-2">{{ __($adjustment->kind->label()) }}</td>
+                                <td class="px-4 py-2">{{ $adjustment->account ? $adjustment->account->code.' — '.$adjustment->account->name : '—' }}</td>
+                                <td class="px-4 py-2">{{ $adjustment->memo }}</td>
+                                <td class="px-4 py-2 text-muted-foreground">
+                                    {{ (int) $adjustment->account_id === (int) $taxReturn->taxAgency->payable_account_id ? __('No ledger entry') : __('Posted on filing') }}
+                                </td>
+                                <td class="px-4 py-2 text-right font-mono">{{ number_format($adjustment->amount_cents / 100, 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if ($taxReturn->adjustmentJournalEntry)
+                <flux:text class="mt-2 text-sm">
+                    {{ __('Posted to the ledger as') }}
+                    <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $taxReturn->adjustment_journal_entry_id]) }}" wire:navigate class="font-mono underline" data-test="adjustment-entry-link">{{ $taxReturn->adjustmentJournalEntry->entry_no }}</a>
+                    @if ($taxReturn->adjustmentJournalEntry->isVoided())
+                        <span class="text-muted-foreground">({{ __('reversed') }})</span>
+                    @endif
+                </flux:text>
+            @endif
+        </div>
+    @endif
+
+    @php($reconciliation = $draft?->reconciliation ?? $taxReturn->reconciliation)
+    @if ($reconciliation)
+        <x-tax-return.reconciliation
+            class="mt-8"
+            :reconciliation="$reconciliation"
+            :account="$taxReturn->taxAgency->payableAccount"
+            :period-start="$taxReturn->period_start->toDateString()"
+            :period-end="$taxReturn->period_end->toDateString()"
+            :ledger-lines="$draft?->ledgerOnlyLines()"
+        />
+    @endif
 
     @if ($taxReturn->taxAgency->registration_number)
         <div class="mt-4 text-sm text-muted-foreground">

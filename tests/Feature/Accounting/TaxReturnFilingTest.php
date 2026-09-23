@@ -148,7 +148,9 @@ it('omits excluded journal lines from the snapshot and totals', function () {
         'excluded_journal_line_ids' => [$excludedLineId],
     ]);
 
-    $filed = app(TaxReturnFiler::class)->file($return);
+    // The excluded ITC stays in the ledger: the return is 2.50 short of the
+    // payable account and files only with that difference accepted.
+    $filed = app(TaxReturnFiler::class)->file($return, -250);
 
     expect($filed->lines)->toHaveCount(2);
     expect($filed->lines->pluck('journal_line_id'))->not->toContain($excludedLineId);

@@ -25,7 +25,10 @@ class TaxReturnResource extends JsonResource
             'status' => $this->status?->value,
             'collected_cents' => (int) $this->collected_cents,
             'paid_cents' => (int) $this->paid_cents,
+            'other_adjustments_cents' => (int) $this->other_adjustments_cents,
             'net_cents' => (int) $this->net_cents,
+            'adjustment_journal_entry_id' => $this->adjustment_journal_entry_id,
+            'reconciliation' => $this->reconciliation,
             'filing_reference' => $this->filing_reference,
             'notes' => $this->notes,
             'filed_at' => optional($this->filed_at)->toIso8601String(),
@@ -43,6 +46,13 @@ class TaxReturnResource extends JsonResource
                 'source_id' => $line->source_id,
                 'doc_label' => $line->doc_label,
                 'is_reversal' => (bool) $line->is_reversal,
+            ])->all()),
+            'adjustments' => $this->whenLoaded('adjustments', fn () => $this->adjustments->map(fn ($adjustment) => [
+                'id' => $adjustment->id,
+                'kind' => $adjustment->kind->value,
+                'account_id' => (int) $adjustment->account_id,
+                'amount_cents' => (int) $adjustment->amount_cents,
+                'memo' => $adjustment->memo,
             ])->all()),
         ];
     }

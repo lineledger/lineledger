@@ -15,8 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'company_id', 'tax_agency_id', 'tax_return_no',
     'period_start', 'period_end', 'status',
-    'collected_cents', 'paid_cents', 'net_cents',
-    'filing_reference', 'notes', 'excluded_journal_line_ids',
+    'collected_cents', 'paid_cents', 'other_adjustments_cents', 'net_cents',
+    'adjustment_journal_entry_id',
+    'filing_reference', 'notes', 'excluded_journal_line_ids', 'reconciliation',
     'filed_at', 'filed_by_user_id',
     'voided_at', 'voided_by_user_id', 'void_reason',
 ])]
@@ -38,6 +39,25 @@ class TaxReturn extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(TaxReturnLine::class)->orderBy('line_order');
+    }
+
+    /**
+     * @return HasMany<TaxReturnAdjustment, $this>
+     */
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(TaxReturnAdjustment::class)->orderBy('line_order');
+    }
+
+    /**
+     * The journal entry filing posted for the adjustments coded to an account
+     * other than the agency's payable account. Null when none were.
+     *
+     * @return BelongsTo<JournalEntry, $this>
+     */
+    public function adjustmentJournalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class, 'adjustment_journal_entry_id');
     }
 
     /**
@@ -83,8 +103,10 @@ class TaxReturn extends Model
             'status' => TaxReturnStatus::class,
             'collected_cents' => 'integer',
             'paid_cents' => 'integer',
+            'other_adjustments_cents' => 'integer',
             'net_cents' => 'integer',
             'excluded_journal_line_ids' => 'array',
+            'reconciliation' => 'array',
             'filed_at' => 'datetime',
             'voided_at' => 'datetime',
         ];

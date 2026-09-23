@@ -31,6 +31,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expense and any recoverable tax, credit the loan, in one entry with no clearing
   account. Off by default; system accounts such as the payroll payables can't be
   switched on. ([#50](https://github.com/lineledger/lineledger/issues/50))
+- **Adjust a tax return before filing.** A draft return takes adjustments: a
+  change to the tax collected or the input tax credits by any amount, or another
+  amount such as a collector's commission, a bank fee, or a balance carried from
+  an earlier period, each with an account and a memo. Coded to the agency's tax
+  payable account, an adjustment only changes the return (the amount is already
+  in the ledger). Coded to any other account, filing posts it against the tax
+  payable account, dated the period's last day: a PST commission posts debit PST
+  Payable, credit PST Commission Income. Voiding the return reverses that entry.
+  The API takes `adjustments` on a tax return.
+- **Reconcile a tax return to the ledger.** The return form and page set the
+  return beside the agency's tax payable account. The panel shows the opening
+  balance, the payments and refunds in the period, the tax collected, the ITCs,
+  any excluded lines and the adjustments filing will post, then the balance after
+  filing and the difference from the net owing. A return that doesn't agree with
+  the ledger files only when you accept that difference. Filing freezes the
+  reconciliation on the return.
 
 ### Changed
 
@@ -42,9 +58,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installation. `APP_REGION` still picks which marketing site the legal links
   point at, but no longer forces the banner, so a self-host that set it to get the
   right legal documents is no longer offered a trip to someone else's app.
+- **API: filing a tax return that doesn't reconcile is refused.** `POST
+  /tax-returns/{id}/file` answers 422 when the return differs from the tax payable
+  account, unless `accepted_difference_cents` names that exact difference.
+- **Sales tax figures leave out payments to the agency.** The Sales Tax report,
+  the sales tax MCP tool, and the tax set-aside insight used to count a remittance
+  as an input tax credit. That covered a recorded tax payment, and a cheque or
+  journal entry moving money between the payable account and a bank. A period
+  that contains a remittance now reports a lower Paid figure and the correct,
+  higher net. Credit-memo tax now lowers Collected instead of adding to
+  Paid, and vendor-credit tax lowers Paid instead of adding to Collected. Net
+  figures are unchanged by that split.
 
 ### Fixed
 
+- **A saved draft tax return shows its figures.** Its page read 0.00 and "No
+  snapshot lines yet" until the return was filed, and the list showed 0.00 too. A
+  draft's page now works its figures out live from the ledger. Each save also
+  stores them for the list (existing drafts pick them up on their next save).
+- **Updating a tax return through the API no longer clears its excluded lines.**
+  A `PATCH` without `excluded_journal_line_ids` used to wipe the lines unchecked in
+  the web form. Omitting the key now leaves them as they are.
 - **"Include in transfers" now saves.** The switch on a Chart of Accounts
   account was shown and read back, but saving never stored it, so a line of
   credit or other non-bank account could not be added to the transfer form.
