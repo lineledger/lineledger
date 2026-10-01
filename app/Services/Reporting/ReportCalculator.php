@@ -1030,7 +1030,7 @@ class ReportCalculator
      * with date-string bounds, so a line dated on the period's first day is never
      * dropped on SQLite by a `Y-m-d 00:00:00` comparison.
      *
-     * @return Collection<int, array{bucket: 'collected'|'paid'|'payment'|'adjustment'|'opening', amount_cents: int, balance_effect_cents: int, journal_line_id: int, entry_id: int, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: int<0, max>|null, doc_label: string, is_reversal: bool}>
+     * @return Collection<int, array{bucket: 'collected'|'paid'|'payment'|'adjustment'|'opening', amount_cents: int, balance_effect_cents: int, journal_line_id: int<0, max>, entry_id: int<0, max>, entry_no: string, entry_date: CarbonImmutable, source_type: ?string, source_id: int<0, max>|null, doc_label: string, is_reversal: bool}>
      */
     public function salesTaxLines(TaxAgency $agency, CarbonInterface $start, CarbonInterface $end): Collection
     {

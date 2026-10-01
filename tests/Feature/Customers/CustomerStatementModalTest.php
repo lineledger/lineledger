@@ -4,7 +4,6 @@ use App\Enums\CompanyRole;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -42,17 +41,17 @@ it('refuses to open a statement for another company\'s contact', function () {
     $foreign = Contact::factory()->customer()->create();
     app()->instance('current_company', $this->company);
 
-    expect(fn () => Livewire::test('customer-statement-modal', ['company' => $this->company])
-        ->call('open', $foreign->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $foreign->id)
+        ->assertStatus(404);
 });
 
 it('refuses to open a statement for a vendor-only contact', function () {
     $vendor = Contact::factory()->vendor()->create();
 
-    expect(fn () => Livewire::test('customer-statement-modal', ['company' => $this->company])
-        ->call('open', $vendor->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test('customer-statement-modal', ['company' => $this->company])
+        ->call('open', $vendor->id)
+        ->assertStatus(404);
 });
 
 it('shows the statement triggers on the customers page', function () {

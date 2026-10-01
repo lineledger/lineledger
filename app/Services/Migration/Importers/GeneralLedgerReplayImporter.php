@@ -316,7 +316,7 @@ class GeneralLedgerReplayImporter implements Importer
 
     /**
      * @param  list<array{account: ?Account, line: array<string, mixed>}>  $resolved
-     * @param  array<string, Contact>  $contacts
+     * @param  array<string, int>  $contacts
      * @param  array<int, bool>  $affectedAccountIds
      */
     protected function postBlock(
@@ -589,7 +589,9 @@ class GeneralLedgerReplayImporter implements Importer
     }
 
     /**
-     * @return array<string, Contact>
+     * Contact ids keyed by lower-cased display name.
+     *
+     * @return array<string, int>
      */
     protected function contactMap(int $companyId): array
     {

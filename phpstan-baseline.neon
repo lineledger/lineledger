@@ -1939,12 +1939,6 @@ parameters:
 			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
 
 		-
-			message: '#^Method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:contactMap\(\) should return array\<string, App\\Models\\Contact\> but returns array\<string, int\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
-
-		-
 			message: '#^Method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:existingHashes\(\) should return Illuminate\\Support\\Collection\<string, bool\> but returns Illuminate\\Support\\Collection\<mixed, \(int\|string\)\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1954,12 +1948,6 @@ parameters:
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 2
-			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
-
-		-
-			message: '#^Parameter \#8 \$contactId of method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:postBlock\(\) expects int\|null, App\\Models\\Contact\|null given\.$#'
-			identifier: argument.type
-			count: 1
 			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
 
 		-
@@ -2863,7 +2851,7 @@ parameters:
 			path: app/Services/Reporting/ContactStatementBuilder.php
 
 		-
-			message: '#^Offset ''3849'' on array\<string, array\{amount\: int, accounts\: non\-empty\-list\<array\{id\: int, code\: string, name\: string, amount\: int\}\>\}\> on left side of \?\?\= does not exist\.$#'
+			message: '#^Offset ''3849'' on array\<string, array\{amount\: int, accounts\: non\-empty\-list\<array\{id\: int\<0, max\>, code\: string, name\: string, amount\: int\}\>\}\> on left side of \?\?\= does not exist\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: app/Services/Reporting/GifiStatementBuilder.php

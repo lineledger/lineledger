@@ -31,7 +31,7 @@ class InventoryStatusTool extends Tool
 
         $lowOnly = (bool) $request->get('low_only', false);
 
-        /** @var Collection<int, array{item_id: int, name: string, sku: ?string, qty_on_hand: float, reorder_point: ?float, unit_cost_cents: int, below_reorder: bool}> $items */
+        /** @var Collection<int, array{item_id: int<0, max>, name: string, sku: ?string, qty_on_hand: float, reorder_point: ?float, unit_cost_cents: int, below_reorder: bool}> $items */
         $items = app(InventoryReportBuilder::class)->stockStatus($this->company());
 
         $lowCount = $items->where('below_reorder', true)->count();

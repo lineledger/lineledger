@@ -11,7 +11,6 @@ use App\Models\Company;
 use App\Models\Contact;
 use App\Models\User;
 use App\Support\Contacts\ContactLinkResolver;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
@@ -199,8 +198,9 @@ it('renames an other name without touching its other profile fields', function (
 it('refuses to open a contact that is not an other name in the editor', function () {
     $vendor = Contact::factory()->vendor()->create(['display_name' => 'Hydro Supplies']);
 
-    expect(fn () => otherNamesListPage($this->company)->call('openEdit', $vendor->id))
-        ->toThrow(ModelNotFoundException::class);
+    otherNamesListPage($this->company)
+        ->call('openEdit', $vendor->id)
+        ->assertStatus(404);
 });
 
 it('converts an other name to a vendor, keeping its id on cheques and writing an audit row', function () {
@@ -278,8 +278,9 @@ it('refuses to convert a contact that is not an other name', function () {
 it('404s when converting another company\'s other name', function () {
     $foreign = otherNamesForeignContact($this->company, 'Foreign payee');
 
-    expect(fn () => otherNamesListPage($this->company)->call('convert', $foreign->id, 'is_vendor'))
-        ->toThrow(ModelNotFoundException::class);
+    otherNamesListPage($this->company)
+        ->call('convert', $foreign->id, 'is_vendor')
+        ->assertStatus(404);
 
     expect($foreign->fresh()->is_other_name)->toBeTrue()
         ->and($foreign->fresh()->is_vendor)->toBeFalse();

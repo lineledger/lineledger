@@ -22,7 +22,7 @@ class InventoryReportBuilder
     /**
      * Current on-hand status for every inventory-tracked item.
      *
-     * @return Collection<int, array{item_id: int, name: string, sku: ?string, qty_on_hand: float, reorder_point: ?float, unit_cost_cents: int, below_reorder: bool}>
+     * @return Collection<int, array{item_id: int<0, max>, name: string, sku: ?string, qty_on_hand: float, reorder_point: ?float, unit_cost_cents: int, below_reorder: bool}>
      */
     public function stockStatus(Company $company): Collection
     {
@@ -51,7 +51,7 @@ class InventoryReportBuilder
     /**
      * Current inventory valuation per item, from remaining FIFO layers.
      *
-     * @return array{rows: Collection<int, array{item_id: int, name: string, sku: ?string, qty: float, avg_cost_cents: int, value_cents: int}>, total_value_cents: int}
+     * @return array{rows: Collection<int, array{item_id: int<0, max>, name: string, sku: ?string, qty: float, avg_cost_cents: int, value_cents: int}>, total_value_cents: int}
      */
     public function valuationSummary(Company $company): array
     {

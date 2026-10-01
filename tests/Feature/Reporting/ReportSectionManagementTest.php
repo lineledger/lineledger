@@ -6,7 +6,6 @@ use App\Enums\ReportStatement;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportSection;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -116,9 +115,9 @@ it('cannot move an account belonging to another company', function () {
 
     $section = ReportSection::create(['statement' => 'income_statement', 'group_key' => 'expense', 'name' => 'Ops', 'sort_order' => 1]);
 
-    expect(fn () => Livewire::test('pages::reports.income-statement-sections', ['company' => $this->company])
-        ->call('moveAccount', $otherAccount->id, (string) $section->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test('pages::reports.income-statement-sections', ['company' => $this->company])
+        ->call('moveAccount', $otherAccount->id, (string) $section->id)
+        ->assertStatus(404);
 
     expect($otherAccount->fresh()->report_section_id)->toBeNull();
 });

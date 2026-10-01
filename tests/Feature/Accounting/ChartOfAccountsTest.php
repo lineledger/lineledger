@@ -7,7 +7,6 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Services\Posting\JournalPoster;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Livewire\Livewire;
 
@@ -146,9 +145,9 @@ it('prevents editing accounts from a different company', function () {
         ->where('code', '1000')
         ->first();
 
-    expect(fn () => Livewire::test('pages::accounts.index', ['company' => $companyA])
-        ->call('openEdit', $foreignAccount->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test('pages::accounts.index', ['company' => $companyA])
+        ->call('openEdit', $foreignAccount->id)
+        ->assertStatus(404);
 
     app()->forgetInstance('current_company');
 });
