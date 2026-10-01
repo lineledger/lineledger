@@ -97,6 +97,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as the journal entry form does. Picking a revenue account doesn't bring along a
   sales-only default tax code, which never applies to a purchase.
 
+### Security
+
+- **league/commonmark 2.10.3**, which renders the Markdown in outgoing mail. It
+  fixes a quadratic-time denial of service in the GitHub-flavoured table
+  extension ([GHSA-3q6v-r5mr-hxv8](https://github.com/advisories/GHSA-3q6v-r5mr-hxv8))
+  and a bypass of the raw-HTML tag filter
+  ([GHSA-97jj-33gv-5xf9](https://github.com/advisories/GHSA-97jj-33gv-5xf9)).
+
 ## [1.1.0] - 2026-09-18
 
 **Highlights.** An **Opening balances** workspace lets an organization that was set
