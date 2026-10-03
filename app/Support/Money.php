@@ -124,7 +124,10 @@ final readonly class Money implements Stringable
      */
     public function format(?string $locale = null): string
     {
-        $formatter = new NumberFormatter($locale ?? app()->getLocale(), NumberFormatter::CURRENCY);
+        $formatter = new NumberFormatter(
+            Locales::icu($locale ?? app()->getLocale()),
+            NumberFormatter::CURRENCY,
+        );
 
         return $formatter->formatCurrency($this->cents / 100, $this->currency);
     }
@@ -141,7 +144,10 @@ final readonly class Money implements Stringable
         $whole = intdiv($abs, 100);
         $fraction = $abs % 100;
 
-        $formatter = new NumberFormatter($locale ?? app()->getLocale(), NumberFormatter::SPELLOUT);
+        $formatter = new NumberFormatter(
+            Locales::icu($locale ?? app()->getLocale()),
+            NumberFormatter::SPELLOUT,
+        );
         $words = ucwords((string) $formatter->format($whole), ' -');
 
         return $words.' and '.str_pad((string) $fraction, 2, '0', STR_PAD_LEFT).'/100';

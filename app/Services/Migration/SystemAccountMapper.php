@@ -6,6 +6,7 @@ use App\Enums\AccountSubtype;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\TaxAgency;
+use App\Support\Translation\LocalizedNames;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,11 +40,11 @@ class SystemAccountMapper
             new SystemAccountRole('accounts_payable', 'Accounts Payable', 'Where unpaid vendor bills land.', AccountSubtype::AccountsPayable, 'is_system'),
             new SystemAccountRole('undeposited_funds', 'Undeposited Funds', 'Holds received payments before they are deposited.', AccountSubtype::UndepositedFunds, 'is_system'),
             new SystemAccountRole('tax_payable', 'Sales Tax Payable', 'Where sales tax collected accumulates.', AccountSubtype::TaxPayable, 'is_system'),
-            new SystemAccountRole('employee_reimbursements', 'Employee Reimbursements Payable', 'Owed to employees for out-of-pocket expenses.', AccountSubtype::CurrentLiability, 'is_system+name', 'Employee Reimbursements Payable'),
+            new SystemAccountRole('employee_reimbursements', 'Employee Reimbursements Payable', 'Owed to employees for out-of-pocket expenses.', AccountSubtype::CurrentLiability, 'is_system+name', 'Employee Reimbursements Payable', acceptedNames: LocalizedNames::of('Employee Reimbursements Payable')),
             new SystemAccountRole('inventory', 'Inventory Asset', 'Value of stock on hand.', AccountSubtype::Inventory, 'is_system', companyColumn: 'default_inventory_asset_account_id'),
             new SystemAccountRole('cogs', 'Cost of Goods Sold', 'Cost of inventory sold.', AccountSubtype::CostOfGoodsSold, 'is_system', companyColumn: 'default_cogs_account_id'),
             new SystemAccountRole('retained_earnings', 'Retained Earnings', 'Accumulated prior-year earnings.', AccountSubtype::RetainedEarnings, 'is_system'),
-            new SystemAccountRole('opening_balance_equity', 'Opening Balance Equity', 'Balancing account for opening balances.', AccountSubtype::Equity, 'name', Account::OPENING_BALANCE_EQUITY_NAME, acceptedNames: Account::OPENING_BALANCE_NAMES),
+            new SystemAccountRole('opening_balance_equity', 'Opening Balance Equity', 'Balancing account for opening balances.', AccountSubtype::Equity, 'name', Account::OPENING_BALANCE_EQUITY_NAME, acceptedNames: LocalizedNames::any(Account::OPENING_BALANCE_NAMES)),
         ];
     }
 

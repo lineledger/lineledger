@@ -16,6 +16,7 @@ new #[Title('Profile settings')] class extends Component {
 
     public string $name = '';
     public string $email = '';
+    public string $locale = '';
 
     /**
      * Mount the component.
@@ -24,6 +25,7 @@ new #[Title('Profile settings')] class extends Component {
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $this->locale = Auth::user()->locale ?? '';
     }
 
     /**
@@ -34,6 +36,7 @@ new #[Title('Profile settings')] class extends Component {
         $user = Auth::user();
 
         $validated = $this->validate($this->profileRules($user->id));
+        $validated['locale'] = filled($validated['locale'] ?? null) ? $validated['locale'] : null;
 
         $user->fill($validated);
 
@@ -85,7 +88,7 @@ new #[Title('Profile settings')] class extends Component {
 
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
+    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name, email address, and language')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
@@ -112,6 +115,18 @@ new #[Title('Profile settings')] class extends Component {
                 @endif
                 {{-- @end-chisel-email-verification --}}
             </div>
+
+            <flux:select
+                wire:model="locale"
+                :label="__('Interface language')"
+                :description="__('The language of the staff app. Invoices sent to customers use each customer\'s document language.')"
+                data-test="profile-locale-select"
+            >
+                <flux:select.option value="">{{ __('Default (:locale)', ['locale' => \App\Support\Locales::label(config('app.locale'))]) }}</flux:select.option>
+                @foreach (\App\Support\Locales::options() as $code => $label)
+                    <flux:select.option :value="$code">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">

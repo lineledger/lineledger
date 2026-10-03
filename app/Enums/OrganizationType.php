@@ -21,26 +21,26 @@ enum OrganizationType: string
     public function label(): string
     {
         return match ($this) {
-            self::SoleProprietorship => 'Sole proprietorship',
-            self::Partnership => 'Partnership',
-            self::Corporation => 'Corporation',
-            self::Club => 'Club / Association',
-            self::NonProfit => 'Non-profit',
-            self::Charity => 'Charity',
-            self::Other => 'Other / None',
+            self::SoleProprietorship => __('Sole proprietorship'),
+            self::Partnership => __('Partnership'),
+            self::Corporation => __('Corporation'),
+            self::Club => __('Club / Association'),
+            self::NonProfit => __('Non-profit'),
+            self::Charity => __('Charity'),
+            self::Other => __('Other / None'),
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::SoleProprietorship => 'An unincorporated business with one owner.',
-            self::Partnership => 'An unincorporated business owned by two or more partners.',
-            self::Corporation => 'A formal entity with one or more shareholders.',
-            self::Club => 'An unincorporated club or association funded mainly by member dues.',
-            self::NonProfit => 'A not-for-profit organization.',
-            self::Charity => 'A registered charity.',
-            self::Other => 'Anything else, or not sure yet.',
+            self::SoleProprietorship => __('An unincorporated business with one owner.'),
+            self::Partnership => __('An unincorporated business owned by two or more partners.'),
+            self::Corporation => __('A formal entity with one or more shareholders.'),
+            self::Club => __('An unincorporated club or association funded mainly by member dues.'),
+            self::NonProfit => __('A not-for-profit organization.'),
+            self::Charity => __('A registered charity.'),
+            self::Other => __('Anything else, or not sure yet.'),
         };
     }
 
@@ -52,13 +52,13 @@ enum OrganizationType: string
     public function helpText(): string
     {
         return match ($this) {
-            self::SoleProprietorship => 'An unincorporated business owned and run by one person, with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.',
-            self::Partnership => "An unincorporated business owned by two or more people who share ownership, profits, and liability. Each partner is typically personally responsible for the business's debts.",
-            self::Corporation => "A formal legal entity that's separate from its owners (shareholders). It can have one or more shareholders, exists independently of them, and generally limits owners' personal liability.",
-            self::Club => 'An unincorporated group of members organized around a shared purpose or activity, funded mainly through member dues rather than commercial sales or profit.',
-            self::NonProfit => 'An organization that operates for a purpose other than generating profit for owners. Any surplus is reinvested into its mission rather than distributed to members.',
-            self::Charity => 'A registered charity recognized by Canada Revenue Agency, able to issue official donation receipts and subject to specific regulatory requirements.',
-            self::Other => 'Anything else, or not sure yet — you can refine this later in settings.',
+            self::SoleProprietorship => __('An unincorporated business owned and run by one person, with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.'),
+            self::Partnership => __('An unincorporated business owned by two or more people who share ownership, profits, and liability. Each partner is typically personally responsible for the business\'s debts.'),
+            self::Corporation => __('A formal legal entity that\'s separate from its owners (shareholders). It can have one or more shareholders, exists independently of them, and generally limits owners\' personal liability.'),
+            self::Club => __('An unincorporated group of members organized around a shared purpose or activity, funded mainly through member dues rather than commercial sales or profit.'),
+            self::NonProfit => __('An organization that operates for a purpose other than generating profit for owners. Any surplus is reinvested into its mission rather than distributed to members.'),
+            self::Charity => __('A registered charity recognized by Canada Revenue Agency, able to issue official donation receipts and subject to specific regulatory requirements.'),
+            self::Other => __('Anything else, or not sure yet — you can refine this later in settings.'),
         };
     }
 
@@ -78,11 +78,11 @@ enum OrganizationType: string
     public function equitySectionLabel(): string
     {
         return match ($this) {
-            self::SoleProprietorship => "Owner's Equity",
-            self::Partnership => "Partners' Equity",
-            self::Corporation => "Shareholders' Equity",
-            self::Club, self::NonProfit, self::Charity => 'Net Assets',
-            self::Other => 'Equity',
+            self::SoleProprietorship => __('Owner\'s Equity'),
+            self::Partnership => __('Partners\' Equity'),
+            self::Corporation => __('Shareholders\' Equity'),
+            self::Club, self::NonProfit, self::Charity => __('Net Assets'),
+            self::Other => __('Equity'),
         };
     }
 

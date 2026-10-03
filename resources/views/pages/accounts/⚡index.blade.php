@@ -1144,7 +1144,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                 >
                     <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                     @foreach ($this->taxCodeOptions as $taxCode)
-                        <flux:select.option :value="$taxCode->id">{{ $taxCode->code }} — {{ $taxCode->name }}</flux:select.option>
+                        <flux:select.option :value="$taxCode->id">{{ $taxCode->label() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             @endif

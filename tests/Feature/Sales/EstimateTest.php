@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\JournalEntry;
+use App\Models\TaxAgency;
 use App\Models\TaxCode;
 use App\Services\Posting\TaxCalculator;
 use Livewire\Livewire;
@@ -25,6 +26,49 @@ beforeEach(function () {
 
 afterEach(function () {
     app()->forgetInstance('current_company');
+});
+
+it('shows Quebec QST as TVQ in the French tax picker', function () {
+    TaxCode::query()->create([
+        'code' => 'QST-QC',
+        'name' => 'QST (9.975%)',
+        'rate_basis_points' => 997.5,
+        'is_recoverable' => true,
+    ]);
+
+    app()->setLocale('fr');
+
+    Livewire::test('pages::estimates.form', ['company' => $this->company])
+        ->assertSee('TVQ');
+});
+
+it('shows translated tax and agency names on the French estimate show page', function () {
+    $agency = TaxAgency::query()->where('name', 'Canada Revenue Agency')->firstOrFail();
+    $agency->forceFill(['registration_number' => '123456789RT0001'])->save();
+
+    $qst = TaxCode::query()->create([
+        'code' => 'QST-QC',
+        'name' => 'QST (9.975%)',
+        'rate_basis_points' => 997.5,
+        'is_recoverable' => true,
+        'agency_id' => $agency->id,
+    ]);
+
+    $estimate = app(SaveEstimate::class)->handle(estimateData(lines: [[
+        'item_id' => null,
+        'account_id' => $this->incomeAccount->id,
+        'description' => 'Service',
+        'quantity' => '1',
+        'unit_price_cents' => 10000,
+        'tax_code_id' => $qst->id,
+    ]]));
+
+    app()->setLocale('fr');
+
+    Livewire::test('pages::estimates.show', ['company' => $this->company, 'estimate' => $estimate])
+        ->assertSee('TVQ 9.975%')
+        ->assertDontSee('TVQ 9.98%')
+        ->assertSee('Agence du revenu du Canada');
 });
 
 /**

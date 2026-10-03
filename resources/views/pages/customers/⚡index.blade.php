@@ -107,6 +107,8 @@ new #[Title('Customers')] class extends Component {
 
     public ?string $f_currency_code = null;
 
+    public string $f_locale = '';
+
     public ?int $f_parent_id = null;
 
     public string $f_tax_number = '';
@@ -214,6 +216,7 @@ new #[Title('Customers')] class extends Component {
         $this->f_preferred_payment_method_id = $c->preferred_payment_method_id;
         $this->f_credit_limit = $c->credit_limit_cents !== null ? Money::fromCents((int) $c->credit_limit_cents)->toDecimalString() : '';
         $this->f_currency_code = $c->currency_code;
+        $this->f_locale = $c->locale ?? '';
         $this->f_parent_id = $c->parent_id;
         $this->f_tax_number = $c->tax_number ?? '';
         $this->f_opening_balance = '';
@@ -308,6 +311,7 @@ new #[Title('Customers')] class extends Component {
             'f_preferred_payment_method_id' => ['nullable', 'integer', Rule::exists('payment_methods', 'id')->where('company_id', $this->company->id)],
             'f_credit_limit' => ['nullable', 'string', new \App\Rules\MoneyString],
             'f_currency_code' => ['nullable', 'string', Rule::in(array_keys(\App\Support\Currency::selectable()))],
+            'f_locale' => ['nullable', 'string', Rule::in(array_merge([''], \App\Support\Locales::codes()))],
             'f_parent_id' => ['nullable', 'integer', Rule::exists('contacts', 'id')->where('company_id', $this->company->id)->where('is_customer', true)],
             'f_tax_number' => ['nullable', 'string', 'max:50'],
             'f_notes' => ['nullable', 'string'],
@@ -365,6 +369,7 @@ new #[Title('Customers')] class extends Component {
             'is_active' => $validated['f_is_active'],
             'invoice_emails_enabled' => $validated['f_invoice_emails_enabled'],
             'reminder_emails_enabled' => $validated['f_reminder_emails_enabled'],
+            'locale' => filled($validated['f_locale'] ?? null) ? $validated['f_locale'] : null,
         ];
 
         $currency = $validated['f_currency_code'] ?: null;
@@ -639,7 +644,7 @@ new #[Title('Customers')] class extends Component {
             'f_billing_line1', 'f_billing_line2', 'f_billing_city', 'f_billing_region', 'f_billing_postal_code', 'f_billing_country',
             'f_shipping_line1', 'f_shipping_line2', 'f_shipping_city', 'f_shipping_region', 'f_shipping_postal_code', 'f_shipping_country',
             'f_default_terms_id', 'f_default_tax_code_id', 'f_preferred_payment_method_id',
-            'f_credit_limit', 'f_currency_code', 'f_parent_id', 'f_tax_number', 'f_opening_balance', 'f_opening_balance_date',
+            'f_credit_limit', 'f_currency_code', 'f_locale', 'f_parent_id', 'f_tax_number', 'f_opening_balance', 'f_opening_balance_date',
             'f_notes', 'f_invoice_emails_enabled', 'f_reminder_emails_enabled', 'newAttachments',
         ]);
         $this->f_is_active = true;
@@ -851,7 +856,7 @@ new #[Title('Customers')] class extends Component {
                         <flux:select wire:model="f_default_tax_code_id" :label="__('Default tax code')">
                             <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                             @foreach ($this->taxCodeOptions as $code)
-                                <flux:select.option :value="$code->id">{{ $code->code }} — {{ $code->name }}</flux:select.option>
+                                <flux:select.option :value="$code->id">{{ $code->label() }}</flux:select.option>
                             @endforeach
                         </flux:select>
 
@@ -868,6 +873,18 @@ new #[Title('Customers')] class extends Component {
                             <flux:select.option value="">{{ __('— None (top-level) —') }}</flux:select.option>
                             @foreach ($this->parentCustomerOptions as $opt)
                                 <flux:select.option :value="$opt->id">{{ $opt->display_name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+
+                        <flux:select
+                            wire:model="f_locale"
+                            :label="__('Document language')"
+                            :description="__('Language used on this customer\'s invoices, invoice emails, and payment portal. Leave as organization default unless they need a different language.')"
+                            data-test="customer-locale-select"
+                        >
+                            <flux:select.option value="">{{ __('Organization default (:locale)', ['locale' => \App\Support\Locales::label($company->locale ?: config('app.locale'))]) }}</flux:select.option>
+                            @foreach (\App\Support\Locales::options() as $code => $label)
+                                <flux:select.option :value="$code">{{ $label }}</flux:select.option>
                             @endforeach
                         </flux:select>
 

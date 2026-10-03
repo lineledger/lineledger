@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\SalesOrder;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -19,12 +20,12 @@ class PrintSalesOrderController extends Controller
 
         $filename = 'sales-order-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $salesOrder->order_no).'.pdf';
 
-        return $pdf->inline('pdf.sales-orders.sales-order', [
+        return Locales::forContactDocument($salesOrder->contact, $company, fn (): Response => $pdf->inline('pdf.sales-orders.sales-order', [
             'company' => $company,
             'salesOrder' => $salesOrder,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($salesOrder),
-        ], $filename);
+        ], $filename));
     }
 
     /**

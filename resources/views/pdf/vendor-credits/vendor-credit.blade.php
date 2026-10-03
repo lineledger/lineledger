@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    @php use App\Support\Tax\LineTaxBreakdown; @endphp
     <title>{{ __('Vendor Credit') }} {{ $vendorCredit->vendor_credit_no }} — {{ $company->name }}</title>
     <style>
         @page { margin: 36px 40px; }
@@ -106,7 +107,7 @@
                     @endif
                     <td>{{ $line->description }}</td>
                     @if ($settings->show_tax_column)
-                        <td>{{ optional($line->taxCode)->code }}</td>
+                        <td>{{ optional($line->taxCode)->label() }}</td>
                     @endif
                     <td class="num">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
                     <td class="num">{{ number_format($line->line_subtotal_cents / 100, 2) }}</td>
@@ -122,7 +123,7 @@
         </tr>
         @foreach ($taxSummary as $tax)
             <tr>
-                <td>{{ $tax['label'] }} {{ number_format($tax['rate'], 2) }}%</td>
+                <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>
                 <td class="num">{{ number_format($tax['tax_cents'] / 100, 2) }}</td>
             </tr>
         @endforeach

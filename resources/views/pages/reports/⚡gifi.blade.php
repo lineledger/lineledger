@@ -110,27 +110,27 @@ new #[Title('GIFI Statement')] class extends Component {
         foreach ($r['bs']['halves'] as $half) {
             foreach ($half['sections'] as $section) {
                 foreach ($section['lines'] as $line) {
-                    $rows[] = ['Balance Sheet', $section['label'], $line['code'], $line['label'], $line['amount']];
+                    $rows[] = [__('Balance Sheet'), __($section['label']), $line['code'], __($line['label']), $line['amount']];
                 }
             }
         }
 
         if ($r['bs']['halves']['equity']['net_income'] !== 0) {
-            $rows[] = ['Balance Sheet', 'Shareholder equity', '', 'Net income for the year', $r['bs']['halves']['equity']['net_income']];
+            $rows[] = [__('Balance Sheet'), __('Shareholder equity'), '', __('Net income for the year'), $r['bs']['halves']['equity']['net_income']];
         }
 
         foreach ($r['is']['halves'] as $half) {
             foreach ($half['sections'] as $section) {
                 foreach ($section['lines'] as $line) {
-                    $rows[] = ['Income Statement', $section['label'], $line['code'], $line['label'], $line['amount']];
+                    $rows[] = [__('Income Statement'), __($section['label']), $line['code'], __($line['label']), $line['amount']];
                 }
             }
         }
 
-        $rows[] = ['Income Statement', '', '', 'Net income', $r['is']['net_income']];
+        $rows[] = [__('Income Statement'), '', '', __('Net income'), $r['is']['net_income']];
 
         foreach ($r['unassigned']['lines'] as $line) {
-            $rows[] = ['Unassigned', '', $line['code'], $line['name'], $line['amount']];
+            $rows[] = [__('Unassigned'), '', $line['code'], __($line['name']), $line['amount']];
         }
 
         return $rows;
@@ -205,9 +205,9 @@ new #[Title('GIFI Statement')] class extends Component {
                 <tbody class="divide-y divide-border">
                     @foreach ($r['bs']['halves'] as $halfKey => $half)
                         @if ($half['sections'] !== [] || ($halfKey === 'equity' && $half['net_income'] !== 0))
-                            <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ $half['label'] }}</td></tr>
+                            <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ __($half['label']) }}</td></tr>
                             @foreach ($half['sections'] as $section)
-                                <tr><td colspan="3" class="px-4 pt-2 text-xs font-medium text-muted-foreground">{{ $section['label'] }}</td></tr>
+                                <tr><td colspan="3" class="px-4 pt-2 text-xs font-medium text-muted-foreground">{{ __($section['label']) }}</td></tr>
                                 @foreach ($section['lines'] as $line)
                                     {!! $renderLine($line) !!}
                                 @endforeach
@@ -221,7 +221,7 @@ new #[Title('GIFI Statement')] class extends Component {
                             @endif
                             <tr class="bg-muted/40 font-semibold">
                                 <td class="px-4 py-2"></td>
-                                <td class="px-4 py-2 text-right">{{ __('Total') }} {{ $half['label'] }}</td>
+                                <td class="px-4 py-2 text-right">{{ __('Total') }} {{ __($half['label']) }}</td>
                                 <td class="px-4 py-2 text-right font-mono" data-test="gifi-total-{{ $halfKey }}">{{ number_format($half['total'] / 100, 2) }}</td>
                             </tr>
                         @endif
@@ -264,7 +264,7 @@ new #[Title('GIFI Statement')] class extends Component {
                     @foreach ($r['is']['halves'] as $halfKey => $half)
                         @if ($half['sections'] !== [])
                             @php $anyIs = true; @endphp
-                            <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ $half['label'] }}</td></tr>
+                            <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ __($half['label']) }}</td></tr>
                             @foreach ($half['sections'] as $section)
                                 @foreach ($section['lines'] as $line)
                                     {!! $renderLine($line) !!}
@@ -272,7 +272,7 @@ new #[Title('GIFI Statement')] class extends Component {
                             @endforeach
                             <tr class="bg-muted/40 font-semibold">
                                 <td class="px-4 py-2"></td>
-                                <td class="px-4 py-2 text-right">{{ __('Total') }} {{ $half['label'] }}</td>
+                                <td class="px-4 py-2 text-right">{{ __('Total') }} {{ __($half['label']) }}</td>
                                 <td class="px-4 py-2 text-right font-mono" data-test="gifi-total-{{ $halfKey }}">{{ number_format($half['total'] / 100, 2) }}</td>
                             </tr>
                         @endif

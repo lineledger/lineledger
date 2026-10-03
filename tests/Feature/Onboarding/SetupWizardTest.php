@@ -24,6 +24,52 @@ beforeEach(function () {
     $this->actingAs($this->user);
 });
 
+test('organization type, industry, tax, and chart labels are translated in French', function () {
+    app()->setLocale('fr');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('step', 2)
+        ->assertSee('Entreprise individuelle')
+        ->assertSee('Une entreprise non constituée en société, avec un seul propriétaire.')
+        ->assertSee('Société de personnes');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('step', 3)
+        ->assertSee('Entreprise générale')
+        ->assertSee('Un plan de départ équilibré qui convient à la plupart des petites entreprises.');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('country', 'CA')
+        ->set('region', 'QC')
+        ->set('step', 5)
+        ->assertSee('TPS/TVH')
+        ->assertSee('TVQ');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('country', 'CA')
+        ->set('region', 'ON')
+        ->set('step', 7)
+        ->assertSee('Capitaux propres du propriétaire')
+        ->assertSee('Compte de chèques');
+});
+
+test('a French UI locale seeds French account names that match the edit form', function () {
+    app()->setLocale('fr');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('companyName', 'Fr Co')
+        ->set('country', 'CA')
+        ->set('region', 'ON')
+        ->set('chargesPst', false)
+        ->call('createCompany')
+        ->assertHasNoErrors();
+
+    $company = Company::where('name', 'Fr Co')->firstOrFail();
+    $chequing = seededAccounts($company)->firstWhere('code', '1000');
+
+    expect($chequing?->name)->toBe('Compte de chèques');
+});
+
 /**
  * @return Collection<int, Account>
  */

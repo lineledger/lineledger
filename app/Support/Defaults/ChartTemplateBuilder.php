@@ -8,6 +8,7 @@ use App\Enums\Industry;
 use App\Enums\OrganizationType;
 use App\Models\Account;
 use App\Support\Tax\ProvincialSalesTax;
+use App\Support\Translation\LocalizedNames;
 use LogicException;
 
 /**
@@ -123,6 +124,7 @@ class ChartTemplateBuilder
         }
 
         $rows = $this->applyOrgType($rows, $orgType, $jurisdiction);
+        $rows = $this->localizeCopy($rows);
 
         usort($rows, fn (array $a, array $b) => strcmp($a['code'], $b['code']));
 
@@ -223,6 +225,26 @@ class ChartTemplateBuilder
             'locked' => $locked,
             'default_selected' => true,
         ];
+    }
+
+    /**
+     * Translate starter names/descriptions into the current UI locale so the
+     * wizard preview and the seeded chart match. Lookups that still key on
+     * name accept every locale via {@see LocalizedNames}.
+     *
+     * @param  list<array{code: string, name: string, subtype: AccountSubtype, is_system: bool, description?: string, locked: bool, default_selected: bool}>  $rows
+     * @return list<array{code: string, name: string, subtype: AccountSubtype, is_system: bool, description?: string, locked: bool, default_selected: bool}>
+     */
+    protected function localizeCopy(array $rows): array
+    {
+        return array_map(function (array $row): array {
+            $row['name'] = __($row['name']);
+            if (isset($row['description'])) {
+                $row['description'] = __($row['description']);
+            }
+
+            return $row;
+        }, $rows);
     }
 
     /**

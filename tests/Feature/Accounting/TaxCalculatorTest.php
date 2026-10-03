@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\TaxCode;
 use App\Services\Posting\TaxCalculator;
 use App\Support\Tax\InclusiveTaxSplit;
+use App\Support\Tax\LineTaxBreakdown;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -159,4 +160,15 @@ it('treats zero-rated, exempt and no-code splits as all net', function () {
         ->and(InclusiveTaxSplit::split(4200, null, null))->toBe(['net_cents' => 4200, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
         ->and(InclusiveTaxSplit::split(0, TaxCode::where('code', 'GST')->firstOrFail()))->toBe(['net_cents' => 0, 'tax_cents' => 0, 'secondary_tax_cents' => 0])
         ->and(fn () => InclusiveTaxSplit::split(-1, null))->toThrow(InvalidArgumentException::class);
+});
+
+it('formats tax rates with two decimals for standard rates and exact decimals for Quebec QST', function () {
+    expect(TaxCode::formatRate(5.0))->toBe('5.00')
+        ->and(TaxCode::formatRate(13.0))->toBe('13.00')
+        ->and(TaxCode::formatRate(0.0))->toBe('0.00')
+        ->and(TaxCode::formatRate(7.0))->toBe('7.00')
+        ->and(TaxCode::formatRate(9.975))->toBe('9.975')
+        ->and(TaxCode::formatRate('9.975'))->toBe('9.975')
+        ->and(LineTaxBreakdown::formatRate(9.975))->toBe('9.975')
+        ->and(LineTaxBreakdown::formatRate(5.0))->toBe('5.00');
 });

@@ -733,7 +733,7 @@ new #[Title('Journal entry')] class extends Component
                                 <flux:select wire:model="lines.{{ $i }}.tax_code_id" data-test="line-tax">
                                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
                                     @foreach ($this->taxCodeOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }}</flux:select.option>
+                                        <flux:select.option :value="$opt->id">{{ $opt->label() }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                             </div>

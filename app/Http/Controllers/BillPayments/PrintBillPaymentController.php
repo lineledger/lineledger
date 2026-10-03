@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BillPayment;
 use App\Models\Company;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use Illuminate\Http\Response;
 
 class PrintBillPaymentController extends Controller
@@ -18,10 +19,10 @@ class PrintBillPaymentController extends Controller
 
         $filename = 'payment-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $payment->payment_no).'.pdf';
 
-        return $pdf->inline('pdf.bill-payments.payment', [
+        return Locales::forContactDocument($payment->contact, $company, fn (): Response => $pdf->inline('pdf.bill-payments.payment', [
             'company' => $company,
             'payment' => $payment,
             'settings' => $company->invoiceSettingsOrNew(),
-        ], $filename);
+        ], $filename));
     }
 }

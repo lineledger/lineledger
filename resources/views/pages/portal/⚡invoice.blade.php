@@ -28,9 +28,9 @@ new #[Layout('layouts.portal')] #[Title('Invoice')] class extends Component
         <div>
             <flux:heading size="xl" level="1">{{ __('Invoice :no', ['no' => $invoice->invoice_no]) }}</flux:heading>
             <flux:subheading>
-                {{ __('Issued :date', ['date' => $invoice->invoice_date?->toDateString()]) }}
+                {{ __('Issued :date', ['date' => \App\Support\Locales::formatDate($invoice->invoice_date)]) }}
                 @if ($invoice->due_date)
-                    · {{ __('Due :date', ['date' => $invoice->due_date->toDateString()]) }}
+                    · {{ __('Due :date', ['date' => \App\Support\Locales::formatDate($invoice->due_date)]) }}
                 @endif
             </flux:subheading>
         </div>
@@ -65,27 +65,27 @@ new #[Layout('layouts.portal')] #[Title('Invoice')] class extends Component
                     <tr>
                         <td class="px-4 py-2">{!! \App\Support\Text\LineDescription::toHtml($line->description) !!}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ rtrim(rtrim(number_format((float) $line->quantity, 2), '0'), '.') }}</td>
-                        <td class="px-4 py-2 text-right font-mono">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
-                        <td class="px-4 py-2 text-right font-mono">{{ number_format($line->line_total_cents / 100, 2) }}</td>
+                        <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $line->unit_price_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
+                        <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $line->line_total_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot class="bg-muted">
                 <tr>
                     <td colspan="3" class="px-4 py-2 text-right text-muted-foreground">{{ __('Subtotal') }}</td>
-                    <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->subtotal_cents / 100, 2) }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $invoice->subtotal_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
                 </tr>
                 <tr>
                     <td colspan="3" class="px-4 py-2 text-right text-muted-foreground">{{ __('Tax') }}</td>
-                    <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->tax_cents / 100, 2) }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $invoice->tax_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
                 </tr>
                 <tr>
                     <td colspan="3" class="px-4 py-2 text-right font-semibold">{{ __('Total') }}</td>
-                    <td class="px-4 py-2 text-right font-mono font-semibold">{{ number_format($invoice->total_cents / 100, 2) }} {{ $company->currency_code }}</td>
+                    <td class="px-4 py-2 text-right font-mono font-semibold">{{ \App\Support\Locales::formatMoney((int) $invoice->total_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
                 </tr>
                 <tr>
                     <td colspan="3" class="px-4 py-2 text-right font-semibold">{{ __('Balance due') }}</td>
-                    <td class="px-4 py-2 text-right font-mono font-semibold" data-test="portal-invoice-balance">{{ number_format($invoice->balanceCents() / 100, 2) }} {{ $company->currency_code }}</td>
+                    <td class="px-4 py-2 text-right font-mono font-semibold" data-test="portal-invoice-balance">{{ \App\Support\Locales::formatMoney($invoice->balanceCents(), $invoice->currency_code ?: $company->currency_code) }}</td>
                 </tr>
             </tfoot>
         </table>
@@ -100,8 +100,8 @@ new #[Layout('layouts.portal')] #[Title('Invoice')] class extends Component
                     @foreach ($schedule as $row)
                         <tr>
                             <td class="px-4 py-2">{{ $row['request']->label }}</td>
-                            <td class="px-4 py-2 text-muted-foreground">{{ $row['request']->due_date?->toDateString() }}</td>
-                            <td class="px-4 py-2 text-right font-mono">{{ number_format($row['request']->amount_cents / 100, 2) }}</td>
+                            <td class="px-4 py-2 text-muted-foreground">{{ \App\Support\Locales::formatDate($row['request']->due_date) }}</td>
+                            <td class="px-4 py-2 text-right font-mono">{{ \App\Support\Locales::formatMoney((int) $row['request']->amount_cents, $invoice->currency_code ?: $company->currency_code) }}</td>
                             <td class="px-4 py-2 text-right text-muted-foreground">{{ $row['status']->label() }}</td>
                         </tr>
                     @endforeach

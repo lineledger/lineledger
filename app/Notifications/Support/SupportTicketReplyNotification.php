@@ -3,6 +3,7 @@
 namespace App\Notifications\Support;
 
 use App\Models\SupportTicketMessage;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -32,13 +33,15 @@ class SupportTicketReplyNotification extends Notification implements ShouldQueue
     {
         $ticket = $this->message->ticket;
 
-        return (new MailMessage)
-            ->subject(__('Re: your support ticket — :subject', ['subject' => $ticket->subject]))
-            ->markdown('emails.support.reply', [
-                'ticketSubject' => $ticket->subject,
-                'replyBody' => $this->message->body,
-                'preview' => Str::limit($this->message->body, 120),
-                'actionUrl' => route('support.show', $ticket),
-            ]);
+        return Locales::forRecipient($notifiable, function () use ($ticket): MailMessage {
+            return (new MailMessage)
+                ->subject(__('Re: your support ticket — :subject', ['subject' => $ticket->subject]))
+                ->markdown('emails.support.reply', [
+                    'ticketSubject' => $ticket->subject,
+                    'replyBody' => $this->message->body,
+                    'preview' => Str::limit($this->message->body, 120),
+                    'actionUrl' => route('support.show', $ticket),
+                ]);
+        });
     }
 }

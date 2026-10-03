@@ -49,6 +49,36 @@ class TaxCode extends Model
     }
 
     /**
+     * Format a tax rate percentage for display. Whole and standard rates keep two
+     * decimal places (e.g. 5.00%), while rates carrying fractional hundredths
+     * (such as Quebec QST at 9.975%) preserve them without rounding.
+     */
+    public static function formatRate(float|int|string|null $rate): string
+    {
+        $rate = (float) $rate;
+
+        if (abs(round($rate, 2) - $rate) > 0.00001) {
+            return rtrim(rtrim(number_format($rate, 4, '.', ''), '0'), '.');
+        }
+
+        return number_format($rate, 2);
+    }
+
+    public function formattedRate(): string
+    {
+        return self::formatRate($this->ratePercent());
+    }
+
+    /**
+     * Locale-aware label for pickers. Stored codes stay stable (QST-QC);
+     * French UI shows TVQ, TPS, TVH, …
+     */
+    public function label(): string
+    {
+        return __($this->code);
+    }
+
+    /**
      * Codes selectable on purchase documents (bills, expenses, cheques,
      * purchase orders, vendor credits): those flagged purchase-only or both.
      * A sale-only code must never be offered when coding an expense.

@@ -10,6 +10,7 @@ use App\Models\InvoiceSetting;
 use App\Models\TaxCode;
 use App\Models\User;
 use App\Services\Posting\InvoicePoster;
+use App\Services\Reporting\InvoicePdfRenderer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -304,4 +305,144 @@ it('hides the unit price column when the Unit column is toggled off', function (
 
     expect($render(true))->toContain('Price Each');
     expect($render(false))->not->toContain('Price Each');
+});
+
+it('prints invoice in French for Quebec organization when locale is unset', function () {
+    $qcCompany = Company::factory()->create([
+        'address_region' => 'QC',
+        'locale' => null,
+    ]);
+    $qcCompany->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
+    app()->instance('current_company', $qcCompany);
+
+    $income = Account::query()->where('company_id', $qcCompany->id)->where('subtype', AccountSubtype::Income->value)->first();
+    $gst = TaxCode::query()->where('company_id', $qcCompany->id)->where('code', 'GST')->firstOrFail();
+
+    $invoice = makePostedInvoice((object) ['income' => $income, 'gst' => $gst]);
+
+    $html = app(InvoicePdfRenderer::class)->html($qcCompany, $invoice);
+
+    expect($html)->toContain('FACTURE')
+        ->and($html)->not->toContain('>INVOICE<');
+});
+
+it('prints both GST and TVQ/QST registration numbers on the invoice footer in the document locale', function () {
+    $qcCompany = Company::factory()->create([
+        'address_region' => 'QC',
+        'locale' => 'fr',
+        'tax_number' => '123456789 RT0001',
+    ]);
+    $qcCompany->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
+    app()->instance('current_company', $qcCompany);
+
+    $agency = $qcCompany->provincialTaxAgency();
+    $agency?->update(['registration_number' => '1234567890 TQ 0001']);
+
+    $income = Account::query()->where('company_id', $qcCompany->id)->where('subtype', AccountSubtype::Income->value)->first();
+    $gst = TaxCode::query()->where('company_id', $qcCompany->id)->where('code', 'GST')->firstOrFail();
+    $qst = TaxCode::query()->where('company_id', $qcCompany->id)->where('code', 'QST-QC')->firstOrFail();
+
+    $customerFr = Contact::create([
+        'company_id' => $qcCompany->id,
+        'display_name' => 'Client Québec Inc.',
+        'is_customer' => true,
+        'locale' => 'fr',
+        'billing_line1' => '100 rue Saint-Jean',
+        'billing_city' => 'Québec',
+        'billing_region' => 'QC',
+        'billing_postal_code' => 'G1R 1N4',
+    ]);
+
+    $invoiceFr = Invoice::create([
+        'company_id' => $qcCompany->id,
+        'contact_id' => $customerFr->id,
+        'invoice_no' => 'INV-QC-FR',
+        'invoice_date' => CarbonImmutable::create(2026, 5, 24),
+        'due_date' => CarbonImmutable::create(2026, 6, 23),
+    ]);
+
+    $invoiceFr->lines()->create([
+        'company_id' => $qcCompany->id,
+        'account_id' => $income->id,
+        'tax_code_id' => $gst->id,
+        'secondary_tax_code_id' => $qst->id,
+        'description' => 'Services de consultation',
+        'quantity' => '1',
+        'unit_price_cents' => 10000,
+        'line_subtotal_cents' => 10000,
+        'line_tax_cents' => 500,
+        'secondary_tax_cents' => 998,
+        'line_total_cents' => 11498,
+        'line_order' => 0,
+    ]);
+
+    app(InvoicePoster::class)->post($invoiceFr);
+
+    $htmlFr = app(InvoicePdfRenderer::class)->html($qcCompany, $invoiceFr->fresh());
+
+    expect($htmlFr)
+        ->toContain('N° TPS/TVH')
+        ->toContain('123456789 RT0001')
+        ->toContain('N° TVQ')
+        ->toContain('1234567890 TQ 0001')
+        ->toContain('TVQ 9.975%');
+
+    // Customer with English locale gets English headers and labels
+    $customerEn = Contact::create([
+        'company_id' => $qcCompany->id,
+        'display_name' => 'English Customer Ltd.',
+        'is_customer' => true,
+        'locale' => 'en',
+        'billing_line1' => '200 Peel St',
+        'billing_city' => 'Montreal',
+        'billing_region' => 'QC',
+        'billing_postal_code' => 'H3A 1T9',
+    ]);
+
+    $invoiceEn = Invoice::create([
+        'company_id' => $qcCompany->id,
+        'contact_id' => $customerEn->id,
+        'invoice_no' => 'INV-QC-EN',
+        'invoice_date' => CarbonImmutable::create(2026, 5, 24),
+        'due_date' => CarbonImmutable::create(2026, 6, 23),
+    ]);
+
+    $invoiceEn->lines()->create([
+        'company_id' => $qcCompany->id,
+        'account_id' => $income->id,
+        'tax_code_id' => $gst->id,
+        'secondary_tax_code_id' => $qst->id,
+        'description' => 'Consulting services',
+        'quantity' => '1',
+        'unit_price_cents' => 10000,
+        'line_subtotal_cents' => 10000,
+        'line_tax_cents' => 500,
+        'secondary_tax_cents' => 998,
+        'line_total_cents' => 11498,
+        'line_order' => 0,
+    ]);
+
+    app(InvoicePoster::class)->post($invoiceEn);
+
+    $htmlEn = app(InvoicePdfRenderer::class)->html($qcCompany, $invoiceEn->fresh());
+
+    expect($htmlEn)
+        ->toContain('GST/HST No.')
+        ->toContain('123456789 RT0001')
+        ->toContain('QST No.')
+        ->toContain('1234567890 TQ 0001')
+        ->toContain('QST-QC 9.975%');
+
+    // When show_tax_number is false, neither tax number prints
+    InvoiceSetting::updateOrCreate(
+        ['company_id' => $qcCompany->id],
+        [...InvoiceSetting::defaults(), 'show_tax_number' => false],
+    );
+    $qcCompany->unsetRelation('invoiceSettings');
+
+    $htmlHidden = app(InvoicePdfRenderer::class)->html($qcCompany, $invoiceFr->fresh());
+
+    expect($htmlHidden)
+        ->not->toContain('123456789 RT0001')
+        ->not->toContain('1234567890 TQ 0001');
 });

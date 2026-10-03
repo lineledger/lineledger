@@ -131,11 +131,11 @@ class CanadianDefaults implements CompanyDefaults
     public function taxCodes(): array
     {
         return [
-            ['code' => 'GST', 'name' => 'GST (5%)', 'rate_basis_points' => 500, 'recoverable' => true],
-            ['code' => 'HST-ON', 'name' => 'HST Ontario (13%)', 'rate_basis_points' => 1300, 'recoverable' => true],
-            ['code' => 'HST-NS', 'name' => 'HST Nova Scotia (15%)', 'rate_basis_points' => 1500, 'recoverable' => true],
-            ['code' => 'ZR', 'name' => 'Zero-rated (0%)', 'rate_basis_points' => 0, 'recoverable' => true],
-            ['code' => 'EX', 'name' => 'Exempt', 'rate_basis_points' => 0, 'recoverable' => false],
+            ['code' => 'GST', 'name' => __('GST (5%)'), 'rate_basis_points' => 500, 'recoverable' => true],
+            ['code' => 'HST-ON', 'name' => __('HST Ontario (13%)'), 'rate_basis_points' => 1300, 'recoverable' => true],
+            ['code' => 'HST-NS', 'name' => __('HST Nova Scotia (15%)'), 'rate_basis_points' => 1500, 'recoverable' => true],
+            ['code' => 'ZR', 'name' => __('Zero-rated (0%)'), 'rate_basis_points' => 0, 'recoverable' => true],
+            ['code' => 'EX', 'name' => __('Exempt'), 'rate_basis_points' => 0, 'recoverable' => false],
         ];
     }
 }

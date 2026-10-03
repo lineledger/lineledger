@@ -38,9 +38,9 @@ enum ProvincialSalesTax: string
     public function taxLabel(): string
     {
         return match ($this) {
-            self::BritishColumbia, self::Saskatchewan => 'PST',
-            self::Manitoba => 'RST',
-            self::Quebec => 'QST',
+            self::BritishColumbia, self::Saskatchewan => __('PST'),
+            self::Manitoba => __('RST'),
+            self::Quebec => __('QST'),
         };
     }
 
@@ -69,10 +69,17 @@ enum ProvincialSalesTax: string
 
     /**
      * The tax-code identifier seeded for the province, e.g. PST-BC, RST-MB, QST-QC.
+     * Kept in English so the stored code is stable across UI locales.
      */
     public function taxCode(): string
     {
-        return $this->taxLabel().'-'.$this->value;
+        $code = match ($this) {
+            self::BritishColumbia, self::Saskatchewan => 'PST',
+            self::Manitoba => 'RST',
+            self::Quebec => 'QST',
+        };
+
+        return $code.'-'.$this->value;
     }
 
     /**
@@ -81,10 +88,10 @@ enum ProvincialSalesTax: string
     public function taxCodeName(): string
     {
         return match ($this) {
-            self::BritishColumbia => 'PST (7%)',
-            self::Saskatchewan => 'PST (6%)',
-            self::Manitoba => 'RST (7%)',
-            self::Quebec => 'QST (9.975%)',
+            self::BritishColumbia => __('PST (7%)'),
+            self::Saskatchewan => __('PST (6%)'),
+            self::Manitoba => __('RST (7%)'),
+            self::Quebec => __('QST (9.975%)'),
         };
     }
 
@@ -106,6 +113,10 @@ enum ProvincialSalesTax: string
      */
     public function payableAccountName(): string
     {
-        return $this->taxLabel().' Payable';
+        return match ($this) {
+            self::BritishColumbia, self::Saskatchewan => 'PST Payable',
+            self::Manitoba => 'RST Payable',
+            self::Quebec => 'QST Payable',
+        };
     }
 }

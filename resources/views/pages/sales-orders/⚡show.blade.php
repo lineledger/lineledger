@@ -6,6 +6,7 @@ use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesOrder;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
@@ -251,9 +252,9 @@ new #[Title('Sales Order')] class extends Component {
                             @endif
                         </td>
                         <td class="px-4 py-2 text-muted-foreground">
-                            {{ optional($line->taxCode)->code }}
+                            {{ optional($line->taxCode)->label() }}
                             @if ($line->secondaryTaxCode)
-                                <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->line_total_cents / 100, 2) }}</td>
@@ -266,11 +267,11 @@ new #[Title('Sales Order')] class extends Component {
                     <td class="px-4 py-2 text-right font-mono">{{ number_format($salesOrder->subtotal_cents / 100, 2) }}</td>
                 </tr>
                 @php
-                    $taxRows = \App\Support\Tax\LineTaxBreakdown::forLines($salesOrder->lines);
+                    $taxRows = LineTaxBreakdown::forLines($salesOrder->lines);
                 @endphp
                 @forelse ($taxRows as $taxRow)
                     <tr data-test="sales-order-tax-row">
-                        <td colspan="7" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="7" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty

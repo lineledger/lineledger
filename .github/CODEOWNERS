@@ -9,6 +9,7 @@
 /.github/workflows/                     @tyrelb
 /Dockerfile                             @tyrelb
 /.dockerignore                          @tyrelb
+/docker-compose.yml                     @RiadGahlouz
 /docker/                                @tyrelb
 
 # Request boundary, auth, and multi-tenant isolation.

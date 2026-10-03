@@ -371,7 +371,7 @@ new #[Title('Tax return')] class extends Component {
         <flux:select wire:model.live="tax_agency_id" :label="__('Tax agency')" data-test="tax-agency-select">
             <flux:select.option value="">{{ __('Choose an agency…') }}</flux:select.option>
             @foreach ($this->agencies as $agency)
-                <flux:select.option :value="$agency->id">{{ $agency->name }}</flux:select.option>
+                <flux:select.option :value="$agency->id">{{ $agency->label() }}</flux:select.option>
             @endforeach
         </flux:select>
 

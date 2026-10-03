@@ -144,24 +144,24 @@ enum Country: string
     public function regionLabel(): string
     {
         return match ($this) {
-            self::Canada => 'Province',
-            self::UnitedStates => 'State',
+            self::Canada => __('Province'),
+            self::UnitedStates => __('State'),
         };
     }
 
     public function postalCodeLabel(): string
     {
         return match ($this) {
-            self::Canada => 'Postal Code',
-            self::UnitedStates => 'ZIP Code',
+            self::Canada => __('Postal Code'),
+            self::UnitedStates => __('ZIP Code'),
         };
     }
 
     public function taxLabel(): string
     {
         return match ($this) {
-            self::Canada => 'GST/HST',
-            self::UnitedStates => 'Sales Tax',
+            self::Canada => __('GST/HST'),
+            self::UnitedStates => __('Sales Tax'),
         };
     }
 

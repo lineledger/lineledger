@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CreditMemo;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -19,12 +20,12 @@ class PrintCreditMemoController extends Controller
 
         $filename = 'credit-memo-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $credit_memo->credit_memo_no).'.pdf';
 
-        return $pdf->inline('pdf.credit-memos.credit-memo', [
+        return Locales::forContactDocument($credit_memo->contact, $company, fn (): Response => $pdf->inline('pdf.credit-memos.credit-memo', [
             'company' => $company,
             'creditMemo' => $credit_memo,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($credit_memo),
-        ], $filename);
+        ], $filename));
     }
 
     /**
