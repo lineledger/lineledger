@@ -69,10 +69,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   higher net. Credit-memo tax now lowers Collected instead of adding to
   Paid, and vendor-credit tax lowers Paid instead of adding to Collected. Net
   figures are unchanged by that split.
-- **Dependencies refreshed** — Laravel 13.34, Livewire 4.4.7, Fortify 1.40; the
-  PHP ^8.5 and Laravel 13 requirements are unchanged. TCPDF stays on 6.x:
-  TCPDF 7 drops the internals FPDI builds on, and the payroll slips and the
-  management report package both print through FPDI.
+- **Dependencies refreshed** — Laravel 13.34, Livewire 4.4.7, Fortify 1.40,
+  Flux 2.20.1, laravel/mcp 1.0, stripe-php 22 and symfony/yaml 8; the PHP ^8.5
+  and Laravel 13 requirements are unchanged. TCPDF stays on 6.x: TCPDF 7 drops
+  the internals FPDI builds on, and the payroll slips and the management report
+  package both print through FPDI.
+- **MCP servers speak protocol revision 2026-07-28.** Connectors that open with
+  `initialize` keep working: 2025-06-18 and 2025-11-25 are answered as asked,
+  and a client asking for 2025-03-26 or 2024-11-05 is offered 2025-11-25. There
+  is no `Mcp-Session-Id` any more; every request stands alone. An unexpected
+  error inside a tool now comes back as a tool error rather than a JSON-RPC
+  error, without the exception's message unless `APP_DEBUG` is on.
+- **Stripe requests use API version `2026-09-30.endive`** (was
+  `2026-06-24.dahlia`), the version stripe-php 22 pins. Webhook payloads follow
+  the API version set on the webhook endpoint in Stripe, which this doesn't
+  change.
 
 ### Fixed
 
@@ -104,6 +115,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extension ([GHSA-3q6v-r5mr-hxv8](https://github.com/advisories/GHSA-3q6v-r5mr-hxv8))
   and a bypass of the raw-HTML tag filter
   ([GHSA-97jj-33gv-5xf9](https://github.com/advisories/GHSA-97jj-33gv-5xf9)).
+- **laravel/mcp 1.0.1**, which registers MCP connectors over OAuth. It matches a
+  loopback redirect URI on its parsed host instead of a `http://localhost:`
+  prefix, which a crafted URI could use to get past `MCP_REDIRECT_DOMAINS`, and
+  refuses redirect URIs that carry a username or password
+  ([GHSA-mx2h-h55v-pm44](https://github.com/laravel/mcp/security/advisories/GHSA-mx2h-h55v-pm44)).
 
 ## [1.1.0] - 2026-09-18
 

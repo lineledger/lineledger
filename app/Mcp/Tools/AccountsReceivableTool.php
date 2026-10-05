@@ -28,7 +28,7 @@ class AccountsReceivableTool extends Tool
             return $denied;
         }
 
-        $limit = (int) $request->get('limit', 25);
+        $limit = (int) ($request->get('limit') ?? 25);
         $limit = max(1, min($limit, 100));
 
         $customers = Contact::query()
