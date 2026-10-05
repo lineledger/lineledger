@@ -98,3 +98,30 @@ it('gates receivables on sales:read and payables on purchases:read', function ()
     $ap = (new AccountsPayableTool)->handle(new Request([]));
     expect($ap->isError())->toBeFalse();
 });
+
+it('treats a null limit as the default rather than a limit of one', function () {
+    $company = Company::factory()->create();
+    bindArApCompany($company);
+
+    foreach (['First', 'Second'] as $i => $name) {
+        Contact::factory()->create([
+            'company_id' => $company->id,
+            'display_name' => "{$name} Customer",
+            'is_customer' => true,
+            'ar_balance_cents' => 10000 - $i,
+        ]);
+        Contact::factory()->create([
+            'company_id' => $company->id,
+            'display_name' => "{$name} Vendor",
+            'is_vendor' => true,
+            'ap_balance_cents' => 10000 - $i,
+        ]);
+    }
+
+    // MCP clients often send an optional argument as an explicit null.
+    $ar = (string) (new AccountsReceivableTool)->handle(new Request(['limit' => null]))->content();
+    $ap = (string) (new AccountsPayableTool)->handle(new Request(['limit' => null]))->content();
+
+    expect($ar)->toContain('First Customer')->toContain('Second Customer')->not->toContain('more customer');
+    expect($ap)->toContain('First Vendor')->toContain('Second Vendor')->not->toContain('more vendor');
+});
