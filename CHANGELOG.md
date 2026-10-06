@@ -102,6 +102,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BC organizations keep BC time through the winter.** British Columbia stops
+  changing its clocks on November 1, 2026 and stays on UTC−7, but BC and Yukon
+  organizations were set to US Pacific time, which still falls back to UTC−8.
+  From November to March their "today" would have run an hour behind: between
+  midnight and 1 am new entries defaulted to the day before, report stamps read
+  an hour early, and payment reminders and scheduled report emails went out a
+  day late. They now use British Columbia and Yukon time, which the
+  Timezone picker offers as choices, and existing organizations left on US
+  Pacific time move across automatically when you upgrade. The server's timezone
+  data must know about the change: `php -r 'echo (new
+  DateTime("2026-12-01", new DateTimeZone("America/Vancouver")))->format("P");'`
+  should print `-07:00`.
 - **Clearing a cheque line's account no longer breaks the form.** Choosing "—"
   on a line that had an account threw an error instead of emptying the line.
 - **Pressing Post twice on a new journal entry no longer errors.** A
