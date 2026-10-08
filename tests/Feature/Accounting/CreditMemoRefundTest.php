@@ -3,6 +3,7 @@
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\CreditMemoStatus;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Models\Account;
 use App\Models\Cheque;
 use App\Models\Company;
@@ -353,4 +354,56 @@ it('refuses removing a refund cheque someone has open, and removes it once they 
         ->call('deleteRefundCheque', $cheque->id);
 
     expect(Cheque::find($cheque->id))->toBeNull();
+});
+
+it('refuses to void a credit memo while its card refund is posted, and voids it once the refund is removed', function () {
+    $memo = postedCreditMemo(10000);
+
+    Livewire::test('pages::credit-memos.show', ['company' => $this->company, 'credit_memo' => $memo])
+        ->call('openRefund')
+        ->set('refundMethod', 'card')
+        ->call('submitRefund');
+
+    $receipt = CustomerReceipt::where('credit_memo_id', $memo->id)->firstOrFail();
+
+    Livewire::test('pages::credit-memos.show', ['company' => $this->company, 'credit_memo' => $memo->fresh()])
+        ->call('void')
+        ->assertDispatched('toast-show')
+        ->assertNoRedirect();
+
+    // Nothing moved: the memo is still posted and the refund still clears the credit.
+    expect($memo->fresh()->status)->toBe(CreditMemoStatus::Posted);
+    expect($this->ar->fresh()->balance_cents)->toBe(0);
+    expect($this->customer->fresh()->ar_balance_cents)->toBe(0);
+
+    Livewire::test('pages::credit-memos.show', ['company' => $this->company, 'credit_memo' => $memo->fresh()])
+        ->call('deleteRefundReceipt', $receipt->id);
+
+    app(CreditMemoPoster::class)->void($memo->fresh());
+
+    expect($memo->fresh()->status)->toBe(CreditMemoStatus::Void);
+    expect($this->ar->fresh()->balance_cents)->toBe(0);
+    expect($this->customer->fresh()->ar_balance_cents)->toBe(0);
+});
+
+it('refuses to void a credit memo with a refund cheque, even an unposted draft', function () {
+    $memo = postedCreditMemo(10000);
+
+    Livewire::test('pages::credit-memos.show', ['company' => $this->company, 'credit_memo' => $memo])
+        ->call('openRefund')
+        ->set('refundMethod', 'cheque')
+        ->call('submitRefund');
+
+    $cheque = Cheque::where('credit_memo_id', $memo->id)->firstOrFail();
+    expect($cheque->journal_entry_id)->toBeNull();
+
+    expect(fn () => app(CreditMemoPoster::class)->void($memo->fresh()))
+        ->toThrow(PostingValidationException::class, 'This credit memo has been refunded.');
+
+    app(ChequePoster::class)->post($cheque);
+
+    expect(fn () => app(CreditMemoPoster::class)->void($memo->fresh()))
+        ->toThrow(PostingValidationException::class, 'This credit memo has been refunded.');
+
+    expect($memo->fresh()->status)->toBe(CreditMemoStatus::Posted);
 });

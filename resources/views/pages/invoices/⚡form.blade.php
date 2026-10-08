@@ -695,9 +695,11 @@ new #[Title('Invoice')] class extends Component
     {
         $wasPosted = $this->invoice?->journal_entry_id !== null;
 
-        $this->persist();
-
         try {
+            // Inside the try: SaveInvoice refuses an edit that would drop a paid
+            // invoice below its receipts, and rolls the whole save back.
+            $this->persist();
+
             $wasPosted ? $poster->repost($this->invoice) : $poster->post($this->invoice);
         } catch (PeriodLockedException|RuntimeException $e) {
             $this->addError('lines', $e->getMessage());

@@ -185,6 +185,12 @@ it('keeps a voided credit memo and its reversal on the statement so it ties to t
     ]);
     app(CreditMemoPoster::class)->post($memo);
 
+    // A voided credit memo whose card refund stayed posted. CreditMemoPoster now
+    // refuses to void a refunded memo, but books from before that guard still
+    // hold this state, so build it by voiding first and refunding after.
+    // Void the credit memo → reversing entry DR AR 50.
+    app(CreditMemoPoster::class)->void($memo);
+
     // Card refund of the credit memo: negative receipt → DR AR 50.
     $refund = CustomerReceipt::create([
         'contact_id' => $customer->id,
@@ -195,9 +201,6 @@ it('keeps a voided credit memo and its reversal on the statement so it ties to t
         'amount_cents' => -5000,
     ]);
     app(ReceiptPoster::class)->post($refund);
-
-    // Void the credit memo → reversing entry DR AR 50.
-    app(CreditMemoPoster::class)->void($memo);
 
     $this->actingAs($this->user);
 

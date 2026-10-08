@@ -4,9 +4,12 @@ namespace App\Services\Posting;
 
 use App\Enums\AccountSubtype;
 use App\Enums\AuditAction;
+use App\Enums\ChequeStatus;
 use App\Enums\CreditMemoStatus;
+use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
 use App\Models\CreditMemo;
@@ -219,6 +222,17 @@ class CreditMemoPoster
 
             if ($memo->status === CreditMemoStatus::Void) {
                 throw new RuntimeException('Credit memo is already voided.');
+            }
+
+            // A refund pays out the credit this memo created. Voiding the memo
+            // alone would leave that refund posted against a credit that no
+            // longer exists, so the refunds have to come off first. Draft refund
+            // cheques count too: posting one later would hit the same problem.
+            $hasRefunds = $memo->refundCheques()->where('status', '!=', ChequeStatus::Void->value)->exists()
+                || $memo->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->exists();
+
+            if ($hasRefunds) {
+                throw new PostingValidationException(__('This credit memo has been refunded. Remove its refunds first, then void the credit memo.'));
             }
 
             $this->journalPoster->void($memo->journalEntry, $voidDate, "Void of credit memo {$memo->credit_memo_no}");
