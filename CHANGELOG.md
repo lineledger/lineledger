@@ -102,6 +102,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Delete a draft journal entry.** A manual journal entry saved as a draft had
+  no way out: Void is only for posted entries, and the page offered nothing
+  else. Its Actions menu now has **Delete draft**, which removes the entry and
+  its lines (the deletion is recorded in the audit log). A posted entry still
+  offers Void, and an entry created by another document is still managed from
+  that document. `DELETE /api/v1/journal-entries/{id}` now goes through the same
+  action, so it also refuses a source-linked draft (422) instead of deleting it
+  out from under its document.
 - **BC organizations keep BC time through the winter.** British Columbia stops
   changing its clocks on November 1, 2026 and stays on UTC−7, but BC and Yukon
   organizations were set to US Pacific time, which still falls back to UTC−8.

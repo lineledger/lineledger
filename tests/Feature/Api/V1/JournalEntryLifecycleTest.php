@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Deposit;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -160,6 +161,18 @@ it('deletes a draft entry', function () {
     $id = $this->postJson('/api/v1/journal-entries', journalPayload(['post' => false]), $this->h)->json('data.id');
 
     $this->deleteJson("/api/v1/journal-entries/{$id}", [], $this->h)->assertStatus(204);
+
+    expect(JournalEntry::withoutGlobalScopes()->whereKey($id)->exists())->toBeFalse()
+        ->and(JournalLine::withoutGlobalScopes()->where('journal_entry_id', $id)->exists())->toBeFalse();
+});
+
+it('refuses to delete a source-linked draft entry', function () {
+    $id = $this->postJson('/api/v1/journal-entries', journalPayload(['post' => false]), $this->h)->json('data.id');
+    JournalEntry::withoutGlobalScopes()->whereKey($id)->update(['source_type' => Deposit::class, 'source_id' => 1]);
+
+    $this->deleteJson("/api/v1/journal-entries/{$id}", [], $this->h)->assertStatus(422);
+
+    expect(JournalEntry::withoutGlobalScopes()->whereKey($id)->exists())->toBeTrue();
 });
 
 it('returns 404 for another company\'s entry', function () {

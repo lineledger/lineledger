@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\PeriodLockedException;
@@ -121,8 +122,7 @@ class JournalEntryController extends ApiController
             return (new JournalEntryResource($journalEntry->fresh(['lines'])))->response()->setStatusCode(200);
         }
 
-        $journalEntry->lines()->delete();
-        $journalEntry->delete();
+        app(DeleteDraftJournalEntry::class)->handle($journalEntry);
 
         return response()->json(null, 204);
     }
