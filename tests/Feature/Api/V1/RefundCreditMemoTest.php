@@ -5,6 +5,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
+use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 
 beforeEach(function () {
@@ -109,4 +110,45 @@ it('rejects refunding a voided credit memo', function () {
         ->assertStatus(409);
 
     expect(CustomerReceipt::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('rejects an update that takes a refunded credit memo below its refunds, and voiding it', function () {
+    $memoId = makeCreditMemo(10000);
+    $auth = ['Authorization' => "Bearer {$this->plain}"];
+
+    $this->postJson("/api/v1/credit-memos/{$memoId}/refund", [
+        'refund_date' => '2026-07-02',
+        'amount_cents' => 6000,
+        'deposit_to_account_id' => $this->undeposited->id,
+    ], $auth)->assertStatus(201);
+
+    $lines = fn (int $cents) => [[
+        'description' => 'refund excess flight cost',
+        'quantity' => '1',
+        'unit_price_cents' => $cents,
+        'account_id' => $this->income->id,
+    ]];
+
+    $this->patchJson("/api/v1/credit-memos/{$memoId}", [
+        'contact_id' => $this->customer->id,
+        'credit_memo_date' => '2026-06-12',
+        'lines' => $lines(5000),
+    ], $auth)
+        ->assertStatus(422)
+        ->assertJsonPath('message', fn (string $message) => str_contains($message, '60.00 of this credit memo has already been refunded'));
+
+    $this->deleteJson("/api/v1/credit-memos/{$memoId}", [], $auth)
+        ->assertStatus(422)
+        ->assertJsonPath('message', fn (string $message) => str_contains($message, 'This credit memo has been refunded.'));
+
+    expect((int) CreditMemo::query()->withoutGlobalScopes()->findOrFail($memoId)->total_cents)->toBe(10000);
+
+    // Down to exactly the refunded amount is fine.
+    $this->patchJson("/api/v1/credit-memos/{$memoId}", [
+        'contact_id' => $this->customer->id,
+        'credit_memo_date' => '2026-06-12',
+        'lines' => $lines(6000),
+    ], $auth)
+        ->assertStatus(200)
+        ->assertJsonPath('data.total_cents', 6000);
 });

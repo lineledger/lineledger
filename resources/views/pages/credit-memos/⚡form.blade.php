@@ -355,9 +355,11 @@ new #[Title('Credit memo')] class extends Component
     {
         $wasPosted = $this->creditMemo?->journal_entry_id !== null;
 
-        $this->persist();
-
         try {
+            // Inside the try: SaveCreditMemo refuses an edit that would take a
+            // refunded credit memo below its refunds, and rolls the save back.
+            $this->persist();
+
             $wasPosted ? $poster->repost($this->creditMemo) : $poster->post($this->creditMemo);
         } catch (PeriodLockedException|RuntimeException $e) {
             $this->addError('lines', $e->getMessage());

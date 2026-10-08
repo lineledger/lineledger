@@ -19,6 +19,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -162,6 +163,8 @@ class CreditMemoPoster
                 throw new RuntimeException('Credit memo has no lines or zero total; cannot repost.');
             }
 
+            $this->ensureTotalCoversRefunds($memo);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
             $entry->forceFill([
@@ -206,6 +209,25 @@ class CreditMemoPoster
 
             return $entry;
         }));
+    }
+
+    /**
+     * Refuse a credit memo total below what has already been refunded from it.
+     * The refund would pay out more credit than the memo grants, leaving the
+     * customer's AR in debit with nothing on the documents to explain it. Used
+     * by SaveCreditMemo before anything is written, and by repost() for callers
+     * that skip the Action.
+     */
+    public function ensureTotalCoversRefunds(CreditMemo $memo): void
+    {
+        $refunded = $memo->refundedCents();
+
+        if ((int) $memo->total_cents < $refunded) {
+            throw new PostingValidationException(__(
+                ':amount of this credit memo has already been refunded, so its total can\'t go below that. Remove the refund first if the credit needs to be smaller.',
+                ['amount' => Money::fromCents($refunded)->toDecimalString()],
+            ));
+        }
     }
 
     /**
