@@ -157,7 +157,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="warning">
-            {{ __('A posted invoice is not edited the way a draft is. Choose Edit from the Actions menu, make your change, and select Save changes: the app re-posts the same journal entry in place, so your books and audit trail stay in step. It can no longer be saved back to a draft, and a change dated on or before your closing date is refused. Never simply delete a posted invoice — that would leave a gap in your numbered records. To cancel one, choose Void: the app reverses the ledger entry (and any stock movement) and keeps the voided invoice on file for your audit trail.') }}
+            {{ __('A posted invoice is not edited the way a draft is. Choose Edit from the Actions menu, make your change, and select Save changes: the app re-posts the same journal entry in place, so your books and audit trail stay in step. It can no longer be saved back to a draft, and a change dated on or before your closing date is refused. Once receipts have been applied to an invoice, its total can’t go below what they applied: reduce the amount applied on the receipt first, or issue a credit memo for the difference. Never simply delete a posted invoice — that would leave a gap in your numbered records. To cancel one, choose Void: the app reverses the ledger entry (and any stock movement) and keeps the voided invoice on file for your audit trail.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('Imported books: a balance that was already settled') }}">
@@ -249,7 +249,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </x-docs.callout>
 
         <flux:text>
-            {{ __('When the customer would rather have their money back than a credit on account, open the posted credit memo and select Refund to client. Choose By cheque to create a draft refund cheque you review and post — it debits Accounts Receivable and credits your bank — or By credit card to record the refund straight away. The card option books a negative customer receipt against Undeposited Funds, so you deposit it with your other card takings on a bank deposit. Either way the credit memo tracks how much has been refunded and shows a Partly refunded or Refunded badge, and you can drop a refund back off by voiding it.') }}
+            {{ __('When the customer would rather have their money back than a credit on account, open the posted credit memo and select Refund to client. Choose By cheque to create a draft refund cheque you review and post — it debits Accounts Receivable and credits your bank — or By credit card to record the refund straight away. The card option books a negative customer receipt against Undeposited Funds, so you deposit it with your other card takings on a bank deposit. Either way the credit memo tracks how much has been refunded and shows a Partly refunded or Refunded badge, and you can drop a refund back off by voiding it. While a refund stands, the credit memo can’t be voided or edited below the amount refunded, so void the refund first.') }}
         </flux:text>
 
         {{-- ────────────────────── Receive a payment ──────────────────────── --}}

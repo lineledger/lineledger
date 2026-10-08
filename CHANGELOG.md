@@ -110,6 +110,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that document. `DELETE /api/v1/journal-entries/{id}` now goes through the same
   action, so it also refuses a source-linked draft (422) instead of deleting it
   out from under its document.
+- **A paid invoice can't be edited below what its receipts applied.** Lowering
+  the total of an invoice that receipts had already paid saved anyway, leaving
+  more applied than the invoice was worth. Its balance cache stopped matching
+  its payments, and the nightly integrity check reported an over-application.
+  The edit is now refused with the amount applied. Reduce the amount applied on
+  the receipt first, or issue a credit memo for the difference. A failed post
+  from the invoice form also no longer leaves the edit half-saved.
+- **A refunded credit memo can't be voided or edited below its refunds.**
+  Voiding a credit memo that had a refund cheque or card refund against it, or
+  editing its total below the amount refunded, left refunds with no credit
+  behind them. Both are now refused until the refund is voided. The API answers
+  either with 422.
 - **BC organizations keep BC time through the winter.** British Columbia stops
   changing its clocks on November 1, 2026 and stays on UTC−7, but BC and Yukon
   organizations were set to US Pacific time, which still falls back to UTC−8.
