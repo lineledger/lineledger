@@ -2779,6 +2779,24 @@ parameters:
 			path: app/Services/Reporting/CashBasisCalculator.php
 
 		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Services/Reporting/CashflowForecaster.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Reporting/CashflowForecaster.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ReceiptStatus\:\:Posted will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/Reporting/CashflowForecaster.php
+
+		-
 			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\AccountType\:\:Income, App\\Enums\\AccountType\:\:Expense\} and true will always evaluate to false\.$#'
 			identifier: function.impossibleType
 			count: 1
@@ -3257,6 +3275,18 @@ parameters:
 			identifier: property.nonObject
 			count: 1
 			path: app/Services/Tax/CcaCalculator.php
+
+		-
+			message: '#^Anonymous function has an unused use \$acceptedDifferenceCents\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/Tax/TaxReturnFiler.php
+
+		-
+			message: '#^Anonymous function has an unused use \$reason\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/Tax/TaxReturnFiler.php
 
 		-
 			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaxReturnStatus\:\:Draft will always evaluate to true\.$#'

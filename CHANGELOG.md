@@ -89,11 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   higher net. Credit-memo tax now lowers Collected instead of adding to
   Paid, and vendor-credit tax lowers Paid instead of adding to Collected. Net
   figures are unchanged by that split.
-- **Dependencies refreshed** — Laravel 13.34, Livewire 4.4.7, Fortify 1.40,
-  Flux 2.20.1, laravel/mcp 1.0, stripe-php 22 and symfony/yaml 8; the PHP ^8.5
-  and Laravel 13 requirements are unchanged. TCPDF stays on 6.x: TCPDF 7 drops
-  the internals FPDI builds on, and the payroll slips and the management report
-  package both print through FPDI.
+- **Dependencies refreshed** — Laravel 13.35, Livewire 4.4.7, Fortify 1.41,
+  Passport 13.9, Flux 2.20.1, laravel/mcp 1.0, stripe-php 22 and symfony/yaml 8;
+  the PHP ^8.5 and Laravel 13 requirements are unchanged. TCPDF stays on 6.x:
+  TCPDF 7 drops the internals FPDI builds on, and the payroll slips and the
+  management report package both print through FPDI.
 - **MCP servers speak protocol revision 2026-07-28.** Connectors that open with
   `initialize` keep working: 2025-06-18 and 2025-11-25 are answered as asked,
   and a client asking for 2025-03-26 or 2024-11-05 is offered 2025-11-25. There
