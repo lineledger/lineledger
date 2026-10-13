@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
 use App\Models\Contact;
@@ -19,6 +20,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -262,14 +264,40 @@ class ReceiptPoster
      */
     public function expectedPaidCents(Invoice $invoice): int
     {
-        $paid = (int) DB::table('receipt_applications as ra')
+        return min($this->liveAppliedCents($invoice), (int) $invoice->total_cents);
+    }
+
+    /**
+     * Live applications from posted, non-deleted receipts — uncapped, so it can
+     * exceed the invoice total when the data is already over-applied.
+     */
+    public function liveAppliedCents(Invoice $invoice): int
+    {
+        return (int) DB::table('receipt_applications as ra')
             ->join('customer_receipts as r', 'r.id', '=', 'ra.customer_receipt_id')
             ->where('ra.invoice_id', $invoice->id)
             ->where('r.status', ReceiptStatus::Posted->value)
             ->whereNull('r.deleted_at')
             ->sum('ra.amount_cents');
+    }
 
-        return min($paid, (int) $invoice->total_cents);
+    /**
+     * Refuse an invoice total below what its receipts already apply. The excess
+     * has nowhere to go: the paid cache caps at the total, and integrity:check
+     * keeps flagging the over-application until someone edits the receipts. So
+     * it's stopped here, by SaveInvoice before anything is written and by
+     * InvoicePoster::repost() for callers that skip the Action.
+     */
+    public function ensureTotalCoversApplications(Invoice $invoice): void
+    {
+        $applied = $this->liveAppliedCents($invoice);
+
+        if ((int) $invoice->total_cents < $applied) {
+            throw new PostingValidationException(__(
+                'Receipts have already applied :amount to this invoice, so its total can\'t go below that. Reduce the amount applied on the receipt first, or issue a credit memo to give the difference back.',
+                ['amount' => Money::fromCents($applied)->toDecimalString()],
+            ));
+        }
     }
 
     /**

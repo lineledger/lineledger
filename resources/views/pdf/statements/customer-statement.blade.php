@@ -24,7 +24,9 @@
         table.lines td.memo { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
         table.lines thead th { background: #f3f4f6; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: #374151; }
         table.lines tr.total td { border-top: 2px solid #9ca3af; font-size: 13px; font-weight: bold; }
+        table.lines tr.forward td, table.lines tr.adjustment td { font-style: italic; color: #374151; }
         .num { text-align: right; font-family: DejaVu Sans Mono, monospace; }
+        table.lines td.num { white-space: nowrap; }
         table.aging { width: 100%; margin-top: 18px; border: 1px solid #9ca3af; }
         table.aging th, table.aging td { border: 1px solid #9ca3af; padding: 4px 8px; text-align: right; font-size: 10px; font-family: DejaVu Sans Mono, monospace; }
         table.aging th { background: #f3f4f6; text-transform: uppercase; letter-spacing: 0.03em; text-align: center; font-family: DejaVu Sans, sans-serif; }
@@ -38,7 +40,7 @@
 <body>
     @php
         $fmtDate = fn (?string $date): string => $date ? \Carbon\CarbonImmutable::parse($date)->format('n/j/Y') : '—';
-        $money = fn (int $cents): string => number_format($cents / 100, 2);
+        $money = fn (int $cents): string => \App\Support\Reporting\StatementColumns::money($cents);
 
         $statementForLines = collect([
             $contact->qualifiedName(),
@@ -50,6 +52,23 @@
         $isOpenInvoices = $type === \App\Enums\CustomerStatementType::OpenInvoices;
         $aging = $data['aging'];
         $totalDue = $isOpenInvoices ? $data['total_due'] : $data['statement']['closing'];
+
+        // The statement's columns, fixed + chosen optional, in display order —
+        // the same registry and cell formatter as the on-screen preview.
+        $columns ??= \App\Support\Reporting\StatementColumns::visible($type, null, $settings->statementColumnsFor($type));
+        $widths = \App\Support\Reporting\StatementColumns::widths($type, $columns);
+        $labelSpan = count($columns) - 1;
+        $headerAttributes = [];
+        $cellAttributes = [];
+        foreach ($columns as $key) {
+            $numeric = \App\Support\Reporting\StatementColumns::isNumeric($key);
+            $headerAttributes[$key] = ($numeric ? ' class="num"' : '').($widths[$key] !== null ? ' style="width: '.$widths[$key].';"' : '');
+            $cellAttributes[$key] = $numeric ? ' class="num"' : ($key === 'memo' ? ' class="memo"' : '');
+        }
+
+        // A period prints for activity, and for open invoices given a start date.
+        $periodStart = $isOpenInvoices ? ($data['start'] ?? null) : $data['start'];
+        $statementDate = $isOpenInvoices ? $data['as_of'] : $data['end'];
     @endphp
 
     <table class="full top">
@@ -67,15 +86,15 @@
                 <table class="meta">
                     <tr>
                         <th>{{ __('Statement Date') }}</th>
-                        <th>{{ $isOpenInvoices ? __('As Of') : __('Period') }}</th>
+                        <th>{{ $periodStart !== null ? __('Period') : __('As Of') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $fmtDate($isOpenInvoices ? $data['as_of'] : $data['end']) }}</td>
+                        <td>{{ $fmtDate($statementDate) }}</td>
                         <td>
-                            @if ($isOpenInvoices)
-                                {{ $fmtDate($data['as_of']) }}
+                            @if ($periodStart !== null)
+                                {{ $fmtDate($periodStart) }} – {{ $fmtDate($statementDate) }}
                             @else
-                                {{ $fmtDate($data['start']) }} – {{ $fmtDate($data['end']) }}
+                                {{ $fmtDate($statementDate) }}
                             @endif
                         </td>
                     </tr>
@@ -105,35 +124,28 @@
             <table class="lines">
                 <thead>
                     <tr>
-                        <th style="width: 11%;">{{ __('Date') }}</th>
-                        <th style="width: 15%;">{{ __('Invoice #') }}</th>
-                        <th>{{ __('Memo') }}</th>
-                        <th style="width: 11%;">{{ __('Due Date') }}</th>
-                        <th class="num" style="width: 17%;">{{ __('Original Amount') }}</th>
-                        <th class="num" style="width: 14%;">{{ __('Balance') }}</th>
+                        @foreach ($columns as $key)
+                            <th{!! $headerAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::label($type, $key) }}</th>
+                        @endforeach
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($data['rows'] as $row)
                         @if ($row['kind'] === 'invoice')
                             <tr>
-                                <td>{{ $fmtDate($row['invoice_date']) }}</td>
-                                <td>{{ $row['invoice_no'] }}</td>
-                                <td class="memo">{{ $row['memo'] }}</td>
-                                <td>{{ $fmtDate($row['due_date']) }}</td>
-                                <td class="num">{{ $money($row['total']) }}</td>
-                                <td class="num">{{ $money($row['balance']) }}</td>
+                                @foreach ($columns as $key)
+                                    <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $row) }}</td>
+                                @endforeach
                             </tr>
                         @else
-                            <tr>
-                                <td colspan="4">{{ $row['label'] }}</td>
-                                <td class="num"></td>
+                            <tr class="{{ $row['kind'] }}">
+                                <td colspan="{{ $labelSpan }}">{{ $row['label'] }}</td>
                                 <td class="num">{{ $money($row['balance']) }}</td>
                             </tr>
                         @endif
                     @endforeach
                     <tr class="total">
-                        <td colspan="5">{{ $totalDue < 0 ? __('Credit balance') : __('Total Due') }}</td>
+                        <td colspan="{{ $labelSpan }}">{{ $totalDue < 0 ? __('Credit balance') : __('Total Due') }}</td>
                         <td class="num">${{ $money($totalDue) }}</td>
                     </tr>
                 </tbody>
@@ -143,33 +155,25 @@
         <table class="lines">
             <thead>
                 <tr>
-                    <th style="width: 12%;">{{ __('Date') }}</th>
-                    <th style="width: 13%;">{{ __('Type') }}</th>
-                    <th style="width: 13%;">{{ __('Doc #') }}</th>
-                    <th>{{ __('Memo') }}</th>
-                    <th class="num" style="width: 13%;">{{ __('Charges') }}</th>
-                    <th class="num" style="width: 13%;">{{ __('Payments') }}</th>
-                    <th class="num" style="width: 13%;">{{ __('Balance') }}</th>
+                    @foreach ($columns as $key)
+                        <th{!! $headerAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::label($type, $key) }}</th>
+                    @endforeach
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="6">{{ __('Opening balance') }}</td>
+                    <td colspan="{{ $labelSpan }}">{{ __('Opening balance') }}</td>
                     <td class="num">{{ $money($data['statement']['opening']) }}</td>
                 </tr>
                 @foreach ($data['statement']['lines'] as $line)
                     <tr>
-                        <td>{{ $fmtDate($line['date']) }}</td>
-                        <td>{{ $line['type'] }}</td>
-                        <td>{{ $line['doc_no'] }}</td>
-                        <td class="memo">{{ $line['memo'] }}</td>
-                        <td class="num">{{ $line['debit'] !== 0 ? $money($line['debit']) : '' }}</td>
-                        <td class="num">{{ $line['credit'] !== 0 ? $money($line['credit']) : '' }}</td>
-                        <td class="num">{{ $money($line['running']) }}</td>
+                        @foreach ($columns as $key)
+                            <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $line) }}</td>
+                        @endforeach
                     </tr>
                 @endforeach
                 <tr class="total">
-                    <td colspan="6">{{ $totalDue < 0 ? __('Credit balance') : __('Balance Due') }}</td>
+                    <td colspan="{{ $labelSpan }}">{{ $totalDue < 0 ? __('Credit balance') : __('Balance Due') }}</td>
                     <td class="num">${{ $money($data['statement']['closing']) }}</td>
                 </tr>
             </tbody>

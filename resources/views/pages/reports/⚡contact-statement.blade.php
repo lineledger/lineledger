@@ -55,7 +55,7 @@ new #[Title('Account Statement')] class extends Component
     }
 
     /**
-     * The statement modal and the edit link lead into the Customers/Vendors
+     * The statement page and the edit link lead into the Customers/Vendors
      * section, which a Reports-only member can't use — so only offer them
      * when the viewer can actually get there.
      */
@@ -184,11 +184,14 @@ new #[Title('Account Statement')] class extends Component
 
         <div class="flex flex-wrap items-end gap-2">
             @if ($this->isAr() && $this->canManageContact)
-                {{-- The child modal isn't re-rendered with this page, so the dates travel with the event. --}}
+                {{-- The customer-facing statement page on its own default — every
+                     open invoice ("All") — rather than this report's period, which
+                     would fold older invoices into a Balance forward row. --}}
                 <flux:button
                     icon="document-text"
-                    wire:click="$dispatch('open-customer-statement', { id: {{ $contact->id }}, start: $wire.startDate, end: $wire.endDate })"
-                    data-test="statement-open-modal"
+                    :href="route('customers.statement', ['company' => $company->slug, 'contact' => $contact->id])"
+                    wire:navigate
+                    data-test="statement-open-page"
                 >{{ __('Statement…') }}</flux:button>
             @endif
             <flux:dropdown align="end">
@@ -282,7 +285,4 @@ new #[Title('Account Statement')] class extends Component
         </table>
     </div>
 
-    @if ($this->isAr() && $this->canManageContact)
-        <livewire:customer-statement-modal :company="$company" />
-    @endif
 </section>

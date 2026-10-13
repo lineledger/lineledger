@@ -145,6 +145,7 @@ Route::prefix('{company}')
 
         // Customers
         Route::livewire('customers', 'pages::customers.index')->name('customers.index');
+        Route::livewire('customers/{contact}/statement', 'pages::customers.statement')->name('customers.statement');
         Route::get('customers/{contact}/statement/print', [CustomerStatementController::class, 'print'])->name('customers.statement.print');
         Route::get('customers/{contact}/statement/download', [CustomerStatementController::class, 'download'])->name('customers.statement.download');
 

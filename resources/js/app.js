@@ -1,8 +1,10 @@
 import './charts.js';
 import { evaluateAmountExpression, isAmountExpression, roundHalfUp } from './amount-expression.js';
 import { editLockBlockedPoller, editLockKeeper } from './edit-lock.js';
+import { installAccountCombo } from './account-combo.js';
 import { installEscapeBack } from './escape-back.js';
 import { installDatePicker } from './date-picker.js';
+import { resizableColumnsDirective } from './resizable-columns.js';
 
 /** Escape goes back to the previous page. See ./escape-back.js. */
 installEscapeBack();
@@ -17,6 +19,19 @@ document.addEventListener('alpine:init', () => {
      */
     window.Alpine.data('editLockKeeper', editLockKeeper);
     window.Alpine.data('editLockBlockedPoller', editLockBlockedPoller);
+
+    /**
+     * Typeable account picker for line "Account" columns: search by GL number
+     * or name. See ./account-combo.js and <x-account-combo>.
+     */
+    installAccountCombo(window.Alpine);
+
+    /**
+     * Drag-to-resize columns on the line-item tables, remembered per browser:
+     * x-resizable-columns="'cheque-lines'" on the <table>, <x-col-resize-handle>
+     * in each resizable <th>. See ./resizable-columns.js.
+     */
+    window.Alpine.directive('resizable-columns', resizableColumnsDirective);
 
     /**
      * Guest country-switcher banner (books.lineledger.com vs .ca). Mirrors the

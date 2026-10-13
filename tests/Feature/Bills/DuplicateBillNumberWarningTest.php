@@ -51,7 +51,7 @@ function dupBillLine(): array
         'unit_price' => '100.00',
         'discount_pct' => '',
         'tax_code_id' => null,
-        'tax_override' => '',
+        'tax_overrides' => [],
         'class_id' => null,
         'location_id' => null,
         'subtotal' => 0,

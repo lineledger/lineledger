@@ -48,6 +48,7 @@ class InvoicePoster
         protected InventoryCostingFactory $costingFactory,
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
+        protected ReceiptPoster $receipts,
     ) {}
 
     public function post(Invoice $invoice): JournalEntry
@@ -138,7 +139,8 @@ class InvoicePoster
      * from the current invoice state, and recomputes balances on every
      * account that was touched (old + new). Payment applications are NOT
      * disturbed — the invoice keeps its amount_paid and the status is
-     * recomputed (paid/partial/posted) against the new total.
+     * recomputed (paid/partial/posted) against the new total, which may not
+     * drop below what receipts already applied.
      *
      * Use this when the user wants to edit a posted invoice without the
      * void+recreate ceremony. Caller is responsible for the trade-off of
@@ -186,6 +188,8 @@ class InvoicePoster
                 throw new RuntimeException('Invoice has no lines or zero total; cannot repost.');
             }
 
+            $this->receipts->ensureTotalCoversApplications($invoice);
+
             // Capture every account id touched by the old lines so we can
             // recompute their balances after we wipe and rebuild.
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
@@ -225,9 +229,8 @@ class InvoicePoster
                 Account::withoutGlobalScopes()->find($id)?->recomputeBalance();
             }
 
-            // Recompute invoice status against the new total. If the new
-            // total is lower than what was already paid, the invoice falls
-            // to "paid" (over-payment is left to manual reconciliation).
+            // Recompute invoice status against the new total. It can't be
+            // lower than what receipts already applied (guarded above).
             $this->recomputeStatus($invoice);
             $invoice->contact->recomputeArBalance();
 

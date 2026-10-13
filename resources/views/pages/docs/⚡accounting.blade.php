@@ -181,7 +181,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open Accounting → Journal, then select New entry.') }}</li>
             <li>{{ __('If you have saved templates, a Template selector sits at the top — pick one to fill the lines (see Journal entry templates below).') }}</li>
-            <li>{{ __('The Entry # and Date fill in automatically. You can type your own number, but it must be unique within the organization. A click anywhere in the Date field opens the calendar.') }}</li>
+            <li>{{ __('The Entry # and Date fill in automatically. The suggested Entry # is a preview: every posting in the organization shares the same JE numbers, so if someone posts while you are working, your entry takes the next free number when you save it. You can type your own number instead, but it must be unique within the organization. A click anywhere in the Date field opens the calendar.') }}</li>
             <li>{{ __('Type a Memo describing why you are making the entry.') }}</li>
             <li>{{ __('On the first line, choose an Account. If it is your Accounts Receivable or Accounts Payable account, a “Search or add a customer…” (or vendor) box appears beneath it — pick the name the amount belongs to, or type a new name and add them on the spot.') }}</li>
             <li>{{ __('The Tax code fills in from the account’s default. It is a reporting tag only — it never calculates or changes an amount — so clear it or change it freely.') }}</li>
@@ -212,7 +212,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('If a teammate already has a journal entry, template, schedule, or account open for editing, you see who is editing instead of the form, and Owners and Admins can take over. Posting, voiding, reversing, or merging is refused while someone else is editing. See') }}
+            {{ __('If a teammate already has a journal entry, template, schedule, or account open for editing, you see who is editing instead of the form, and Owners and Admins can take over. Posting, voiding, reversing, deleting a draft, or merging is refused while someone else is editing. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>
@@ -221,6 +221,11 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         <flux:text>
             {{ __('Open a manual entry and select Edit. The form warns that “This entry is posted. Saving overwrites it in place and changes already-reported balances.” The entry must still balance, and the date you save it with must fall after any lock date. The Entry # field stays editable, so the entry keeps its number unless you change it there. Select Save changes; the before-and-after is written to the audit trail. To cancel an entry instead, choose Void from the Actions menu and confirm: the app posts a reversing entry dated today and marks the original Voided, so the ledger keeps both. A debit line to a Fixed Asset account also shows a Create asset record button on the entry page — see') }}
             <a class="underline" href="{{ route('docs.fixed-assets') }}" wire:navigate>{{ __('Fixed assets') }}</a>{{ __('.') }}
+        </flux:text>
+
+        <flux:heading size="md" class="mt-6">{{ __('Deleting a draft entry') }}</flux:heading>
+        <flux:text>
+            {{ __('A draft never reached your books, so it does not need a reversing entry. Open a manual draft and choose Delete draft from the Actions menu, then confirm: the entry and its lines are removed and the deletion is recorded in the audit log. Delete draft appears only on drafts; once an entry is posted, Void takes its place. An entry created by another document is managed from that document instead.') }}
         </flux:text>
 
         <flux:heading size="md" class="mt-6">{{ __('Source-linked entries') }}</flux:heading>

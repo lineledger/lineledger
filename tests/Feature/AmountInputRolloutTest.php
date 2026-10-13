@@ -14,6 +14,7 @@ use App\Models\Company;
 use App\Models\Contact;
 use App\Models\InboxItem;
 use App\Models\Invoice;
+use App\Models\TaxCode;
 use App\Models\User;
 use App\Services\Posting\BillPoster;
 use App\Services\Posting\InvoicePoster;
@@ -62,7 +63,7 @@ it('renders the amount-input calculator on every converted form', function (stri
     'invoices' => ['invoices.create', ['line-unit-price']],
     'credit memos' => ['credit-memos.create', ['line-unit-price']],
     'purchase orders' => ['purchase-orders.create', ['line-unit-price']],
-    'bills' => ['bills.create', ['line-unit-price', 'line-tax-override']],
+    'bills' => ['bills.create', ['line-unit-price']],
     'vendor credits' => ['vendor-credits.create', ['line-unit-price']],
     'transfers' => ['transfers.create', ['transfer-amount-input']],
     'reconcile' => ['banking.reconcile', []],
@@ -71,39 +72,35 @@ it('renders the amount-input calculator on every converted form', function (stri
     'estimates' => ['estimates.create', ['line-unit-price']],
     'invoice templates' => ['invoice-templates.create', ['line-unit-price']],
     'recurring documents' => ['recurring.create', ['line-unit-price']],
-    'reimbursements' => ['reimbursements.create', ['line-unit-price', 'line-tax-override']],
-    'cheques' => ['cheques.create', ['line-amount', 'line-tax-override']],
-    'expenses' => ['expenses.create', ['line-amount', 'line-tax-override']],
+    'reimbursements' => ['reimbursements.create', ['line-unit-price']],
+    'cheques' => ['cheques.create', ['line-amount']],
+    'expenses' => ['expenses.create', ['line-amount']],
     'receipts' => ['receipts.create', ['receipt-amount-input']],
 ]);
 
 /**
- * The bill tax-override field is the only conversion that forwards a non-default
- * binding (.live.debounce.500ms) plus a tab handler through the attribute bag.
- * Confirm both survived the swap so debounced syncing and tab-to-add-row still work.
+ * A line's tax-override fields are one calculator per SELECTED tax code, so a
+ * blank line (no tax yet) shows none. Once a code is picked its field appears,
+ * forwarding the non-default .live.debounce.500ms binding through the attribute
+ * bag — make sure none of them silently fell back to the default .live, and
+ * that the bill's tab-to-add-row handler still rides along.
  */
-it('preserves the debounce binding and tab handler on the bill tax-override field', function () {
-    $html = $this->get(route('bills.create', ['company' => $this->company->slug]))
-        ->assertOk()
-        ->getContent();
+it('renders a debounced tax-override calculator only once a tax code is picked', function (string $page) {
+    $gst = TaxCode::query()->where('code', 'GST')->firstOrFail();
 
-    expect($html)
-        ->toContain('wire:model.live.debounce.500ms="lines.0.tax_override"')
-        ->toContain('addRowAndFocus')
-        ->toContain('wire:model.live="lines.0.unit_price"');
-});
+    $component = Livewire::test($page, ['company' => $this->company]);
 
-/**
- * The other tax-override fields forward the same debounced binding through the
- * attribute bag; make sure none of them silently fell back to the default .live.
- */
-it('preserves the debounce binding on every tax-override field', function (string $route) {
-    $html = $this->get(route($route, ['company' => $this->company->slug]))
-        ->assertOk()
-        ->getContent();
+    expect($component->html())->not->toContain('data-test="line-tax-override"');
 
-    expect($html)->toContain('wire:model.live.debounce.500ms="lines.0.tax_override"');
-})->with(['cheques.create', 'expenses.create', 'reimbursements.create']);
+    $html = $component->set('lines.0.tax_code_ids', [$gst->id])->html();
+
+    expect($html)->not->toContain('<flux:input')
+        ->and($html)->toContain('x-data="amountCalculator"')
+        ->and($html)->toContain('data-test="line-tax-override"')
+        ->and($html)->toContain('data-tax-code="'.$gst->id.'"')
+        ->and($html)->toContain('wire:model.live.debounce.500ms="lines.0.tax_overrides.'.$gst->id.'"')
+        ->and($html)->toContain('addRowAndFocus');
+})->with(['pages::bills.form', 'pages::cheques.form', 'pages::expenses.form', 'pages::reimbursements.form']);
 
 /**
  * The deposit "Other deposits" amount field only renders once a line exists
@@ -285,12 +282,18 @@ it('renders the amount-input calculator on the inbox review tax-override field',
         'extracted' => ['vendor' => 'Some Vendor', 'amount_cents' => 6000, 'currency' => 'CAD', 'date' => '2026-06-20'],
     ])->save();
 
-    $html = Livewire::test('pages::inbox.show', ['company' => $this->company, 'item' => $item->fresh()])->html();
+    $component = Livewire::test('pages::inbox.show', ['company' => $this->company, 'item' => $item->fresh()]);
+
+    // No tax read off the receipt, so no tax amount to correct yet.
+    expect($component->html())->not->toContain('data-test="inbox-line-tax-override"');
+
+    $gst = TaxCode::query()->where('code', 'GST')->firstOrFail();
+    $html = $component->set('lines.0.tax_code_ids', [$gst->id])->html();
 
     expect($html)->not->toContain('<flux:input');
 
     expect($html)
         ->toContain('data-test="inbox-line-tax-override"')
-        ->toContain('wire:model.live.debounce.500ms="lines.0.tax_override"')
+        ->toContain('wire:model.live.debounce.500ms="lines.0.tax_overrides.'.$gst->id.'"')
         ->toContain('x-data="amountCalculator"');
 });

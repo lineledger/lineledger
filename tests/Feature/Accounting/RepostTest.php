@@ -4,6 +4,7 @@ use App\Enums\AccountSubtype;
 use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Enums\InvoiceStatus;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -97,7 +98,7 @@ it('reposts an invoice and the GL ties out to the new total', function () {
     expect($totals['dr'])->toBe($totals['cr']); // Always balanced
 });
 
-it('reposting a paid invoice with a lower new total recomputes status (over-paid → paid)', function () {
+it('reposting a partly paid invoice down to the amount paid recomputes status (partial → paid)', function () {
     $customer = Contact::create(['display_name' => 'Paid Customer', 'is_customer' => true]);
     $income = Account::query()->where('subtype', AccountSubtype::Income->value)->first();
     $undep = Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->first();
@@ -117,20 +118,20 @@ it('reposting a paid invoice with a lower new total recomputes status (over-paid
     app(InvoicePoster::class)->post($invoice);
     $invoice->refresh();
 
-    // Pay it in full
+    // Pay half
     $receipt = CustomerReceipt::create([
         'contact_id' => $customer->id,
         'receipt_no' => 'REC-PAID-1',
         'receipt_date' => now()->toDateString(),
         'deposit_to_account_id' => $undep->id,
-        'amount_cents' => 10000,
+        'amount_cents' => 5000,
     ]);
-    $receipt->applications()->create(['invoice_id' => $invoice->id, 'amount_cents' => 10000]);
+    $receipt->applications()->create(['invoice_id' => $invoice->id, 'amount_cents' => 5000]);
     app(ReceiptPoster::class)->post($receipt->fresh('applications'));
 
-    expect($invoice->fresh()->status)->toBe(InvoiceStatus::Paid);
+    expect($invoice->fresh()->status)->toBe(InvoiceStatus::Partial);
 
-    // Edit: reduce total to 5000 — invoice should stay paid (over-paid)
+    // Edit: reduce total to exactly what was paid — invoice becomes paid
     $invoice->lines()->delete();
     $invoice->lines()->create([
         'account_id' => $income->id, 'description' => 'reduced', 'quantity' => '1',
@@ -143,10 +144,60 @@ it('reposting a paid invoice with a lower new total recomputes status (over-paid
 
     $invoice->refresh();
     expect($invoice->total_cents)->toBe(5000);
+    expect($invoice->amount_paid_cents)->toBe(5000);
     expect($invoice->status)->toBe(InvoiceStatus::Paid);
 
     $totals = ledgerTotals($this->company);
     expect($totals['dr'])->toBe($totals['cr']);
+});
+
+it('refuses to repost a paid invoice below what its receipts applied', function () {
+    $customer = Contact::create(['display_name' => 'Paid Customer', 'is_customer' => true]);
+    $income = Account::query()->where('subtype', AccountSubtype::Income->value)->first();
+    $ar = Account::query()->where('subtype', AccountSubtype::AccountsReceivable->value)->first();
+    $undep = Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->first();
+
+    $invoice = Invoice::create([
+        'contact_id' => $customer->id,
+        'invoice_no' => 'EDIT-PAID-2',
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+    ]);
+    $invoice->lines()->create([
+        'account_id' => $income->id, 'description' => 'x', 'quantity' => '1',
+        'unit_price_cents' => 10000,
+        'line_subtotal_cents' => 10000, 'line_tax_cents' => 0, 'line_total_cents' => 10000,
+        'line_order' => 0,
+    ]);
+    app(InvoicePoster::class)->post($invoice);
+
+    $receipt = CustomerReceipt::create([
+        'contact_id' => $customer->id,
+        'receipt_no' => 'REC-PAID-2',
+        'receipt_date' => now()->toDateString(),
+        'deposit_to_account_id' => $undep->id,
+        'amount_cents' => 10000,
+    ]);
+    $receipt->applications()->create(['invoice_id' => $invoice->id, 'amount_cents' => 10000]);
+    app(ReceiptPoster::class)->post($receipt->fresh('applications'));
+
+    $invoice->lines()->delete();
+    $invoice->lines()->create([
+        'account_id' => $income->id, 'description' => 'reduced', 'quantity' => '1',
+        'unit_price_cents' => 5000,
+        'line_subtotal_cents' => 5000, 'line_tax_cents' => 0, 'line_total_cents' => 5000,
+        'line_order' => 0,
+    ]);
+
+    expect(fn () => app(InvoicePoster::class)->repost($invoice->fresh('lines')))
+        ->toThrow(PostingValidationException::class, 'Receipts have already applied 100.00 to this invoice');
+
+    // The repost rolled back: the header and the ledger still say 100.00 paid in full.
+    $invoice->refresh();
+    expect($invoice->total_cents)->toBe(10000);
+    expect($invoice->amount_paid_cents)->toBe(10000);
+    expect($invoice->status)->toBe(InvoiceStatus::Paid);
+    expect($ar->fresh()->balance_cents)->toBe(0);
 });
 
 it('reposts a receipt and re-applies to invoices correctly', function () {

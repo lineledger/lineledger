@@ -16,11 +16,12 @@ final class LineTaxBreakdown
 {
     /**
      * Group document lines by tax code, summing the primary and secondary tax on
-     * each. Lines must expose `taxCode`/`line_tax_cents` and
-     * `secondaryTaxCode`/`secondary_tax_cents`. Null codes and zero amounts are
+     * each. Lines must expose `taxCode` and `secondaryTaxCode`/`secondary_tax_cents`,
+     * plus the primary tax as `line_tax_cents` (invoice, bill, … lines) or
+     * `tax_cents` (cheque and expense lines). Null codes and zero amounts are
      * skipped, so a single-tax line yields one row.
      *
-     * @param  iterable<int, object{taxCode: ?TaxCode, line_tax_cents: int, secondaryTaxCode: ?TaxCode, secondary_tax_cents: int}>  $lines
+     * @param  iterable<int, object{taxCode: ?TaxCode, line_tax_cents?: ?int, tax_cents?: ?int, secondaryTaxCode: ?TaxCode, secondary_tax_cents: int}>  $lines
      * @return array<int, array{label: string, rate: float, tax_cents: int}>
      */
     public static function forLines(iterable $lines): array
@@ -29,7 +30,7 @@ final class LineTaxBreakdown
 
         foreach ($lines as $line) {
             foreach ([
-                [$line->taxCode, (int) $line->line_tax_cents],
+                [$line->taxCode, (int) ($line->line_tax_cents ?? $line->tax_cents ?? 0)],
                 [$line->secondaryTaxCode, (int) $line->secondary_tax_cents],
             ] as [$code, $cents]) {
                 if (! $code || $cents === 0) {

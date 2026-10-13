@@ -115,10 +115,13 @@ final class SaveBill
                     $secondaryTaxCode,
                 );
 
-                $override = $line['tax_override_cents'] ?? null;
+                // A tax amount only means something against a tax code: with no
+                // code there is no agency to post it to, so the poster would skip
+                // it and the rounding plug would quietly push it into an expense.
+                $override = $taxCode !== null && isset($line['tax_override_cents']) ? (int) $line['tax_override_cents'] : null;
                 $taxCents = $override !== null ? (int) $override : $totals['tax_cents'];
 
-                $secondaryOverride = $line['secondary_tax_override_cents'] ?? null;
+                $secondaryOverride = $secondaryTaxCode !== null && isset($line['secondary_tax_override_cents']) ? (int) $line['secondary_tax_override_cents'] : null;
                 $secondaryTaxCents = $secondaryOverride !== null ? (int) $secondaryOverride : $totals['secondary_tax_cents'];
 
                 $bill->lines()->create([

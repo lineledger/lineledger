@@ -10,7 +10,8 @@ use Livewire\Livewire;
 /**
  * The switcher opens the chosen company in a new tab: each other company is a
  * target="_blank" form posting to companies.switch, which redirects that tab to
- * the page the user was on, rewritten to the new company.
+ * the chosen company's dashboard — never the page the user was on, whose
+ * record ids belong to the company being left.
  */
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -32,16 +33,21 @@ test('the switcher opens every other company in a new tab', function () {
         ->assertDontSeeHtml('action="'.route('companies.switch', $this->from->slug).'"');
 });
 
-test('switching redirects the new tab to the same page in the chosen company', function () {
+test('switching opens the chosen company dashboard, not the current page', function (string $page) {
     $this->actingAs($this->user)
-        ->withHeader('Referer', url("/{$this->from->slug}/invoices?status=open"))
+        ->withHeader('Referer', url("/{$this->from->slug}/{$page}"))
         ->post(route('companies.switch', $this->to->slug), ['from' => $this->from->slug])
-        ->assertRedirect(url("/{$this->to->slug}/invoices?status=open"));
+        ->assertRedirect(route('dashboard', ['company' => $this->to->slug]));
 
     expect($this->user->fresh()->current_company_id)->toBe($this->to->id);
-});
+})->with([
+    'a list page' => ['invoices?status=open'],
+    // A record of the company being left — rewriting it into the new company
+    // would 404.
+    'a record page' => ['reports/contact-statement/880?kind=ar'],
+]);
 
-test('switching rewrites from the tab\'s company, not the last-used one', function () {
+test('the security log records the tab\'s company, not the last-used one', function () {
     // Another tab loaded a third company since this tab rendered.
     $other = Company::factory()->create();
     $other->members()->attach($this->user, ['role' => CompanyRole::Accountant->value]);
@@ -50,7 +56,7 @@ test('switching rewrites from the tab\'s company, not the last-used one', functi
     $this->actingAs($this->user)
         ->withHeader('Referer', url("/{$this->from->slug}/invoices"))
         ->post(route('companies.switch', $this->to->slug), ['from' => $this->from->slug])
-        ->assertRedirect(url("/{$this->to->slug}/invoices"));
+        ->assertRedirect(route('dashboard', ['company' => $this->to->slug]));
 
     $row = SecurityLog::query()->where('event', SecurityEvent::CompanySwitched)->latest('id')->first();
 
@@ -64,7 +70,7 @@ test('a from company the user does not belong to is ignored', function () {
     $this->actingAs($this->user)
         ->withHeader('Referer', url("/{$this->from->slug}/invoices"))
         ->post(route('companies.switch', $this->to->slug), ['from' => $foreign->slug])
-        ->assertRedirect(url("/{$this->to->slug}/invoices"));
+        ->assertRedirect(route('dashboard', ['company' => $this->to->slug]));
 
     $row = SecurityLog::query()->where('event', SecurityEvent::CompanySwitched)->latest('id')->first();
 
@@ -79,7 +85,7 @@ test('switching to the current company records no event', function () {
     expect(SecurityLog::query()->where('event', SecurityEvent::CompanySwitched)->exists())->toBeFalse();
 });
 
-test('without a usable referer the new tab opens the chosen company dashboard', function (?string $referer) {
+test('the new tab opens the chosen company dashboard whatever the referer', function (?string $referer) {
     $request = $this->actingAs($this->user);
 
     if ($referer !== null) {

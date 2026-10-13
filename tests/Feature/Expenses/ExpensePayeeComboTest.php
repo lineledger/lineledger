@@ -36,7 +36,7 @@ function payeeComboExpenseLine(int $accountId): array
         'description' => 'Refund',
         'amount' => '80.00',
         'tax_code_id' => null,
-        'tax_override' => '',
+        'tax_overrides' => [],
         'class_id' => null,
         'location_id' => null,
         'auto_tax_cents' => 0,

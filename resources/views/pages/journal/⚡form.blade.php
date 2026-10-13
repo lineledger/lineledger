@@ -27,8 +27,12 @@ use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -43,6 +47,14 @@ new #[Title('Journal entry')] class extends Component
     public ?JournalEntry $entry = null;
 
     public string $entryNo = '';
+
+    /**
+     * The number a new entry's page suggested when it opened. Left as is it is
+     * only a preview: every posting in the company draws from the same JE
+     * sequence, so the real number is taken when the entry is first saved.
+     */
+    #[Locked]
+    public string $suggestedEntryNo = '';
 
     public string $entryDate = '';
 
@@ -125,7 +137,7 @@ new #[Title('Journal entry')] class extends Component
         }
 
         $this->entryDate = $this->company->currentDateTime()->toDateString();
-        $this->entryNo = app(EntryNumberGenerator::class)->next($company);
+        $this->entryNo = $this->suggestedEntryNo = app(EntryNumberGenerator::class)->next($company);
         $this->lines = [$this->emptyLine(), $this->emptyLine()];
 
         if ($this->duplicateFromId) {
@@ -206,7 +218,10 @@ new #[Title('Journal entry')] class extends Component
     }
 
     /**
-     * @return array<int, array{value: int, label: string}>
+     * The code and name ride alongside the label for the typeable account
+     * picker (<x-account-combo>), which ranks GL-number matches first.
+     *
+     * @return array<int, array{value: int, label: string, code: string, name: string}>
      */
     #[Computed]
     public function accountOptions(): array
@@ -216,7 +231,7 @@ new #[Title('Journal entry')] class extends Component
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}", 'code' => (string) $a->code, 'name' => $a->name])
             ->all();
     }
 
@@ -434,6 +449,10 @@ new #[Title('Journal entry')] class extends Component
 
     public function saveDraft(): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist(post: false);
         Flux::toast(variant: 'success', text: __('Draft saved.'));
         $this->redirectRoute('journal.edit', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
@@ -441,6 +460,10 @@ new #[Title('Journal entry')] class extends Component
 
     public function postEntry(JournalPoster $poster): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist(post: false);
 
         try {
@@ -453,6 +476,25 @@ new #[Title('Journal entry')] class extends Component
 
         Flux::toast(variant: 'success', text: __('Entry posted.'));
         $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+    }
+
+    /**
+     * A second Post or Save draft — a double-click, or Enter pressed again
+     * before the redirect lands — arrives holding the entry the first request
+     * just posted. Saving it as a draft would rewrite a posted entry's lines
+     * outside saveChanges() (no lock check, no balance recompute) and posting
+     * it again throws, so finish the way the first request did instead. Reads
+     * the row fresh: the posting may have committed after this request began.
+     */
+    private function finishIfAlreadyPosted(): bool
+    {
+        if (! $this->entry?->exists || ! $this->entry->fresh()?->isPosted()) {
+            return false;
+        }
+
+        $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+
+        return true;
     }
 
     /**
@@ -512,10 +554,10 @@ new #[Title('Journal entry')] class extends Component
     protected function saveHeaderOnly(): void
     {
         $validated = $this->validate([
-            'entryNo' => ['required', 'string', 'max:40'],
+            'entryNo' => ['required', 'string', 'max:40', $this->entryNoIsFree()],
             'entryDate' => ['required', 'date'],
             'memo' => ['nullable', 'string'],
-        ]);
+        ], $this->entryNoMessages());
 
         try {
             $this->entry = app(UpdateJournalEntryHeader::class)->handle($this->entry, [
@@ -537,8 +579,13 @@ new #[Title('Journal entry')] class extends Component
     {
         $companyId = $this->company->id;
 
+        // A new entry still showing the number its page suggested takes the
+        // next free one as it saves (someone may have posted since the page
+        // opened); a number typed by hand is kept, and must be free.
+        $autoNumber = ! $this->entry?->exists && trim($this->entryNo) === $this->suggestedEntryNo;
+
         $validated = $this->validate([
-            'entryNo' => ['required', 'string', 'max:40'],
+            'entryNo' => $autoNumber ? ['required', 'string', 'max:40'] : ['required', 'string', 'max:40', $this->entryNoIsFree()],
             'entryDate' => ['required', 'date'],
             'memo' => ['nullable', 'string'],
             'lines' => ['array', 'min:2'],
@@ -551,7 +598,7 @@ new #[Title('Journal entry')] class extends Component
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             'lines.*.fund_id' => ['nullable', 'integer', Rule::exists('funds', 'id')->where('company_id', $companyId)],
-        ]);
+        ], $this->entryNoMessages());
 
         $this->resolveNewLineContacts();
         $this->validateLineContacts();
@@ -573,12 +620,43 @@ new #[Title('Journal entry')] class extends Component
             ];
         }
 
-        $this->entry = app(SaveJournalEntry::class)->handle([
-            'entry_no' => $validated['entryNo'],
-            'entry_date' => $validated['entryDate'],
-            'memo' => $validated['memo'] ?: null,
-            'lines' => $lines,
-        ], $this->entry);
+        try {
+            $this->entry = app(SaveJournalEntry::class)->handle([
+                'entry_no' => $autoNumber ? null : $validated['entryNo'],
+                'entry_date' => $validated['entryDate'],
+                'memo' => $validated['memo'] ?: null,
+                'lines' => $lines,
+            ], $this->entry);
+        } catch (UniqueConstraintViolationException $e) {
+            // A typed number taken between validation and the insert. The
+            // save rolled back, so nothing was written.
+            if (! str_contains($e->getMessage(), 'entry_no')) {
+                throw $e;
+            }
+
+            throw ValidationException::withMessages(['entryNo' => $this->entryNoMessages()['entryNo.unique']]);
+        }
+
+        $this->entryNo = $this->entry->entry_no;
+    }
+
+    /**
+     * Entry numbers are unique per company (any entry, including another
+     * document's posting), apart from this entry's own.
+     */
+    private function entryNoIsFree(): Unique
+    {
+        return Rule::unique('journal_entries', 'entry_no')
+            ->where('company_id', $this->company->id)
+            ->ignore($this->entry?->id);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function entryNoMessages(): array
+    {
+        return ['entryNo.unique' => __('Entry # :input is already used. Pick another number.')];
     }
 
     /**
@@ -687,18 +765,14 @@ new #[Title('Journal entry')] class extends Component
             </div>
 
             <div class="divide-y divide-border">
+                <x-account-combo.options key="accounts" :options="$this->accountOptions" />
                 @foreach ($lines as $i => $line)
                     <div wire:key="line-{{ $i }}" data-test="entry-line-row" class="space-y-3 p-3">
                         {{-- Tier 1: account, debit, credit, memo, remove --}}
                         <div class="{{ $lineGrid }} grid grid-cols-1 gap-3">
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
-                                    <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
-                                    @foreach ($this->accountOptions as $opt)
-                                        <flux:select.option :value="$opt['value']">{{ $opt['label'] }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="accounts" :placeholder="__('— Select —')" data-test="line-account" />
 
                                 @php($contactRole = $this->contactRequiringAccounts[(int) ($line['account_id'] ?? 0)] ?? null)
                                 @if ($contactRole === 'customer')

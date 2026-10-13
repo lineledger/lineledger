@@ -17,6 +17,7 @@ use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\TaxCalculator;
 use App\Support\Money;
 use App\Support\Quantity;
+use App\Support\Tax\LineTaxOverrides;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
@@ -45,7 +46,8 @@ new #[Title('Reimbursement')] class extends Component {
      * @var array<int, array{
      *     account_id: ?int, description: string,
      *     quantity: string, unit_price: string, tax_code_id: ?int,
-     *     subtotal: int, tax: int, total: int
+     *     secondary_tax_code_id: ?int, tax_code_ids: array<int, int>, tax_overrides: array<array-key, string>,
+     *     subtotal: int, auto_tax: int, auto_secondary_tax: int, tax: int, secondary_tax: int, total: int
      * }>
      */
     public array $lines = [];
@@ -78,13 +80,20 @@ new #[Title('Reimbursement')] class extends Component {
                 'tax_code_id' => $l->tax_code_id,
                 'secondary_tax_code_id' => $l->secondary_tax_code_id,
                 'tax_code_ids' => array_values(array_filter([$l->tax_code_id, $l->secondary_tax_code_id])),
-                'tax_override' => $l->tax_override_cents !== null ? Money::fromCents((int) $l->tax_override_cents)->toDecimalString() : '',
+                'tax_overrides' => LineTaxOverrides::fromStored($l->tax_code_id, $l->secondary_tax_code_id, $l->tax_override_cents, $l->secondary_tax_override_cents),
                 'subtotal' => (int) $l->line_subtotal_cents,
                 'auto_tax' => 0,
+                'auto_secondary_tax' => 0,
                 'tax' => (int) $l->line_tax_cents,
                 'secondary_tax' => (int) $l->secondary_tax_cents,
                 'total' => (int) $l->line_total_cents,
             ])->all();
+
+            // Fill in each line's calculated tax (the override placeholders), the
+            // way the bill form does; stored overrides still win.
+            foreach (array_keys($this->lines) as $i) {
+                $this->recalcLine($i);
+            }
         } else {
             $this->bill_date = $this->company->currentDateTime()->toDateString();
             $this->due_date = $this->company->currentDateTime()->toDateString();
@@ -103,9 +112,10 @@ new #[Title('Reimbursement')] class extends Component {
             'tax_code_id' => null,
             'secondary_tax_code_id' => null,
             'tax_code_ids' => [],
-            'tax_override' => '',
+            'tax_overrides' => [],
             'subtotal' => 0,
             'auto_tax' => 0,
+            'auto_secondary_tax' => 0,
             'tax' => 0,
             'secondary_tax' => 0,
             'total' => 0,
@@ -173,15 +183,21 @@ new #[Title('Reimbursement')] class extends Component {
 
         $totals = $calc->line($qty, $unitCents, $taxCode, 0, null, 0, null, $secondaryTaxCode);
 
-        // A manual tax override (cents) wins over the auto-computed amount, mirroring
-        // the bill/expense flow. Blank falls back to the calculated tax.
+        // A typed amount per selected tax code wins over that code's calculated
+        // tax, mirroring the bill/expense flow. Blank falls back to the
+        // calculated tax. Keyed by code, so pruning drops the amount of a code
+        // just unticked and a code that moved slots keeps its own.
+        $overrides = LineTaxOverrides::prune((array) ($line['tax_overrides'] ?? []), [$line['tax_code_id'], $line['secondary_tax_code_id'] ?? null]);
+        $this->lines[$i]['tax_overrides'] = $overrides;
+
         $autoTax = $totals['tax_cents'];
-        $override = trim((string) ($line['tax_override'] ?? ''));
-        $taxCents = $override === '' ? $autoTax : (Money::tryFromString($override)?->cents ?? $autoTax);
-        $secondaryTax = $totals['secondary_tax_cents'];
+        $autoSecondaryTax = $totals['secondary_tax_cents'];
+        $taxCents = LineTaxOverrides::cents($overrides, $line['tax_code_id']) ?? $autoTax;
+        $secondaryTax = LineTaxOverrides::cents($overrides, $line['secondary_tax_code_id'] ?? null) ?? $autoSecondaryTax;
 
         $this->lines[$i]['subtotal'] = $totals['subtotal_cents'];
         $this->lines[$i]['auto_tax'] = $autoTax;
+        $this->lines[$i]['auto_secondary_tax'] = $autoSecondaryTax;
         $this->lines[$i]['tax'] = $taxCents;
         $this->lines[$i]['secondary_tax'] = $secondaryTax;
         $this->lines[$i]['total'] = $totals['subtotal_cents'] + $taxCents + $secondaryTax;
@@ -235,7 +251,8 @@ new #[Title('Reimbursement')] class extends Component {
             'lines.*.unit_price' => ['required', 'string', new MoneyString],
             'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
             'lines.*.secondary_tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
-            'lines.*.tax_override' => ['nullable', 'string', new MoneyString],
+            'lines.*.tax_overrides' => ['nullable', 'array'],
+            'lines.*.tax_overrides.*' => ['nullable', 'string', new MoneyString],
         ]);
 
         $this->bill = app(SaveBill::class)->handle([
@@ -252,9 +269,7 @@ new #[Title('Reimbursement')] class extends Component {
                 'unit_price_cents' => Money::fromString($line['unit_price'])->cents,
                 'tax_code_id' => $line['tax_code_id'] ?? null,
                 'secondary_tax_code_id' => $line['secondary_tax_code_id'] ?? null,
-                'tax_override_cents' => ($line['tax_override'] ?? '') !== ''
-                    ? Money::fromString($line['tax_override'])->cents
-                    : null,
+                ...LineTaxOverrides::toSlots($line['tax_overrides'] ?? [], $line['tax_code_id'] ?? null, $line['secondary_tax_code_id'] ?? null),
             ], $validated['lines']),
         ], $this->bill);
     }
@@ -350,6 +365,8 @@ new #[Title('Reimbursement')] class extends Component {
         <div class="overflow-x-auto rounded-lg border border-border">
             <table
                 class="w-full text-sm"
+                x-resizable-columns="'reimbursement-lines'"
+                wire:ignore.self
                 x-on:keydown.tab.capture="tabAddRow($event)"
                 x-data="{
                     addRowAndFocus(next) {
@@ -372,16 +389,17 @@ new #[Title('Reimbursement')] class extends Component {
             >
                 <thead class="hidden bg-muted lg:table-header-group">
                     <tr>
-                        <th class="px-2 py-2 text-left">{{ __('Description') }}</th>
-                        <th class="px-2 py-2 text-left w-52">{{ __('Expense account') }}</th>
-                        <th class="px-2 py-2 text-right w-20">{{ __('Qty') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Amount') }}</th>
-                        <th class="px-2 py-2 text-left w-32">{{ __('Tax') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Total') }}</th>
-                        <th class="px-2 py-2 w-10"></th>
+                        <th class="px-2 py-2 text-left" data-col-flex>{{ __('Description') }}</th>
+                        <th class="relative px-2 py-2 text-left w-72" data-col="account" data-col-min="120" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Expense account') }}</th>
+                        <th class="relative px-2 py-2 text-right w-20" data-col="qty" data-col-min="56" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Qty') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="amount" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Amount') }}</th>
+                        <th class="relative px-2 py-2 text-left w-32" data-col="tax" data-col-min="128" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Tax') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="total" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Total') }}</th>
+                        <th class="px-2 py-2 w-15"></th>
                     </tr>
                 </thead>
                 <tbody class="lg:divide-y lg:divide-border">
+                    <x-account-combo.options key="expenseAccounts" :options="$this->expenseAccountOptions" />
                     @foreach ($lines as $i => $line)
                         <tr wire:key="line-{{ $i }}" data-test="reimbursement-line-row" class="block border-b border-border p-3 lg:table-row lg:border-0 lg:p-0">
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
@@ -390,12 +408,7 @@ new #[Title('Reimbursement')] class extends Component {
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Expense account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
-                                    <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->expenseAccountOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="expenseAccounts" data-test="line-account" />
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Qty') }}</span>
@@ -407,23 +420,13 @@ new #[Title('Reimbursement')] class extends Component {
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Tax') }}</span>
-                                @php($selectedTaxIds = $line['tax_code_ids'] ?? [])
-                                <flux:dropdown>
-                                    <flux:button variant="outline" size="sm" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="line-tax">
-                                        <span class="truncate">{{ $this->taxCodeOptions->whereIn('id', $selectedTaxIds)->pluck('code')->implode(', ') ?: __('Select tax') }}</span>
-                                    </flux:button>
-                                    <flux:menu>
-                                        <flux:menu.checkbox.group wire:model.live="lines.{{ $i }}.tax_code_ids">
-                                            @foreach ($this->taxCodeOptions as $opt)
-                                                <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->code }}</flux:menu.checkbox>
-                                            @endforeach
-                                        </flux:menu.checkbox.group>
-                                    </flux:menu>
-                                </flux:dropdown>
-                                <x-amount-input model="lines.{{ $i }}.tax_override" modifiers=".live.debounce.500ms" size="sm"
-                                    class="mt-1 lg:text-right"
-                                    placeholder="{{ number_format(($line['auto_tax'] ?? 0) / 100, 2) }}"
-                                    data-test="line-tax-override" />
+                                <x-line-tax-cell
+                                    :index="$i"
+                                    :line="$line"
+                                    :options="$this->taxCodeOptions"
+                                    :primary-auto="$line['auto_tax'] ?? 0"
+                                    :secondary-auto="$line['auto_secondary_tax'] ?? 0"
+                                />
                             </td>
                             <td class="flex items-center justify-between px-2 py-1 font-mono lg:table-cell lg:py-2 lg:text-right" data-test="line-total">
                                 <span class="text-xs font-medium text-muted-foreground lg:hidden">{{ __('Total') }}</span>

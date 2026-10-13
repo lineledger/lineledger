@@ -67,9 +67,11 @@ enum Country: string
      *
      * Returns ids drawn from {@see Company::timezoneOptions()} so the
      * default always resolves to a friendly option in the settings picker. The
-     * shared North American zones (Pacific/Mountain/Central/Eastern) use their
-     * canonical US-city ids; these are DST-identical to the Canadian-city
-     * equivalents, so the stored offset/day boundary is the same either way.
+     * shared North American zones (Mountain/Central/Eastern) use their
+     * canonical US-city ids, which change their clocks on the same dates as the
+     * Canadian-city equivalents. BC and Yukon get their own ids: both stay on
+     * UTC−7 all year (Yukon since 2020, BC from 2026-11-01), so US Pacific time
+     * would put "today" an hour behind them every winter.
      */
     public function defaultTimezone(?string $regionCode = null): string
     {
@@ -77,7 +79,8 @@ enum Country: string
 
         return match ($this) {
             self::Canada => match ($region) {
-                'BC', 'YT' => 'America/Los_Angeles',
+                'BC' => 'America/Vancouver',
+                'YT' => 'America/Whitehorse',
                 'AB', 'NT' => 'America/Denver',
                 'SK', 'MB' => 'America/Chicago',
                 'NB', 'NS', 'PE' => 'America/Halifax',

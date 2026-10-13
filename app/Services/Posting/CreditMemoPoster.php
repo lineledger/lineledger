@@ -4,9 +4,12 @@ namespace App\Services\Posting;
 
 use App\Enums\AccountSubtype;
 use App\Enums\AuditAction;
+use App\Enums\ChequeStatus;
 use App\Enums\CreditMemoStatus;
+use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
 use App\Models\CreditMemo;
@@ -16,6 +19,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -159,6 +163,8 @@ class CreditMemoPoster
                 throw new RuntimeException('Credit memo has no lines or zero total; cannot repost.');
             }
 
+            $this->ensureTotalCoversRefunds($memo);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
             $entry->forceFill([
@@ -206,6 +212,25 @@ class CreditMemoPoster
     }
 
     /**
+     * Refuse a credit memo total below what has already been refunded from it.
+     * The refund would pay out more credit than the memo grants, leaving the
+     * customer's AR in debit with nothing on the documents to explain it. Used
+     * by SaveCreditMemo before anything is written, and by repost() for callers
+     * that skip the Action.
+     */
+    public function ensureTotalCoversRefunds(CreditMemo $memo): void
+    {
+        $refunded = $memo->refundedCents();
+
+        if ((int) $memo->total_cents < $refunded) {
+            throw new PostingValidationException(__(
+                ':amount of this credit memo has already been refunded, so its total can\'t go below that. Remove the refund first if the credit needs to be smaller.',
+                ['amount' => Money::fromCents($refunded)->toDecimalString()],
+            ));
+        }
+    }
+
+    /**
      * Void: write reversing JE, mark credit memo voided.
      */
     public function void(CreditMemo $memo, ?CarbonImmutable $voidDate = null): void
@@ -219,6 +244,17 @@ class CreditMemoPoster
 
             if ($memo->status === CreditMemoStatus::Void) {
                 throw new RuntimeException('Credit memo is already voided.');
+            }
+
+            // A refund pays out the credit this memo created. Voiding the memo
+            // alone would leave that refund posted against a credit that no
+            // longer exists, so the refunds have to come off first. Draft refund
+            // cheques count too: posting one later would hit the same problem.
+            $hasRefunds = $memo->refundCheques()->where('status', '!=', ChequeStatus::Void->value)->exists()
+                || $memo->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->exists();
+
+            if ($hasRefunds) {
+                throw new PostingValidationException(__('This credit memo has been refunded. Remove its refunds first, then void the credit memo.'));
             }
 
             $this->journalPoster->void($memo->journalEntry, $voidDate, "Void of credit memo {$memo->credit_memo_no}");

@@ -126,6 +126,10 @@ new #[Title('Transfer')] class extends Component
 
     public function saveDraft(): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
         $this->redirectRoute('transfers.edit', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
@@ -133,6 +137,10 @@ new #[Title('Transfer')] class extends Component
 
     public function postTransfer(TransferPoster $poster): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist();
 
         try {
@@ -145,6 +153,25 @@ new #[Title('Transfer')] class extends Component
 
         Flux::toast(variant: 'success', text: __('Transfer posted.'));
         $this->redirectRoute('transfers.show', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
+    }
+
+    /**
+     * A second Post or Save draft — a double-click, or Enter pressed again
+     * before the redirect lands — arrives holding the transfer the first
+     * request just posted. A posted transfer is never edited (void and
+     * re-create), so finish the way the first request did rather than rewrite
+     * it and fail on the second post. Reads the row fresh: the posting may have
+     * committed after this request began.
+     */
+    private function finishIfAlreadyPosted(): bool
+    {
+        if (! $this->transfer?->exists || ! $this->transfer->fresh()?->journal_entry_id) {
+            return false;
+        }
+
+        $this->redirectRoute('transfers.show', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
+
+        return true;
     }
 
     protected function persist(): void

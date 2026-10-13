@@ -67,7 +67,8 @@ test('balance sheet defaults the as-of date to today in the company timezone', f
 test('country resolves a region-aware default timezone from the curated picker set', function () {
     $options = array_values(Company::timezoneOptions());
 
-    expect(Country::Canada->defaultTimezone('BC'))->toBe('America/Los_Angeles');
+    expect(Country::Canada->defaultTimezone('BC'))->toBe('America/Vancouver');
+    expect(Country::Canada->defaultTimezone('YT'))->toBe('America/Whitehorse');
     expect(Country::Canada->defaultTimezone('NS'))->toBe('America/Halifax');
     expect(Country::Canada->defaultTimezone('ON'))->toBe('America/New_York');
     expect(Country::Canada->defaultTimezone(null))->toBe('America/New_York');
@@ -78,7 +79,28 @@ test('country resolves a region-aware default timezone from the curated picker s
     // Every default must be a friendly option in the settings picker.
     foreach ([Country::Canada, Country::UnitedStates] as $country) {
         expect($options)->toContain($country->defaultTimezone());
+
+        foreach (array_keys($country->regions()) as $region) {
+            expect($options)->toContain($country->defaultTimezone($region));
+        }
     }
+});
+
+test('a BC company keeps BC clocks through the winter', function () {
+    // BC stops changing its clocks on 2026-11-01. A server whose timezone
+    // database predates that still falls back to UTC−8, so there is nothing
+    // to prove there.
+    if ((new DateTimeImmutable('2026-12-01 12:00', new DateTimeZone('America/Vancouver')))->getOffset() !== -7 * 3600) {
+        $this->markTestSkipped('This PHP timezone database predates BC permanent time.');
+    }
+
+    // 07:30 UTC is when payment reminders run: 00:30 on Dec 1 in BC, but
+    // still 23:30 on Nov 30 in US Pacific time.
+    $this->travelTo(CarbonImmutable::parse('2026-12-01 07:30:00', 'UTC'));
+
+    $company = Company::factory()->forCountry(Country::Canada, 'BC')->create();
+
+    expect($company->currentDateTime()->toDateString())->toBe('2026-12-01');
 });
 
 test('a new company is seeded with the jurisdiction default timezone', function () {

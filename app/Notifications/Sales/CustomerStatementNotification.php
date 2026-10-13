@@ -27,7 +27,23 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
     use Queueable;
 
     /**
+     * The optional statement columns to print (see StatementColumns), or null
+     * for the company's saved default at delivery time.
+     *
+     * Deliberately NOT a promoted constructor property: it has a default, so a
+     * notification queued before this property existed still unserializes
+     * (missing properties keep their defaults) and renders the default columns.
+     *
+     * @var list<string>|null
+     */
+    public ?array $columns = null;
+
+    /**
+     * $start is the activity period's first day, or for open invoices the
+     * optional lower bound (null = every open invoice, as before).
+     *
      * @param  list<string>  $cc
+     * @param  list<string>|null  $columns
      */
     public function __construct(
         public Contact $contact,
@@ -40,7 +56,10 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
         public ?string $replyToAddress = null,
         public ?string $senderName = null,
         public array $cc = [],
-    ) {}
+        ?array $columns = null,
+    ) {
+        $this->columns = $columns;
+    }
 
     /**
      * @return array<int, string>
@@ -93,7 +112,7 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
                 'actionUrl' => $this->statementUrl,
             ])
             ->attachData(
-                $renderer->raw($this->company, $this->contact, $this->type, $start, $end),
+                $renderer->raw($this->company, $this->contact, $this->type, $start, $end, $this->columns),
                 $renderer->filename($this->contact, $this->type, $end),
                 ['mime' => 'application/pdf'],
             );

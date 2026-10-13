@@ -134,6 +134,18 @@ it('refuses voiding or reversing a journal entry someone is editing', function (
         ->and(JournalEntry::query()->where('reverses_entry_id', $posted->id)->exists())->toBeFalse();
 });
 
+it('refuses deleting a draft journal entry someone is editing', function () {
+    $this->locks->acquire($this->entry, $this->jane);
+
+    $this->actingAs($this->bob);
+    Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->entry->fresh()])
+        ->call('deleteDraft')
+        ->assertDispatched('toast-show')
+        ->assertNoRedirect();
+
+    expect(JournalEntry::query()->whereKey($this->entry->id)->exists())->toBeTrue();
+});
+
 it('refuses pausing or deleting a recurring journal entry someone is editing', function () {
     $this->locks->acquire($this->recurring, $this->jane);
 
@@ -167,7 +179,7 @@ it('guards exactly the show page methods that change the record', function (stri
 
     expect($guarded)->toBe($methods);
 })->with([
-    'journal entry' => ['pages::journal.show', ['reverse', 'void']],
+    'journal entry' => ['pages::journal.show', ['deleteDraft', 'reverse', 'void']],
     'recurring journal entry' => ['pages::recurring-journal.show', ['deleteSchedule', 'generateNow', 'pauseSchedule', 'resumeSchedule']],
 ]);
 

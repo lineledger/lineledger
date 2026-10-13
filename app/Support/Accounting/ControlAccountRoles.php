@@ -74,11 +74,14 @@ final class ControlAccountRoles
      * both follow from the account being a control account, so they move
      * together.
      *
+     * The account id is taken as a form holds it: an int, a numeric string, or
+     * '' / null for a line with no account yet (the account picker's "—").
+     *
      * @param  array<int, string>  $roles  from {@see map()}, hoisted by the caller
      */
-    public static function excludesTax(array $roles, ?int $accountId): bool
+    public static function excludesTax(array $roles, int|string|null $accountId): bool
     {
-        return $accountId !== null && isset($roles[(int) $accountId]);
+        return is_numeric($accountId) && isset($roles[(int) $accountId]);
     }
 
     /**

@@ -66,7 +66,7 @@ it('clears a tax code already on the line when the account becomes Accounts Rece
         ->set('lines.0.account_id', $this->expense->id)
         ->set('lines.0.amount', '100.00')
         ->set('lines.0.tax_code_ids', [$this->gst->id])
-        ->set('lines.0.tax_override', '7.00');
+        ->set('lines.0.tax_overrides.'.$this->gst->id, '7.00');
 
     // Taxed normally while it is an expense line.
     expect($component->get('lines.0.tax_cents'))->toBe(700);
@@ -76,7 +76,7 @@ it('clears a tax code already on the line when the account becomes Accounts Rece
     expect($component->get('lines.0.tax_code_id'))->toBeNull()
         ->and($component->get('lines.0.secondary_tax_code_id'))->toBeNull()
         ->and($component->get('lines.0.tax_code_ids'))->toBe([])
-        ->and($component->get('lines.0.tax_override'))->toBe('')
+        ->and($component->get('lines.0.tax_overrides'))->toBe([])
         ->and($component->get('lines.0.tax_cents'))->toBe(0)
         ->and($component->get('lines.0.secondary_tax_cents'))->toBe(0)
         ->and($component->get('lines.0.total'))->toBe(10000);
@@ -96,6 +96,7 @@ it('never fills an Accounts Payable line from the account default tax code', fun
 it('swaps the tax picker for an explanation on a control-account line', function () {
     chequeTaxForm()
         ->set('lines.0.account_id', $this->expense->id)
+        ->set('lines.0.tax_code_ids', [$this->gst->id])
         ->assertSeeHtml('data-test="line-tax"')
         ->assertSeeHtml('data-test="line-tax-override"')
         ->assertDontSeeHtml('data-test="line-tax-excluded"')

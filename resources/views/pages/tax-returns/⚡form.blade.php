@@ -143,7 +143,10 @@ new #[Title('Tax return')] class extends Component {
      * (no ledger entry), then every other active account bar the AR/AP control
      * accounts, plus any already on a row.
      *
-     * @return list<array{id: int, label: string}>
+     * The code and name ride alongside the label for the typeable account
+     * picker (<x-account-combo>), which ranks GL-number matches first.
+     *
+     * @return list<array{id: int, label: string, code: string, name: string}>
      */
     #[Computed]
     public function adjustmentAccountOptions(): array
@@ -168,12 +171,18 @@ new #[Title('Tax return')] class extends Component {
         $options = $accounts->map(fn (Account $account) => [
             'id' => (int) $account->id,
             'label' => "{$account->code} — {$account->name}",
+            'code' => (string) $account->code,
+            'name' => $account->name,
         ])->all();
 
         if ($payable) {
+            $payableName = "{$payable->name} ".__('(no ledger entry)');
+
             array_unshift($options, [
                 'id' => (int) $payable->id,
-                'label' => "{$payable->code} — {$payable->name} ".__('(no ledger entry)'),
+                'label' => "{$payable->code} — {$payableName}",
+                'code' => (string) $payable->code,
+                'name' => $payableName,
             ]);
         }
 
@@ -449,6 +458,7 @@ new #[Title('Tax return')] class extends Component {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
+                        <x-account-combo.options key="adjustmentAccounts" :options="$this->adjustmentAccountOptions" />
                         @foreach ($adjustments as $i => $row)
                             <tr wire:key="adjustment-{{ $i }}" class="align-top">
                                 <td class="px-4 py-2 min-w-32">
@@ -460,12 +470,7 @@ new #[Title('Tax return')] class extends Component {
                                     <flux:error name="adjustments.{{ $i }}.kind" />
                                 </td>
                                 <td class="px-4 py-2 min-w-64">
-                                    <flux:select wire:model.live="adjustments.{{ $i }}.account_id" data-test="adjustment-account-{{ $i }}">
-                                        <flux:select.option value="">{{ __('Choose an account…') }}</flux:select.option>
-                                        @foreach ($this->adjustmentAccountOptions as $option)
-                                            <flux:select.option :value="$option['id']">{{ $option['label'] }}</flux:select.option>
-                                        @endforeach
-                                    </flux:select>
+                                    <x-account-combo model="adjustments.{{ $i }}.account_id" options="adjustmentAccounts" :placeholder="__('Choose an account…')" data-test="adjustment-account-{{ $i }}" />
                                     <flux:error name="adjustments.{{ $i }}.account_id" />
                                 </td>
                                 <td class="px-4 py-2 min-w-32">

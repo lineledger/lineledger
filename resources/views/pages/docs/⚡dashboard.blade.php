@@ -168,7 +168,7 @@ new #[Title('Documentation — Dashboard')] class extends Component {}; ?>
         <p><strong>{{ __('To open another organization:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Select the switcher at the top of the sidebar. The menu, headed Organizations, lists every organization you belong to; the one you are in carries a check mark.') }}</li>
-            <li>{{ __('Select any other organization — each carries a small open-in-new-tab arrow. It opens in a new browser tab on the same page for that organization (Reports stays Reports), and the tab you clicked in stays exactly where it was.') }}</li>
+            <li>{{ __('Select any other organization — each carries a small open-in-new-tab arrow. It opens in a new browser tab on that organization’s Dashboard, and the tab you clicked in stays exactly where it was.') }}</li>
             <li>{{ __('Select New organization at the bottom of the menu to start the setup wizard for another set of books — see') }} <a class="underline" href="{{ route('docs.creating-a-company') }}" wire:navigate>{{ __('Create an organization') }}</a>.</li>
         </ol>
 
@@ -185,7 +185,7 @@ new #[Title('Documentation — Dashboard')] class extends Component {}; ?>
         {{-- ───────────────────────── Tips ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Tips') }}</flux:heading>
         <ul class="list-disc ps-6 space-y-1">
-            <li><strong>{{ __('Search everything') }}</strong> — {{ __('the Search… box at the top of the sidebar opens with ⌘K on a Mac or Ctrl+K elsewhere. Type at least two characters and results are grouped by kind: invoices, credit memos, bills, bill payments, receipts, cheques, deposits, journal entries, contacts, accounts, items, and tax returns. Select a result to open it.') }}</li>
+            <li><strong>{{ __('Search everything') }}</strong> — {{ __('the Search… box at the top of the sidebar opens with ⌘K on a Mac or Ctrl+K elsewhere. Type at least two characters and results are grouped by kind: invoices, credit memos, bills, bill payments, receipts, cheques, deposits, journal entries, contacts, accounts, items, and tax returns. Select a result to open it — an account opens its General Ledger.') }}</li>
             <li><strong>{{ __('Escape goes back') }}</strong> — {{ __('after drilling from a card into a report, press Escape to return to the Dashboard, exactly as the browser’s Back button would. If a dialog or menu is open, Escape closes that first. The behaviour is on by default and is your own choice: switch it off under Settings → Appearance → Escape goes back.') }}</li>
             <li><strong>{{ __('The Dashboard is a launchpad') }}</strong> — {{ __('apart from closing the setup banner, the tips box, or the insight card, nothing you do here changes your books. Every action lands on the matching feature page, so you pick up exactly where the workflow expects you.') }}</li>
         </ul>

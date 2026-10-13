@@ -130,7 +130,7 @@ new #[Title('Documentation — Vendors')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="tip">
-            {{ __('Each line can carry up to two tax codes — handy where GST and PST (or QST) are charged separately. If the supplier’s tax does not match to the penny, type the exact amount in the small field under the tax picker. That field overrides the first tax code’s amount only — its placeholder shows that calculated amount — and a second tax code is still calculated and added on top, so on a GST + PST line enter just the GST figure, not the combined tax.') }}
+            {{ __('Each line can carry up to two tax codes — handy where GST and PST (or QST) are charged separately. Every code you tick gets its own small amount field under the tax picker, labelled with the code and showing its calculated amount as the placeholder. If the supplier’s tax does not match to the penny, type the exact figure in that tax’s field — on a GST + PST line you can correct the GST, the PST, or both, each on its own. Leave a field blank to keep the calculated amount. With no tax code ticked there is nothing to correct, so no field shows.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('Bill numbers and duplicate warnings') }}">

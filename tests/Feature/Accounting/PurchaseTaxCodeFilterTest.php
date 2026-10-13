@@ -84,7 +84,7 @@ it('still offers a sale-only code already saved on a line so existing documents 
             'description' => 'Legacy line',
             'amount' => '10.00',
             'tax_code_id' => $this->saleOnly->id,
-            'tax_override' => '',
+            'tax_overrides' => [],
             'class_id' => null,
             'location_id' => null,
             'auto_tax_cents' => 0,

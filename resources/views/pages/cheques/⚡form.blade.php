@@ -25,6 +25,7 @@ use App\Support\Accounting\ControlAccountRoles;
 use App\Support\Banking\LastBankAccount;
 use App\Support\Contacts\AddressLines;
 use App\Support\Money;
+use App\Support\Tax\LineTaxOverrides;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -88,7 +89,7 @@ new #[Title('Cheque')] class extends Component
     public bool $addressWriteBackAnswered = false;
 
     /**
-     * @var array<int, array{account_id: ?int, contact_id: ?int, contact_query: string, contact_creating: bool, new_contact_name: string, description: string, amount: string, tax_code_id: ?int, tax_override: string, class_id: ?int, location_id: ?int, auto_tax_cents: int, tax_cents: int, total: int}>
+     * @var array<int, array{account_id: ?int, contact_id: ?int, contact_query: string, contact_creating: bool, new_contact_name: string, description: string, amount: string, tax_code_id: ?int, secondary_tax_code_id: ?int, tax_code_ids: array<int, int>, tax_overrides: array<array-key, string>, class_id: ?int, location_id: ?int, auto_tax_cents: int, auto_secondary_tax_cents: int, tax_cents: int, secondary_tax_cents: int, total: int}>
      */
     public array $lines = [];
 
@@ -161,10 +162,11 @@ new #[Title('Cheque')] class extends Component
             'tax_code_id' => $l->tax_code_id,
             'secondary_tax_code_id' => $l->secondary_tax_code_id,
             'tax_code_ids' => array_values(array_filter([$l->tax_code_id, $l->secondary_tax_code_id])),
-            'tax_override' => $l->tax_override_cents !== null ? Money::fromCents((int) $l->tax_override_cents)->toDecimalString() : '',
+            'tax_overrides' => LineTaxOverrides::fromStored($l->tax_code_id, $l->secondary_tax_code_id, $l->tax_override_cents, $l->secondary_tax_override_cents),
             'class_id' => $l->class_id,
             'location_id' => $l->location_id,
             'auto_tax_cents' => 0,
+            'auto_secondary_tax_cents' => 0,
             'tax_cents' => (int) $l->tax_cents,
             'secondary_tax_cents' => (int) $l->secondary_tax_cents,
             'total' => (int) $l->amount_cents + (int) $l->tax_cents + (int) $l->secondary_tax_cents,
@@ -352,6 +354,17 @@ new #[Title('Cheque')] class extends Component
     }
 
     /**
+     * The typed address on one line — what the folded Address block shows in
+     * place of its fields. Built from the same input the save takes, so it
+     * follows a payee pick or an edit on the next render.
+     */
+    #[Computed]
+    public function payeeAddressSummary(): string
+    {
+        return AddressLines::oneLine($this->payeeAddressInput(), $this->company);
+    }
+
+    /**
      * Seed a line's customer / vendor from the cheque's payee when the payee
      * holds the role the line's account requires — the common case, where the
      * cheque goes to the very customer or vendor whose balance it settles.
@@ -393,8 +406,8 @@ new #[Title('Cheque')] class extends Component
         return [
             'account_id' => null, 'description' => '', 'amount' => '0.00',
             ...$this->emptyLineContactState(),
-            'tax_code_id' => null, 'secondary_tax_code_id' => null, 'tax_code_ids' => [], 'tax_override' => '', 'class_id' => null, 'location_id' => null,
-            'auto_tax_cents' => 0, 'tax_cents' => 0, 'secondary_tax_cents' => 0, 'total' => 0,
+            'tax_code_id' => null, 'secondary_tax_code_id' => null, 'tax_code_ids' => [], 'tax_overrides' => [], 'class_id' => null, 'location_id' => null,
+            'auto_tax_cents' => 0, 'auto_secondary_tax_cents' => 0, 'tax_cents' => 0, 'secondary_tax_cents' => 0, 'total' => 0,
         ];
     }
 
@@ -482,7 +495,7 @@ new #[Title('Cheque')] class extends Component
         $this->lines[$i]['tax_code_id'] = null;
         $this->lines[$i]['secondary_tax_code_id'] = null;
         $this->lines[$i]['tax_code_ids'] = [];
-        $this->lines[$i]['tax_override'] = '';
+        $this->lines[$i]['tax_overrides'] = [];
     }
 
     protected function recalcLine(int $i): void
@@ -503,6 +516,7 @@ new #[Title('Cheque')] class extends Component
             $this->resetLineTaxState($i);
 
             $this->lines[$i]['auto_tax_cents'] = 0;
+            $this->lines[$i]['auto_secondary_tax_cents'] = 0;
             $this->lines[$i]['tax_cents'] = 0;
             $this->lines[$i]['secondary_tax_cents'] = 0;
             $this->lines[$i]['total'] = $amount;
@@ -520,17 +534,20 @@ new #[Title('Cheque')] class extends Component
         // is set indirectly (account defaults).
         $this->lines[$i]['tax_code_ids'] = array_values(array_filter([$line['tax_code_id'], $line['secondary_tax_code_id'] ?? null]));
 
-        $override = trim((string) ($line['tax_override'] ?? ''));
-        if ($override === '') {
-            $taxCents = $autoTax;
-        } else {
-            $taxCents = Money::tryFromString($override)?->cents ?? $autoTax;
-        }
+        // A typed amount per selected tax code wins over that code's calculated
+        // tax. Keyed by code, so pruning drops the amount of a code just unticked
+        // and a code that moved slots keeps its own.
+        $overrides = LineTaxOverrides::prune((array) ($line['tax_overrides'] ?? []), [$line['tax_code_id'], $line['secondary_tax_code_id'] ?? null]);
+        $this->lines[$i]['tax_overrides'] = $overrides;
+
+        $taxCents = LineTaxOverrides::cents($overrides, $line['tax_code_id']) ?? $autoTax;
+        $secondaryTaxCents = LineTaxOverrides::cents($overrides, $line['secondary_tax_code_id'] ?? null) ?? $secondaryTax;
 
         $this->lines[$i]['auto_tax_cents'] = $autoTax;
+        $this->lines[$i]['auto_secondary_tax_cents'] = $secondaryTax;
         $this->lines[$i]['tax_cents'] = $taxCents;
-        $this->lines[$i]['secondary_tax_cents'] = $secondaryTax;
-        $this->lines[$i]['total'] = $amount + $taxCents + $secondaryTax;
+        $this->lines[$i]['secondary_tax_cents'] = $secondaryTaxCents;
+        $this->lines[$i]['total'] = $amount + $taxCents + $secondaryTaxCents;
     }
 
     public function saveDraft(): void
@@ -693,7 +710,8 @@ new #[Title('Cheque')] class extends Component
             'lines.*.amount' => ['required', 'string', new MoneyString],
             'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
             'lines.*.secondary_tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
-            'lines.*.tax_override' => ['nullable', 'string', new MoneyString],
+            'lines.*.tax_overrides' => ['nullable', 'array'],
+            'lines.*.tax_overrides.*' => ['nullable', 'string', new MoneyString],
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             ...AttachmentService::uploadRules(),
@@ -727,9 +745,7 @@ new #[Title('Cheque')] class extends Component
                 'amount_cents' => Money::fromString($line['amount'])->cents,
                 'tax_code_id' => $line['tax_code_id'] ?? null,
                 'secondary_tax_code_id' => $line['secondary_tax_code_id'] ?? null,
-                'tax_override_cents' => ($line['tax_override'] ?? '') !== ''
-                    ? Money::fromString($line['tax_override'])->cents
-                    : null,
+                ...LineTaxOverrides::toSlots($line['tax_overrides'] ?? [], $line['tax_code_id'] ?? null, $line['secondary_tax_code_id'] ?? null),
                 'class_id' => $line['class_id'] ?? null,
                 'location_id' => $line['location_id'] ?? null,
             ], array_keys($validated['lines']), $validated['lines']),
@@ -965,16 +981,37 @@ new #[Title('Cheque')] class extends Component
             </div>
 
             {{-- Where the cheque gets mailed. Seeded from the payee's record,
-                 editable for this cheque, and printed on the cheque itself. --}}
-            <div class="space-y-3 rounded-lg border border-border p-4 md:col-span-2" data-test="cheque-payee-address">
-                <flux:heading size="sm">{{ __('Address') }}</flux:heading>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <flux:input wire:model="payee_line1" :label="__('Address line 1')" data-test="cheque-payee-line1" />
-                    <flux:input wire:model="payee_line2" :label="__('Address line 2')" />
-                    <flux:input wire:model="payee_city" :label="__('City')" />
-                    <flux:input wire:model="payee_region" :label="__('Province / State')" />
-                    <flux:input wire:model="payee_postal_code" :label="__('Postal / ZIP')" />
-                    <flux:input wire:model="payee_country" :label="__('Country')" maxlength="2" placeholder="CA" :description="__('Two-letter code')" data-test="cheque-payee-country" />
+                 editable for this cheque, and printed on the cheque itself.
+                 Folded to a one-line summary by default — most cheques go to
+                 the address on file — with Show opening the fields to edit. --}}
+            <div x-data="{ open: false }" class="rounded-lg border border-border p-4 md:col-span-2" data-test="cheque-payee-address">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <flux:heading size="sm">{{ __('Address') }}</flux:heading>
+                        <flux:text class="mt-1" data-test="cheque-address-summary">{{ $this->payeeAddressSummary !== '' ? $this->payeeAddressSummary : __('No address') }}</flux:text>
+                    </div>
+                    <flux:button variant="ghost" size="sm" type="button" class="shrink-0" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-controls="cheque-payee-address-fields" data-test="cheque-address-toggle">
+                        <span x-text="open ? @js(__('Hide')) : @js(__('Show'))">{{ __('Show') }}</span>
+                    </flux:button>
+                </div>
+
+                {{-- A rejected field has to be seen to be fixed, so an error on any
+                     of them opens the block. Alpine state survives the re-render,
+                     so this fires as the error appears, never forcing it back open
+                     after the operator folds it again. --}}
+                @if ($errors->hasAny(['payee_line1', 'payee_line2', 'payee_city', 'payee_region', 'payee_postal_code', 'payee_country']))
+                    <span x-init="open = true" hidden data-test="cheque-address-force-open"></span>
+                @endif
+
+                <div id="cheque-payee-address-fields" x-show="open" x-collapse x-cloak>
+                    <div class="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
+                        <flux:input wire:model.blur="payee_line1" :label="__('Address line 1')" data-test="cheque-payee-line1" />
+                        <flux:input wire:model.blur="payee_line2" :label="__('Address line 2')" data-test="cheque-payee-line2" />
+                        <flux:input wire:model.blur="payee_city" :label="__('City')" data-test="cheque-payee-city" />
+                        <flux:input wire:model.blur="payee_region" :label="__('Province / State')" data-test="cheque-payee-region" />
+                        <flux:input wire:model.blur="payee_postal_code" :label="__('Postal / ZIP')" data-test="cheque-payee-postal-code" />
+                        <flux:input wire:model.blur="payee_country" :label="__('Country')" maxlength="2" placeholder="CA" :description="__('Two-letter code')" data-test="cheque-payee-country" />
+                    </div>
                 </div>
             </div>
         </div>
@@ -984,6 +1021,8 @@ new #[Title('Cheque')] class extends Component
         <div class="overflow-x-auto rounded-lg border border-border">
             <table
                 class="w-full text-sm"
+                x-resizable-columns="'cheque-lines'"
+                wire:ignore.self
                 x-on:keydown.tab.capture="tabAddRow($event)"
                 x-data="{
                     addRowAndFocus(next) {
@@ -1006,31 +1045,27 @@ new #[Title('Cheque')] class extends Component
             >
                 <thead class="hidden bg-muted lg:table-header-group">
                     <tr>
-                        <th class="px-2 py-2 text-left w-52">{{ __('Account') }}</th>
-                        <th class="px-2 py-2 text-left">{{ __('Description') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Amount') }}</th>
-                        <th class="px-2 py-2 text-left w-32">{{ __('Tax') }}</th>
+                        <th class="relative px-2 py-2 text-left w-72" data-col="account" data-col-min="120" wire:ignore.self>{{ __('Account') }}<x-col-resize-handle /></th>
+                        <th class="px-2 py-2 text-left" data-col-flex>{{ __('Description') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="amount" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Amount') }}</th>
+                        <th class="relative px-2 py-2 text-left w-32" data-col="tax" data-col-min="128" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Tax') }}</th>
                         @if ($this->tracksClasses)
-                            <th class="px-2 py-2 text-left w-32">{{ __('Class') }}</th>
+                            <th class="relative px-2 py-2 text-left w-32" data-col="class" data-col-min="80" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Class') }}</th>
                         @endif
                         @if ($this->tracksLocations)
-                            <th class="px-2 py-2 text-left w-32">{{ __('Location') }}</th>
+                            <th class="relative px-2 py-2 text-left w-32" data-col="location" data-col-min="80" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Location') }}</th>
                         @endif
-                        <th class="px-2 py-2 text-right w-28">{{ __('Total') }}</th>
-                        <th class="px-2 py-2 w-10"></th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="total" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Total') }}</th>
+                        <th class="px-2 py-2 w-15"></th>
                     </tr>
                 </thead>
                 <tbody class="lg:divide-y lg:divide-border">
+                    <x-account-combo.options key="lineAccounts" :options="$this->lineAccountOptions" />
                     @foreach ($lines as $i => $line)
                         <tr wire:key="line-{{ $i }}" data-test="cheque-line-row" class="block border-b border-border p-3 lg:table-row lg:border-0 lg:p-0">
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account" data-line-first="{{ $i }}">
-                                    <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->lineAccountOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="lineAccounts" data-test="line-account" data-line-first="{{ $i }}" />
 
                                 {{-- An Accounts Receivable / Payable line needs its own customer
                                      or vendor: the payee is who the cheque is made out to, which
@@ -1080,23 +1115,13 @@ new #[Title('Cheque')] class extends Component
                                         {{ $contactRole === 'customer' ? __('Included in the invoice') : __('Included in the bill') }}
                                     </span>
                                 @else
-                                    @php($selectedTaxIds = $line['tax_code_ids'] ?? [])
-                                    <flux:dropdown>
-                                        <flux:button variant="outline" size="sm" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="line-tax">
-                                            <span class="truncate">{{ $this->taxCodeOptions->whereIn('id', $selectedTaxIds)->pluck('code')->implode(', ') ?: __('Select tax') }}</span>
-                                        </flux:button>
-                                        <flux:menu>
-                                            <flux:menu.checkbox.group wire:model.live="lines.{{ $i }}.tax_code_ids">
-                                                @foreach ($this->taxCodeOptions as $opt)
-                                                    <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->code }}</flux:menu.checkbox>
-                                                @endforeach
-                                            </flux:menu.checkbox.group>
-                                        </flux:menu>
-                                    </flux:dropdown>
-                                    <x-amount-input model="lines.{{ $i }}.tax_override" modifiers=".live.debounce.500ms" size="sm"
-                                        class="mt-1 lg:text-right"
-                                        placeholder="{{ number_format($line['auto_tax_cents'] / 100, 2) }}"
-                                        data-test="line-tax-override" />
+                                    <x-line-tax-cell
+                                        :index="$i"
+                                        :line="$line"
+                                        :options="$this->taxCodeOptions"
+                                        :primary-auto="$line['auto_tax_cents'] ?? 0"
+                                        :secondary-auto="$line['auto_secondary_tax_cents'] ?? 0"
+                                    />
                                 @endif
                             </td>
                             @if ($this->tracksClasses)

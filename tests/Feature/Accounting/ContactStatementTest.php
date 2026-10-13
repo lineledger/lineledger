@@ -24,6 +24,7 @@ use App\Services\Posting\JournalPoster;
 use App\Services\Posting\ReceiptPoster;
 use App\Services\Reporting\ContactStatementBuilder;
 use App\Services\Reporting\CustomerStatementBuilder;
+use App\Support\Reporting\StatementColumns;
 use Carbon\CarbonImmutable;
 
 beforeEach(function () {
@@ -184,6 +185,12 @@ it('keeps a voided credit memo and its reversal on the statement so it ties to t
     ]);
     app(CreditMemoPoster::class)->post($memo);
 
+    // A voided credit memo whose card refund stayed posted. CreditMemoPoster now
+    // refuses to void a refunded memo, but books from before that guard still
+    // hold this state, so build it by voiding first and refunding after.
+    // Void the credit memo → reversing entry DR AR 50.
+    app(CreditMemoPoster::class)->void($memo);
+
     // Card refund of the credit memo: negative receipt → DR AR 50.
     $refund = CustomerReceipt::create([
         'contact_id' => $customer->id,
@@ -194,9 +201,6 @@ it('keeps a voided credit memo and its reversal on the statement so it ties to t
         'amount_cents' => -5000,
     ]);
     app(ReceiptPoster::class)->post($refund);
-
-    // Void the credit memo → reversing entry DR AR 50.
-    app(CreditMemoPoster::class)->void($memo);
 
     $this->actingAs($this->user);
 
@@ -347,7 +351,7 @@ it('AP aging row links the vendor name to its statement', function () {
     $response->assertSee($expected, escape: false);
 });
 
-it('offers the customer statement modal and an edit link on the AR statement', function () {
+it('links to the customer statement page on the report\'s period, with an edit link, on the AR statement', function () {
     $customer = Contact::create(['display_name' => 'Linked Co', 'is_customer' => true]);
 
     $this->actingAs($this->user);
@@ -356,11 +360,18 @@ it('offers the customer statement modal and an edit link on the AR statement', f
         'company' => $this->company->slug,
         'contact' => $customer->id,
         'kind' => 'ar',
+        'start' => '2026-02-01',
+        'end' => '2026-03-31',
     ]));
 
     $response->assertOk();
-    $response->assertSee('data-test="statement-open-modal"', escape: false);
-    $response->assertSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertSee('data-test="statement-open-page"', escape: false);
+    // The statement opens on its own "All" default, not the report's period.
+    $response->assertSee('href="'.e(route('customers.statement', [
+        'company' => $this->company->slug,
+        'contact' => $customer->id,
+    ])).'"', escape: false);
+    $response->assertDontSee('customer-statement-modal', escape: false);
     $response->assertSee('Edit customer');
     $response->assertSee(route('customers.index', ['company' => $this->company->slug, 'edit' => $customer->id]), escape: false);
 });
@@ -377,8 +388,7 @@ it('offers only the vendor edit link on the AP statement', function () {
     ]));
 
     $response->assertOk();
-    $response->assertDontSee('data-test="statement-open-modal"', escape: false);
-    $response->assertDontSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertDontSee('data-test="statement-open-page"', escape: false);
     $response->assertSee('Edit vendor');
     $response->assertSee(route('vendors.index', ['company' => $this->company->slug, 'edit' => $vendor->id]), escape: false);
 });
@@ -403,8 +413,7 @@ it('hides the statement and edit actions from a member without customer access',
 
     $response->assertOk();
     $response->assertSee('Walled Co');
-    $response->assertDontSee('data-test="statement-open-modal"', escape: false);
-    $response->assertDontSee('data-test="customer-statement-modal"', escape: false);
+    $response->assertDontSee('data-test="statement-open-page"', escape: false);
     $response->assertDontSee('data-test="statement-edit-contact"', escape: false);
 });
 
@@ -496,8 +505,22 @@ it('keeps the sales rep off every customer-facing statement surface', function (
 
     $this->actingAs($this->user);
 
-    // 1 & 2. The customer-facing print/download statement, both flavours.
+    // 1 & 2. The customer-facing print/download statement, both flavours —
+    //        and the statement page that previews it, every column switched on.
     foreach ([CustomerStatementType::OpenInvoices, CustomerStatementType::Activity] as $type) {
+        $preview = $this->get(route('customers.statement', [
+            'company' => $this->company->slug,
+            'contact' => $customer->id,
+            'type' => $type->value,
+            'start' => '2026-01-01',
+            'end' => '2026-12-31',
+            'cols' => implode(',', array_keys(StatementColumns::optional($type))),
+        ]));
+
+        $preview->assertOk()
+            ->assertSee('INV-HIDE-1')
+            ->assertDontSee('Zebedee Repperson');
+
         $data = $type === CustomerStatementType::OpenInvoices
             ? app(CustomerStatementBuilder::class)->openInvoices($this->company, $customer, CarbonImmutable::create(2026, 12, 31))
             : app(CustomerStatementBuilder::class)->activity($this->company, $customer, CarbonImmutable::create(2026, 1, 1), CarbonImmutable::create(2026, 12, 31));

@@ -23,6 +23,7 @@ use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\TaxCalculator;
 use App\Support\Money;
 use App\Support\Quantity;
+use App\Support\Tax\LineTaxOverrides;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
@@ -77,8 +78,9 @@ new #[Title('Bill')] class extends Component
      * @var array<int, array{
      *     item_id: ?int, account_id: ?int, description: string,
      *     quantity: string, unit_price: string, discount_pct: string, tax_code_id: ?int,
-     *     secondary_tax_code_id: ?int, tax_override: string, class_id: ?int, location_id: ?int,
-     *     subtotal: int, auto_tax: int, tax: int, secondary_tax: int, total: int
+     *     secondary_tax_code_id: ?int, tax_code_ids: array<int, int>, tax_overrides: array<array-key, string>,
+     *     class_id: ?int, location_id: ?int,
+     *     subtotal: int, auto_tax: int, auto_secondary_tax: int, tax: int, secondary_tax: int, total: int
      * }>
      */
     public array $lines = [];
@@ -118,11 +120,12 @@ new #[Title('Bill')] class extends Component
                 'tax_code_id' => $l->tax_code_id,
                 'secondary_tax_code_id' => $l->secondary_tax_code_id,
                 'tax_code_ids' => array_values(array_filter([$l->tax_code_id, $l->secondary_tax_code_id])),
-                'tax_override' => $l->tax_override_cents !== null ? Money::fromCents((int) $l->tax_override_cents)->toDecimalString() : '',
+                'tax_overrides' => LineTaxOverrides::fromStored($l->tax_code_id, $l->secondary_tax_code_id, $l->tax_override_cents, $l->secondary_tax_override_cents),
                 'class_id' => $l->class_id,
                 'location_id' => $l->location_id,
                 'subtotal' => (int) $l->line_subtotal_cents,
                 'auto_tax' => 0,
+                'auto_secondary_tax' => 0,
                 'tax' => (int) $l->line_tax_cents,
                 'secondary_tax' => (int) $l->secondary_tax_cents,
                 'total' => (int) $l->line_total_cents,
@@ -176,11 +179,12 @@ new #[Title('Bill')] class extends Component
             'tax_code_id' => $l->tax_code_id,
             'secondary_tax_code_id' => $l->secondary_tax_code_id,
             'tax_code_ids' => array_values(array_filter([$l->tax_code_id, $l->secondary_tax_code_id])),
-            'tax_override' => $l->tax_override_cents !== null ? Money::fromCents((int) $l->tax_override_cents)->toDecimalString() : '',
+            'tax_overrides' => LineTaxOverrides::fromStored($l->tax_code_id, $l->secondary_tax_code_id, $l->tax_override_cents, $l->secondary_tax_override_cents),
             'class_id' => $l->class_id,
             'location_id' => $l->location_id,
             'subtotal' => (int) $l->line_subtotal_cents,
             'auto_tax' => 0,
+            'auto_secondary_tax' => 0,
             'tax' => (int) $l->line_tax_cents,
             'secondary_tax' => (int) $l->secondary_tax_cents,
             'total' => (int) $l->line_total_cents,
@@ -196,7 +200,7 @@ new #[Title('Bill')] class extends Component
     }
 
     /**
-     * @return array{item_id: ?int, account_id: ?int, description: string, quantity: string, unit_price: string, discount_pct: string, tax_code_id: ?int, secondary_tax_code_id: ?int, tax_override: string, class_id: ?int, location_id: ?int, subtotal: int, auto_tax: int, tax: int, secondary_tax: int, total: int}
+     * @return array{item_id: ?int, account_id: ?int, description: string, quantity: string, unit_price: string, discount_pct: string, tax_code_id: ?int, secondary_tax_code_id: ?int, tax_code_ids: array<int, int>, tax_overrides: array<array-key, string>, class_id: ?int, location_id: ?int, subtotal: int, auto_tax: int, auto_secondary_tax: int, tax: int, secondary_tax: int, total: int}
      */
     protected function emptyLine(): array
     {
@@ -210,11 +214,12 @@ new #[Title('Bill')] class extends Component
             'tax_code_id' => null,
             'secondary_tax_code_id' => null,
             'tax_code_ids' => [],
-            'tax_override' => '',
+            'tax_overrides' => [],
             'class_id' => null,
             'location_id' => null,
             'subtotal' => 0,
             'auto_tax' => 0,
+            'auto_secondary_tax' => 0,
             'tax' => 0,
             'secondary_tax' => 0,
             'total' => 0,
@@ -376,18 +381,21 @@ new #[Title('Bill')] class extends Component
 
         $totals = $calc->line($qty, $unitCents, $taxCode, 0, $discountPct, 0, null, $secondaryTaxCode);
 
-        $autoTax = $totals['tax_cents'];
-        $override = trim((string) ($line['tax_override'] ?? ''));
-        if ($override === '') {
-            $taxCents = $autoTax;
-        } else {
-            $taxCents = Money::tryFromString($override)?->cents ?? $autoTax;
-        }
+        // A typed amount per selected tax code wins over that code's calculated
+        // tax. Keyed by code, so pruning drops the amount of a code just unticked
+        // (or replaced by an item/contact default) and a code that moved slots
+        // keeps its own.
+        $overrides = LineTaxOverrides::prune((array) ($line['tax_overrides'] ?? []), [$line['tax_code_id'], $line['secondary_tax_code_id'] ?? null]);
+        $this->lines[$i]['tax_overrides'] = $overrides;
 
-        $secondaryTax = $totals['secondary_tax_cents'];
+        $autoTax = $totals['tax_cents'];
+        $autoSecondaryTax = $totals['secondary_tax_cents'];
+        $taxCents = LineTaxOverrides::cents($overrides, $line['tax_code_id']) ?? $autoTax;
+        $secondaryTax = LineTaxOverrides::cents($overrides, $line['secondary_tax_code_id'] ?? null) ?? $autoSecondaryTax;
 
         $this->lines[$i]['subtotal'] = $totals['subtotal_cents'];
         $this->lines[$i]['auto_tax'] = $autoTax;
+        $this->lines[$i]['auto_secondary_tax'] = $autoSecondaryTax;
         $this->lines[$i]['tax'] = $taxCents;
         $this->lines[$i]['secondary_tax'] = $secondaryTax;
         $this->lines[$i]['total'] = $totals['subtotal_cents'] + $taxCents + $secondaryTax;
@@ -532,7 +540,8 @@ new #[Title('Bill')] class extends Component
             'lines.*.discount_pct' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
             'lines.*.secondary_tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
-            'lines.*.tax_override' => ['nullable', 'string', new MoneyString],
+            'lines.*.tax_overrides' => ['nullable', 'array'],
+            'lines.*.tax_overrides.*' => ['nullable', 'string', new MoneyString],
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             ...AttachmentService::uploadRules(),
@@ -556,9 +565,7 @@ new #[Title('Bill')] class extends Component
                 'line_discount_pct' => ($line['discount_pct'] ?? '') !== '' ? $line['discount_pct'] : null,
                 'tax_code_id' => $line['tax_code_id'] ?? null,
                 'secondary_tax_code_id' => $line['secondary_tax_code_id'] ?? null,
-                'tax_override_cents' => ($line['tax_override'] ?? '') !== ''
-                    ? Money::fromString($line['tax_override'])->cents
-                    : null,
+                ...LineTaxOverrides::toSlots($line['tax_overrides'] ?? [], $line['tax_code_id'] ?? null, $line['secondary_tax_code_id'] ?? null),
                 'class_id' => $line['class_id'] ?? null,
                 'location_id' => $line['location_id'] ?? null,
             ], $validated['lines']),
@@ -794,6 +801,8 @@ new #[Title('Bill')] class extends Component
         <div class="overflow-x-auto rounded-lg border border-border">
             <table
                 class="w-full text-sm"
+                x-resizable-columns="'bill-lines'"
+                wire:ignore.self
                 x-on:keydown.tab.capture="tabAddRow($event)"
                 x-data="{
                     addRowAndFocus(next) {
@@ -816,24 +825,25 @@ new #[Title('Bill')] class extends Component
             >
                 <thead class="hidden bg-muted lg:table-header-group">
                     <tr>
-                        <th class="px-2 py-2 text-left w-44">{{ __('Item') }}</th>
-                        <th class="px-2 py-2 text-left">{{ __('Description') }}</th>
-                        <th class="px-2 py-2 text-left w-44">{{ __('Account') }}</th>
-                        <th class="px-2 py-2 text-right w-20">{{ __('Qty') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Unit cost') }}</th>
-                        <th class="px-2 py-2 text-right w-20">{{ __('Disc %') }}</th>
-                        <th class="px-2 py-2 text-left w-32">{{ __('Tax') }}</th>
+                        <th class="relative px-2 py-2 text-left w-44" data-col="item" data-col-min="120" wire:ignore.self>{{ __('Item') }}<x-col-resize-handle /></th>
+                        <th class="px-2 py-2 text-left" data-col-flex>{{ __('Description') }}</th>
+                        <th class="relative px-2 py-2 text-left w-64" data-col="account" data-col-min="120" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Account') }}</th>
+                        <th class="relative px-2 py-2 text-right w-20" data-col="qty" data-col-min="56" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Qty') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="unit-cost" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Unit cost') }}</th>
+                        <th class="relative px-2 py-2 text-right w-20" data-col="discount" data-col-min="56" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Disc %') }}</th>
+                        <th class="relative px-2 py-2 text-left w-32" data-col="tax" data-col-min="128" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Tax') }}</th>
                         @if ($this->tracksClasses)
-                            <th class="px-2 py-2 text-left w-32">{{ __('Class') }}</th>
+                            <th class="relative px-2 py-2 text-left w-32" data-col="class" data-col-min="80" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Class') }}</th>
                         @endif
                         @if ($this->tracksLocations)
-                            <th class="px-2 py-2 text-left w-32">{{ __('Location') }}</th>
+                            <th class="relative px-2 py-2 text-left w-32" data-col="location" data-col-min="80" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Location') }}</th>
                         @endif
-                        <th class="px-2 py-2 text-right w-28">{{ __('Amount') }}</th>
-                        <th class="px-2 py-2 w-10"></th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="amount" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Amount') }}</th>
+                        <th class="px-2 py-2 w-15"></th>
                     </tr>
                 </thead>
                 <tbody class="lg:divide-y lg:divide-border">
+                    <x-account-combo.options key="expenseAccounts" :options="$this->expenseAccountOptions" />
                     @foreach ($lines as $i => $line)
                         <tr wire:key="line-{{ $i }}" data-test="bill-line-row" class="block border-b border-border p-3 lg:table-row lg:border-0 lg:p-0">
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
@@ -846,12 +856,7 @@ new #[Title('Bill')] class extends Component
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
-                                    <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->expenseAccountOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="expenseAccounts" data-test="line-account" />
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Qty') }}</span>
@@ -867,23 +872,13 @@ new #[Title('Bill')] class extends Component
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Tax') }}</span>
-                                @php($selectedTaxIds = $line['tax_code_ids'] ?? [])
-                                <flux:dropdown>
-                                    <flux:button variant="outline" size="sm" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="line-tax">
-                                        <span class="truncate">{{ $this->taxCodeOptions->whereIn('id', $selectedTaxIds)->pluck('code')->implode(', ') ?: __('Select tax') }}</span>
-                                    </flux:button>
-                                    <flux:menu>
-                                        <flux:menu.checkbox.group wire:model.live="lines.{{ $i }}.tax_code_ids">
-                                            @foreach ($this->taxCodeOptions as $opt)
-                                                <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->code }}</flux:menu.checkbox>
-                                            @endforeach
-                                        </flux:menu.checkbox.group>
-                                    </flux:menu>
-                                </flux:dropdown>
-                                <x-amount-input model="lines.{{ $i }}.tax_override" modifiers=".live.debounce.500ms" size="sm"
-                                    class="mt-1 lg:text-right"
-                                    placeholder="{{ number_format($line['auto_tax'] / 100, 2) }}"
-                                    data-test="line-tax-override" />
+                                <x-line-tax-cell
+                                    :index="$i"
+                                    :line="$line"
+                                    :options="$this->taxCodeOptions"
+                                    :primary-auto="$line['auto_tax'] ?? 0"
+                                    :secondary-auto="$line['auto_secondary_tax'] ?? 0"
+                                />
                             </td>
                             @if ($this->tracksClasses)
                                 <td class="block px-2 py-1 lg:table-cell lg:py-2">

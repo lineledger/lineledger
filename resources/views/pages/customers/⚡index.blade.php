@@ -727,7 +727,7 @@ new #[Title('Customers')] class extends Component {
                         <td class="px-4 py-2 text-muted-foreground">{{ $customer->phone }}</td>
                         <td class="px-4 py-2 text-right font-mono">
                             <flux:tooltip :content="__('Generate a statement')">
-                                <button type="button" wire:click="$dispatch('open-customer-statement', { id: {{ $customer->id }} })" class="hover:underline" data-test="customer-open-balance">{{ number_format($customer->ar_balance_cents / 100, 2) }}</button>
+                                <a href="{{ route('customers.statement', ['company' => $company->slug, 'contact' => $customer->id]) }}" wire:navigate class="hover:underline" data-test="customer-open-balance">{{ number_format($customer->ar_balance_cents / 100, 2) }}</a>
                             </flux:tooltip>
                         </td>
                         <td class="px-4 py-2 text-right">
@@ -735,7 +735,7 @@ new #[Title('Customers')] class extends Component {
                                 <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" data-test="customer-actions-button" />
                                 <flux:menu>
                                     <flux:menu.item icon="pencil" wire:click="openEdit({{ $customer->id }})" data-test="customer-edit">{{ __('Edit') }}</flux:menu.item>
-                                    <flux:menu.item icon="document-text" wire:click="$dispatch('open-customer-statement', { id: {{ $customer->id }} })" data-test="customer-statement-button">
+                                    <flux:menu.item icon="document-text" :href="route('customers.statement', ['company' => $company->slug, 'contact' => $customer->id])" wire:navigate data-test="customer-statement-button">
                                         {{ __('Statement…') }}
                                     </flux:menu.item>
                                     <flux:menu.item icon="arrows-pointing-in" wire:click="openMerge({{ $customer->id }})" data-test="customer-merge-button">
@@ -1002,8 +1002,6 @@ new #[Title('Customers')] class extends Component {
             </div>
         </form>
     </flux:modal>
-
-    <livewire:customer-statement-modal :company="$company" />
 
     <x-edit-lock.takeover-modal :pending="$editLockPendingTakeover" />
 </section>

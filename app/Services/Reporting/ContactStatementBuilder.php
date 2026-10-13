@@ -50,7 +50,7 @@ class ContactStatementBuilder
     /**
      * @return array{
      *     opening: int,
-     *     lines: array<int, array{date: string, doc_no: string, type: string, memo: string, sales_rep: string, debit: int, credit: int, running: int, route_name: string, route_param: string, route_value: int}>,
+     *     lines: array<int, array{date: string, doc_no: string, type: string, memo: string, sales_rep: string, debit: int, credit: int, running: int, route_name: string, route_param: string, route_value: int, customer_po: string}>,
      *     period_debit: int,
      *     period_credit: int,
      *     closing: int,
@@ -94,6 +94,7 @@ class ContactStatementBuilder
 
         $numbers = $this->resolveDocumentNumbers($rows);
         $reps = $this->resolveSalesReps($rows, $company);
+        $pos = $this->resolveCustomerPos($rows, $company);
 
         $events = [];
 
@@ -116,6 +117,7 @@ class ContactStatementBuilder
                     'type' => $meta['label'],
                     'memo' => $r->entry_memo ?? $r->line_memo ?? '',
                     'sales_rep' => $reps[$r->source_type][$r->source_id] ?? '',
+                    'customer_po' => $pos[$r->source_type][$r->source_id] ?? '',
                     'debit' => $debit,
                     'credit' => $credit,
                     'route_name' => $meta['route'],
@@ -133,6 +135,7 @@ class ContactStatementBuilder
                 'type' => __('Journal'),
                 'memo' => $r->entry_memo ?? $r->line_memo ?? '',
                 'sales_rep' => '',
+                'customer_po' => '',
                 'debit' => $debit,
                 'credit' => $credit,
                 'route_name' => 'journal.show',
@@ -226,6 +229,42 @@ class ContactStatementBuilder
     }
 
     /**
+     * Bulk-resolve the customer's P.O. number on each source document, keyed as
+     * [source_type][source_id] => P.O. Only invoices carry customer_po among
+     * the documents that post to AR, so everything else resolves to an empty
+     * string. One lookup, never N+1.
+     *
+     * @param  Collection<int, \stdClass>  $rows
+     * @return array<class-string, array<int, string>>
+     */
+    private function resolveCustomerPos(Collection $rows, Company $company): array
+    {
+        $ids = $rows->where('source_type', Invoice::class)->pluck('source_id')->filter()->unique()->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $pos = DB::table('invoices')
+            ->where('company_id', $company->id)
+            ->whereIn('id', $ids)
+            ->whereNotNull('customer_po')
+            ->pluck('customer_po', 'id');
+
+        $resolved = [];
+
+        foreach ($pos as $id => $po) {
+            $po = trim((string) $po);
+
+            if ($po !== '') {
+                $resolved[Invoice::class][(int) $id] = $po;
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $events
      * @return array{opening: int, lines: array<int, array<string, mixed>>, period_debit: int, period_credit: int, closing: int}
      */
@@ -249,6 +288,7 @@ class ContactStatementBuilder
                 'type' => $e['type'],
                 'memo' => $e['memo'],
                 'sales_rep' => $e['sales_rep'],
+                'customer_po' => $e['customer_po'],
                 'debit' => $e['debit'],
                 'credit' => $e['credit'],
                 'running' => $running,

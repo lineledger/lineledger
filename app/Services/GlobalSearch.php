@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BillType;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -20,6 +21,7 @@ use App\Support\Contacts\ContactLinkResolver;
 use App\Support\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class GlobalSearch
 {
@@ -337,6 +339,8 @@ class GlobalSearch
      */
     private function accounts(string $like): Collection
     {
+        $toLedger = $this->canOpenReports();
+
         return Account::query()
             ->where(fn (Builder $q) => $q
                 ->where('code', 'like', $like)
@@ -351,8 +355,24 @@ class GlobalSearch
                 secondary: $a->type->value,
                 meta: null,
                 amountCents: (int) $a->balance_cents,
-                url: route('accounts.index'),
+                url: $toLedger
+                    ? route('reports.general-ledger', ['account' => $a->id])
+                    : route('accounts.index'),
             ));
+    }
+
+    /**
+     * Whether the searcher can open Reports here. An account result opens its
+     * General Ledger when they can, and falls back to the chart of accounts
+     * when they can't, rather than linking to a page that would refuse them.
+     */
+    private function canOpenReports(): bool
+    {
+        $company = $this->company();
+        $user = Auth::user();
+
+        return $company->sectionEnabled(Section::Reports)
+            && ($user === null || $user->canAccessSection($company, Section::Reports));
     }
 
     /**

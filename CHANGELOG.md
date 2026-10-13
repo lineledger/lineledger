@@ -50,6 +50,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Type a GL number or a name to pick a line's account.** Every line "Account"
+  picker (cheques, expenses, bills, deposits, journal entries, invoices and the
+  rest of the sales and purchase forms, recurring documents and templates,
+  reimbursements, inbox review, tax return adjustments, budgets, and the bank
+  review categories and splits) is now one search box instead of a long
+  dropdown. "24" lists 2400, 2410… first; "disb" or "bmo usd" finds the account
+  by name, words in any order, ignoring case and punctuation. Arrow keys and
+  Enter pick, Tab takes the highlighted match after you type, Escape backs out,
+  and emptying the box clears the account.
+- **Customer statements get their own page.** Statement… (on the Customers list,
+  a customer's Open balance, or the AR statement report) now opens a Customer
+  statement page that previews the statement like any report, then exports it to
+  PDF or emails it exactly as shown; the old dialog is gone. Pick a Start and End
+  date: an Open invoices statement lists the invoices dated in that range and
+  carries anything older still owing as one **Balance forward** row, so Total Due
+  still matches AR Aging (the default period, All, prints every open invoice as
+  before). A **Columns** menu adds the invoice's **P.O. #**, Terms, Amount Paid
+  and Days Past Due, or hides Memo, Due Date and Original Amount; Account activity
+  can add P.O. # or hide Type and Memo. **Save as default columns** makes a choice
+  the company default (Settings access required).
 - **The browser tab title follows `APP_NAME`** instead of a hardcoded "Line
   Ledger". Deployments that want the spaced form should set
   `APP_NAME="Line Ledger"`.
@@ -84,9 +104,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `2026-06-24.dahlia`), the version stripe-php 22 pins. Webhook payloads follow
   the API version set on the webhook endpoint in Stripe, which this doesn't
   change.
+- **A tax amount for each tax on a purchase line.** On cheques, expenses, bills,
+  reimbursements and the inbox review screen, every tax code ticked on a line now
+  gets its own amount field, labelled with the code and showing its calculated
+  amount. With GST and PST on one line you can correct either or both; the single
+  field used to override only the first tax. A line with no tax code shows no
+  field.
 
 ### Fixed
 
+- **Delete a draft journal entry.** A manual journal entry saved as a draft had
+  no way out: Void is only for posted entries, and the page offered nothing
+  else. Its Actions menu now has **Delete draft**, which removes the entry and
+  its lines (the deletion is recorded in the audit log). A posted entry still
+  offers Void, and an entry created by another document is still managed from
+  that document. `DELETE /api/v1/journal-entries/{id}` now goes through the same
+  action, so it also refuses a source-linked draft (422) instead of deleting it
+  out from under its document.
+- **A paid invoice can't be edited below what its receipts applied.** Lowering
+  the total of an invoice that receipts had already paid saved anyway, leaving
+  more applied than the invoice was worth. Its balance cache stopped matching
+  its payments, and the nightly integrity check reported an over-application.
+  The edit is now refused with the amount applied. Reduce the amount applied on
+  the receipt first, or issue a credit memo for the difference. A failed post
+  from the invoice form also no longer leaves the edit half-saved.
+- **A refunded credit memo can't be voided or edited below its refunds.**
+  Voiding a credit memo that had a refund cheque or card refund against it, or
+  editing its total below the amount refunded, left refunds with no credit
+  behind them. Both are now refused until the refund is voided. The API answers
+  either with 422.
+- **BC organizations keep BC time through the winter.** British Columbia stops
+  changing its clocks on November 1, 2026 and stays on UTC−7, but BC and Yukon
+  organizations were set to US Pacific time, which still falls back to UTC−8.
+  From November to March their "today" would have run an hour behind: between
+  midnight and 1 am new entries defaulted to the day before, report stamps read
+  an hour early, and payment reminders and scheduled report emails went out a
+  day late. They now use British Columbia and Yukon time, which the
+  Timezone picker offers as choices, and existing organizations left on US
+  Pacific time move across automatically when you upgrade. The server's timezone
+  data must know about the change: `php -r 'echo (new
+  DateTime("2026-12-01", new DateTimeZone("America/Vancouver")))->format("P");'`
+  should print `-07:00`.
+- **Clearing a cheque line's account no longer breaks the form.** Choosing "—"
+  on a line that had an account threw an error instead of emptying the line.
+- **Pressing Post twice on a new journal entry no longer errors.** A
+  double-click, or Enter pressed again before the page moved on, reached the
+  server holding the entry the first click had just posted: it rewrote that
+  posted entry's lines and then failed with "already posted" (a server error on
+  journal entries). The repeat now changes nothing and opens the posted entry.
+  New expenses and transfers get the same guard, and Save draft never rewrites
+  a posted entry.
+- **Two people posting at once no longer breaks a new journal entry.** The New
+  journal entry page fills in the next JE number when it opens, but cheques,
+  bills, invoices and every other posting share that sequence. If anyone posted
+  before you clicked Post, the save failed with a server error. A suggested
+  number is now only a preview: the entry takes the next free number as it
+  saves. A number you type yourself is kept, and if it is already used you get a
+  message under Entry # instead. The number sequence also never hands out a
+  number that is already taken.
 - **A saved draft tax return shows its figures.** Its page read 0.00 and "No
   snapshot lines yet" until the return was filed, and the list showed 0.00 too. A
   draft's page now works its figures out live from the ledger. Each save also
@@ -107,6 +182,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reversed commission couldn't be coded there. It now lists every active account,
   as the journal entry form does. Picking a revenue account doesn't bring along a
   sales-only default tax code, which never applies to a purchase.
+- **A tax amount without a tax code is ignored.** A cheque, expense or bill line
+  could save a typed tax amount with no tax code. The amount went into the total,
+  but with no tax agency to post it to, the journal entry put it in the expense
+  account instead.
+- **Cheque and expense pages show the first tax.** The totals on a cheque's or
+  expense's page left out each line's first tax: a GST-only cheque showed no tax
+  row, and a GST + PST one showed only PST. Display only — the saved amounts and
+  the journal entry were right.
 
 ### Security
 

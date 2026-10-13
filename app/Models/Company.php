@@ -323,7 +323,9 @@ class Company extends Model
             // Americas
             'Hawaii' => 'Pacific/Honolulu',
             'Alaska' => 'America/Anchorage',
-            'Pacific Time (US & Canada)' => 'America/Los_Angeles',
+            'Pacific Time (US)' => 'America/Los_Angeles',
+            'British Columbia (no DST)' => 'America/Vancouver',
+            'Yukon (no DST)' => 'America/Whitehorse',
             'Mountain Time (US & Canada)' => 'America/Denver',
             'Arizona (no DST)' => 'America/Phoenix',
             'Central Time (US & Canada)' => 'America/Chicago',

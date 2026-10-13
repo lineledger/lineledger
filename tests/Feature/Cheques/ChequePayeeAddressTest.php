@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\User;
 use App\Services\Posting\ChequePoster;
 use App\Services\Printing\ChequePdfRenderer;
+use App\Support\Contacts\AddressLines;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
@@ -292,4 +293,149 @@ it('carries the address onto a duplicated cheque', function () {
         ->test('pages::cheques.form', ['company' => $this->company])
         ->assertSet('payee_line1', '12 Old Street')
         ->assertSet('payee_city', 'Winnipeg');
+});
+
+/*
+ * The Address block folds to a one-line summary with a Show / Hide toggle, so
+ * the fields only take room when the operator opens them to change something.
+ */
+
+/**
+ * The text of the folded block's summary line, read off the rendered form.
+ */
+function chequeAddressSummary(string $html): ?string
+{
+    return preg_match('/data-test="cheque-address-summary"[^>]*>(.*?)</s', $html, $match)
+        ? trim(html_entity_decode($match[1], ENT_QUOTES))
+        : null;
+}
+
+it('folds the address fields behind a toggle on the full page', function () {
+    $html = $this->get(route('cheques.create', ['company' => $this->company->slug]))
+        ->assertOk()
+        ->getContent();
+
+    // A Blade directive inside a <flux:*> tag leaves it as literal text.
+    expect($html)->not->toContain('<flux:');
+
+    expect($html)
+        ->toContain('data-test="cheque-address-toggle"')
+        ->toContain('x-data="{ open: false }"')
+        ->toContain('x-show="open" x-collapse x-cloak')
+        ->toContain('aria-controls="cheque-payee-address-fields"')
+        ->and(chequeAddressSummary($html))->toBe('No address');
+
+    // Folded, not removed: every field is still on the page and bound.
+    foreach (['line1', 'line2', 'city', 'region', 'postal_code', 'country'] as $part) {
+        expect($html)->toContain('wire:model.blur="payee_'.$part.'"');
+    }
+
+    expect($html)
+        ->toContain('data-test="cheque-payee-line1"')
+        ->toContain('data-test="cheque-payee-country"')
+        // Nothing has failed validation, so nothing forces it open.
+        ->not->toContain('data-test="cheque-address-force-open"');
+});
+
+it('summarises the payee address once a payee is picked', function () {
+    $vendor = addressedVendor();
+
+    $component = addressChequeForm()->call('selectPayee', $vendor->id);
+
+    // The domestic country is implied, exactly as on the printed cheque.
+    expect(chequeAddressSummary($component->html()))->toBe('12 Old Street, Unit 4, Winnipeg, MB, R3C 1A1');
+});
+
+it('names a foreign country in the summary', function () {
+    $vendor = addressedVendor([
+        'billing_line2' => null,
+        'billing_city' => 'Fargo',
+        'billing_region' => 'ND',
+        'billing_postal_code' => '58102',
+        'billing_country' => 'US',
+    ]);
+
+    $component = addressChequeForm()->call('selectPayee', $vendor->id);
+
+    expect(chequeAddressSummary($component->html()))->toBe('12 Old Street, Fargo, ND, 58102, United States');
+});
+
+it('keeps the summary in step with an edited field', function () {
+    $vendor = addressedVendor();
+
+    $component = addressChequeForm()
+        ->call('selectPayee', $vendor->id)
+        ->set('payee_line1', '500 New Avenue')
+        ->set('payee_line2', '');
+
+    expect(chequeAddressSummary($component->html()))->toBe('500 New Avenue, Winnipeg, MB, R3C 1A1');
+});
+
+it('reads No address for a payee with none and after the payee is cleared', function () {
+    $bare = addressedVendor([
+        'display_name' => 'No Fixed Address',
+        'billing_line1' => null,
+        'billing_line2' => null,
+        'billing_city' => null,
+        'billing_region' => null,
+        'billing_postal_code' => null,
+        'billing_country' => null,
+    ]);
+
+    expect(chequeAddressSummary(addressChequeForm()->call('selectPayee', $bare->id)->html()))->toBe('No address');
+
+    $vendor = addressedVendor();
+
+    $cleared = addressChequeForm()
+        ->call('selectPayee', $vendor->id)
+        ->call('clearPayee');
+
+    expect(chequeAddressSummary($cleared->html()))->toBe('No address');
+});
+
+it('opens folded on edit, summarising the address the cheque stored', function () {
+    $vendor = addressedVendor();
+
+    fillChequeBody(addressChequeForm()->call('selectPayee', $vendor->id))
+        ->set('payee_line1', '500 New Avenue')
+        ->call('postCheque')
+        ->call('confirmAddressWriteBack', false)
+        ->assertHasNoErrors();
+
+    $cheque = Cheque::query()->firstOrFail();
+
+    $html = Livewire::test('pages::cheques.form', ['company' => $this->company, 'cheque' => $cheque])->html();
+
+    expect(chequeAddressSummary($html))->toBe('500 New Avenue, Unit 4, Winnipeg, MB, R3C 1A1')
+        ->and($html)->toContain('x-data="{ open: false }"');
+});
+
+it('forces the block open when an address field fails validation', function () {
+    fillChequeBody(addressChequeForm()->set('payee_name', 'Walk-in payee'))
+        ->set('payee_country', 'CAN')
+        ->call('saveDraft')
+        ->assertHasErrors('payee_country')
+        ->assertSeeHtml('data-test="cheque-address-force-open"')
+        ->assertSeeHtml('x-init="open = true"');
+
+    expect(Cheque::query()->count())->toBe(0);
+});
+
+it('leaves the block folded when only another field fails validation', function () {
+    fillChequeBody(addressChequeForm())
+        ->call('saveDraft')
+        ->assertHasErrors('payee_name')
+        ->assertDontSeeHtml('data-test="cheque-address-force-open"');
+});
+
+it('formats an address on one line, dropping blank parts', function () {
+    expect(AddressLines::oneLine([
+        'line1' => ' 116-618 East Kent Avenue South ',
+        'line2' => '',
+        'city' => 'Vancouver',
+        'region' => 'BC',
+        'postal_code' => 'V5X 0B1',
+        'country' => 'ca',
+    ], $this->company))->toBe('116-618 East Kent Avenue South, Vancouver, BC, V5X 0B1')
+        ->and(AddressLines::oneLine(['line1' => '', 'city' => null]))->toBe('');
 });

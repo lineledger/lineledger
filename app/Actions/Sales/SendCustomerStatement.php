@@ -7,14 +7,15 @@ use App\Enums\CustomerStatementType;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Notifications\Sales\CustomerStatementNotification;
+use App\Support\Reporting\StatementColumns;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Notification;
 
 /**
  * Emails a customer statement (open invoices or account activity) with the PDF
  * attached and a magic link to the live statement in the portal. The recipient
- * address and message come from the send modal; the From identity comes from
- * the company's invoice settings.
+ * address and message come from the statement page's Email form; the From
+ * identity comes from the company's invoice settings.
  *
  * Unlike invoice emails there is no automated caller yet, so there is no
  * opt-in gate — every send is a human clicking Send, the explicit act the
@@ -25,10 +26,15 @@ final class SendCustomerStatement
     public function __construct(protected IssuePortalLoginToken $tokens) {}
 
     /**
+     * $start is the activity period's first day, or the open-invoices lower
+     * bound (null = every open invoice). $columns are the optional statement
+     * columns to print; null uses the company's saved default.
+     *
      * @param  list<string>  $to  Primary recipients — each gets the magic link.
      * @param  list<string>  $cc
+     * @param  list<string>|null  $columns
      */
-    public function handle(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, array $to, string $message, array $cc = []): void
+    public function handle(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, array $to, string $message, array $cc = [], ?array $columns = null): void
     {
         $intendedPath = route('portal.statement', ['company' => $company->slug], absolute: false);
 
@@ -47,6 +53,7 @@ final class SendCustomerStatement
             replyToAddress: $settings->email_from_address,
             senderName: $settings->email_from_name,
             cc: $cc,
+            columns: $columns === null ? null : StatementColumns::sanitize($type, $columns),
         ));
     }
 }
