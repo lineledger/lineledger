@@ -14,6 +14,7 @@ use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
 use App\Enums\RemittanceFrequency;
 use App\Enums\Section;
+use App\Support\Currency;
 use App\Support\Jurisdiction\JurisdictionProfile;
 use App\Support\SiteSettings;
 use App\Support\Storage\StorageDisks;
@@ -154,6 +155,7 @@ class Company extends Model
             $company->address_country ??= Country::Canada->value;
             $country = Country::tryFrom($company->address_country) ?? Country::Canada;
             $company->currency_code ??= $country->defaultCurrencyCode();
+            self::assertSupportedHomeCurrency($company->currency_code);
             $company->fiscal_year_start_month ??= 1;
 
             if (empty($company->timezone)) {
@@ -170,7 +172,25 @@ class Company extends Model
                 && $company->getOriginal('address_country') !== null) {
                 throw new DomainException('Company country cannot be changed after creation.');
             }
+
+            // Only a change is checked, so a company already on an unsupported
+            // currency can still save its other settings.
+            if ($company->isDirty('currency_code')) {
+                self::assertSupportedHomeCurrency((string) $company->currency_code);
+            }
         });
+    }
+
+    /**
+     * Money assumes two decimals, so a zero- or three-decimal home currency
+     * would book amounts the currency can't hold (a ¥1 invoice at 10% posts
+     * ¥0.10 tax). See {@see Currency::isSelectable()}.
+     */
+    private static function assertSupportedHomeCurrency(string $currencyCode): void
+    {
+        if (! Currency::isSelectable($currencyCode)) {
+            throw new DomainException("Home currency [{$currencyCode}] is not supported. Only two-decimal currencies can be used.");
+        }
     }
 
     public function owner(): ?User
@@ -775,10 +795,15 @@ class Company extends Model
      * portal: a Stripe account is linked and its connection has not been flagged
      * broken. A revoked/severed connection trips this to false so the portal
      * degrades gracefully instead of every customer hitting a failed charge.
+     * Also false for a home currency Money can't represent: Stripe reads a
+     * zero-decimal amount in whole units, so ¥1,000 (stored as 100000) would
+     * charge ¥100,000.
      */
     public function canAcceptCardPayments(): bool
     {
-        return $this->stripe_account_id !== null && $this->stripe_disconnected_at === null;
+        return $this->stripe_account_id !== null
+            && $this->stripe_disconnected_at === null
+            && Currency::isSelectable((string) $this->currency_code);
     }
 
     /**

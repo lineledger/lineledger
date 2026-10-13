@@ -12,10 +12,11 @@ use App\Enums\Country;
  * support map (not an enum) because the set of currencies a company can transact
  * in is open-ended and the per-company enablement lives in `company_currencies`.
  *
- * Phase 1 of multi-currency is gated to two-decimal currencies because
- * {@see Money} assumes two decimals; zero-/three-decimal currencies (JPY, BHD)
- * are listed for display but excluded from {@see selectable} until Money grows
- * variable precision.
+ * The app is gated to two-decimal currencies because {@see Money} assumes two
+ * decimals; zero-/three-decimal currencies (JPY, BHD) are listed for display but
+ * excluded from {@see selectable} until Money grows variable precision. The gate
+ * covers the home currency as well as foreign ones: a JPY home currency would
+ * book fractional yen (a ¥1 invoice at 10% tax posts ¥0.10 tax).
  */
 final class Currency
 {
@@ -66,8 +67,18 @@ final class Currency
     }
 
     /**
-     * Currencies a company may enable today: known and two-decimal (the precision
-     * {@see Money} supports). Returns code => "USD — US Dollar" for pickers.
+     * Whether a company may use this currency, as its home currency or a foreign
+     * one: known and two-decimal (the precision {@see Money} supports). Unknown
+     * codes are refused because their decimal places aren't known.
+     */
+    public static function isSelectable(string $code): bool
+    {
+        return (self::CURRENCIES[mb_strtoupper($code)]['decimals'] ?? null) === 2;
+    }
+
+    /**
+     * Currencies a company may use today ({@see isSelectable}). Returns
+     * code => "USD — US Dollar" for pickers.
      *
      * @return array<string, string>
      */
@@ -76,7 +87,7 @@ final class Currency
         $options = [];
 
         foreach (self::CURRENCIES as $code => $meta) {
-            if ($meta['decimals'] === 2) {
+            if (self::isSelectable($code)) {
                 $options[$code] = $code.' — '.$meta['name'];
             }
         }

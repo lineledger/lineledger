@@ -10,6 +10,7 @@ use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /*
@@ -74,6 +75,18 @@ function bindMcpTenant(Company $company, array $abilities = []): void
 
     app()->instance('current_company', $company);
     app()->instance('current_api_key', $key);
+}
+
+/**
+ * Give $company a home currency saved before the two-decimal rule (e.g. JPY).
+ * Written raw because the Company model now refuses it. Returns the refreshed
+ * company. Shared by the home-currency restriction tests.
+ */
+function forceLegacyHomeCurrency(Company $company, string $currencyCode): Company
+{
+    DB::table('companies')->where('id', $company->id)->update(['currency_code' => $currencyCode]);
+
+    return $company->refresh();
 }
 
 /**

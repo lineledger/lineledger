@@ -168,6 +168,26 @@ it('hard-refuses on schema version mismatch', function () {
         );
 });
 
+it('refuses a bundle whose home currency is not two-decimal', function () {
+    // The restore inserts the company row raw, skipping the Company model's
+    // home-currency guard, so the inspector has to refuse it up front.
+    $importer = User::factory()->create(['email' => 'importer@example.com']);
+
+    $zipPath = $this->workDir.'/jpy.zip';
+    buildFakeBundle($zipPath, [
+        'manifest.json' => json_encode(defaultManifest()),
+        'users.json' => json_encode([]),
+        'data/companies.jsonl' => json_encode([
+            'id' => 7, 'name' => 'Tokyo Co', 'slug' => 'tokyo-co', 'currency_code' => 'JPY',
+        ])."\n",
+    ]);
+
+    $inspector = new BundleInspector(new UserRemapBuilder);
+
+    expect(fn () => $inspector->inspect($zipPath, $importer))
+        ->toThrow(BundleValidationException::class, 'Bundle home currency JPY is not supported');
+});
+
 it('throws when manifest.json is missing', function () {
     $importer = User::factory()->create();
 

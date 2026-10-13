@@ -27,8 +27,14 @@ class EnableCompanyCurrency
     {
         $currencyCode = mb_strtoupper($currencyCode);
 
-        if (! isset(Currency::selectable()[$currencyCode])) {
+        if (! Currency::isSelectable($currencyCode)) {
             throw new DomainException("Currency [{$currencyCode}] is not available for multi-currency.");
+        }
+
+        // Conversion assumes both sides share two-decimal cents, so a company
+        // whose home currency predates that rule (e.g. JPY) can't add others.
+        if (! Currency::isSelectable((string) $company->currency_code)) {
+            throw new DomainException("Multi-currency is not available with home currency [{$company->currency_code}].");
         }
 
         if ($company->isHomeCurrency($currencyCode)) {

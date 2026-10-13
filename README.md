@@ -87,7 +87,9 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
   requests.
 - **Employee reimbursements** — expense claims that post to the employee's payable.
 - **Multi-currency** — home-cents GL with foreign memo columns, daily exchange
-  rate fetching, realized + unrealized gain/loss.
+  rate fetching, realized + unrealized gain/loss. Two-decimal currencies only:
+  zero- and three-decimal currencies (JPY, KRW, BHD, KWD, …) can't be used as a
+  home or foreign currency yet, because every amount is stored in hundredths.
 - **Budgeting** — account-level budgets with budget-vs-actual, overview, and
   by-month reports; build from prior-year actuals.
 - **Non-profit & fund accounting** *(org-type gated)* — net-asset subtypes,

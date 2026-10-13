@@ -19,6 +19,7 @@ use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\SecurityLogRecorder;
 use App\Services\Security\AccessRevoker;
 use App\Support\CompanyPermissions;
+use App\Support\Currency;
 use App\Support\Storage\StorageDisks;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -224,7 +225,7 @@ new class extends Component
         $rules = [
             'companyName' => ['required', 'string', 'max:255', new CompanyName],
             'legalName' => ['nullable', 'string', 'max:255'],
-            'currencyCode' => ['required', 'string', 'size:3'],
+            'currencyCode' => ['required', 'string', Rule::in(array_keys($this->currencyOptions()))],
             'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'autoApplyCustomerCredits' => ['boolean'],
@@ -611,6 +612,26 @@ new class extends Component
     }
 
     /**
+     * Home currencies the picker offers: the two-decimal currencies Money
+     * supports, plus the company's own code if it was saved before that rule,
+     * so the page can still be saved without silently changing it.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function currencyOptions(): array
+    {
+        $options = Currency::selectable();
+        $current = mb_strtoupper((string) $this->companyModel->currency_code);
+
+        if ($current !== '' && ! isset($options[$current])) {
+            $options[$current] = $current.' — '.__('not supported');
+        }
+
+        return $options;
+    }
+
+    /**
      * @return array<int, Section>
      */
     #[Computed]
@@ -734,7 +755,11 @@ new class extends Component
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <flux:input wire:model="currencyCode" :label="__('Currency')" maxlength="3" required data-test="company-currency-input" />
+                                <flux:select wire:model="currencyCode" :label="__('Currency')" required data-test="company-currency-input">
+                                    @foreach ($this->currencyOptions as $code => $currencyLabel)
+                                        <flux:select.option value="{{ $code }}">{{ $currencyLabel }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
                                 <flux:select wire:model="fiscalYearStartMonth" :label="__('Fiscal year start month')" required data-test="company-fiscal-month-input">
                                     @foreach (range(1, 12) as $monthNumber)
                                         <flux:select.option value="{{ $monthNumber }}">{{ $monthNumber }} — {{ \Carbon\CarbonImmutable::create(null, $monthNumber, 1)->translatedFormat('F') }}</flux:select.option>

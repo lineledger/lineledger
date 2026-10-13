@@ -3,6 +3,8 @@
 namespace App\Services\Stripe;
 
 use App\Models\Company;
+use App\Support\Currency;
+use DomainException;
 use Stripe\Exception\InvalidRequestException;
 use Stripe\Exception\PermissionException;
 use Stripe\PaymentIntent;
@@ -64,14 +66,23 @@ class StripePaymentService
     /**
      * Create a PaymentIntent on the company's connected account. The amount is
      * computed server-side by the caller from invoice balances, never the client.
+     * Stripe reads the amount in the currency's own minor unit, which only
+     * matches our cents for two-decimal currencies, so anything else is refused
+     * (callers gate on {@see Company::canAcceptCardPayments()} first).
      *
      * @param  array<string, string>  $metadata
      */
     public function createPaymentIntent(Company $company, int $amountCents, array $metadata): PaymentIntent
     {
+        $currency = $company->currency_code ?: 'usd';
+
+        if (! Currency::isSelectable($currency)) {
+            throw new DomainException("Card payments are not supported in [{$currency}].");
+        }
+
         return $this->stripe->paymentIntents->create([
             'amount' => $amountCents,
-            'currency' => strtolower($company->currency_code ?: 'usd'),
+            'currency' => strtolower($currency),
             'automatic_payment_methods' => ['enabled' => true],
             'metadata' => $metadata,
         ], ['stripe_account' => $company->stripe_account_id]);

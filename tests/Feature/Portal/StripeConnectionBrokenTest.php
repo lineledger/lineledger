@@ -121,6 +121,22 @@ it('does not offer card payment on the portal once the connection is broken', fu
         ->assertDontSee('payment-element');
 });
 
+it('does not offer card payment for a home currency Stripe would mis-scale', function () {
+    // A JPY company saved before the two-decimal rule: Stripe reads its
+    // hundredths as whole yen, so the portal must not try to charge at all.
+    forceLegacyHomeCurrency($this->company, 'JPY');
+
+    $this->mock(StripePaymentService::class, function ($mock) {
+        $mock->shouldNotReceive('createPaymentIntent');
+    });
+
+    Livewire::test('pages::portal.pay', ['company' => $this->company])
+        ->assertSee('Online payments unavailable')
+        ->assertDontSee('payment-element')
+        ->call('preparePayment')
+        ->assertSet('clientSecret', null);
+});
+
 it('prompts the owner to reconnect in company settings when the connection is broken', function () {
     $this->company->markStripeConnectionBroken();
 
