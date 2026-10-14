@@ -5,6 +5,7 @@ use App\Actions\Contacts\UpdateContactAddress;
 use App\Enums\AccountSubtype;
 use App\Enums\ChequeStatus;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\ManagesLineContacts;
 use App\Livewire\Concerns\ManagesPayeeCombo;
@@ -216,21 +217,7 @@ new #[Title('Cheque')] class extends Component
 
     protected function nextChequeNumber(): string
     {
-        if (! $this->bank_account_id) {
-            return '1001';
-        }
-
-        $last = Cheque::withoutGlobalScopes()
-            ->where('company_id', $this->company->id)
-            ->where('bank_account_id', $this->bank_account_id)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($last && ($next = DocumentNumberGenerator::incrementFormat((string) $last->cheque_no)) !== null) {
-            return $next;
-        }
-
-        return '1001';
+        return app(DocumentNumberGenerator::class)->nextChequeNumber($this->company, $this->bank_account_id ? (int) $this->bank_account_id : null);
     }
 
     /**
@@ -565,8 +552,16 @@ new #[Title('Cheque')] class extends Component
         }
 
         // A draft writes nothing to the ledger, so there is nothing yet to
-        // mis-attribute: the AR/AP contact is only demanded at the post.
-        $this->cheque = app(SaveCheque::class)->handle($this->validatedChequeData(requireContacts: false), $this->cheque);
+        // mis-attribute: the AR/AP contact is only demanded at the post. A
+        // refund cheque is still held to the credit it pays back.
+        try {
+            $this->cheque = app(SaveCheque::class)->handle($this->validatedChequeData(requireContacts: false), $this->cheque);
+        } catch (PostingValidationException $e) {
+            $this->addError('lines', $e->getMessage());
+
+            return;
+        }
+
         $this->storePendingAttachments();
 
         Flux::toast(variant: 'success', text: __('Draft saved.'));

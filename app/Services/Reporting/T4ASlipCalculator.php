@@ -84,6 +84,7 @@ class T4ASlipCalculator
         $byCheque = DB::table('cheques')
             ->whereIn('payee_contact_id', $ids)
             ->whereNull('credit_memo_id')
+            ->whereNull('refunded_receipt_id')
             ->where('status', ChequeStatus::Posted->value)
             ->whereBetween('cheque_date', [$start->toDateString(), $end->toDateString()])
             ->groupBy('payee_contact_id')

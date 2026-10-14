@@ -478,6 +478,12 @@ class InvoicePoster
      * Creates ReceiptApplication rows and updates the invoice's amount_paid /
      * status. The GL is already correct — receipts originally credited AR — so
      * this only retroactively attaches the credit to a specific invoice.
+     *
+     * A payment's credit is what it neither applied nor refunded: credit paid
+     * back to the customer is gone and must not pay this invoice too. Refund
+     * receipts carry no credit of their own and are skipped. The receipt rows
+     * are locked so a refund being recorded at the same moment can't spend the
+     * same credit.
      */
     protected function autoApplyCustomerCredits(Invoice $invoice): void
     {
@@ -490,8 +496,12 @@ class InvoicePoster
             ->where('contact_id', $invoice->contact_id)
             ->where('status', ReceiptStatus::Posted->value)
             ->where('receipt_date', '<=', $invoice->invoice_date)
+            ->where('amount_cents', '>', 0)
+            ->whereNull('credit_memo_id')
+            ->whereNull('refunded_receipt_id')
             ->orderBy('receipt_date')
             ->orderBy('id')
+            ->lockForUpdate()
             ->get(['id', 'amount_cents']);
 
         if ($receipts->isEmpty()) {
@@ -504,6 +514,8 @@ class InvoicePoster
             ->selectRaw('customer_receipt_id, SUM(amount_cents) AS applied_cents')
             ->pluck('applied_cents', 'customer_receipt_id');
 
+        $refundedByReceipt = CustomerReceipt::refundedCentsByReceipt($receipts->pluck('id')->all());
+
         $newlyApplied = 0;
 
         foreach ($receipts as $receipt) {
@@ -511,7 +523,9 @@ class InvoicePoster
                 break;
             }
 
-            $unapplied = (int) $receipt->amount_cents - (int) ($appliedSumByReceipt[$receipt->id] ?? 0);
+            $unapplied = (int) $receipt->amount_cents
+                - (int) ($appliedSumByReceipt[$receipt->id] ?? 0)
+                - ($refundedByReceipt[$receipt->id] ?? 0);
             if ($unapplied <= 0) {
                 continue;
             }

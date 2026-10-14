@@ -372,6 +372,7 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
             <li>{{ __('Choose the bank account in Deposit to. The Deposit # and Date fill in automatically; you can type your own number, but it must be unique within the organization.') }}</li>
             <li>{{ __('Under Undeposited receipts, tick each receipt that is part of this deposit. A new deposit starts with nothing ticked; use the checkbox in the header to select or clear them all. Every column sorts — Date, Receipt #, From, Payment type, Ref, and Amount — so you can group the day’s cheques together, and each Receipt # opens that receipt in a new tab if you need to check it.') }}</li>
             <li>{{ __('Use Add line under Other deposits for any cash that did not come from a receipt — interest, a tax refund, an owner contribution. Enter a negative amount to net out a bank or merchant fee. Class and Location columns appear here when you track them.') }}</li>
+            <li>{{ __('A card refund to a customer shows in the receipts list as a negative amount and nets out of the deposit. When refunds outweigh the receipts — or a refund settles on a day with no card sales — the deposit total is negative: it posts as money out of the bank and lists with the payments when you reconcile, matching the card processor’s debit.') }}</li>
             <li>{{ __('Check the Deposit total, then select Save & post — or Save draft to post it later.') }}</li>
         </ol>
 

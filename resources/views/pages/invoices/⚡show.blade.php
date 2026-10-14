@@ -1,24 +1,35 @@
 <?php
 
+use App\Actions\Sales\RecordCustomerRefund;
 use App\Actions\Sales\SaveInvoicePaymentRequests;
 use App\Actions\Sales\SendInvoiceToCustomer;
+use App\Enums\ChequeStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentRequestType;
+use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
+use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
+use App\Models\ReceiptApplication;
 use App\Services\Sales\PaymentRequestScheduleStatus;
 use App\Support\Money;
 use App\Services\AttachmentService;
+use App\Services\Posting\ChequePoster;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\InvoiceReconciler;
+use App\Services\Posting\ReceiptPoster;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -27,6 +38,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new #[Title('Invoice')] class extends Component {
+    use IssuesCustomerRefunds;
     use ShowsEditLock;
     use WithFileUploads;
 
@@ -305,6 +317,148 @@ new #[Title('Invoice')] class extends Component {
         Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => '$'.number_format($closed / 100, 2)]));
     }
 
+    /**
+     * The posted payments applied to this invoice, oldest first.
+     *
+     * @return Collection<int, ReceiptApplication>
+     */
+    #[Computed]
+    public function payments(): Collection
+    {
+        return $this->invoice->receiptApplications()
+            ->whereHas('receipt', fn ($q) => $q->where('status', ReceiptStatus::Posted->value))
+            ->with('receipt.paymentMethod')
+            ->get()
+            ->sortBy(fn (ReceiptApplication $a) => [$a->receipt->receipt_date->toDateString(), $a->receipt->id])
+            ->values();
+    }
+
+    /**
+     * The customer's overpayments: home-currency payments with credit left that
+     * no invoice took — e.g. a cheque that came in after a card payment had
+     * already paid this invoice — plus any payment refunded from this invoice,
+     * so its refunds stay listed once the credit is used up. Each carries its
+     * live refunds. Oldest first.
+     *
+     * @return Collection<int, CustomerReceipt>
+     */
+    #[Computed]
+    public function overpayments(): Collection
+    {
+        if ($this->invoice->contact_id === null
+            || ! in_array($this->invoice->status, [InvoiceStatus::Posted, InvoiceStatus::Partial, InvoiceStatus::Paid], true)) {
+            return collect();
+        }
+
+        $refundedFromHere = CustomerReceipt::query()
+            ->where('from_invoice_id', $this->invoice->id)
+            ->where('status', '!=', ReceiptStatus::Void->value)
+            ->whereNotNull('refunded_receipt_id')
+            ->pluck('refunded_receipt_id')
+            ->merge(Cheque::query()
+                ->where('from_invoice_id', $this->invoice->id)
+                ->where('status', '!=', ChequeStatus::Void->value)
+                ->whereNotNull('refunded_receipt_id')
+                ->pluck('refunded_receipt_id'))
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return CustomerReceipt::query()
+            ->where('contact_id', $this->invoice->contact_id)
+            ->where('status', ReceiptStatus::Posted->value)
+            ->where('amount_cents', '>', 0)
+            ->whereNull('credit_memo_id')
+            ->whereNull('refunded_receipt_id')
+            ->with([
+                'paymentMethod',
+                'applications',
+                'refundCheques' => fn ($q) => $q->where('status', '!=', ChequeStatus::Void->value)->orderBy('id'),
+                'refundReceipts' => fn ($q) => $q->where('status', '!=', ReceiptStatus::Void->value)->orderBy('id'),
+            ])
+            ->orderBy('receipt_date')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (CustomerReceipt $payment) => $this->company->isHomeCurrency($payment->currency_code)
+                && ($payment->remainingRefundableCents() > 0 || in_array((int) $payment->id, $refundedFromHere, true)))
+            ->values();
+    }
+
+    /**
+     * Overpayment credit left to refund across the customer's payments.
+     */
+    #[Computed]
+    public function overpaymentCreditCents(): int
+    {
+        return (int) $this->overpayments->sum(fn (CustomerReceipt $payment) => $payment->remainingRefundableCents());
+    }
+
+    /**
+     * The "From payment" choices in the refund dialog.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function refundSourceOptions(): array
+    {
+        return $this->refundSources
+            ->mapWithKeys(fn (CustomerReceipt $payment) => [(int) $payment->id => __(':no · :date · :method — :amount credit', [
+                'no' => $payment->receipt_no,
+                'date' => $payment->receipt_date->toDateString(),
+                'method' => $payment->paymentMethod?->name ?? __('Payment'),
+                'amount' => number_format($payment->remainingRefundableCents() / 100, 2),
+            ])])
+            ->all();
+    }
+
+    /**
+     * Refund the newest overpayment first: it is usually the one that crossed.
+     */
+    protected function eligibleRefundSources(): Collection
+    {
+        return $this->overpayments
+            ->filter(fn (CustomerReceipt $payment) => $payment->remainingRefundableCents() > 0)
+            ->sortByDesc(fn (CustomerReceipt $payment) => [$payment->receipt_date->toDateString(), $payment->id])
+            ->values();
+    }
+
+    protected function removableRefundCheques(): Builder
+    {
+        return Cheque::query()->whereIn('refunded_receipt_id', $this->overpayments->pluck('id'));
+    }
+
+    protected function removableRefundReceipts(): Builder
+    {
+        return CustomerReceipt::query()->whereIn('refunded_receipt_id', $this->overpayments->pluck('id'));
+    }
+
+    protected function refundInvoiceContext(): ?Invoice
+    {
+        return $this->invoice;
+    }
+
+    protected function afterRefundChanged(): void
+    {
+        unset($this->overpayments, $this->overpaymentCreditCents, $this->refundSourceOptions);
+    }
+
+    // The refund spends a payment's credit and leaves the invoice untouched, so
+    // these aren't #[GuardsEditLock]: that would re-version the invoice and turn
+    // away whoever is editing it. The payment's own lock is checked instead.
+    public function submitRefund(RecordCustomerRefund $action): void
+    {
+        $this->processRefund($action);
+    }
+
+    public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
+    {
+        $this->removeRefundCheque($chequeId, $poster);
+    }
+
+    public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
+    {
+        $this->removeRefundReceipt($receiptId, $poster);
+    }
+
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -379,6 +533,10 @@ new #[Title('Invoice')] class extends Component {
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('receipts.create', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="receive-payment-button">
                     {{ __('Receive payment') }}
                 </flux:button>
+            @elseif ($this->canRefund)
+                <flux:button variant="primary" class="!hidden lg:!inline-flex" icon="banknotes" wire:click="openRefund" data-test="refund-invoice-button">
+                    {{ __('Refund to client') }}
+                </flux:button>
             @endif
 
             <flux:dropdown align="end" data-test="invoice-show-field-settings">
@@ -402,6 +560,12 @@ new #[Title('Invoice')] class extends Component {
                     @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft && $invoice->balanceCents() > 0)
                         <flux:menu.item class="lg:hidden" icon="banknotes" :href="route('receipts.create', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="receive-payment-menu-item">
                             {{ __('Receive payment') }}
+                        </flux:menu.item>
+                    @endif
+                    @if ($this->canRefund)
+                        {{-- On a paid invoice the header button carries it on wide screens. --}}
+                        <flux:menu.item :class="$invoice->balanceCents() <= 0 ? 'lg:hidden' : ''" icon="banknotes" wire:click="openRefund" data-test="refund-invoice-menu-item">
+                            {{ __('Refund to client') }}
                         </flux:menu.item>
                     @endif
                     @if ($invoice->status !== InvoiceStatus::Draft)
@@ -560,6 +724,80 @@ new #[Title('Invoice')] class extends Component {
             </tfoot>
         </table>
     </div>
+
+    @if ($this->payments->isNotEmpty() || $this->overpayments->isNotEmpty())
+        <div class="mt-6 space-y-5 rounded-lg border border-border p-4" data-test="invoice-payments">
+            @if ($this->payments->isNotEmpty())
+                <div class="space-y-2">
+                    <flux:heading size="sm">{{ __('Payments') }}</flux:heading>
+
+                    @foreach ($this->payments as $application)
+                        <div class="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm" wire:key="pay-{{ $application->id }}" data-test="invoice-payment-row">
+                            <a href="{{ route('receipts.show', ['company' => $company->slug, 'receipt' => $application->receipt->id]) }}" wire:navigate class="flex flex-wrap items-center gap-2 hover:underline">
+                                <flux:icon name="banknotes" class="size-4 text-muted-foreground" />
+                                <span>{{ $application->receipt->receipt_no }}</span>
+                                <span class="text-muted-foreground">{{ $application->receipt->receipt_date->toDateString() }}</span>
+                                @if ($application->receipt->paymentMethod)
+                                    <span class="text-muted-foreground">· {{ $application->receipt->paymentMethod->name }}</span>
+                                @endif
+                                @if ($application->receipt->reference)
+                                    <span class="text-muted-foreground">· {{ $application->receipt->reference }}</span>
+                                @endif
+                            </a>
+                            <span class="font-mono">{{ number_format($application->amount_cents / 100, 2) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($this->overpayments->isNotEmpty())
+                <div class="space-y-2" data-test="invoice-overpayments">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <flux:heading size="sm">{{ __('Overpayment (customer credit)') }}</flux:heading>
+                        <flux:text class="text-sm text-muted-foreground" data-test="invoice-credit-remaining">
+                            {{ __('Credit remaining: :amount', ['amount' => number_format($this->overpaymentCreditCents / 100, 2)]) }}
+                        </flux:text>
+                    </div>
+                    <flux:text class="text-sm text-muted-foreground">{{ __('Payments from this customer that no invoice took. Refund them to the client, or apply them to another invoice.') }}</flux:text>
+
+                    @foreach ($this->overpayments as $payment)
+                        <div class="space-y-2" wire:key="op-{{ $payment->id }}">
+                            <div class="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm" data-test="invoice-overpayment-row">
+                                <a href="{{ route('receipts.show', ['company' => $company->slug, 'receipt' => $payment->id]) }}" wire:navigate class="flex flex-wrap items-center gap-2 hover:underline">
+                                    <flux:icon name="banknotes" class="size-4 text-muted-foreground" />
+                                    <span>{{ $payment->receipt_no }}</span>
+                                    <span class="text-muted-foreground">{{ $payment->receipt_date->toDateString() }}</span>
+                                    @if ($payment->paymentMethod)
+                                        <span class="text-muted-foreground">· {{ $payment->paymentMethod->name }}</span>
+                                    @endif
+                                    @if ($payment->reference)
+                                        <span class="text-muted-foreground">· {{ $payment->reference }}</span>
+                                    @endif
+                                </a>
+                                <span class="font-mono">{{ number_format($payment->refundableBaseCents() / 100, 2) }}</span>
+                            </div>
+
+                            @if ($payment->refundCheques->isNotEmpty() || $payment->refundReceipts->isNotEmpty())
+                                <div class="ms-6 space-y-2">
+                                    <x-customer-refund.list :company="$company" :cheques="$payment->refundCheques" :receipts="$payment->refundReceipts" />
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
+
+    <x-customer-refund.modal
+        :contact-name="$invoice->contact?->display_name ?? ''"
+        :method="$refundMethod"
+        :bank-accounts="$this->refundBankAccounts"
+        :deposit-accounts="$this->refundDepositAccounts"
+        :payment-methods="$this->refundPaymentMethods"
+        :source-options="$this->refundSourceOptions"
+        :stripe-source="$this->selectedRefundSource?->stripe_payment_intent_id !== null"
+    />
 
     {{-- Milestone / deposit payment schedule --}}
     @if ($invoice->status !== InvoiceStatus::Void)

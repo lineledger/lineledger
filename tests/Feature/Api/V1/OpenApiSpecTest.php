@@ -260,3 +260,15 @@ it('reflects the 1.1.0 schema additions', function () {
         ->and($schemas['Cheque']['properties'])->toHaveKeys(['payee_address', 'credit_memo_id'])
         ->and($spec['paths']['/cheques/{cheque}']['patch']['summary'])->toContain('reposted');
 });
+
+it('documents overpayment refunds and signed deposit lines', function () {
+    $spec = $this->getJson('/api/v1/openapi.json')->assertStatus(200)->json();
+    $schemas = $spec['components']['schemas'];
+
+    expect($spec['paths'])->toHaveKey('/invoices/{invoice}/refund')
+        ->and($spec['paths']['/invoices/{invoice}/refund']['post']['responses'])->toHaveKeys(['201', '409', '422', '423'])
+        ->and($schemas['InvoiceRefundInput']['required'])->toBe(['refunded_receipt_id', 'refund_date', 'amount_cents', 'deposit_to_account_id'])
+        ->and($schemas['Receipt']['properties'])->toHaveKeys(['refunded_cents', 'credit_memo_id', 'refunded_receipt_id', 'from_invoice_id'])
+        ->and($schemas['Cheque']['properties'])->toHaveKeys(['refunded_receipt_id', 'from_invoice_id'])
+        ->and($schemas['DepositInput']['properties']['lines']['items']['properties']['amount_cents']['minimum'])->toBeLessThan(0);
+});

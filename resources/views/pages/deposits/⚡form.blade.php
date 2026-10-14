@@ -758,10 +758,11 @@ new #[Title('Make deposit')] class extends Component
                                     <td class="px-3 py-2 whitespace-nowrap">{{ $r['date'] }}</td>
                                     <td class="px-3 py-2 font-mono">
                                         <a
-                                            href="{{ route($r['source'] === 'sales' ? 'sales-receipts.edit' : 'receipts.edit', ['company' => $company->slug, 'receipt' => $r['receipt_id']]) }}"
+                                            {{-- A refund (negative) is removed and recorded again, never edited: open its page instead. --}}
+                                            href="{{ route($r['source'] === 'sales' ? 'sales-receipts.edit' : ($r['amount'] < 0 ? 'receipts.show' : 'receipts.edit'), ['company' => $company->slug, 'receipt' => $r['receipt_id']]) }}"
                                             target="_blank"
                                             class="underline decoration-dotted underline-offset-2 hover:decoration-solid"
-                                            title="{{ __('Edit this receipt in a new tab') }}"
+                                            title="{{ $r['amount'] < 0 ? __('Open this refund in a new tab') : __('Edit this receipt in a new tab') }}"
                                             data-test="receipt-pick-link"
                                         >{{ $r['receipt_no'] }}</a>
                                     </td>
@@ -781,7 +782,7 @@ new #[Title('Make deposit')] class extends Component
             <div class="mb-2 flex items-center justify-between">
                 <div>
                     <flux:heading>{{ __('Other deposits') }}</flux:heading>
-                    <flux:text class="text-xs text-muted-foreground">{{ __('Add owner contributions or refunds; enter a negative amount to net out a bank/merchant fee.') }}</flux:text>
+                    <flux:text class="text-xs text-muted-foreground">{{ __('Add owner contributions or refunds received; enter a negative amount to net out a bank/merchant fee.') }}</flux:text>
                 </div>
                 <flux:button variant="filled" size="sm" icon="plus" type="button" wire:click="addOtherLine">{{ __('Add line') }}</flux:button>
             </div>
@@ -847,6 +848,12 @@ new #[Title('Make deposit')] class extends Component
             <span class="text-base font-semibold">{{ __('Deposit total') }}</span>
             <span class="text-lg font-mono font-semibold" data-test="deposit-total">{{ number_format($this->totalCents() / 100, 2) }}</span>
         </div>
+
+        @if ($this->totalCents() < 0)
+            <flux:text class="text-sm text-amber-700 dark:text-amber-400" data-test="deposit-negative-note">
+                {{ __('Refunds outweigh the receipts, so this deposit takes :amount out of the bank — as the card processor will on your statement.', ['amount' => '$'.number_format(abs($this->totalCents()) / 100, 2)]) }}
+            </flux:text>
+        @endif
 
         @error('deposit') <flux:text class="text-red-600">{{ $message }}</flux:text> @enderror
 

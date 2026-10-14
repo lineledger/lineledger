@@ -198,15 +198,16 @@ class Contact extends Model implements AuthenticatableContract
     }
 
     /**
-     * Cheques written to this contact that refund a credit memo. These debit
-     * Accounts Receivable, so they raise the AR balance back toward zero.
+     * Cheques written to this contact that refund a credit memo or a payment's
+     * unapplied credit. These debit Accounts Receivable, so they raise the AR
+     * balance back toward zero.
      *
      * @return HasMany<Cheque, $this>
      */
     public function refundCheques(): HasMany
     {
         return $this->hasMany(Cheque::class, 'payee_contact_id')
-            ->whereNotNull('credit_memo_id');
+            ->where(fn ($q) => $q->whereNotNull('credit_memo_id')->orWhereNotNull('refunded_receipt_id'));
     }
 
     /**

@@ -186,7 +186,7 @@ field and the server assigns the next free number in the organization's own form
 | `invoices` | `invoice_no` | ignored |
 | `bills` | `bill_no` | ignored |
 | `credit-memos` | `credit_memo_no` | ignored |
-| `receipts`, `POST /credit-memos/{id}/refund` | `receipt_no` | ignored |
+| `receipts`, `POST /credit-memos/{id}/refund`, `POST /invoices/{id}/refund` | `receipt_no` | ignored |
 | `sales-orders` | `order_no` | not accepted on create or update; always server-assigned |
 | `bill-payments`, `tax-return-payments` | `payment_no` | ignored |
 | `deposits` | `deposit_no` | accepted |
@@ -239,7 +239,7 @@ always requiring `{resource}:write`:
 |---|---|---|
 | `sales` | `customers` | — |
 | `sales` | `sales-orders` | `fulfill`, `cancel` |
-| `sales` | `invoices` | `post` |
+| `sales` | `invoices` | `post`, `refund` |
 | `sales` | `receipts` | `post` |
 | `sales` | `credit-memos` | `post`, `refund` |
 | `purchases` | `vendors` | — |
@@ -428,10 +428,20 @@ curl -s "https://your-host/api/v1/invoices/$INVOICE_ID" \
 An invoice reports `balance_cents` — what is still owed by the server's own
 arithmetic (total, less receipts applied, less anything reconciled away by a
 journal entry) — so clients need not compute `total_cents - amount_paid_cents`.
-A receipt reports `unapplied_cents`, the part not yet applied to any invoice.
-To apply that credit later, `PUT`/`PATCH` the receipt with its full header and
-the **complete** `applications` list (the existing rows plus the new one): the
-list is replaced wholesale, and only the invoices in it are recomputed.
+A receipt reports `unapplied_cents`, the part neither applied to an invoice nor
+refunded (`refunded_cents`). To apply that credit later, `PUT`/`PATCH` the receipt
+with its full header and the **complete** `applications` list (the existing rows
+plus the new one): the list is replaced wholesale, and only the invoices in it are
+recomputed. Credit already refunded can't be applied — the update is a `422`.
+
+To pay an overpayment back instead — a customer who paid the same invoice twice —
+`POST /api/v1/invoices/{id}/refund` with the payment holding the credit as
+`refunded_receipt_id`, plus `refund_date`, `amount_cents` and
+`deposit_to_account_id`. It records and posts a card refund (a receipt with a
+negative `amount_cents`, linked back through `refunded_receipt_id` and
+`from_invoice_id`) and needs no credit memo; the invoice itself is unchanged. The
+refund nets out of the next deposit like any card receipt, and a deposit whose
+refunds outweigh its receipts posts with a negative total, as money out of the bank.
 
 ### 5.4 Reconcile what you've sent
 

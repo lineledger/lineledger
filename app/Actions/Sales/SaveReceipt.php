@@ -3,10 +3,12 @@
 namespace App\Actions\Sales;
 
 use App\Enums\ReceiptStatus;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CustomerReceipt;
 use App\Services\Posting\DocumentNumberGenerator;
+use App\Services\Posting\ReceiptPoster;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +23,10 @@ use Illuminate\Support\Facades\DB;
  * longer pays. Without that, moving a receipt from one invoice to another left
  * the old invoice's paid amount and status stale.
  *
+ * A refund receipt can't be edited here (remove it and record it again), and a
+ * payment that has been refunded can't change customer or drop its unapplied
+ * credit below what was refunded from it.
+ *
  * Expected $data shape (cents-based, framework-agnostic):
  *   contact_id:            int
  *   receipt_no:            ?string  (null → auto-generated)
@@ -34,7 +40,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class SaveReceipt
 {
-    public function __construct(protected DocumentNumberGenerator $numbers) {}
+    public function __construct(
+        protected DocumentNumberGenerator $numbers,
+        protected ReceiptPoster $poster,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -65,6 +74,18 @@ final class SaveReceipt
             $previousContactId = null;
 
             if ($receipt && $receipt->exists) {
+                // Lock the row a refund of this payment locks first, so an edit and
+                // a new refund can't both spend the same unapplied credit.
+                CustomerReceipt::query()->lockForUpdate()->find($receipt->id);
+
+                if ($receipt->isRefund()) {
+                    throw new PostingValidationException(__('A refund can\'t be edited. Remove it and record it again.'));
+                }
+
+                if ((int) $data['contact_id'] !== (int) $receipt->contact_id && $receipt->hasLiveRefunds()) {
+                    throw new PostingValidationException(__('This payment has been refunded, so it can\'t move to another customer. Remove its refunds first.'));
+                }
+
                 $previousInvoiceIds = $receipt->applications()->pluck('invoice_id')->map(fn ($id) => (int) $id)->all();
                 $previousContactId = (int) $receipt->contact_id;
                 $receipt->update($header);
@@ -86,8 +107,11 @@ final class SaveReceipt
                 ]);
             }
 
-            return $receipt->fresh(['applications'])
-                ->rememberPreviousApplications($previousInvoiceIds, $previousContactId);
+            $saved = $receipt->fresh(['applications']);
+
+            $this->poster->ensureAmountCoversRefunds($saved);
+
+            return $saved->rememberPreviousApplications($previousInvoiceIds, $previousContactId);
         });
     }
 

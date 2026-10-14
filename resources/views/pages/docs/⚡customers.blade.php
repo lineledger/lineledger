@@ -281,6 +281,27 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
             {{ __('If the customer has credit on account — a credit memo or an earlier overpayment — a green panel on the form shows the available credit and what they actually owe once it is taken off. Any part of a receipt you do not apply to an invoice is kept as customer credit, and the form says so before you post. Once you have typed into an Apply cell, or when you reopen a saved receipt, changing the Amount no longer moves money between invoices, so a payment cannot be silently pulled off the invoice it was meant for.') }}
         </x-docs.callout>
 
+        {{-- ─────────────────────── Refund an overpayment ────────────────────── --}}
+        <flux:heading size="md" class="mt-6">{{ __('Refund an overpayment') }}</flux:heading>
+        <flux:text>
+            {{ __('Sometimes a customer pays the same invoice twice — by card, then again by cheque — and you hand one payment back. No goods or services are being credited, so this needs no credit memo: the second payment is an overpayment, kept as credit on their account, and you refund that credit.') }}
+        </flux:text>
+
+        <p><strong>{{ __('To refund an overpayment:') }}</strong></p>
+        <ol class="list-decimal ps-6 space-y-1">
+            <li>{{ __('Open the invoice. Under Payments it lists the payments applied to it; under Overpayment (customer credit) it lists the customer’s payments that no invoice took, and the credit remaining.') }}</li>
+            <li>{{ __('Select Refund to client. When more than one payment holds credit, choose one under From payment — the newest is picked for you.') }}</li>
+            <li>{{ __('Choose By credit card for a refund made through the card terminal, or By cheque to write one. Check the Amount and the Date, then select Record refund or Create draft cheque.') }}</li>
+        </ol>
+
+        <flux:text>
+            {{ __('A card refund books a negative receipt to Undeposited Funds: it debits Accounts Receivable and credits Undeposited Funds. Put it on a bank deposit with your other card takings and it nets out of the batch; when refunds outweigh the receipts, the deposit total is negative and the deposit takes the money out of the bank, as the card processor does on your statement. A cheque refund is a draft cheque that debits Accounts Receivable and credits your bank — review, print and post it. The invoice itself doesn’t change: it stays paid by its original payment, and the refund is listed under the payment whose credit it used. You can also refund from the payment’s own page, which shows its unapplied credit.') }}
+        </flux:text>
+
+        <x-docs.callout type="note">
+            {{ __('While a refund stands, its payment can’t be voided or moved to another customer, and the refunded credit can’t be applied to an invoice — remove the refund first. Remove a refund from the invoice or the payment: a card refund is voided, a draft refund cheque deleted. A card refund already on a deposit has to come off the deposit first. Refunds of foreign-currency payments aren’t supported yet, and a refund of a payment taken through Stripe is only recorded here — issue it in your Stripe dashboard too.') }}
+        </x-docs.callout>
+
         {{-- ─────────────────── Send a customer a statement ───────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Send a customer a statement') }}</flux:heading>
         <flux:text>

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Sales\RecordCustomerRefund;
 use App\Actions\Sales\SaveCreditMemo;
 use App\Enums\CreditMemoStatus;
+use App\Enums\RefundMethod;
 use App\Http\Concerns\AppliesApiListFilters;
 use App\Http\Requests\Api\V1\RefundCreditMemoRequest;
 use App\Http\Requests\Api\V1\StoreCreditMemoRequest;
@@ -13,8 +15,6 @@ use App\Http\Resources\Api\V1\ReceiptResource;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Services\Posting\CreditMemoPoster;
-use App\Services\Posting\DocumentNumberGenerator;
-use App\Services\Posting\ReceiptPoster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -128,7 +128,7 @@ class CreditMemoController extends ApiController
      * the credit memo (DR Accounts Receivable, CR the deposit account). Returns
      * the created receipt.
      */
-    public function refund(RefundCreditMemoRequest $request, CreditMemo $creditMemo, ReceiptPoster $poster): JsonResponse
+    public function refund(RefundCreditMemoRequest $request, CreditMemo $creditMemo, RecordCustomerRefund $refunds): JsonResponse
     {
         // Mirror the UI's canRefund guard: a refund is money out clearing a
         // posted credit. Refunding a draft would clear a credit that never hit
@@ -138,27 +138,18 @@ class CreditMemoController extends ApiController
         }
 
         $data = $request->validated();
-        $company = app('current_company');
 
-        $receipt = $this->posting(function () use ($data, $creditMemo, $company, $poster): CustomerReceipt {
-            $receipt = CustomerReceipt::create([
-                'company_id' => $company->id,
-                'contact_id' => $creditMemo->contact_id,
-                'credit_memo_id' => $creditMemo->id,
-                'receipt_no' => $data['receipt_no'] ?? app(DocumentNumberGenerator::class)->next($company, CustomerReceipt::class, 'receipt_no', 'REC'),
-                'receipt_date' => $data['refund_date'],
-                'deposit_to_account_id' => (int) $data['deposit_to_account_id'],
-                'payment_method_id' => $data['payment_method_id'] ?? null,
-                'reference' => $data['reference'] ?? null,
-                'amount_cents' => -1 * (int) $data['amount_cents'],
-                'memo' => $data['memo'] ?? ('Refund of credit memo '.$creditMemo->credit_memo_no),
-            ]);
+        $receipt = $this->posting(fn (): CustomerReceipt => $refunds->handle($creditMemo, [
+            'method' => RefundMethod::Card,
+            'amount_cents' => (int) $data['amount_cents'],
+            'refund_date' => $data['refund_date'],
+            'deposit_to_account_id' => (int) $data['deposit_to_account_id'],
+            'payment_method_id' => $data['payment_method_id'] ?? null,
+            'reference' => $data['reference'] ?? null,
+            'receipt_no' => $data['receipt_no'] ?? null,
+            'memo' => $data['memo'] ?? null,
+        ]));
 
-            $poster->post($receipt);
-
-            return $receipt->fresh(['applications']);
-        });
-
-        return (new ReceiptResource($receipt))->response()->setStatusCode(201);
+        return (new ReceiptResource($receipt->load(ReceiptResource::RELATIONS)))->response()->setStatusCode(201);
     }
 }

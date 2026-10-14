@@ -2,6 +2,7 @@
 
 namespace App\Services\Posting;
 
+use App\Models\Cheque;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -168,6 +169,32 @@ class DocumentNumberGenerator
         }
 
         return null;
+    }
+
+    /**
+     * The number for the next cheque on a bank account: the last cheque written
+     * on that account, incremented in its own format ("1001" → "1002",
+     * "CHQ-009" → "CHQ-010"), or 1001 for a fresh chequebook. Cheque numbers
+     * may repeat on an account ("EFT", "DD"), so this is a suggestion the user
+     * can overwrite, not a reserved number.
+     */
+    public function nextChequeNumber(Company $company, ?int $bankAccountId): string
+    {
+        if (! $bankAccountId) {
+            return '1001';
+        }
+
+        $last = Cheque::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('bank_account_id', $bankAccountId)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($last && ($next = self::incrementFormat((string) $last->cheque_no)) !== null) {
+            return $next;
+        }
+
+        return '1001';
     }
 
     /**

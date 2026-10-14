@@ -49,6 +49,8 @@ class ChequePoster
         protected TaxPeriodLockGuard $taxLockGuard,
         protected ExchangeRateService $exchangeRates,
         protected BankReconciliationLockGuard $reconciliationLockGuard,
+        protected CustomerRefundGuard $refundGuard,
+        protected InvoiceReconciler $invoiceReconciler,
     ) {}
 
     public function post(Cheque $cheque): JournalEntry
@@ -79,6 +81,8 @@ class ChequePoster
                 throw new RuntimeException('Cheque has no lines or zero amount; cannot post.');
             }
 
+            $this->refundGuard->assertWithinSource($cheque);
+
             $entry = JournalEntry::create([
                 'entry_no' => $this->entryNumbers->next($cheque->company),
                 'entry_date' => $cheque->cheque_date,
@@ -104,6 +108,8 @@ class ChequePoster
             // refund-only case: a credit-memo refund cheque's single line IS the AR
             // leg. Must run after JournalPoster::post() flipped is_posted.
             $this->recomputeSubledgerBalances($cheque, $entry->lines);
+
+            $this->releaseRefundedReconciliation($cheque);
 
             $entry = $entry->fresh();
 
@@ -175,6 +181,8 @@ class ChequePoster
                 throw new RuntimeException('Cheque has no lines or zero amount; cannot post.');
             }
 
+            $this->refundGuard->assertWithinSource($cheque);
+
             // Capture old + new touched accounts and guard the reconciliation
             // lock before mutating: the original date for the impact we're
             // removing, the new date for the impact we're writing.
@@ -213,6 +221,8 @@ class ChequePoster
 
             $this->recomputeSubledgerBalances($cheque, [...$oldLines, ...$entry->lines->all()]);
 
+            $this->releaseRefundedReconciliation($cheque);
+
             $entry = $entry->fresh();
 
             $this->auditRecorder->record(
@@ -234,6 +244,20 @@ class ChequePoster
 
             return $entry;
         }));
+    }
+
+    /**
+     * A refund cheque raises the customer's GL AR. If the credit it pays back
+     * had closed an invoice via "Close settled balance", re-open that invoice,
+     * the way voiding a credit memo does.
+     */
+    protected function releaseRefundedReconciliation(Cheque $cheque): void
+    {
+        $contactId = $cheque->refundSource()?->contact_id;
+
+        if ($contactId !== null) {
+            $this->invoiceReconciler->releaseExcessReconciliation($cheque->company, (int) $contactId);
+        }
     }
 
     public function void(Cheque $cheque, ?CarbonImmutable $voidDate = null): void

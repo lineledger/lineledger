@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -58,6 +59,14 @@ new #[Title('Receive payment')] class extends Component {
      */
     public array $applyTable = [];
 
+    /**
+     * Already paid back to the customer out of this payment's unapplied credit
+     * (refund cheques and card refunds). That much of the amount can't be
+     * applied to invoices, and the customer can't change while it stands.
+     */
+    #[Locked]
+    public int $refundedCents = 0;
+
     protected function editLockRecord(): ?Model
     {
         return $this->receipt;
@@ -69,6 +78,9 @@ new #[Title('Receive payment')] class extends Component {
 
         if ($receipt && $receipt->exists) {
             abort_if($receipt->status === ReceiptStatus::Void, 403, 'Voided receipts cannot be edited.');
+            abort_if($receipt->isRefund(), 403, 'A refund can\'t be edited. Remove it and record it again.');
+
+            $this->refundedCents = $receipt->refundedCents();
 
             $this->receipt = $receipt->load('applications.invoice');
             $this->contact_id = $receipt->contact_id;
@@ -107,6 +119,10 @@ new #[Title('Receive payment')] class extends Component {
 
     public function selectContact(int $id): void
     {
+        if ($this->customerLocked()) {
+            return;
+        }
+
         $this->contact_id = $id;
         $this->contact_creating = false;
         $this->new_contact_name = '';
@@ -154,6 +170,10 @@ new #[Title('Receive payment')] class extends Component {
 
     public function startNewContact(): void
     {
+        if ($this->customerLocked()) {
+            return;
+        }
+
         $this->distributionIsAuto = true;
         $this->new_contact_name = trim($this->contact_query);
         $this->contact_creating = true;
@@ -165,6 +185,10 @@ new #[Title('Receive payment')] class extends Component {
 
     public function clearContact(): void
     {
+        if ($this->customerLocked()) {
+            return;
+        }
+
         $this->distributionIsAuto = true;
         $this->contact_id = null;
         $this->contact_creating = false;
@@ -258,7 +282,16 @@ new #[Title('Receive payment')] class extends Component {
     }
 
     /**
+     * A refunded payment stays with its customer: the refund paid that customer back.
+     */
+    public function customerLocked(): bool
+    {
+        return $this->refundedCents > 0;
+    }
+
+    /**
      * Walk the apply table top-to-bottom, applying available cents until the receipt is consumed.
+     * Credit already refunded to the customer isn't available to apply.
      */
     protected function autoApply(): void
     {
@@ -267,6 +300,8 @@ new #[Title('Receive payment')] class extends Component {
         } catch (\Throwable) {
             $remaining = 0;
         }
+
+        $remaining = max(0, $remaining - $this->refundedCents);
 
         foreach ($this->applyTable as $i => $row) {
             $applied = min($remaining, $row['balance']);
@@ -344,6 +379,15 @@ new #[Title('Receive payment')] class extends Component {
 
         if ($totalApplied > $amountCents) {
             $this->addError('applyTable', __('Applied total exceeds payment amount.'));
+
+            return;
+        }
+
+        if ($this->refundedCents > 0 && $totalApplied + $this->refundedCents > $amountCents) {
+            $this->addError('applyTable', __(':refunded of this payment has been refunded to the customer, so at most :max can be applied to invoices.', [
+                'refunded' => Money::fromCents($this->refundedCents)->toDecimalString(),
+                'max' => Money::fromCents(max(0, $amountCents - $this->refundedCents))->toDecimalString(),
+            ]));
 
             return;
         }
@@ -508,7 +552,7 @@ new #[Title('Receive payment')] class extends Component {
             $amount = 0;
         }
 
-        return max(0, $amount - $this->totalApplied());
+        return max(0, $amount - $this->totalApplied() - $this->refundedCents);
     }
 
     public function totalApplied(): int
@@ -549,18 +593,24 @@ new #[Title('Receive payment')] class extends Component {
         @endif
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <x-contact-combo
-                :label="__('Customer')"
-                :placeholder="__('Search or type to add a new customer…')"
-                :add-label="__('customer')"
-                :options="$this->customers"
-                :selected-id="$contact_id"
-                :selected-name="$this->selectedContactName"
-                :query="$contact_query"
-                :creating="$contact_creating"
-                :new-name="$new_contact_name"
-                data-test="receipt-customer-combo"
-            />
+            @if ($this->customerLocked())
+                <flux:input :value="$this->selectedContactName" :label="__('Customer')" readonly
+                    :description="__('Part of this payment was refunded to this customer, so it stays with them.')"
+                    data-test="receipt-customer-locked" />
+            @else
+                <x-contact-combo
+                    :label="__('Customer')"
+                    :placeholder="__('Search or type to add a new customer…')"
+                    :add-label="__('customer')"
+                    :options="$this->customers"
+                    :selected-id="$contact_id"
+                    :selected-name="$this->selectedContactName"
+                    :query="$contact_query"
+                    :creating="$contact_creating"
+                    :new-name="$new_contact_name"
+                    data-test="receipt-customer-combo"
+                />
+            @endif
 
             <flux:input wire:model="receipt_no" :label="__('Receipt #')" required data-test="receipt-no-input" />
             <flux:input type="date" wire:model="receipt_date" :label="__('Date')" required data-test="receipt-date-input" />
@@ -650,6 +700,12 @@ new #[Title('Receive payment')] class extends Component {
                                 <td colspan="3" class="px-3 py-2 text-right font-medium">{{ __('Total applied') }}</td>
                                 <td class="px-3 py-2 text-right font-mono" data-test="total-applied">{{ number_format($this->totalApplied() / 100, 2) }}</td>
                             </tr>
+                            @if ($refundedCents > 0)
+                                <tr>
+                                    <td colspan="3" class="px-3 py-2 text-right font-medium">{{ __('Refunded to customer') }}</td>
+                                    <td class="px-3 py-2 text-right font-mono" data-test="receipt-refunded">{{ number_format($refundedCents / 100, 2) }}</td>
+                                </tr>
+                            @endif
                             @if ($this->unappliedCents() > 0)
                                 <tr class="text-amber-700 dark:text-amber-400">
                                     <td colspan="3" class="px-3 py-2 text-right font-medium">{{ __('Unapplied — left as customer credit') }}</td>

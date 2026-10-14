@@ -322,6 +322,17 @@ class CheckLedgerIntegrity extends Command
             );
         }
 
+        foreach ($receipts->overRefundedReceiptRows($companyId) as $row) {
+            $issues[] = sprintf(
+                'Receipt %s (#%d) has %d applied and %d refunded against an amount of %d — more refunded than it left unapplied. Remove a refund or an application to resolve it.',
+                $row->receipt_no,
+                $row->id,
+                (int) $row->applied_cents,
+                (int) $row->refunded_cents,
+                (int) $row->amount_cents,
+            );
+        }
+
         foreach ($payments->driftedBillRows($companyId) as $row) {
             $expected = min((int) $row->live_cents, (int) $row->total_cents);
 

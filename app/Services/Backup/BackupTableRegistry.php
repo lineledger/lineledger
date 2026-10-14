@@ -246,7 +246,8 @@ final class BackupTableRegistry
             ['table' => 'bill_payments', 'model' => BillPayment::class, 'group' => 'purchases'],
             // bill_payment_applications has no company_id (scoped via parent payment).
             ['table' => 'bill_payment_applications', 'model' => BillPaymentApplication::class, 'group' => 'purchases'],
-            // cheques.credit_memo_id -> credit_memos so cheques come after credit memos
+            // cheques.credit_memo_id -> credit_memos, refunded_receipt_id -> customer_receipts
+            // and from_invoice_id -> invoices, so cheques come after all three
             // (already exported in Sales group above).
             ['table' => 'cheques', 'model' => Cheque::class, 'group' => 'purchases'],
             ['table' => 'cheque_lines', 'model' => ChequeLine::class, 'group' => 'purchases'],

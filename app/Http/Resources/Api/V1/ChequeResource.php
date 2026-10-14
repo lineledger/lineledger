@@ -24,6 +24,8 @@ class ChequeResource extends JsonResource
             'payee_contact_id' => $this->payee_contact_id,
             'payee_name' => $this->payee_name,
             'credit_memo_id' => $this->credit_memo_id,
+            'refunded_receipt_id' => $this->refunded_receipt_id,
+            'from_invoice_id' => $this->from_invoice_id,
             'memo' => $this->memo,
             'amount_cents' => (int) $this->amount_cents,
             'status' => $this->status?->value,

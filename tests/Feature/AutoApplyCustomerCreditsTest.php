@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Sales\RecordCustomerRefund;
 use App\Enums\AccountSubtype;
 use App\Enums\InvoiceStatus;
 use App\Models\Account;
@@ -125,4 +126,33 @@ it('does not auto-apply when company setting is disabled', function () {
         ->and($invoice->status)->toBe(InvoiceStatus::Posted);
 
     expect(ReceiptApplication::where('invoice_id', $invoice->id)->count())->toBe(0);
+});
+
+it('does not auto-apply credit that was refunded to the customer', function () {
+    $today = CarbonImmutable::create(2026, 5, 20);
+
+    $receipt = makeReceipt(30000, $today->subDays(5));
+
+    // 200.00 of the 300.00 credit was paid back by card; a draft refund cheque
+    // holds another 50.00.
+    app(RecordCustomerRefund::class)->handle($receipt, [
+        'method' => 'card',
+        'amount_cents' => 20000,
+        'refund_date' => $today->subDays(3)->toDateString(),
+        'deposit_to_account_id' => $this->undeposited->id,
+    ]);
+    app(RecordCustomerRefund::class)->handle($receipt->fresh(), [
+        'method' => 'cheque',
+        'amount_cents' => 5000,
+        'refund_date' => $today->subDays(3)->toDateString(),
+        'bank_account_id' => Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->value('id'),
+    ]);
+
+    $invoice = makeCreditInvoice(50000, $today);
+
+    // Only the 50.00 neither applied nor refunded pays the new invoice; the
+    // card refund receipt itself is never treated as credit.
+    expect((int) $invoice->amount_paid_cents)->toBe(5000)
+        ->and(ReceiptApplication::where('invoice_id', $invoice->id)->pluck('customer_receipt_id')->all())->toBe([$receipt->id])
+        ->and($receipt->fresh()->unappliedCents())->toBe(0);
 });

@@ -94,6 +94,31 @@ it('excludes customer-refund cheques (those tied to a credit memo)', function ()
     expect($rows[0]['total_cents'])->toBe(70000);
 });
 
+it('excludes cheques refunding a customer overpayment', function () {
+    $vendor = Contact::create(['display_name' => 'Overpaid Co', 'is_vendor' => true, 'is_customer' => true, 'track_1099' => true]);
+
+    payVendor($vendor, $this->bank, 70000, '2025-02-01');
+
+    Cheque::create([
+        'bank_account_id' => $this->bank->id,
+        'cheque_no' => 'CHQ-'.uniqid(),
+        'cheque_date' => '2025-02-03',
+        'payee_contact_id' => $vendor->id,
+        'payee_name' => $vendor->display_name,
+        'refunded_receipt_id' => 123,
+        'amount_cents' => 4000,
+        'status' => 'posted',
+    ]);
+
+    $rows = app(Form1099Calculator::class)->rows(
+        $this->company,
+        CarbonImmutable::create(2025, 1, 1),
+        CarbonImmutable::create(2025, 12, 31)->endOfDay(),
+    );
+
+    expect($rows[0]['total_cents'])->toBe(70000);
+});
+
 it('flags vendors paid below the $600 threshold', function () {
     $vendor = Contact::create(['display_name' => 'Small Co', 'is_vendor' => true, 'track_1099' => true]);
     payVendor($vendor, $this->bank, 30000, '2025-05-01'); // $300

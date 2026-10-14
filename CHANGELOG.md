@@ -47,6 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   filing and the difference from the net owing. A return that doesn't agree with
   the ledger files only when you accept that difference. Filing freezes the
   reconciliation on the return.
+- **Refund an overpayment — no credit memo needed.** When a customer pays twice
+  (by card, then again by cheque) the second payment is an overpayment, kept as
+  credit on their account. An invoice now lists its **Payments** and the
+  customer's **Overpayment (customer credit)**, and **Refund to client** pays that
+  credit back by card — a negative receipt to Undeposited Funds that nets into
+  the next card deposit — or by cheque, as a draft refund cheque. Nothing is
+  credited, so revenue is untouched, and the invoice stays paid by its original
+  payment. A payment's own page shows its unapplied credit and offers the same
+  refund. The API takes `POST /api/v1/invoices/{id}/refund`.
+- **Refund-only deposits.** A deposit whose card refunds outweigh its receipts —
+  or that holds only a refund — now posts with a negative total, as money out of
+  the bank, matching the card processor's debit on the statement. It lists with
+  the payments when you reconcile. Only a deposit netting to zero is refused.
 
 ### Changed
 
@@ -110,6 +123,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   amount. With GST and PST on one line you can correct either or both; the single
   field used to override only the first tax. A line with no tax code shows no
   field.
+- **A receipt's `unapplied_cents` nets out refunds.** The API's figure is now
+  what the payment neither applied nor refunded, and a refund receipt reports 0
+  instead of its negative amount. Receipts also return `refunded_cents`,
+  `credit_memo_id`, `refunded_receipt_id` and `from_invoice_id`; cheques return
+  `refunded_receipt_id` and `from_invoice_id`. Deposit lines accept a negative
+  `amount_cents` (a card refund or a fee) and refuse only 0 — they used to refuse
+  anything below 1, so the API couldn't net a fee out of a deposit.
+- **A refunded payment keeps its refunded credit.** While a refund stands, the
+  payment can't be voided or moved to another customer, and its refunded credit
+  can't be applied to an invoice or auto-applied to a new one. Remove the refund
+  first. A refund receipt opens on its own page and no longer offers Edit (the
+  form always refused its negative amount); remove it and record it again.
+- **Refund cheques from a credit memo fill in the payee's mailing address**, and
+  every refund is paid from a bank or Undeposited Funds account in your home
+  currency.
 
 ### Fixed
 
@@ -190,6 +218,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expense's page left out each line's first tax: a GST-only cheque showed no tax
   row, and a GST + PST one showed only PST. Display only — the saved amounts and
   the journal entry were right.
+- **A draft refund cheque can't be edited past its credit.** Raising the amount
+  of a credit memo's draft refund cheque in the cheque form saved, so posting it
+  refunded more than the memo granted. Saving, posting and reposting a refund
+  cheque now refuse an amount above the credit left.
 
 ### Security
 

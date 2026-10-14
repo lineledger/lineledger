@@ -165,6 +165,9 @@ paths:
   /invoices/{invoice}/post:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
     post: { tags: [Sales], summary: Post a draft / repost an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /invoices/{invoice}/refund:
+    parameters: [{ $ref: '#/components/parameters/invoice' }]
+    post: { tags: [Sales], summary: Refund a customer's overpayment from an invoice, description: 'Records and posts a refund (money out) of a payment''s unapplied credit — e.g. a customer who paid twice — as a negative customer receipt (DR Accounts Receivable, CR the deposit account), with no credit memo. refunded_receipt_id is the payment holding the credit; it must be a posted, home-currency payment by the invoice''s customer, and the amount cannot exceed its unapplied credit. The invoice itself is unchanged; it lists the refund. Only a posted, partly paid or paid invoice can issue a refund. 423 while the invoice or the payment is being edited in the web app. Returns the receipt.', requestBody: {$ref: '#/components/requestBodies/InvoiceRefund'}, responses: { '201': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /receipts:
     get:
@@ -1053,8 +1056,12 @@ components:
         deposit_to_account_id: { type: integer }
         payment_method_id: { type: [integer, "null"] }
         reference: { type: [string, "null"] }
-        amount_cents: { type: integer, description: "Negative on a refund receipt created through /credit-memos/{creditMemo}/refund." }
-        unapplied_cents: { type: integer, description: "The part of amount_cents not yet applied to any invoice (the customer's credit on this receipt). To apply it, update the receipt with its full header and the complete applications list." }
+        amount_cents: { type: integer, description: "Negative on a refund receipt created through /credit-memos/{creditMemo}/refund or /invoices/{invoice}/refund." }
+        unapplied_cents: { type: integer, description: "The part of amount_cents neither applied to an invoice nor refunded (the customer's credit on this receipt). To apply it, update the receipt with its full header and the complete applications list; to pay it back, POST /invoices/{invoice}/refund. Always 0 on a refund receipt." }
+        refunded_cents: { type: integer, description: "Paid back to the customer out of this receipt's unapplied credit, by card refund or refund cheque (drafts included). Always 0 on a refund receipt." }
+        credit_memo_id: { type: [integer, "null"], description: "On a refund receipt: the credit memo it refunds." }
+        refunded_receipt_id: { type: [integer, "null"], description: "On a refund receipt: the payment whose unapplied credit it pays back." }
+        from_invoice_id: { type: [integer, "null"], description: "On a refund receipt: the invoice it was issued from." }
         memo: { type: [string, "null"] }
         status: { type: string, enum: [draft, posted, void] }
         posted_at: { type: [string, "null"], format: date-time }
@@ -1130,6 +1137,18 @@ components:
         payment_method_id: { type: [integer, "null"] }
         reference: { type: [string, "null"], maxLength: 100 }
         memo: { type: [string, "null"] }
+    InvoiceRefundInput:
+      type: object
+      required: [refunded_receipt_id, refund_date, amount_cents, deposit_to_account_id]
+      properties:
+        refunded_receipt_id: { type: integer, description: "The payment (customer receipt) whose unapplied credit is paid back: a posted, home-currency payment by the invoice's customer." }
+        refund_date: { type: string, format: date, description: "Not before the payment's receipt_date." }
+        receipt_no: { type: [string, "null"], maxLength: 50, description: "Number for the refund receipt that is created; must be unique within the company. Omit for the next number in sequence." }
+        amount_cents: { type: integer, minimum: 1, maximum: 999999999999, description: "Positive amount to refund; may not exceed the payment's unapplied_cents." }
+        deposit_to_account_id: { type: integer, description: "Home-currency Bank or Undeposited Funds account the refund is paid from." }
+        payment_method_id: { type: [integer, "null"] }
+        reference: { type: [string, "null"], maxLength: 100 }
+        memo: { type: [string, "null"], description: "Omit for \"Refund of overpayment on <receipt_no>\"." }
 
     # ---- Bills ----------------------------------------------------------
     Bill:
@@ -1259,6 +1278,8 @@ components:
         payee_contact_id: { type: [integer, "null"] }
         payee_name: { type: [string, "null"] }
         credit_memo_id: { type: [integer, "null"], description: "Set when the cheque refunds a credit memo." }
+        refunded_receipt_id: { type: [integer, "null"], description: "Set when the cheque refunds a payment's unapplied credit (an overpayment)." }
+        from_invoice_id: { type: [integer, "null"], description: "Set when the refund cheque was issued from an invoice." }
         memo: { type: [string, "null"] }
         amount_cents: { type: integer, description: "Sum of the lines including tax." }
         status: { type: string, enum: [draft, posted, void] }
@@ -1327,7 +1348,7 @@ components:
               account_id: { type: [integer, "null"], description: "Required when customer_receipt_id is absent." }
               contact_id: { type: [integer, "null"] }
               description: { type: [string, "null"], maxLength: 1000 }
-              amount_cents: { type: [integer, "null"], minimum: 1, maximum: 999999999999, description: "Required on an account line. On a receipt line it defaults to the receipt's amount when omitted; a supplied value is used as sent." }
+              amount_cents: { type: [integer, "null"], minimum: -999999999999, maximum: 999999999999, description: "Required on an account line; never 0. On a receipt line it defaults to the receipt's amount when omitted (negative for a card refund); a supplied value is used as sent. A negative account line nets a fee out of the deposit. The deposit total may be negative — a batch where refunds outweigh receipts — and then posts as money out of the bank." }
 
     # ---- Transfers ------------------------------------------------------
     Transfer:
@@ -1925,6 +1946,7 @@ components:
     Receipt: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptInput' } } } }
     CreditMemo: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoInput' } } } }
     CreditMemoRefund: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreditMemoRefundInput' } } } }
+    InvoiceRefund: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceRefundInput' } } } }
     Bill: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BillInput' } } } }
     BillPayment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BillPaymentInput' } } } }
     Cheque: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChequeInput' } } } }

@@ -22,7 +22,7 @@ class ReceiptController extends ApiController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = CustomerReceipt::query()->with('applications');
+        $query = CustomerReceipt::query()->with(ReceiptResource::RELATIONS);
 
         $this->applyApiListFilters($query, $request, [
             'date_column' => 'receipt_date',
@@ -35,7 +35,7 @@ class ReceiptController extends ApiController
 
     public function show(CustomerReceipt $receipt): ReceiptResource
     {
-        return new ReceiptResource($receipt->load('applications'));
+        return new ReceiptResource($receipt->load(ReceiptResource::RELATIONS));
     }
 
     public function store(StoreReceiptRequest $request): JsonResponse
@@ -49,7 +49,7 @@ class ReceiptController extends ApiController
                 $this->poster->post($receipt);
             }
 
-            return $receipt->fresh(['applications']);
+            return $receipt->fresh(ReceiptResource::RELATIONS);
         });
 
         return (new ReceiptResource($receipt))->response()->setStatusCode(201);
@@ -70,7 +70,7 @@ class ReceiptController extends ApiController
                 $this->poster->repost($receipt);
             }
 
-            return $receipt->fresh(['applications']);
+            return $receipt->fresh(ReceiptResource::RELATIONS);
         });
 
         return new ReceiptResource($receipt);
@@ -90,7 +90,7 @@ class ReceiptController extends ApiController
                 ? $this->poster->repost($receipt)
                 : $this->poster->post($receipt);
 
-            return $receipt->fresh(['applications']);
+            return $receipt->fresh(ReceiptResource::RELATIONS);
         });
 
         return new ReceiptResource($receipt);
@@ -108,7 +108,7 @@ class ReceiptController extends ApiController
         if ($receipt->journal_entry_id !== null) {
             $this->posting(fn () => $this->poster->void($receipt));
 
-            return (new ReceiptResource($receipt->fresh(['applications'])))->response()->setStatusCode(200);
+            return (new ReceiptResource($receipt->fresh(ReceiptResource::RELATIONS)))->response()->setStatusCode(200);
         }
 
         $receipt->applications()->delete();

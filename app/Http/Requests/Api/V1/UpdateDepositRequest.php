@@ -42,7 +42,9 @@ class UpdateDepositRequest extends FormRequest
             'lines.*.account_id' => ['nullable', 'integer', $inCompany('accounts')],
             'lines.*.contact_id' => ['nullable', 'integer', $inCompany('contacts')],
             'lines.*.description' => ['nullable', 'string', 'max:1000'],
-            'lines.*.amount_cents' => ['nullable', 'integer', 'min:1', 'max:999999999999'],
+            // Signed: a negative line nets a card refund or a merchant fee out of
+            // the batch, and the deposit total may go negative (money out).
+            'lines.*.amount_cents' => ['nullable', 'integer', 'not_in:0', 'between:-999999999999,999999999999'],
         ];
     }
 
