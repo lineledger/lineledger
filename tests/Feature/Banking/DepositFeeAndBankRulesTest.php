@@ -10,9 +10,11 @@ use App\Models\BankRule;
 use App\Models\BankStatementImport;
 use App\Models\BankStatementLine;
 use App\Models\Company;
+use App\Models\JournalLine;
 use App\Models\User;
 use App\Services\Banking\Import\BankRuleEngine;
 use App\Services\Posting\DepositPoster;
+use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -49,6 +51,39 @@ it('nets a fee line out of a deposit so only the net hits the bank', function ()
         ->and($entry->lines->firstWhere('account_id', $this->bank->id)->debit_cents)->toBe(99000)
         ->and($entry->lines->firstWhere('account_id', $this->expense->id)->debit_cents)->toBe(1000)
         ->and($entry->lines->firstWhere('account_id', $this->equity->id)->credit_cents)->toBe(100000);
+});
+
+it('offers every account type for other deposit lines, including expense and COGS', function () {
+    $cogs = Account::query()->where('subtype', AccountSubtype::CostOfGoodsSold->value)->where('is_active', true)->orderBy('code')->firstOrFail();
+
+    $ids = Livewire::test('pages::deposits.form', ['company' => $this->company])
+        ->set('bank_account_id', $this->bank->id)
+        ->instance()
+        ->otherAccountOptions
+        ->pluck('id');
+
+    expect($ids)->toContain($cogs->id)
+        ->toContain($this->expense->id)
+        ->toContain($this->equity->id)
+        ->not->toContain($this->bank->id);
+});
+
+it('posts an ICBC-style refund cheque back to the COGS account it was paid from', function () {
+    $cogs = Account::query()->where('subtype', AccountSubtype::CostOfGoodsSold->value)->where('is_active', true)->orderBy('code')->firstOrFail();
+
+    Livewire::test('pages::deposits.form', ['company' => $this->company])
+        ->set('bank_account_id', $this->bank->id)
+        ->set('deposit_date', '2026-10-15')
+        ->call('addOtherLine')
+        ->set('otherLines.0.account_id', $cogs->id)
+        ->set('otherLines.0.description', 'ICBC refund cheque')
+        ->set('otherLines.0.amount', '250.00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $line = JournalLine::query()->where('account_id', $cogs->id)->where('is_posted', true)->sole();
+
+    expect($line->credit_cents)->toBe(25000);
 });
 
 it('auto-categorizes an unmatched imported line via a bank rule', function () {

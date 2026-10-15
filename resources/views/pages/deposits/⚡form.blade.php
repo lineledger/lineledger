@@ -2,7 +2,6 @@
 
 use App\Actions\Banking\SaveDeposit;
 use App\Enums\AccountSubtype;
-use App\Enums\AccountType;
 use App\Enums\DepositStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
@@ -636,8 +635,9 @@ new #[Title('Make deposit')] class extends Component
     #[Computed]
     public function otherAccountOptions()
     {
+        // Every account type: a refund cheque credits the expense or COGS
+        // account it was originally paid from.
         return Account::query()
-            ->whereIn('type', [AccountType::Income->value, AccountType::Equity->value, AccountType::Liability->value, AccountType::Asset->value])
             ->where('id', '!=', $this->bank_account_id)
             ->where('is_active', true)
             ->orderBy('code')
