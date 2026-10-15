@@ -35,6 +35,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $estimate->contact?->display_name,
             $estimate->contact?->billing_line1,
@@ -67,7 +71,7 @@
                         <th>{{ __('Estimate #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $estimate->estimate_date?->format('n/j/Y') }}</td>
+                        <td>{{ $estimate->estimate_date?->format($dateFormat) }}</td>
                         <td>{{ $estimate->estimate_no }}</td>
                     </tr>
                 </table>
@@ -106,7 +110,7 @@
         </tr>
         <tr>
             <td>{{ optional($estimate->terms)->name ?? '—' }}</td>
-            <td>{{ $estimate->expires_on?->format('n/j/Y') ?? '—' }}</td>
+            <td>{{ $estimate->expires_on?->format($dateFormat) ?? '—' }}</td>
             <td>{{ $estimate->customer_po ?: '—' }}</td>
             <td>{{ optional($estimate->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -135,7 +139,7 @@
                     <td>
                         {{ $line->description }}
                         @if ($line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format('n/j/Y') }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format($dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
@@ -166,7 +170,7 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($estimate->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($estimate->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 

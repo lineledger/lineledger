@@ -1493,7 +1493,7 @@ class XlsxExporter
             ], totalColumns: 5);
 
             $writer->addRow(Row::fromValuesWithStyle(
-                ['Agency', 'Payable account', 'Collected on sales', 'Paid (ITC)', 'Net owing'],
+                ['Agency', 'Payable account', 'Collected on sales', 'Paid ('.$company->jurisdiction->inputTaxLabel().')', 'Net owing'],
                 $this->makeStyle(bold: true, backgroundColor: self::HEADER_FILL),
             ));
             $columnHeaderRow = $headerRowsUsed + 1;
@@ -1638,7 +1638,7 @@ class XlsxExporter
      */
     public function salesTaxDetail(string $filename, Company $company, string $agencyName, string $bucket, Collection $lines, string $startDate, string $endDate): BinaryFileResponse
     {
-        $bucketLabel = $bucket === 'paid' ? 'Paid (ITC)' : 'Collected on sales';
+        $bucketLabel = $bucket === 'paid' ? 'Paid ('.$company->jurisdiction->inputTaxLabel().')' : 'Collected on sales';
 
         return $this->buildAndStream($filename, function (Writer $writer) use ($company, $agencyName, $bucketLabel, $lines, $startDate, $endDate) {
             $sheet = $writer->getCurrentSheet();

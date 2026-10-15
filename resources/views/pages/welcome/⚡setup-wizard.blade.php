@@ -71,6 +71,11 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
 
     public int $fiscalYearStartMonth = 1;
 
+    // Flips true once the owner picks a fiscal month by hand, so a later
+    // country change no longer re-suggests that country's default (January
+    // in North America, April in the UK).
+    public bool $fiscalYearStartMonthTouched = false;
+
     // Step 2 — organization type. $orgCategory is what the top-level radio binds
     // to; $organizationType is derived from it (and, for non-profits, from the
     // legal structure) and is the value actually persisted + fed to the chart.
@@ -198,6 +203,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
         $this->country = ($geoCountry ?? $hostCountry)?->value ?? '';
 
         $this->currency = $this->defaultCurrencyForCountry($this->countryEnum());
+        $this->fiscalYearStartMonth = $this->countryEnum()?->defaultFiscalYearStartMonth() ?? 1;
         $this->timezone = self::DEFAULT_TIMEZONE;
 
         $this->applyIndustryFeatureDefaults();
@@ -235,6 +241,19 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
     public function countryEnum(): ?Country
     {
         return Country::tryFrom($this->country);
+    }
+
+    /**
+     * The sales-tax registration number as it will be stored: trimmed, and for
+     * the UK compacted and GB-prefixed (e.g. "123 4567 89" → "GB123456789").
+     */
+    public function normalizedTaxNumber(): ?string
+    {
+        $country = $this->countryEnum();
+
+        return $country !== null
+            ? $country->normalizeTaxNumber($this->taxNumber)
+            : (trim($this->taxNumber) !== '' ? trim($this->taxNumber) : null);
     }
 
     /**
@@ -283,7 +302,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
             2 => ['label' => __('Organization')],
             3 => ['label' => __('Industry & accounts')],
             4 => ['label' => __('Features')],
-            5 => ['label' => __('Sales tax')],
+            5 => ['label' => $this->countryEnum() === Country::UnitedKingdom ? __('VAT') : __('Sales tax')],
             6 => ['label' => __('How to start')],
             7 => ['label' => __('Review accounts')],
             8 => ['label' => __('Confirm')],
@@ -391,8 +410,8 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 : null;
         };
 
-        if ($this->taxNumber !== '') {
-            $agencyForPayable('2200')?->update(['registration_number' => $this->taxNumber]);
+        if ($this->normalizedTaxNumber() !== null) {
+            $agencyForPayable('2200')?->update(['registration_number' => $this->normalizedTaxNumber()]);
         }
 
         if ($this->pstNumber !== '') {
@@ -444,10 +463,19 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
         return $this->createdCompanyId ? Company::find($this->createdCompanyId) : null;
     }
 
+    public function updatedFiscalYearStartMonth(): void
+    {
+        $this->fiscalYearStartMonthTouched = true;
+    }
+
     public function updatedCountry(): void
     {
         $this->currency = $this->defaultCurrencyForCountry($this->countryEnum());
         $this->region = '';
+
+        if (! $this->fiscalYearStartMonthTouched) {
+            $this->fiscalYearStartMonth = $this->countryEnum()?->defaultFiscalYearStartMonth() ?? 1;
+        }
 
         // Registered charity is CRA-specific; if the owner switches to a
         // jurisdiction where the chosen tier isn't offered, fall back to the
@@ -734,7 +762,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                     Rule::enum(ContributionMethod::class),
                 ],
                 'charityRegistrationNumber' => ['nullable', 'string', 'max:32', 'regex:/^\d{9}RR\d{4}$/'],
-                'companyRegistrationNumber' => ['nullable', 'string', 'max:32'],
+                'companyRegistrationNumber' => ['nullable', 'string', 'max:32', 'regex:/^[A-Za-z0-9 ]+$/'],
             ],
             3 => [
                 'industry' => ['required', Rule::enum(Industry::class)],
@@ -746,7 +774,13 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 ],
             ],
             5 => [
-                'taxNumber' => ['nullable', 'string', 'max:50'],
+                'taxNumber' => ['nullable', 'string', 'max:50', function (string $attribute, mixed $value, \Closure $fail): void {
+                    $country = $this->countryEnum();
+
+                    if ($country !== null && ! $country->isValidTaxNumber((string) $value)) {
+                        $fail(__('Enter a valid :label, e.g. GB123456789.', ['label' => __($country->taxNumberLabel())]));
+                    }
+                }],
                 'pstNumber' => ['nullable', 'string', 'max:50'],
             ],
             6 => array_merge(
@@ -833,9 +867,9 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 'industry' => $this->industry,
                 'organization_type' => $this->organizationType,
                 ...$this->nonProfitAttributes(),
-                'tax_number' => $this->taxNumber ?: null,
+                'tax_number' => $this->normalizedTaxNumber(),
                 'company_registration_number' => $this->asksForCompanyRegistrationNumber()
-                    ? ($this->companyRegistrationNumber ?: null)
+                    ? $this->countryEnum()?->normalizeCompanyRegistrationNumber($this->companyRegistrationNumber)
                     : null,
                 'features_inventory' => $this->featuresInventory,
                 'features_employees' => $this->featuresEmployees,
@@ -925,9 +959,9 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 'industry' => $this->industry,
                 'organization_type' => $this->organizationType,
                 ...$this->nonProfitAttributes(),
-                'tax_number' => $this->taxNumber ?: null,
+                'tax_number' => $this->normalizedTaxNumber(),
                 'company_registration_number' => $this->asksForCompanyRegistrationNumber()
-                    ? ($this->companyRegistrationNumber ?: null)
+                    ? $this->countryEnum()?->normalizeCompanyRegistrationNumber($this->companyRegistrationNumber)
                     : null,
                 'features_inventory' => $this->featuresInventory,
                 'features_employees' => $this->featuresEmployees,
@@ -1131,7 +1165,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                                 wire:model="companyRegistrationNumber"
                                 :label="$this->countryEnum()?->companyRegistrationNumberLabel() ?? __('Company number')"
                                 placeholder="12345678"
-                                :description="__('Your Companies House registration number. Optional — you can add it later in settings. Printed on invoices when set.')"
+                                :description="__('Your Companies House number (or Isle of Man Companies Registry number). Optional — you can add it later in settings. Printed on invoices when set.')"
                                 data-test="wizard-company-registration-number"
                             />
                         </div>
@@ -1281,16 +1315,24 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
 
                 {{-- Step 5 — Sales tax --}}
                 @if ($this->step === 5)
-                    <flux:heading size="lg" class="mb-4">{{ __('Do you charge sales tax?') }}</flux:heading>
+                    @if ($this->countryEnum() === Country::UnitedKingdom)
+                        <flux:heading size="lg" class="mb-4">{{ __('Are you VAT-registered?') }}</flux:heading>
+                    @else
+                        <flux:heading size="lg" class="mb-4">{{ __('Do you charge sales tax?') }}</flux:heading>
+                    @endif
                     <div class="space-y-5">
-                        <flux:switch wire:model.live="chargesTax" :label="__('I charge :tax', ['tax' => $this->countryEnum()?->taxLabel() ?? __('sales tax')])" data-test="wizard-charges-tax" />
+                        @if ($this->countryEnum() === Country::UnitedKingdom)
+                            <flux:switch wire:model.live="chargesTax" :label="__('I’m VAT-registered and charge VAT')" :description="__('We will add a VAT Payable account, HMRC as your VAT agency, and standard (20%), reduced (5%), zero-rated and exempt codes. Leave this off if you are not registered for VAT.')" data-test="wizard-charges-tax" />
+                        @else
+                            <flux:switch wire:model.live="chargesTax" :label="__('I charge :tax', ['tax' => $this->countryEnum()?->taxLabel() ?? __('sales tax')])" data-test="wizard-charges-tax" />
+                        @endif
 
                         @if ($this->provincialSalesTax())
                             <flux:switch wire:model.live="chargesPst" :label="__('I charge :tax', ['tax' => $this->provincialSalesTax()->taxLabel()])" :description="__('We will add a :tax payable account and tax code for :province.', ['tax' => $this->provincialSalesTax()->taxLabel(), 'province' => $this->regions[$this->region] ?? $this->region])" data-test="wizard-charges-pst" />
                         @endif
 
                         @if ($this->chargesTax)
-                            <flux:input wire:model="taxNumber" :label="__(':tax account number', ['tax' => $this->countryEnum()?->taxLabel() ?? __('Sales tax')])" :description="__('Optional. Shown on invoices when enabled in settings.')" data-test="wizard-tax-number" />
+                            <flux:input wire:model="taxNumber" :label="__($this->countryEnum()?->taxNumberLabel() ?? 'Sales tax account number')" :description="__('Optional. Shown on invoices when enabled in settings.')" data-test="wizard-tax-number" />
                         @endif
 
                         @if ($this->provincialSalesTax() && $this->chargesPst)

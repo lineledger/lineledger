@@ -358,6 +358,7 @@ Route::prefix('{company}')
         Route::livewire('budgets/create', 'pages::budgets.form')->name('budgets.create');
         Route::livewire('budgets/{budget}/edit', 'pages::budgets.form')->name('budgets.edit');
         Route::livewire('reports/sales-tax', 'pages::reports.sales-tax')->name('reports.sales-tax');
+        Route::livewire('reports/vat-return', 'pages::reports.vat-return')->name('reports.vat-return');
 
         // Sales, Purchases & Inventory reports
         Route::livewire('reports/sales-by-customer', 'pages::reports.sales-by-customer')->name('reports.sales-by-customer');

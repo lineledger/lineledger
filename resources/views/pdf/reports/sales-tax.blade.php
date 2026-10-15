@@ -31,7 +31,7 @@
                 <th>Agency</th>
                 <th>Payable account</th>
                 <th class="num">Collected on sales</th>
-                <th class="num">Paid (ITC)</th>
+                <th class="num">Paid ({{ $company->jurisdiction->inputTaxLabel() }})</th>
                 <th class="num">Net owing</th>
             </tr>
         </thead>

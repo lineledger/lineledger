@@ -35,6 +35,8 @@ final class AverageDaysToPaidDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $windowEnd = $today->toDateString();
         $currentFloor = $today->subDays(90)->toDateString();
         $priorFloor = $today->subDays(180)->toDateString();

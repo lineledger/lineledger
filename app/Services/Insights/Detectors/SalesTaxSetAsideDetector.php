@@ -42,6 +42,8 @@ final class SalesTaxSetAsideDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $agencies = TaxAgency::query()
             ->withoutGlobalScopes()
             ->where('company_id', $company->id)

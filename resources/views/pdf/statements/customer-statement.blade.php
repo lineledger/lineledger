@@ -39,7 +39,11 @@
 </head>
 <body>
     @php
-        $fmtDate = fn (?string $date): string => $date ? \Carbon\CarbonImmutable::parse($date)->format('n/j/Y') : '—';
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
+        $fmtDate = fn (?string $date): string => $date ? \Carbon\CarbonImmutable::parse($date)->format($dateFormat) : '—';
         $money = fn (int $cents): string => \App\Support\Reporting\StatementColumns::money($cents);
 
         $statementForLines = collect([
@@ -134,7 +138,7 @@
                         @if ($row['kind'] === 'invoice')
                             <tr>
                                 @foreach ($columns as $key)
-                                    <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $row) }}</td>
+                                    <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $row, $dateFormat) }}</td>
                                 @endforeach
                             </tr>
                         @else
@@ -146,7 +150,7 @@
                     @endforeach
                     <tr class="total">
                         <td colspan="{{ $labelSpan }}">{{ $totalDue < 0 ? __('Credit balance') : __('Total Due') }}</td>
-                        <td class="num">${{ $money($totalDue) }}</td>
+                        <td class="num">{{ $currencySymbol }}{{ $money($totalDue) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -168,13 +172,13 @@
                 @foreach ($data['statement']['lines'] as $line)
                     <tr>
                         @foreach ($columns as $key)
-                            <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $line) }}</td>
+                            <td{!! $cellAttributes[$key] !!}>{{ \App\Support\Reporting\StatementColumns::cell($key, $line, $dateFormat) }}</td>
                         @endforeach
                     </tr>
                 @endforeach
                 <tr class="total">
                     <td colspan="{{ $labelSpan }}">{{ $totalDue < 0 ? __('Credit balance') : __('Balance Due') }}</td>
-                    <td class="num">${{ $money($data['statement']['closing']) }}</td>
+                    <td class="num">{{ $currencySymbol }}{{ $money($data['statement']['closing']) }}</td>
                 </tr>
             </tbody>
         </table>

@@ -35,6 +35,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($vendorCredit->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $vendorLines = collect([
             $vendorCredit->contact?->display_name,
             $vendorCredit->contact?->billing_line1,
@@ -61,7 +65,7 @@
                         <th>{{ __('Credit #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $vendorCredit->vendor_credit_date?->format('n/j/Y') }}</td>
+                        <td>{{ $vendorCredit->vendor_credit_date?->format($dateFormat) }}</td>
                         <td>{{ $vendorCredit->vendor_credit_no }}</td>
                     </tr>
                 </table>
@@ -128,7 +132,7 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($vendorCredit->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($vendorCredit->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 

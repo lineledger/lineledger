@@ -49,9 +49,9 @@ new #[Title('Documentation — Create an organization')] class extends Component
             <li>{{ __('Type the Organization name — the legal or trading name your customers will recognize. It appears on invoices, statements, and emails.') }}</li>
             <li>{{ __('Choose your Country — Canada, the United States, or the United Kingdom. This sets jurisdiction-specific accounts and tax wording.') }}</li>
             <li>{{ __('Pick your Province (Canada), State (United States), or Nation (United Kingdom) from the list.') }}</li>
-            <li>{{ __('Select your Base currency — Canadian or US dollars. It is pre-filled to match the country.') }}</li>
+            <li>{{ __('Select your Base currency — Canadian dollars, US dollars, or pounds sterling. It is pre-filled to match the country.') }}</li>
             <li>{{ __('Set your Timezone. The wizard takes it from your browser; transaction dates default to today in this zone.') }}</li>
-            <li>{{ __('Choose your Fiscal year start month. The wizard shows the matching year-end date as you pick.') }}</li>
+            <li>{{ __('Choose your Fiscal year start month. The wizard shows the matching year-end date as you pick. It starts at January in Canada and the United States and at April in the United Kingdom, to match the UK tax year — change it to your company’s accounting reference date if that differs.') }}</li>
         </ol>
 
         <x-docs.figure
@@ -186,6 +186,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Turn the I charge GST/HST switch on if you charge federal sales tax, or off if you do not.') }}</li>
             <li>{{ __('If your province also levies its own provincial sales tax — PST in British Columbia and Saskatchewan, RST in Manitoba, or QST in Quebec — a second switch appears. Turn it on to add a provincial tax-payable account and tax code for that province.') }}</li>
+            <li>{{ __('In the United Kingdom the step asks whether you are VAT-registered. Switched on, it adds a VAT Payable account, HM Revenue & Customs as your VAT agency (Isle of Man Customs and Excise for a company on the Isle of Man), and Standard 20%, Reduced 5%, Zero-rated and Exempt tax codes. Your VAT registration number is checked for the GB format (for example GB123456789) and printed as “VAT No.” on your invoices.') }}</li>
             <li>{{ __('When a tax is switched on, you can enter its account number: GST/HST account number (Sales Tax in the United States, VAT in the United Kingdom), plus a separate field for the provincial tax when that switch is on. Both are optional. The GST/HST number becomes your organization’s tax number, which prints in the footer of your invoices and other printed forms. The provincial number is kept on the provincial tax agency for your records and does not print on the forms you send.') }}</li>
         </ol>
 

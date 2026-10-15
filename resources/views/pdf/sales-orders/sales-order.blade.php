@@ -35,6 +35,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $salesOrder->contact?->display_name,
             $salesOrder->contact?->billing_line1,
@@ -67,7 +71,7 @@
                         <th>{{ __('Order #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $salesOrder->order_date?->format('n/j/Y') }}</td>
+                        <td>{{ $salesOrder->order_date?->format($dateFormat) }}</td>
                         <td>{{ $salesOrder->order_no }}</td>
                     </tr>
                 </table>
@@ -106,7 +110,7 @@
         </tr>
         <tr>
             <td>{{ optional($salesOrder->terms)->name ?? '—' }}</td>
-            <td>{{ $salesOrder->expected_date?->format('n/j/Y') ?? '—' }}</td>
+            <td>{{ $salesOrder->expected_date?->format($dateFormat) ?? '—' }}</td>
             <td>{{ $salesOrder->customer_po ?: '—' }}</td>
             <td>{{ optional($salesOrder->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -121,7 +125,7 @@
                 <th>{{ __('Tracking #') }}</th>
             </tr>
             <tr>
-                <td>{{ $salesOrder->ship_date?->format('n/j/Y') ?? '—' }}</td>
+                <td>{{ $salesOrder->ship_date?->format($dateFormat) ?? '—' }}</td>
                 <td>{{ $salesOrder->ship_via ?: '—' }}</td>
                 <td>{{ $salesOrder->fob ?: '—' }}</td>
                 <td>{{ $salesOrder->tracking_no ?: '—' }}</td>
@@ -152,7 +156,7 @@
                     <td>
                         {{ $line->description }}
                         @if ($line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format('n/j/Y') }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format($dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
@@ -183,7 +187,7 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($salesOrder->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($salesOrder->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 

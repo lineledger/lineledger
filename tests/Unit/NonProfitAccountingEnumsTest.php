@@ -3,6 +3,7 @@
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\ContributionMethod;
+use App\Enums\Country;
 use App\Enums\LegalStructure;
 use App\Enums\NormalBalance;
 use App\Enums\OrganizationType;
@@ -34,7 +35,7 @@ test('a club is the lightest non-profit tier', function () {
 });
 
 test('United Kingdom organization types use British legal wording', function () {
-    $gb = \App\Enums\Country::UnitedKingdom;
+    $gb = Country::UnitedKingdom;
 
     expect(OrganizationType::SoleProprietorship->label($gb))->toBe('Sole trader');
     expect(OrganizationType::Partnership->label($gb))->toBe('Partnership / LLP');

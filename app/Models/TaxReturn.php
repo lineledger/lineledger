@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'period_start', 'period_end', 'status',
     'collected_cents', 'paid_cents', 'other_adjustments_cents', 'net_cents',
     'adjustment_journal_entry_id',
-    'filing_reference', 'notes', 'excluded_journal_line_ids', 'reconciliation',
+    'filing_reference', 'notes', 'excluded_journal_line_ids', 'reconciliation', 'vat_boxes',
     'filed_at', 'filed_by_user_id',
     'voided_at', 'voided_by_user_id', 'void_reason',
 ])]
@@ -107,6 +107,7 @@ class TaxReturn extends Model
             'net_cents' => 'integer',
             'excluded_journal_line_ids' => 'array',
             'reconciliation' => 'array',
+            'vat_boxes' => 'array',
             'filed_at' => 'datetime',
             'voided_at' => 'datetime',
         ];

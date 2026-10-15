@@ -152,8 +152,13 @@ enum Country: string
                 'America/Boise' => 'ID',
                 default => null,
             },
-            // Europe/London covers all four nations — do not guess.
-            self::UnitedKingdom => null,
+            // Europe/London covers all four nations — do not guess. The Isle of
+            // Man has its own zone id, and some systems still report Belfast's.
+            self::UnitedKingdom => match ($tz) {
+                'Europe/Isle_of_Man' => 'IM',
+                'Europe/Belfast' => 'NIR',
+                default => null,
+            },
         };
 
         // Never return a code we don't actually offer as a selectable option.
@@ -188,6 +193,132 @@ enum Country: string
     }
 
     /**
+     * Form label for the company's own sales-tax registration number — the
+     * number stored on {@see Company::$tax_number} and on the default agency.
+     */
+    public function taxNumberLabel(): string
+    {
+        return match ($this) {
+            self::Canada => 'GST/HST account number',
+            self::UnitedStates => 'Sales tax account number',
+            self::UnitedKingdom => 'VAT registration number',
+        };
+    }
+
+    /**
+     * Short name for tax paid on purchases that a return claims back: an
+     * input tax credit (ITC) in Canada — the term the app has always used, so
+     * the US keeps it too — and input VAT in the UK.
+     */
+    public function inputTaxLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 'ITC',
+            self::UnitedKingdom => 'Input VAT',
+        };
+    }
+
+    /**
+     * {@see inputTaxLabel()} for the company bound to the current request, or
+     * the historical "ITC" outside one (console, queued jobs).
+     */
+    public static function currentInputTaxLabel(): string
+    {
+        $company = app()->bound('current_company') ? app('current_company') : null;
+
+        return $company instanceof Company ? $company->jurisdiction->inputTaxLabel() : 'ITC';
+    }
+
+    /**
+     * Normalize a sales-tax registration number as typed (spaces, dashes and
+     * case) into the stored form. UK VAT numbers are kept with their "GB"
+     * prefix; other jurisdictions are only trimmed, so existing data is
+     * untouched.
+     */
+    public function normalizeTaxNumber(?string $number): ?string
+    {
+        $number = trim((string) $number);
+
+        if ($number === '') {
+            return null;
+        }
+
+        if ($this !== self::UnitedKingdom) {
+            return $number;
+        }
+
+        $compact = mb_strtoupper((string) preg_replace('/[\s.\-]+/', '', $number));
+
+        // A bare 9- or 12-digit number gets the GB prefix it is always quoted with.
+        return preg_match('/^\d{9}(\d{3})?$/', $compact) === 1 ? 'GB'.$compact : $compact;
+    }
+
+    /**
+     * Whether a (normalized) registration number has a valid shape for this
+     * jurisdiction. Only the United Kingdom is checked: a VAT number is "GB"
+     * plus 9 digits (or 12 for a branch/group member), or "GBGD"/"GBHA" plus
+     * 3 digits for government departments and health authorities. Isle of Man
+     * businesses are on the same register and use the same GB format.
+     * Northern Ireland traders quoting an "XI" number are accepted too.
+     */
+    public function isValidTaxNumber(?string $number): bool
+    {
+        if ($this !== self::UnitedKingdom) {
+            return true;
+        }
+
+        $number = $this->normalizeTaxNumber($number);
+
+        if ($number === null) {
+            return true;
+        }
+
+        return preg_match('/^(GB|XI)(\d{9}|\d{12}|GD\d{3}|HA\d{3})$/', $number) === 1;
+    }
+
+    /**
+     * Short numeric date format printed on customer and vendor documents
+     * (invoices, bills, statements). North America writes month first; the
+     * UK writes day first, so 03/04/2026 is 3 April there.
+     */
+    public function shortDateFormat(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 'n/j/Y',
+            self::UnitedKingdom => 'd/m/Y',
+        };
+    }
+
+    /**
+     * The fiscal-year start month a new company is given unless the owner
+     * picks one. Canadian and US businesses mostly run calendar years; UK
+     * sole traders and partnerships are taxed on the 6 April tax year, which
+     * HMRC lets them align to an April–March year.
+     */
+    public function defaultFiscalYearStartMonth(): int
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 1,
+            self::UnitedKingdom => 4,
+        };
+    }
+
+    /**
+     * Name of the authority that administers sales tax for a region of this
+     * country, when it differs from the national default the jurisdiction's
+     * {@see CompanyDefaults::taxAgencies()} seeds. The Isle of Man is inside
+     * the UK VAT area but its VAT is administered by its own Customs and
+     * Excise Division rather than HMRC.
+     */
+    public function taxAgencyNameForRegion(?string $regionCode): ?string
+    {
+        return match (true) {
+            $this === self::UnitedKingdom && mb_strtoupper((string) $regionCode) === 'IM' => 'Isle of Man Customs and Excise',
+            default => null,
+        };
+    }
+
+    /**
      * Label for the corporate registry number field (e.g. Companies House), or
      * null when this jurisdiction does not collect one on company setup.
      */
@@ -217,6 +348,28 @@ enum Country: string
             ], true),
             default => false,
         };
+    }
+
+    /**
+     * Normalize a corporate registry number as typed: spaces removed and
+     * upper-cased. A purely numeric UK number is left-padded to the eight
+     * digits Companies House always shows (1234567 → 01234567); prefixed ones
+     * (SC…, NI…, OC… for LLPs) and Isle of Man numbers (e.g. 123456C) are
+     * kept as entered.
+     */
+    public function normalizeCompanyRegistrationNumber(?string $number): ?string
+    {
+        $compact = mb_strtoupper((string) preg_replace('/\s+/', '', (string) $number));
+
+        if ($compact === '') {
+            return null;
+        }
+
+        if ($this === self::UnitedKingdom && preg_match('/^\d{1,7}$/', $compact) === 1) {
+            return str_pad($compact, 8, '0', STR_PAD_LEFT);
+        }
+
+        return $compact;
     }
 
     /**

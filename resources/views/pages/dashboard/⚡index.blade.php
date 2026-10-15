@@ -406,12 +406,11 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
-     * Whole-dollar string, e.g. "$248,910". Both supported currencies (CAD, USD)
-     * use the dollar sign, so a bare "$" matches the rest of the UI.
+     * Whole-unit string in the home currency, e.g. "$248,910" or "£248,910".
      */
     public function formatWhole(int $cents): string
     {
-        return '$'.number_format(round($cents / 100));
+        return $this->company->currencySymbol().number_format(round($cents / 100));
     }
 
     private function pctChange(int $old, int $new): ?float

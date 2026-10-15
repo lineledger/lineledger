@@ -215,7 +215,7 @@ new #[Title('Open Bills')] class extends Component
         Flux::toast(variant: 'success', text: trans_choice(
             'Closed :count bill (:amount) already settled in the ledger.|Closed :count bills (:amount) already settled in the ledger.',
             $result['bills'],
-            ['count' => $result['bills'], 'amount' => '$'.number_format($result['cents'] / 100, 2)],
+            ['count' => $result['bills'], 'amount' => $this->company->currencySymbol().number_format($result['cents'] / 100, 2)],
         ));
     }
 

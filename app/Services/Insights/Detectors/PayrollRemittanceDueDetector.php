@@ -46,6 +46,8 @@ final class PayrollRemittanceDueDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         if (! $company->usesPayroll()) {
             return [];
         }

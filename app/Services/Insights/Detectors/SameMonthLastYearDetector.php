@@ -42,6 +42,8 @@ final class SameMonthLastYearDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         // Cheapest gate first: wait for a meaningful month-to-date sample.
         if ($today->day < self::MIN_DAY_OF_MONTH) {
             return [];

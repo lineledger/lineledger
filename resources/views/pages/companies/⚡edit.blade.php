@@ -232,7 +232,7 @@ new class extends Component
         $rules = [
             'companyName' => ['required', 'string', 'max:255', new CompanyName],
             'legalName' => ['nullable', 'string', 'max:255'],
-            'companyRegistrationNumber' => ['nullable', 'string', 'max:32'],
+            'companyRegistrationNumber' => ['nullable', 'string', 'max:32', 'regex:/^[A-Za-z0-9 ]+$/'],
             'currencyCode' => ['required', 'string', Rule::in(array_keys($this->currencyOptions()))],
             'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
@@ -302,7 +302,7 @@ new class extends Component
                 'name' => $validated['companyName'],
                 'legal_name' => filled($validated['legalName'] ?? null) ? trim($validated['legalName']) : null,
                 'company_registration_number' => $this->companyModel->jurisdiction->companyRegistrationNumberLabel() !== null
-                    ? (filled($validated['companyRegistrationNumber'] ?? null) ? trim($validated['companyRegistrationNumber']) : null)
+                    ? $this->companyModel->jurisdiction->normalizeCompanyRegistrationNumber($validated['companyRegistrationNumber'] ?? null)
                     : $company->company_registration_number,
                 'currency_code' => strtoupper($validated['currencyCode']),
                 'fiscal_year_start_month' => $validated['fiscalYearStartMonth'],
@@ -741,7 +741,7 @@ new class extends Component
                                 <flux:input
                                     wire:model="companyRegistrationNumber"
                                     :label="$jurisdiction->companyRegistrationNumberLabel()"
-                                    :description="__('Your Companies House registration number. Printed on invoices when set.')"
+                                    :description="__('Your Companies House number (or Isle of Man Companies Registry number). Printed on invoices when set.')"
                                     data-test="company-registration-number-input"
                                 />
                             @endif

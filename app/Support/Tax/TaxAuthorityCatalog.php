@@ -15,7 +15,9 @@ use App\Models\Company;
  *
  * Canada lists the Canada Revenue Agency plus the provinces that levy their own
  * sales tax ({@see ProvincialSalesTax}); the United States lists each state's
- * department of revenue; the United Kingdom lists HM Revenue & Customs.
+ * department of revenue; the United Kingdom lists HM Revenue & Customs and the
+ * Isle of Man Customs and Excise Division, which runs VAT for Manx businesses
+ * inside the same UK VAT area.
  * Entries the company already has an agency for are filtered out by the caller,
  * so a company never sees a duplicate it can't use.
  */
@@ -83,10 +85,17 @@ final class TaxAuthorityCatalog
      */
     private static function unitedKingdom(): array
     {
-        return [[
-            'key' => 'HMRC',
-            'name' => 'HM Revenue & Customs',
-            'account_name' => 'VAT Payable',
-        ]];
+        return [
+            [
+                'key' => 'HMRC',
+                'name' => 'HM Revenue & Customs',
+                'account_name' => 'VAT Payable',
+            ],
+            [
+                'key' => 'IOM-CE',
+                'name' => 'Isle of Man Customs and Excise',
+                'account_name' => 'VAT Payable',
+            ],
+        ];
     }
 }

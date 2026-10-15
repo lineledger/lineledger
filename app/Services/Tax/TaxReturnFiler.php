@@ -3,13 +3,16 @@
 namespace App\Services\Tax;
 
 use App\Enums\AuditAction;
+use App\Enums\JurisdictionCapability;
 use App\Enums\TaxReturnStatus;
 use App\Exceptions\Posting\TaxReturnOutOfBalanceException;
+use App\Models\Company;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnLine;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Posting\TaxReturnAdjustmentPoster;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -34,6 +37,7 @@ class TaxReturnFiler
         protected TaxReturnCalculator $calculator,
         protected TaxReturnAdjustmentPoster $adjustmentPoster,
         protected AccountingAuditRecorder $auditRecorder,
+        protected VatReturnCalculator $vatReturns,
     ) {}
 
     /**
@@ -89,6 +93,18 @@ class TaxReturnFiler
 
             $reconciliation = $figures->reconciliation + ['accepted_difference_cents' => $difference];
 
+            // A UK return also freezes its nine HMRC boxes: Boxes 6 and 7 come
+            // from the source documents, which can change after filing.
+            $company = Company::query()->find($return->company_id);
+            $vatBoxes = $company?->supports(JurisdictionCapability::VatReturn)
+                ? $this->vatReturns->fromFigures(
+                    $figures,
+                    $return->taxAgency,
+                    CarbonImmutable::parse($return->period_start),
+                    CarbonImmutable::parse($return->period_end),
+                )->toArray()
+                : null;
+
             $return->forceFill([
                 'status' => TaxReturnStatus::Filed,
                 'collected_cents' => $figures->collectedCents,
@@ -97,6 +113,7 @@ class TaxReturnFiler
                 'net_cents' => $figures->netCents,
                 'adjustment_journal_entry_id' => $entry?->id,
                 'reconciliation' => $reconciliation,
+                'vat_boxes' => $vatBoxes,
                 'filed_at' => now(),
                 'filed_by_user_id' => Auth::id(),
             ])->save();

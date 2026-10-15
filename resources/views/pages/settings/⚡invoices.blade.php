@@ -102,7 +102,13 @@ new #[Title('Invoice settings')] class extends Component {
             'showTaxColumn' => ['boolean'],
             'showServiceDateColumn' => ['boolean'],
             'hideZeroQtyLines' => ['boolean'],
-            'taxNumber' => ['nullable', 'string', 'max:50'],
+            'taxNumber' => ['nullable', 'string', 'max:50', function (string $attribute, mixed $value, \Closure $fail): void {
+                $country = $this->company->jurisdiction;
+
+                if (! $country->isValidTaxNumber((string) $value)) {
+                    $fail(__('Enter a valid :label, e.g. GB123456789.', ['label' => __($country->taxNumberLabel())]));
+                }
+            }],
             'footerMessage' => ['nullable', 'string', 'max:1000'],
             'emailFromAddress' => ['nullable', 'email', 'max:255'],
             'emailFromName' => ['nullable', 'string', 'max:255'],
@@ -112,7 +118,7 @@ new #[Title('Invoice settings')] class extends Component {
 
         DB::transaction(function () use ($validated) {
             $this->company->update([
-                'tax_number' => filled($validated['taxNumber']) ? trim($validated['taxNumber']) : null,
+                'tax_number' => $this->company->jurisdiction->normalizeTaxNumber($validated['taxNumber'] ?? null),
             ]);
 
             InvoiceSetting::updateOrCreate(['company_id' => $this->company->id], [

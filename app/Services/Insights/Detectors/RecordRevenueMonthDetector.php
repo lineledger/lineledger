@@ -46,6 +46,8 @@ final class RecordRevenueMonthDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         // Cheapest gate first: only speak in the first three days of a month.
         if ($today->day > 3) {
             return [];

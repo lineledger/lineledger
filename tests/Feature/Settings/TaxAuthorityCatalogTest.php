@@ -44,7 +44,7 @@ it('lists every state revenue department for a US company', function () {
     expect($california['account_name'])->toBe('California Sales Tax Payable');
 });
 
-it('lists HMRC for a UK company', function () {
+it('lists HMRC and the Isle of Man VAT office for a UK company', function () {
     $company = Company::factory()->create([
         'address_country' => Country::UnitedKingdom->value,
         'currency_code' => 'GBP',
@@ -52,8 +52,11 @@ it('lists HMRC for a UK company', function () {
 
     $entries = TaxAuthorityCatalog::forCompany($company);
 
-    expect($entries)->toHaveCount(1)
+    expect($entries)->toHaveCount(2)
         ->and($entries[0]['key'])->toBe('HMRC')
         ->and($entries[0]['name'])->toBe('HM Revenue & Customs')
-        ->and($entries[0]['account_name'])->toBe('VAT Payable');
+        ->and($entries[0]['account_name'])->toBe('VAT Payable')
+        ->and($entries[1]['key'])->toBe('IOM-CE')
+        ->and($entries[1]['name'])->toBe('Isle of Man Customs and Excise')
+        ->and($entries[1]['account_name'])->toBe('VAT Payable');
 });

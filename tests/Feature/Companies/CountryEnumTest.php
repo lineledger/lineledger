@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Country;
+use App\Enums\OrganizationType;
 
 test('canada exposes Canadian-flavoured terminology', function () {
     $c = Country::Canada;
@@ -41,9 +42,9 @@ test('united kingdom exposes British-flavoured terminology', function () {
     expect($c->taxLabel())->toBe('VAT');
     expect($c->taxNumberDocumentLabel())->toBe('VAT No.');
     expect($c->companyRegistrationNumberLabel())->toBe('Company number');
-    expect($c->usesCompanyRegistrationNumber(\App\Enums\OrganizationType::Corporation))->toBeTrue();
-    expect($c->usesCompanyRegistrationNumber(\App\Enums\OrganizationType::Partnership))->toBeTrue();
-    expect($c->usesCompanyRegistrationNumber(\App\Enums\OrganizationType::SoleProprietorship))->toBeFalse();
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::Corporation))->toBeTrue();
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::Partnership))->toBeTrue();
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::SoleProprietorship))->toBeFalse();
     expect($c->cheque('singular'))->toBe('Cheque');
     expect($c->cheque('plural'))->toBe('Cheques');
     expect($c->chequeLabel('number'))->toBe('Cheque #');

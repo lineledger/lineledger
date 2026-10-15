@@ -161,7 +161,7 @@ class Company extends Model
             $country = Country::tryFrom($company->address_country) ?? Country::Canada;
             $company->currency_code ??= $country->defaultCurrencyCode();
             self::assertSupportedHomeCurrency($company->currency_code);
-            $company->fiscal_year_start_month ??= 1;
+            $company->fiscal_year_start_month ??= $country->defaultFiscalYearStartMonth();
 
             if (empty($company->timezone)) {
                 $company->timezone = $country->defaultTimezone($company->address_region);
@@ -280,6 +280,15 @@ class Company extends Model
     public function isHomeCurrency(?string $code): bool
     {
         return $code === null || $code === '' || mb_strtoupper($code) === mb_strtoupper((string) $this->currency_code);
+    }
+
+    /**
+     * The home currency's symbol ("$" for CAD/USD, "£" for GBP), or the
+     * symbol of another currency the company transacts in.
+     */
+    public function currencySymbol(?string $code = null): string
+    {
+        return Currency::symbol((string) ($code ?: $this->currency_code ?: 'USD'));
     }
 
     public function isMulticurrencyEnabled(): bool
