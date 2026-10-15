@@ -5,6 +5,7 @@ use App\Enums\AccountSubtype;
 use App\Enums\ExpenseStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesPayeeCombo;
 use App\Models\Account;
 use App\Models\Attachment;
@@ -33,6 +34,7 @@ use Livewire\WithFileUploads;
 new #[Title('Expense')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
     use ManagesPayeeCombo;
     use WithFileUploads;
 
@@ -242,7 +244,13 @@ new #[Title('Expense')] class extends Component
 
         try {
             $poster->post($this->expense);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postExpense')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -718,5 +726,7 @@ new #[Title('Expense')] class extends Component
             </div>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

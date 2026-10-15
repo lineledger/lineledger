@@ -6,6 +6,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Transfer;
@@ -23,6 +24,7 @@ use Livewire\Component;
 new #[Title('Transfer')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -145,7 +147,13 @@ new #[Title('Transfer')] class extends Component
 
         try {
             $poster->post($this->transfer);
-        } catch (PeriodLockedException|ReconciliationLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postTransfer')) {
+                $this->addError('from_amount', $e->getMessage());
+            }
+
+            return;
+        } catch (ReconciliationLockedException|RuntimeException $e) {
             $this->addError('from_amount', $e->getMessage());
 
             return;
@@ -262,5 +270,7 @@ new #[Title('Transfer')] class extends Component
             <flux:button variant="primary" type="submit" data-test="post-transfer-button">{{ __('Post transfer') }}</flux:button>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

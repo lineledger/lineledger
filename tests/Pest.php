@@ -4,11 +4,14 @@ use App\Actions\Sales\SaveInvoice;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Models\Account;
+use App\Models\BankReconciliation;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\CustomerReceipt;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Posting\InvoicePoster;
@@ -197,4 +200,22 @@ function overpaymentReceipt(Contact $customer, int $cents, ?Invoice $appliedTo =
     app(ReceiptPoster::class)->post($receipt->fresh('applications'));
 
     return $receipt->fresh();
+}
+
+/**
+ * Stamp $entry's lines on $rec's account as ticked by $rec — the state
+ * BankReconciliationService::complete() leaves behind — and add them to its
+ * marked set. Pair with a completed() factory rec to put an entry's bank line
+ * "on a completed reconciliation" without balancing a real one.
+ */
+function claimLinesForReconciliation(BankReconciliation $rec, JournalEntry $entry): void
+{
+    $ids = $entry->lines()->where('account_id', $rec->account_id)->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+    JournalLine::query()->whereIn('id', $ids)->update([
+        'bank_reconciliation_id' => $rec->id,
+        'cleared_at' => now(),
+    ]);
+
+    $rec->forceFill(['marked_line_ids' => array_values(array_unique([...$rec->markedLineIds(), ...$ids]))])->save();
 }

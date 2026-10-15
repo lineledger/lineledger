@@ -5,6 +5,7 @@ use App\Enums\AccountType;
 use App\Enums\VendorCreditStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Classification;
@@ -30,6 +31,7 @@ use Livewire\Component;
 new #[Title('Vendor credit')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -322,7 +324,13 @@ new #[Title('Vendor credit')] class extends Component
 
         try {
             $wasPosted ? $poster->repost($this->vendorCredit) : $poster->post($this->vendorCredit);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postVendorCredit')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -739,5 +747,7 @@ new #[Title('Vendor credit')] class extends Component
             </div>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

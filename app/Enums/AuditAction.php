@@ -9,6 +9,7 @@ enum AuditAction: string
     case JournalEntryReversed = 'journal_entry.reversed';
 
     case PeriodLockChanged = 'period.lock_changed';
+    case PeriodLockOverridden = 'period.lock_overridden';
 
     case InvoiceCreated = 'invoice.created';
     case InvoiceUpdated = 'invoice.updated';

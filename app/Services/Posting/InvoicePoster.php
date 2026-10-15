@@ -22,6 +22,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Inventory\InventoryCostingFactory;
 use App\Services\Inventory\MovementContext;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -49,6 +50,7 @@ class InvoicePoster
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
         protected ReceiptPoster $receipts,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(Invoice $invoice): JournalEntry
@@ -189,6 +191,10 @@ class InvoicePoster
             }
 
             $this->receipts->ensureTotalCoversApplications($invoice);
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $invoice->company_id, $entry->lines);
 
             // Capture every account id touched by the old lines so we can
             // recompute their balances after we wipe and rebuild.

@@ -7,6 +7,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ItemType;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Classification;
 use App\Models\Company;
@@ -38,6 +39,7 @@ use Livewire\Component;
 new #[Title('Invoice')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -701,7 +703,13 @@ new #[Title('Invoice')] class extends Component
             $this->persist();
 
             $wasPosted ? $poster->repost($this->invoice) : $poster->post($this->invoice);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postInvoice')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -1536,5 +1544,7 @@ new #[Title('Invoice')] class extends Component
             </div>
         </form>
     </flux:modal>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

@@ -6,6 +6,7 @@ use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -26,6 +27,7 @@ use Livewire\Component;
 
 new #[Title('Pay bills')] class extends Component {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -231,7 +233,16 @@ new #[Title('Pay bills')] class extends Component {
 
                 return $payment;
             });
-        } catch (PeriodLockedException|\RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            // The rolled-back save mutated the bound model in memory; put it back.
+            $this->payment?->refresh();
+
+            if (! $this->offerPeriodLockOverride($e, 'save')) {
+                $this->addError('applyTable', $e->getMessage());
+            }
+
+            return;
+        } catch (\RuntimeException $e) {
             // The rolled-back save mutated the bound model in memory; put it back.
             $this->payment?->refresh();
             $this->addError('applyTable', $e->getMessage());
@@ -485,5 +496,7 @@ new #[Title('Pay bills')] class extends Component {
             <flux:button variant="primary" type="submit" data-test="save-payment-button">{{ __('Save & post') }}</flux:button>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

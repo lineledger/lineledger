@@ -5,6 +5,7 @@ use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Company;
@@ -27,6 +28,7 @@ use Livewire\Component;
 
 new #[Title('Reimbursement')] class extends Component {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -224,7 +226,13 @@ new #[Title('Reimbursement')] class extends Component {
 
         try {
             $wasPosted ? $poster->repost($this->bill) : $poster->post($this->bill);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'post')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -494,5 +502,7 @@ new #[Title('Reimbursement')] class extends Component {
             </div>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

@@ -200,9 +200,18 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
             {{ __('A voided cheque was never cashed, so it is not on your statement — the reconcile list leaves out both the voided cheque and the reversing entry the void posted. They cancel each other out in the books. The one exception: if either half was already ticked or cleared before the void, both stay on the list so you can settle them. Statement import will not match a voided cheque or its reversal either, and the Cash Flow Forecast does not count them as outstanding.') }}
         </x-docs.callout>
 
-        <x-docs.callout type="warning" heading="{{ __('Completing a reconciliation locks the period') }}">
-            {{ __('When you complete a reconciliation it locks the account through the statement date: the app will refuse to post or void any cheque, receipt, bill payment, or transfer dated inside the reconciled window, so a finished reconciliation can never drift. To change something in that window, use Undo last reconciliation first.') }}
+        <x-docs.callout type="warning" heading="{{ __('Completing a reconciliation locks the transactions you ticked') }}">
+            {{ __('When you complete a reconciliation, every transaction you ticked is locked to it: the app will refuse to edit or void a cheque, deposit, receipt, bill payment, transfer, or journal entry whose bank line that reconciliation cleared, so a finished reconciliation can never drift. To change one, use Undo last reconciliation first. Transactions you did not tick stay editable — they were never part of the reconciled balance.') }}
         </x-docs.callout>
+
+        <flux:heading size="md" class="mt-6">{{ __('Adjustments after you have reconciled') }}</flux:heading>
+        <p>
+            {{ __('You can still post a new transaction dated inside a reconciled period — for example, an adjusting entry your accountant hands you for a July 31 year end after you have reconciled through September. Because you never ticked it, it changes no completed reconciliation: it simply shows up as an uncleared item the next time you reconcile that account. The journal entry form asks you to confirm before posting into a reconciled period or a prior fiscal year.') }}
+        </p>
+        <ul class="list-disc space-y-1 ps-6">
+            <li>{{ __('The adjustment hits the bank account (a stale-dated cheque written off, a duplicate reversed, a cut-off correction): post it on the date your accountant gives you, then tick it on your next reconciliation — usually alongside the outstanding item it offsets, so the two net to zero.') }}</li>
+            <li>{{ __('The adjustment only recodes a reconciled transaction (a cleared cheque charged to the wrong expense account): post a journal entry between the two non-cash accounts and leave the bank alone. The reconciled cheque stays exactly as the bank cleared it.') }}</li>
+        </ul>
 
         <x-docs.callout type="tip" heading="{{ __('Edit the starting figures mid-reconciliation') }}">
             {{ __('Caught a typo in the statement date or opening balance after you have already ticked off twenty transactions? Select Edit details on the reconciliation panel and change the statement date, beginning balance, ending balance, service charge, or interest in place — your cleared ticks are kept. Saving without touching the service charge or interest leaves those entries exactly as they are — no reversal, no re-post. Change an amount, date or account and the app voids the old adjustment entry and posts a new one so the books stay correct; the voided entry and its reversal never reach the bank, so they drop off the reconcile list. Only the date wrong? You can also open the adjustment’s journal entry from the bank register and edit its date, number, or memo there — the accounts and amounts stay locked to the reconciliation.') }}

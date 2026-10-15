@@ -17,6 +17,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Inventory\InventoryCostingFactory;
 use App\Services\Inventory\MovementContext;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
@@ -48,6 +49,7 @@ class SalesReceiptPoster
         protected TaxPeriodLockGuard $taxLockGuard,
         protected InventoryCostingFactory $costingFactory,
         protected ExchangeRateService $exchangeRates,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(SalesReceipt $receipt): JournalEntry
@@ -171,6 +173,10 @@ class SalesReceiptPoster
             if ($receipt->lines->isEmpty() || $receipt->total_cents <= 0) {
                 throw new RuntimeException('Sales receipt has no lines or zero total; cannot repost.');
             }
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $receipt->company_id, $entry->lines);
 
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 

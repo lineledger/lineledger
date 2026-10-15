@@ -15,6 +15,9 @@ use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // Pinned: the September 2026 dates below must stay in the current fiscal year, or the back-dated warning dialog opens.
+    $this->travelTo(Carbon::parse('2026-10-15 12:00:00'));
+
     $this->user = User::factory()->create();
     $this->company = Company::factory()->create();
     $this->company->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);

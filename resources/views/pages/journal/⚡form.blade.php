@@ -8,6 +8,7 @@ use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesLineContacts;
 use App\Models\Account;
 use App\Models\Classification;
@@ -20,11 +21,15 @@ use App\Models\Location;
 use App\Models\TaxCode;
 use App\Rules\MoneyString;
 use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Posting\BackdatedEntryWarnings;
 use App\Services\Posting\EntryNumberGenerator;
 use App\Services\Posting\JournalPoster;
+use App\Services\Posting\PeriodLockOverride;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Reporting\SourceLinkResolver;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -40,6 +45,7 @@ use Livewire\Component;
 new #[Title('Journal entry')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
     use ManagesLineContacts;
 
     public Company $company;
@@ -72,6 +78,20 @@ new #[Title('Journal entry')] class extends Component
     public ?string $sourceUrl = null;
 
     public string $sourceLabel = '';
+
+    /**
+     * Reasons to pause before a back-dated post or save (see
+     * BackdatedEntryWarnings), listed in the confirm dialog.
+     *
+     * @var list<string>
+     */
+    #[Locked]
+    public array $backdateWarnings = [];
+
+    /**
+     * Set for the one request in which the user confirmed the dialog.
+     */
+    private bool $backdateAcknowledged = false;
 
     #[Url(as: 'from')]
     public ?int $duplicateFromId = null;
@@ -464,11 +484,21 @@ new #[Title('Journal entry')] class extends Component
             return;
         }
 
+        if ($this->differenceCents === 0 && $this->totalDebitsCents > 0 && $this->holdForBackdateWarnings()) {
+            return;
+        }
+
         $this->persist(post: false);
 
         try {
             $poster->post($this->entry);
-        } catch (UnbalancedJournalException|PeriodLockedException|ReconciliationLockedException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postEntry')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (UnbalancedJournalException|ReconciliationLockedException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -476,6 +506,68 @@ new #[Title('Journal entry')] class extends Component
 
         Flux::toast(variant: 'success', text: __('Entry posted.'));
         $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+    }
+
+    /**
+     * "Post anyway" / "Save anyway" from the back-dated entry dialog: re-run the
+     * action the dialog interrupted, this time without stopping for warnings.
+     */
+    public function confirmBackdated(JournalPoster $poster): void
+    {
+        $this->backdateAcknowledged = true;
+        $this->backdateWarnings = [];
+        Flux::modal('backdate-warning')->close();
+
+        $this->isPosted ? $this->saveChanges($poster) : $this->postEntry($poster);
+    }
+
+    /**
+     * Open the confirm dialog — and stop the action — when the entry date gives
+     * a reason to pause (a reconciled period, a prior fiscal year). Advisory
+     * only: a locked period or a reconciled line is left to the action's own
+     * hard error, and an unparseable date to validation.
+     */
+    private function holdForBackdateWarnings(): bool
+    {
+        // A closed-period override the user just confirmed is the stronger
+        // warning; don't stack a second dialog on top of it.
+        if ($this->backdateAcknowledged || PeriodLockOverride::isActive()) {
+            return false;
+        }
+
+        try {
+            $date = CarbonImmutable::parse($this->entryDate);
+        } catch (InvalidFormatException) {
+            return false;
+        }
+
+        if ($this->entryDate === '' || $this->company->isLockedFor($date)) {
+            return false;
+        }
+
+        // A posted entry carrying a reconciled line can't be saved at all; let
+        // the action report that rather than warn about it first.
+        if ($this->isPosted && $this->entry) {
+            try {
+                app(BankReconciliationLockGuard::class)->ensureLinesNotReconciled((int) $this->company->id, $this->entry->lines);
+            } catch (ReconciliationLockedException) {
+                return false;
+            }
+        }
+
+        $accountIds = $this->linesLocked && $this->entry
+            ? $this->entry->lines->pluck('account_id')
+            : collect($this->lines)->pluck('account_id');
+
+        $this->backdateWarnings = app(BackdatedEntryWarnings::class)->for($this->company, $accountIds, $date);
+
+        if ($this->backdateWarnings === []) {
+            return false;
+        }
+
+        Flux::modal('backdate-warning')->show();
+
+        return true;
     }
 
     /**
@@ -499,8 +591,9 @@ new #[Title('Journal entry')] class extends Component
 
     /**
      * Save edits to an already-posted entry in place. The entry stays posted, so it
-     * must remain balanced and out of any locked period; affected account balances
-     * are recomputed and the overwrite is recorded to the audit trail.
+     * must remain balanced, out of any locked period and free of reconciled lines;
+     * affected account balances are recomputed and the overwrite is recorded to the
+     * audit trail.
      */
     public function saveChanges(JournalPoster $poster): void
     {
@@ -508,7 +601,9 @@ new #[Title('Journal entry')] class extends Component
         abort_unless($this->entry->isEditableInJournal(), 403);
 
         if ($this->entry->hasLockedLines()) {
-            $this->saveHeaderOnly();
+            if (! $this->holdForBackdateWarnings()) {
+                $this->saveHeaderOnly();
+            }
 
             return;
         }
@@ -519,9 +614,21 @@ new #[Title('Journal entry')] class extends Component
             return;
         }
 
-        if ($this->company->isLockedFor(CarbonImmutable::parse($this->entryDate))) {
-            $this->addError('lines', __('That date falls in a locked period.'));
+        try {
+            $poster->ensurePostedEntryEditable($this->entry, CarbonImmutable::parse($this->entryDate));
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'saveChanges')) {
+                $this->addError('lines', $e->getMessage());
+            }
 
+            return;
+        } catch (ReconciliationLockedException $e) {
+            $this->addError('lines', $e->getMessage());
+
+            return;
+        }
+
+        if ($this->holdForBackdateWarnings()) {
             return;
         }
 
@@ -565,7 +672,13 @@ new #[Title('Journal entry')] class extends Component
                 'entry_date' => $validated['entryDate'],
                 'memo' => $validated['memo'] ?: null,
             ]);
-        } catch (PeriodLockedException|ReconciliationLockedException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'saveChanges')) {
+                $this->addError('entryDate', $e->getMessage());
+            }
+
+            return;
+        } catch (ReconciliationLockedException $e) {
             $this->addError('entryDate', $e->getMessage());
 
             return;
@@ -934,6 +1047,30 @@ new #[Title('Journal entry')] class extends Component
                 <flux:button variant="primary" type="submit" data-test="save-as-je-template-confirm">{{ __('Save template') }}</flux:button>
             </div>
         </form>
+    </flux:modal>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
+
+    <flux:modal name="backdate-warning" class="max-w-lg" data-test="backdate-warning-modal">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Post to an earlier period?') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('Check the date before you continue:') }}</flux:text>
+            </div>
+
+            <ul class="list-disc space-y-2 ps-5">
+                @foreach ($backdateWarnings as $warning)
+                    <li><flux:text data-test="backdate-warning">{{ $warning }}</flux:text></li>
+                @endforeach
+            </ul>
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close><flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                <flux:button variant="primary" type="button" wire:click="confirmBackdated" data-test="backdate-confirm-button">
+                    {{ $isPosted ? __('Save anyway') : __('Post anyway') }}
+                </flux:button>
+            </div>
+        </div>
     </flux:modal>
     @endif
 </section>

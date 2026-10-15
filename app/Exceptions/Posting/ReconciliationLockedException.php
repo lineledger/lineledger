@@ -8,15 +8,15 @@ use RuntimeException;
 
 class ReconciliationLockedException extends RuntimeException implements ClientSafeException
 {
-    public static function for(string $accountName, CarbonInterface $entryDate, CarbonInterface $statementDate): self
+    public static function for(string $accountName, CarbonInterface $statementDate): self
     {
         return new self(
-            "Entry date {$entryDate->toDateString()} falls within a completed bank reconciliation for {$accountName} through {$statementDate->toDateString()}; undo that reconciliation before posting or voiding."
+            "This transaction includes a line reconciled on the {$accountName} reconciliation through {$statementDate->toDateString()}. Undo that reconciliation to change or void it, or post a separate adjusting entry."
         );
     }
 
     public function clientSafeMessage(): string
     {
-        return 'This date falls within a completed bank reconciliation; undo it before posting or voiding.';
+        return 'This transaction includes a reconciled bank line. Undo that reconciliation to change or void it, or post a separate adjusting entry.';
     }
 }

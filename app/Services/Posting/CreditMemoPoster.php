@@ -17,6 +17,7 @@ use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
 use App\Support\Money;
@@ -44,6 +45,7 @@ class CreditMemoPoster
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
         protected InvoiceReconciler $invoiceReconciler,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(CreditMemo $memo): JournalEntry
@@ -164,6 +166,10 @@ class CreditMemoPoster
             }
 
             $this->ensureTotalCoversRefunds($memo);
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $memo->company_id, $entry->lines);
 
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 

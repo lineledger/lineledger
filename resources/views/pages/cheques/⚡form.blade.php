@@ -7,6 +7,7 @@ use App\Enums\ChequeStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\PostingValidationException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesLineContacts;
 use App\Livewire\Concerns\ManagesPayeeCombo;
 use App\Models\Account;
@@ -42,6 +43,7 @@ use Livewire\WithFileUploads;
 new #[Title('Cheque')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
     use ManagesLineContacts;
     // clearPayee is extended below to clear the address with the payee; the
     // trait's own version is aliased so the override can still call it.
@@ -589,7 +591,13 @@ new #[Title('Cheque')] class extends Component
 
                 $wasPosted ? $poster->repost($this->cheque) : $poster->post($this->cheque);
             });
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postCheque')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -1251,5 +1259,7 @@ new #[Title('Cheque')] class extends Component
             </div>
         </div>
     </flux:modal>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

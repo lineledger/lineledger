@@ -139,9 +139,9 @@ class ChequePoster
      * intact), then recompute every touched account balance.
      *
      * Mirrors {@see DepositPoster::repost()}: JournalPoster::post() is not
-     * re-run, so the period lock, tax-period lock and reconciliation lock are
-     * all enforced explicitly here on both the original and the (possibly new)
-     * cheque date.
+     * re-run, so the period lock and tax-period lock are enforced explicitly
+     * here on both the original and the (possibly new) cheque date, and the
+     * rebuild is refused if a completed reconciliation has ticked a line.
      */
     public function repost(Cheque $cheque): JournalEntry
     {
@@ -183,22 +183,16 @@ class ChequePoster
 
             $this->refundGuard->assertWithinSource($cheque);
 
-            // Capture old + new touched accounts and guard the reconciliation
-            // lock before mutating: the original date for the impact we're
-            // removing, the new date for the impact we're writing.
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $cheque->company_id, $entry->lines);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
             // Keep the old line models too: a contact this edit REMOVES still needs
             // its cache corrected, and $entry->refresh() below swaps the relation
             // for the rebuilt lines.
             $oldLines = $entry->lines->all();
-
-            $newAccountIds = collect([$cheque->bank_account_id])
-                ->merge($cheque->lines->pluck('account_id'))
-                ->merge(array_keys($this->recoverableTaxByPayableAccount($cheque)));
-
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $oldAccountIds, $originalEntryDate);
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $newAccountIds->all(), $newEntryDate);
 
             $entry->forceFill([
                 'entry_date' => $cheque->cheque_date,

@@ -19,6 +19,7 @@ use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
 use App\Support\Money;
@@ -45,6 +46,7 @@ class ReceiptPoster
         protected ExchangeRateService $exchangeRates,
         protected CustomerRefundGuard $refundGuard,
         protected InvoiceReconciler $invoiceReconciler,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(CustomerReceipt $receipt): JournalEntry
@@ -185,6 +187,10 @@ class ReceiptPoster
                 $receipt->applications->pluck('invoice_id')->all(),
                 $receipt->previousApplicationInvoiceIds(),
             ))));
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $receipt->company_id, $entry->lines);
 
             // Capture old JE account ids for balance recompute
             $oldAccountIds = $entry->lines->pluck('account_id')->all();

@@ -124,9 +124,9 @@ class DepositPoster
      *
      * Use this when the user edits a posted deposit without the void+recreate
      * ceremony. Because a deposit moves money in and out of the bank account, the
-     * reconciliation lock is enforced explicitly here on both the original and the
-     * (possibly new) deposit date — JournalPoster::post() is not re-run, so its
-     * guard would otherwise be bypassed. The lock date is respected on both dates too.
+     * rebuild is refused if a completed reconciliation has ticked one of its lines.
+     * JournalPoster::post() is not re-run, so the lock date is enforced explicitly
+     * here on both the original and the (possibly new) deposit date.
      */
     public function repost(Deposit $deposit): JournalEntry
     {
@@ -162,18 +162,11 @@ class DepositPoster
 
             $undeposited = $this->undepositedFundsAccount($deposit);
 
-            // Capture old + new touched accounts and guard the reconciliation lock
-            // before mutating: the original date for the impact we're removing, the
-            // new date for the impact we're writing.
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $deposit->company_id, $entry->lines);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
-
-            $newAccountIds = collect([$deposit->bank_account_id]);
-            foreach ($deposit->lines as $line) {
-                $newAccountIds->push($line->isReceiptSource() ? $undeposited->id : $line->account_id);
-            }
-
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $deposit->company_id, $oldAccountIds, $originalEntryDate);
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $deposit->company_id, $newAccountIds->all(), $newEntryDate);
 
             $entry->forceFill([
                 'entry_date' => $deposit->deposit_date,

@@ -7,9 +7,13 @@ use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\User;
 use App\Services\Posting\JournalPoster;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // Pinned: entries dated a few days back must not cross into a prior fiscal year (which opens the back-dated warning dialog).
+    $this->travelTo(Carbon::parse('2026-10-15 12:00:00'));
+
     $this->user = User::factory()->create();
     $this->company = Company::factory()->create();
     $this->company->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);

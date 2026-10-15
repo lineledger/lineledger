@@ -219,7 +219,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Editing or voiding a posted entry') }}</flux:heading>
         <flux:text>
-            {{ __('Open a manual entry and select Edit. The form warns that “This entry is posted. Saving overwrites it in place and changes already-reported balances.” The entry must still balance, and the date you save it with must fall after any lock date. The Entry # field stays editable, so the entry keeps its number unless you change it there. Select Save changes; the before-and-after is written to the audit trail. To cancel an entry instead, choose Void from the Actions menu and confirm: the app posts a reversing entry dated today and marks the original Voided, so the ledger keeps both. A debit line to a Fixed Asset account also shows a Create asset record button on the entry page — see') }}
+            {{ __('Open a manual entry and select Edit. The form warns that “This entry is posted. Saving overwrites it in place and changes already-reported balances.” The entry must still balance, both its original date and the date you save it with must fall after any lock date, and none of its bank lines may be ticked on a completed reconciliation (undo the reconciliation first). The Entry # field stays editable, so the entry keeps its number unless you change it there. Select Save changes; the before-and-after is written to the audit trail. To cancel an entry instead, choose Void from the Actions menu and confirm: the app posts a reversing entry dated today and marks the original Voided, so the ledger keeps both. A debit line to a Fixed Asset account also shows a Create asset record button on the entry page — see') }}
             <a class="underline" href="{{ route('docs.fixed-assets') }}" wire:navigate>{{ __('Fixed assets') }}</a>{{ __('.') }}
         </flux:text>
 
@@ -349,7 +349,14 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         {{-- ───────────────────────── Period locking ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Period locking') }}</flux:heading>
         <flux:text>
-            {{ __('Once a period is finished — books reviewed, taxes filed — lock it so the numbers cannot shift underneath you. A lock date tells the app to refuse any transaction dated on or before it, across every workflow: invoices, bills, payments, cheques, transfers, and journal entries.') }}
+            {{ __('Once a period is finished — books reviewed, taxes filed — lock it so the numbers cannot shift underneath you. A lock date guards every transaction dated on or before it, across every workflow: invoices, bills, payments, cheques, transfers, and journal entries. You choose how strict it is:') }}
+        </flux:text>
+        <ul class="list-disc ps-6 space-y-1">
+            <li><strong>{{ __('Block') }}</strong> — {{ __('the default. The app refuses the change. An Owner or Admin who tries it is offered an override: enter your account password and that one transaction goes through.') }}</li>
+            <li><strong>{{ __('Warn and confirm') }}</strong> — {{ __('the app shows a warning that the date is in a closed period, and anyone who can use the form may continue after confirming.') }}</li>
+        </ul>
+        <flux:text>
+            {{ __('Either way, every transaction let through is recorded in the audit log with who confirmed it and the dates it touched. The API, the AI assistant, and scheduled jobs such as recurring transactions never override the lock in either mode.') }}
         </flux:text>
 
         <p><strong>{{ __('To lock a period (Owners and Admins):') }}</strong></p>
@@ -357,17 +364,21 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             <li>{{ __('Open Settings → Organizations and select Edit organization next to your organization.') }}</li>
             <li>{{ __('Scroll to the Close the books card. It reads “The books are open. No closing date is set.” or “Books locked through” the current lock date.') }}</li>
             <li>{{ __('Select Close the books (or Change lock date if a lock already exists).') }}</li>
-            <li>{{ __('Enter the Lock date — the last day of the period you are closing — and Your account password, then select Confirm.') }}</li>
+            <li>{{ __('Enter the Lock date — the last day of the period you are closing — choose Block or Warn and confirm, enter Your account password, then select Confirm.') }}</li>
         </ol>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/accounting/close-the-books.png') }}"
-            alt="{{ __('The Close the books dialog in organization settings with a Lock date field, a Your account password field, and a Confirm button') }}"
+            alt="{{ __('The Close the books dialog in organization settings with a Lock date field, the Block and Warn and confirm choices, a Your account password field, and a Confirm button') }}"
             caption="{{ __('The Close the books dialog. Leave the Lock date blank to remove the lock and reopen the books; either way, your password is required.') }}"
         />
 
         <x-docs.callout type="warning">
-            {{ __('After the lock date is set, the app will not post anything dated on or before it, and it refuses to edit a posted invoice, bill, or payment when either its original date or its new date falls on or before it. Two actions are checked only against a new date, so they still work on an item from the closed period: voiding is checked against the void date, which is today, so a posted entry or document dated inside the locked period can still be voided and its reversing entry lands today; and editing a posted manual journal entry checks only the date you save it with, so an entry from the locked period can be edited if you move its date past the lock date. To reopen the books, choose Change lock date, leave the Lock date blank, and confirm with your password. Every change to the lock date is recorded in the audit log. Finishing the Opening Balances workspace with Finalize & lock sets the same lock date through your conversion date.') }}
+            {{ __('In Block mode, without an override, the app will not post anything dated on or before the lock date, and it refuses to edit a posted invoice, bill, payment, or manual journal entry when either its original date or its new date falls on or before it. Voiding is the one action checked only against a new date: it is checked against the void date, which is today, so a posted entry or document dated inside the locked period can still be voided and its reversing entry lands today. To reopen the books, choose Change lock date, leave the Lock date blank, and confirm with your password. Every change to the lock date is recorded in the audit log. Finishing the Opening Balances workspace with Finalize & lock sets the same lock date through your conversion date.') }}
+        </x-docs.callout>
+
+        <x-docs.callout type="tip" heading="{{ __('Year-end adjusting entries from your accountant') }}">
+            {{ __('A common rhythm: keep working in the new year while your accountant finishes the old one, post their adjusting entries on the year-end date when they arrive, then lock the books through that date. The journal entry form asks you to confirm whenever an entry lands in a prior fiscal year or inside a completed bank reconciliation. If a late adjustment turns up after you have locked, an Owner or Admin can override Block mode for that one entry, or switch to Warn and confirm while the year is being finalized.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Related reports ───────────────────────── --}}

@@ -53,11 +53,9 @@ class JournalPoster
                 throw PeriodLockedException::for($entryDate, CarbonImmutable::parse($entry->company->lock_date));
             }
 
-            $this->reconciliationLockGuard->ensureNotReconciled(
-                (int) $entry->company_id,
-                $entry->lines->pluck('account_id')->all(),
-                $entryDate,
-            );
+            // No reconciliation check here: a new entry has no lines a completed
+            // reconciliation has claimed, so a back-dated posting changes no
+            // reconciliation — it shows up as uncleared on the account's next one.
 
             AuditMute::silence(fn () => $entry->forceFill([
                 'is_posted' => true,
@@ -119,14 +117,11 @@ class JournalPoster
                 throw PeriodLockedException::for($voidDate, CarbonImmutable::parse($entry->company->lock_date));
             }
 
-            // Guard on the ORIGINAL entry's date: a reconciled transaction sits on
-            // or before the statement date, so voiding it would alter the reconciled
-            // balance. The reversal itself posts at $voidDate (an open period).
-            $this->reconciliationLockGuard->ensureNotReconciled(
-                (int) $entry->company_id,
-                $entry->lines->pluck('account_id')->all(),
-                CarbonImmutable::parse($entry->entry_date),
-            );
+            // Reversing a line a completed reconciliation has ticked would alter
+            // its reconciled balance. An entry whose bank line was never cleared
+            // (e.g. a stale outstanding cheque) may be voided freely: the original
+            // and its reversal net out on the next reconciliation.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $entry->company_id, $entry->lines);
 
             $reversal = AuditMute::silence(fn () => JournalEntry::query()->create([
                 'company_id' => $entry->company_id,
@@ -184,6 +179,25 @@ class JournalPoster
     protected function recomputeAffectedAccounts(JournalEntry $entry): void
     {
         $this->recomputeAccounts($entry->lines->pluck('account_id')->all());
+    }
+
+    /**
+     * Guard an in-place overwrite of a posted manual entry's lines (the journal
+     * form's "Save changes" and the API's PUT). The rewrite deletes every line,
+     * so it is refused when the entry sits in, or would move into, a locked
+     * period, or when a completed reconciliation has ticked one of its lines.
+     */
+    public function ensurePostedEntryEditable(JournalEntry $entry, CarbonImmutable $newDate): void
+    {
+        $entry->loadMissing('lines', 'company');
+
+        foreach ([CarbonImmutable::parse($entry->entry_date), $newDate] as $date) {
+            if ($entry->company->isLockedFor($date)) {
+                throw PeriodLockedException::for($date, CarbonImmutable::parse($entry->company->lock_date));
+            }
+        }
+
+        $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $entry->company_id, $entry->lines);
     }
 
     /**

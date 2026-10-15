@@ -4,6 +4,7 @@ use App\Actions\Sales\SaveCreditMemo;
 use App\Enums\CreditMemoStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Classification;
 use App\Models\Company;
@@ -30,6 +31,7 @@ use Livewire\Component;
 new #[Title('Credit memo')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -361,7 +363,13 @@ new #[Title('Credit memo')] class extends Component
             $this->persist();
 
             $wasPosted ? $poster->repost($this->creditMemo) : $poster->post($this->creditMemo);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postCreditMemo')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -919,5 +927,7 @@ new #[Title('Credit memo')] class extends Component
             </div>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

@@ -10,6 +10,7 @@ use App\Enums\ContributionMethod;
 use App\Enums\Country;
 use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
+use App\Enums\PeriodLockMode;
 use App\Enums\Section;
 use App\Enums\SecurityEvent;
 use App\Models\Company;
@@ -46,6 +47,8 @@ new class extends Component
     public string $legalName = '';
 
     public string $lockDate = '';
+
+    public string $lockMode = 'block';
 
     public string $lockPassword = '';
 
@@ -168,6 +171,7 @@ new class extends Component
         $this->companyName = $company->name;
         $this->legalName = (string) ($company->legal_name ?? '');
         $this->lockDate = $company->lock_date?->toDateString() ?? '';
+        $this->lockMode = $company->lockMode()->value;
         $this->currencyCode = $company->currency_code;
         $this->fiscalYearStartMonth = $company->fiscal_year_start_month;
         $this->timezone = $company->timezone ?: 'UTC';
@@ -482,10 +486,12 @@ new class extends Component
         $validated = $this->validate(
             [
                 'lockDate' => ['nullable', 'date'],
+                'lockMode' => ['required', Rule::enum(PeriodLockMode::class)],
                 'lockPassword' => ['required', 'string'],
             ],
             attributes: [
                 'lockDate' => __('lock date'),
+                'lockMode' => __('lock behaviour'),
                 'lockPassword' => __('password'),
             ],
         );
@@ -497,11 +503,13 @@ new class extends Component
         }
 
         $newLock = $validated['lockDate'] ?: null;
+        $newMode = PeriodLockMode::from($validated['lockMode']);
         $previousLock = $this->companyModel->lock_date?->toDateString();
+        $previousMode = $this->companyModel->lockMode();
 
-        $company = DB::transaction(function () use ($newLock) {
+        $company = DB::transaction(function () use ($newLock, $newMode) {
             $company = Company::whereKey($this->companyModel->id)->lockForUpdate()->firstOrFail();
-            $company->update(['lock_date' => $newLock]);
+            $company->update(['lock_date' => $newLock, 'lock_mode' => $newMode]);
 
             return $company;
         });
@@ -512,11 +520,17 @@ new class extends Component
             (int) $company->id,
             AuditAction::PeriodLockChanged,
             $company,
-            ['from' => $previousLock, 'to' => $newLock],
+            [
+                'from' => $previousLock,
+                'to' => $newLock,
+                'mode_from' => $previousMode->value,
+                'mode_to' => $newMode->value,
+            ],
         );
 
         $this->lockPassword = '';
         $this->lockDate = $newLock ?? '';
+        $this->lockMode = $newMode->value;
         $this->populateCompanyData();
         $this->dispatch('close-modal', name: 'lock-period');
 
@@ -1192,7 +1206,11 @@ new class extends Component
                                 <flux:icon.lock-closed variant="solid" class="text-amber-600" />
                                 <div>
                                     <flux:text class="font-medium">{{ __('Books locked through :date', ['date' => $companyModel->lock_date->toDateString()]) }}</flux:text>
-                                    <flux:text size="sm" class="text-muted-foreground">{{ __('Transactions on or before this date are frozen.') }}</flux:text>
+                                    <flux:text size="sm" class="text-muted-foreground" data-test="lock-mode-summary">
+                                        {{ $companyModel->lockMode() === PeriodLockMode::Warn
+                                            ? __('Changes on or before this date need a confirmation.')
+                                            : __('Changes on or before this date are blocked; Owners and Admins can override with their password.') }}
+                                    </flux:text>
                                 </div>
                             </div>
                         @else
@@ -1421,7 +1439,7 @@ new class extends Component
             <form wire:submit="confirmLockDate" class="space-y-6">
                 <div>
                     <flux:heading size="lg">{{ __('Close the books') }}</flux:heading>
-                    <flux:subheading>{{ __('Transactions dated on or before the lock date can no longer be posted, edited, or voided.') }}</flux:subheading>
+                    <flux:subheading>{{ __('Choose what happens when someone posts, edits, or voids a transaction dated on or before the lock date.') }}</flux:subheading>
                 </div>
 
                 <div class="space-y-4">
@@ -1432,6 +1450,17 @@ new class extends Component
                         :description="__('Leave blank to remove the lock and reopen the books.')"
                         data-test="lock-period-date"
                     />
+
+                    <flux:radio.group wire:model="lockMode" :label="__('When someone changes the closed period')" data-test="lock-period-mode">
+                        @foreach (PeriodLockMode::cases() as $mode)
+                            <flux:radio
+                                value="{{ $mode->value }}"
+                                :label="$mode->label()"
+                                :description="$mode->description()"
+                                data-test="lock-period-mode-{{ $mode->value }}"
+                            />
+                        @endforeach
+                    </flux:radio.group>
 
                     <flux:input
                         type="password"

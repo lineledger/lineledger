@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -27,6 +28,7 @@ use Livewire\Component;
 
 new #[Title('Receive payment')] class extends Component {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -416,7 +418,16 @@ new #[Title('Receive payment')] class extends Component {
 
                 return $receipt;
             });
-        } catch (PeriodLockedException|\RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            // The rolled-back save mutated the bound model in memory; put it back.
+            $this->receipt?->refresh();
+
+            if (! $this->offerPeriodLockOverride($e, 'save')) {
+                $this->addError('amount', $e->getMessage());
+            }
+
+            return;
+        } catch (\RuntimeException $e) {
             // The rolled-back save mutated the bound model in memory; put it back.
             $this->receipt?->refresh();
             $this->addError('amount', $e->getMessage());
@@ -732,5 +743,7 @@ new #[Title('Receive payment')] class extends Component {
             <flux:button variant="primary" type="submit" data-test="save-receipt-button">{{ __('Save & post') }}</flux:button>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>
