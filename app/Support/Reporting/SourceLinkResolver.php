@@ -15,6 +15,7 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\OpeningBalanceState;
 use App\Models\TaxReturn;
+use App\Models\TaxReturnPayment;
 use App\Models\Transfer;
 use App\Models\VendorCredit;
 use Illuminate\Support\Facades\Route;
@@ -113,6 +114,14 @@ class SourceLinkResolver
 
         if ($entry->source_type === BankReconciliation::class) {
             return __('Bank reconciliation');
+        }
+
+        if ($entry->source_type === TaxReturn::class) {
+            return __('Tax return');
+        }
+
+        if ($entry->source_type === TaxReturnPayment::class) {
+            return __('Tax return payment');
         }
 
         return $entry->source_type === null

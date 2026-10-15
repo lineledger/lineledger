@@ -72,6 +72,17 @@ enum AccountSubtype: string
     }
 
     /**
+     * Subtypes that can be switched on as an expense's "Paid from" account (a
+     * Shareholder Loan when an owner pays personally). Bank and credit card are
+     * always offered, so they don't need the switch; AP and tax payables are
+     * control accounts settled by their own workflows.
+     */
+    public function canOptIntoExpensePayments(): bool
+    {
+        return in_array($this, [self::CurrentLiability, self::LongTermLiability, self::OtherLiability], true);
+    }
+
+    /**
      * Map a QuickBooks account type to the closest LineLedger subtype. Accepts both
      * the report labels ("Other Current Asset") and the IIF type codes ("OCASSET").
      * Falls back to OtherAsset for anything unrecognised.

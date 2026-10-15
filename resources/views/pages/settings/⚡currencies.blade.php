@@ -124,6 +124,12 @@ new #[Title('Currencies')] class extends Component {
      */
     public function availableToAdd(): array
     {
+        // A home currency Money can't represent (set before the two-decimal
+        // rule) can't anchor conversions, so nothing is offered.
+        if (! Currency::isSelectable((string) $this->company->currency_code)) {
+            return [];
+        }
+
         $enabled = $this->company->currencies()->pluck('currency_code')->map(fn ($c) => mb_strtoupper($c))->all();
         $enabled[] = mb_strtoupper((string) $this->company->currency_code);
 

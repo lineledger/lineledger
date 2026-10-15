@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\TracksCustomerRefunds;
 use App\Enums\CreditMemoStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property CreditMemoStatus|null $status
+ */
 #[Fillable([
     'company_id', 'contact_id', 'sales_rep_id', 'credit_memo_no', 'credit_memo_date',
     'status', 'subtotal_cents', 'tax_cents', 'total_cents',
@@ -20,7 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class CreditMemo extends Model
 {
-    use BelongsToCompany, SoftDeletes;
+    use BelongsToCompany, SoftDeletes, TracksCustomerRefunds;
 
     /**
      * @return BelongsTo<Contact, $this>
@@ -85,30 +89,17 @@ class CreditMemo extends Model
         return $this->hasMany(CustomerReceipt::class);
     }
 
-    /**
-     * Total already refunded to the client across all non-void refund cheques
-     * (including drafts, so a pending draft can't be double-issued) and posted
-     * credit-card refunds. Always returned as a positive amount of cents.
-     */
-    public function refundedCents(): int
+    public function refundLinkColumn(): string
     {
-        $byCheque = (int) $this->refundCheques()
-            ->where('status', '!=', 'void')
-            ->sum('amount_cents');
-
-        $byCard = (int) $this->refundReceipts()
-            ->where('status', '!=', 'void')
-            ->sum('amount_cents');
-
-        return $byCheque - $byCard;
+        return 'credit_memo_id';
     }
 
     /**
-     * Credit-memo value not yet refunded — the default and ceiling for a new refund.
+     * The whole credit memo can be paid back to the client.
      */
-    public function remainingRefundableCents(): int
+    public function refundableBaseCents(): int
     {
-        return max(0, (int) $this->total_cents - $this->refundedCents());
+        return (int) $this->total_cents;
     }
 
     public function isFullyRefunded(): bool

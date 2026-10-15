@@ -18,6 +18,7 @@ use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -41,6 +42,7 @@ class BillPaymentPoster
         protected AccountingAuditRecorder $auditRecorder,
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(BillPayment $payment): JournalEntry
@@ -168,6 +170,11 @@ class BillPaymentPoster
                 $payment->applications->pluck('bill_id')->all(),
                 $payment->previousApplicationBillIds(),
             ))));
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $payment->company_id, $entry->lines);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
             $control = $this->controlAccount($payment);

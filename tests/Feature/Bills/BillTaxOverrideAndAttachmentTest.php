@@ -45,7 +45,7 @@ function billLine(int $accountId, int $taxCodeId, string $override): array
         'unit_price' => '100.00',
         'discount_pct' => '',
         'tax_code_id' => $taxCodeId,
-        'tax_override' => $override,
+        'tax_overrides' => $override === '' ? [] : [$taxCodeId => $override],
         'class_id' => null,
         'location_id' => null,
         'subtotal' => 0,

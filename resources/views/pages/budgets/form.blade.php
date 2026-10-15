@@ -85,7 +85,9 @@ new #[Title('Budget')] class extends Component {
     }
 
     /**
-     * @return array<int, string>
+     * Options for the rows' typeable account picker (<x-account-combo>).
+     *
+     * @return list<array{id: int, code: string, name: string}>
      */
     #[Computed]
     public function accountOptions(): array
@@ -105,8 +107,9 @@ new #[Title('Budget')] class extends Component {
                 }
             })
             ->orderBy('code')
-            ->get()
-            ->mapWithKeys(fn (Account $a): array => [$a->id => $a->code.' — '.$a->name])
+            ->get(['id', 'code', 'name'])
+            ->map(fn (Account $a): array => ['id' => (int) $a->id, 'code' => (string) $a->code, 'name' => $a->name])
+            ->values()
             ->all();
     }
 
@@ -369,15 +372,11 @@ new #[Title('Budget')] class extends Component {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
+                    <x-account-combo.options key="accounts" :options="$this->accountOptions" />
                     @foreach ($rows as $i => $row)
                         <tr wire:key="row-{{ $i }}">
                             <td class="px-2 py-1 min-w-56">
-                                <flux:select wire:model="rows.{{ $i }}.account_id">
-                                    <flux:select.option :value="null">{{ __('— Account —') }}</flux:select.option>
-                                    @foreach ($this->accountOptions as $id => $label)
-                                        <flux:select.option :value="$id">{{ $label }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="rows.{{ $i }}.account_id" options="accounts" :live="false" :placeholder="__('— Account —')" data-test="budget-row-account" />
                                 @error('rows.'.$i.'.account_id')<flux:text class="text-xs text-red-600">{{ __('Required.') }}</flux:text>@enderror
                             </td>
                             @for ($month = 1; $month <= 12; $month++)

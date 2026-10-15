@@ -6,8 +6,10 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
+use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Models\JournalLine;
+use App\Services\Posting\ReceiptPoster;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -227,4 +229,33 @@ it('clears the sales rep when update omits it', function () {
     $this->patchJson("/api/v1/invoices/{$id}", invoicePayload(), authHeader())
         ->assertStatus(200)
         ->assertJsonPath('data.sales_rep_id', null);
+});
+
+it('rejects an update that drops a paid invoice below what its receipts applied', function () {
+    $id = $this->postJson('/api/v1/invoices', invoicePayload(), authHeader())->json('data.id');
+
+    app()->instance('current_company', $this->company);
+    $receipt = CustomerReceipt::create([
+        'contact_id' => $this->customer->id,
+        'receipt_no' => 'REC-API-1',
+        'receipt_date' => '2026-05-20',
+        'deposit_to_account_id' => Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->value('id'),
+        'amount_cents' => 10000,
+    ]);
+    $receipt->applications()->create(['invoice_id' => $id, 'amount_cents' => 10000]);
+    app(ReceiptPoster::class)->post($receipt->fresh('applications'));
+    app()->forgetInstance('current_company');
+
+    $this->patchJson("/api/v1/invoices/{$id}", invoicePayload([
+        'lines' => [['quantity' => '1', 'unit_price_cents' => 6000, 'account_id' => $this->income->id]],
+    ]), authHeader())
+        ->assertStatus(422)
+        ->assertJsonPath('message', fn (string $message) => str_contains($message, 'Receipts have already applied 100.00 to this invoice'));
+
+    // Rolled back whole: header, lines and payment are as they were.
+    $invoice = Invoice::query()->withoutGlobalScopes()->with('lines')->findOrFail($id);
+    expect((int) $invoice->total_cents)->toBe(10000);
+    expect((int) $invoice->amount_paid_cents)->toBe(10000);
+    expect($invoice->lines)->toHaveCount(1);
+    expect((int) $invoice->lines->first()->unit_price_cents)->toBe(5000);
 });

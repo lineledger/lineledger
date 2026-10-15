@@ -210,14 +210,19 @@ final class PromoteInboxItem
      */
     private function lineRow(int $accountId, ?string $description, int $amountCents, array $row): array
     {
+        $taxCodeId = ! empty($row['tax_code_id']) ? (int) $row['tax_code_id'] : null;
+        $secondaryTaxCodeId = ! empty($row['secondary_tax_code_id']) ? (int) $row['secondary_tax_code_id'] : null;
+
+        // An override rides only with its tax code: without one there is no
+        // agency to post it to (SaveBill / SaveExpense apply the same rule).
         return [
             'account_id' => $accountId,
             'description' => $description,
             'amount_cents' => $amountCents,
-            'tax_code_id' => isset($row['tax_code_id']) ? (int) $row['tax_code_id'] : null,
-            'secondary_tax_code_id' => isset($row['secondary_tax_code_id']) ? (int) $row['secondary_tax_code_id'] : null,
-            'tax_override_cents' => isset($row['tax_override_cents']) ? (int) $row['tax_override_cents'] : null,
-            'secondary_tax_override_cents' => isset($row['secondary_tax_override_cents']) ? (int) $row['secondary_tax_override_cents'] : null,
+            'tax_code_id' => $taxCodeId,
+            'secondary_tax_code_id' => $secondaryTaxCodeId,
+            'tax_override_cents' => $taxCodeId !== null && isset($row['tax_override_cents']) ? (int) $row['tax_override_cents'] : null,
+            'secondary_tax_override_cents' => $secondaryTaxCodeId !== null && isset($row['secondary_tax_override_cents']) ? (int) $row['secondary_tax_override_cents'] : null,
         ];
     }
 

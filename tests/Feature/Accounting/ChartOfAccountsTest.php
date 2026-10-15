@@ -7,7 +7,6 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Services\Posting\JournalPoster;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Livewire\Livewire;
 
@@ -146,9 +145,9 @@ it('prevents editing accounts from a different company', function () {
         ->where('code', '1000')
         ->first();
 
-    expect(fn () => Livewire::test('pages::accounts.index', ['company' => $companyA])
-        ->call('openEdit', $foreignAccount->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test('pages::accounts.index', ['company' => $companyA])
+        ->call('openEdit', $foreignAccount->id)
+        ->assertStatus(404);
 
     app()->forgetInstance('current_company');
 });
@@ -312,4 +311,34 @@ it('links each account code and name to its General Ledger report', function () 
         ->assertSeeHtml('href="'.$ledgerUrl.'"')
         ->assertSeeHtml('>'.$bank->code.'</a>')
         ->assertSeeHtml('>'.e($bank->name).'</a>');
+});
+
+it('persists the Include in transfers switch', function () {
+    $company = Company::factory()->create();
+    app()->instance('current_company', $company);
+
+    $loc = Account::create([
+        'code' => '2150',
+        'name' => 'Line of Credit',
+        'subtype' => AccountSubtype::CurrentLiability->value,
+        'type' => AccountSubtype::CurrentLiability->type()->value,
+        'normal_balance' => AccountSubtype::CurrentLiability->type()->normalBalance()->value,
+    ]);
+
+    Livewire::test('pages::accounts.index', ['company' => $company])
+        ->call('openEdit', $loc->id)
+        ->set('form_use_in_transfers', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($loc->fresh()->use_in_transfers)->toBeTrue();
+
+    Livewire::test('pages::accounts.index', ['company' => $company])
+        ->call('openEdit', $loc->id)
+        ->assertSet('form_use_in_transfers', true)
+        ->set('form_use_in_transfers', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($loc->fresh()->use_in_transfers)->toBeFalse();
 });

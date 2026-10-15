@@ -6,6 +6,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Transfer;
@@ -23,6 +24,7 @@ use Livewire\Component;
 new #[Title('Transfer')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -126,6 +128,10 @@ new #[Title('Transfer')] class extends Component
 
     public function saveDraft(): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
         $this->redirectRoute('transfers.edit', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
@@ -133,11 +139,21 @@ new #[Title('Transfer')] class extends Component
 
     public function postTransfer(TransferPoster $poster): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist();
 
         try {
             $poster->post($this->transfer);
-        } catch (PeriodLockedException|ReconciliationLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postTransfer')) {
+                $this->addError('from_amount', $e->getMessage());
+            }
+
+            return;
+        } catch (ReconciliationLockedException|RuntimeException $e) {
             $this->addError('from_amount', $e->getMessage());
 
             return;
@@ -145,6 +161,25 @@ new #[Title('Transfer')] class extends Component
 
         Flux::toast(variant: 'success', text: __('Transfer posted.'));
         $this->redirectRoute('transfers.show', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
+    }
+
+    /**
+     * A second Post or Save draft — a double-click, or Enter pressed again
+     * before the redirect lands — arrives holding the transfer the first
+     * request just posted. A posted transfer is never edited (void and
+     * re-create), so finish the way the first request did rather than rewrite
+     * it and fail on the second post. Reads the row fresh: the posting may have
+     * committed after this request began.
+     */
+    private function finishIfAlreadyPosted(): bool
+    {
+        if (! $this->transfer?->exists || ! $this->transfer->fresh()?->journal_entry_id) {
+            return false;
+        }
+
+        $this->redirectRoute('transfers.show', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
+
+        return true;
     }
 
     protected function persist(): void
@@ -235,5 +270,7 @@ new #[Title('Transfer')] class extends Component
             <flux:button variant="primary" type="submit" data-test="post-transfer-button">{{ __('Post transfer') }}</flux:button>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>

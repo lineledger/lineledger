@@ -50,6 +50,28 @@ final class AddressLines
     }
 
     /**
+     * The same address on a single line, for a compact summary where a block
+     * would take too much room: every part comma-separated, blanks dropped —
+     * "12 Old Street, Unit 4, Winnipeg, MB, R3C 1A1". The country follows the
+     * same rule as format(). An empty string when there is nothing to show.
+     *
+     * @param  array<string, ?string>  $parts  keys: line1, line2, city, region, postal_code, country
+     */
+    public static function oneLine(array $parts, ?Company $company = null): string
+    {
+        $value = static fn (string $key): string => trim((string) ($parts[$key] ?? ''));
+
+        return collect([
+            $value('line1'),
+            $value('line2'),
+            $value('city'),
+            $value('region'),
+            $value('postal_code'),
+            self::countryLine($value('country'), $company),
+        ])->reject(static fn (string $part): bool => $part === '')->implode(', ');
+    }
+
+    /**
      * The same, read off a contact's billing address.
      *
      * @return list<string>

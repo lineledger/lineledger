@@ -5,6 +5,7 @@ namespace App\Services\Restore;
 use App\Models\User;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Support\Currency;
 use JsonException;
 use ZipArchive;
 
@@ -297,6 +298,17 @@ final class BundleInspector
             throw new BundleValidationException(
                 'Bundle data/companies.jsonl first line did not decode to an object.'
             );
+        }
+
+        // The restore writes the company row raw (no model events), so the
+        // Company model's home-currency guard never runs; refuse here instead.
+        $currencyCode = (string) ($row['currency_code'] ?? '');
+
+        if ($currencyCode !== '' && ! Currency::isSelectable($currencyCode)) {
+            throw new BundleValidationException(sprintf(
+                'Bundle home currency %s is not supported. Only two-decimal currencies can be restored.',
+                $currencyCode,
+            ));
         }
 
         return [

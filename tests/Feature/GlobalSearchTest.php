@@ -2,6 +2,7 @@
 
 use App\Enums\BillType;
 use App\Enums\CompanyRole;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -143,6 +144,32 @@ it('routes contacts to ar / ap statements based on role', function () {
         ->and($byName['Search Employee']->url)
         ->toBe(route('employees.index', ['edit' => $employee->id]))
         ->and($byName['Search Employee']->meta)->toBe('employee');
+});
+
+it('routes accounts to their general ledger', function () {
+    $account = Account::query()->where('name', 'like', '%GST%')->firstOrFail();
+
+    $this->actingAs($this->user);
+
+    $result = app(GlobalSearch::class)->search('GST')['accounts']
+        ->firstWhere('label', $account->code.' — '.$account->name);
+
+    expect($result->url)->toBe(route('reports.general-ledger', ['account' => $account->id]));
+});
+
+it('routes accounts to the chart of accounts for a member without Reports access', function () {
+    $member = User::factory()->create();
+    $this->company->memberships()->create([
+        'user_id' => $member->id,
+        'role' => CompanyRole::Custom,
+        'sections' => [Section::Accounting->value],
+    ]);
+
+    $this->actingAs($member);
+
+    $result = app(GlobalSearch::class)->search('GST')['accounts']->first();
+
+    expect($result->url)->toBe(route('accounts.index'));
 });
 
 it('routes other names to the all-time transactions report', function () {

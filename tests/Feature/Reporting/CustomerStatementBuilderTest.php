@@ -9,6 +9,7 @@ use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\PaymentTerm;
 use App\Models\User;
 use App\Services\Posting\CreditMemoPoster;
 use App\Services\Posting\InvoicePoster;
@@ -222,4 +223,159 @@ it('builds the activity statement with the aging strip tied to the closing balan
         ->and($result['aging']['total'])->toBe(15000)
         ->and($result['start'])->toBe('2026-01-01')
         ->and($result['end'])->toBe('2026-12-31');
+});
+
+it('reproduces the unbounded statement when no start is given', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    postStatementInvoice($this, $customer, 'INV-NS-1', '2025-11-01', '2025-12-01', 10000);
+    postStatementInvoice($this, $customer, 'INV-NS-2', '2026-03-01', '2026-03-31', 5000);
+
+    $asOf = CarbonImmutable::create(2026, 6, 1);
+    $builder = app(CustomerStatementBuilder::class);
+
+    $unbounded = $builder->openInvoices($this->company, $customer, $asOf);
+
+    expect($builder->openInvoices($this->company, $customer, $asOf, null))->toBe($unbounded)
+        ->and($unbounded['start'])->toBeNull()
+        ->and(collect($unbounded['rows'])->pluck('kind')->all())->toBe(['invoice', 'invoice'])
+        ->and(collect($unbounded['rows'])->pluck('invoice_no')->all())->toBe(['INV-NS-1', 'INV-NS-2'])
+        ->and($unbounded['total_due'])->toBe(15000);
+});
+
+it('carries open invoices dated before the start forward as one row that still ties to the aging total', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    postStatementInvoice($this, $customer, 'INV-FWD-OLD-1', '2025-10-01', '2025-10-31', 10000);
+    postStatementInvoice($this, $customer, 'INV-FWD-OLD-2', '2025-12-15', '2026-01-14', 2500);
+    postStatementInvoice($this, $customer, 'INV-FWD-NEW', '2026-02-01', '2026-03-03', 4000);
+    // Dated after the as-of date: excluded from rows, forward and total alike.
+    postStatementInvoice($this, $customer, 'INV-FWD-LATE', '2026-07-01', '2026-07-31', 999);
+
+    // An unapplied credit memo still lands in the adjustment row.
+    $memo = CreditMemo::create([
+        'contact_id' => $customer->id,
+        'credit_memo_no' => 'CM-FWD-1',
+        'credit_memo_date' => CarbonImmutable::create(2026, 3, 10),
+    ]);
+    $memo->lines()->create([
+        'account_id' => $this->income->id,
+        'description' => 'Credit',
+        'quantity' => '1',
+        'unit_price_cents' => 1500,
+        'line_subtotal_cents' => 1500,
+        'line_tax_cents' => 0,
+        'line_total_cents' => 1500,
+        'line_order' => 0,
+    ]);
+    app(CreditMemoPoster::class)->post($memo);
+
+    $result = app(CustomerStatementBuilder::class)->openInvoices(
+        $this->company,
+        $customer,
+        CarbonImmutable::create(2026, 6, 1),
+        CarbonImmutable::create(2026, 1, 1),
+    );
+
+    $rows = collect($result['rows']);
+
+    expect($rows->pluck('kind')->all())->toBe(['forward', 'invoice', 'adjustment'])
+        ->and($rows[0]['label'])->toBe('Balance forward')
+        ->and($rows[0]['balance'])->toBe(12500)
+        ->and($rows[1]['invoice_no'])->toBe('INV-FWD-NEW')
+        ->and($rows[2]['balance'])->toBe(-1500)
+        ->and($result['start'])->toBe('2026-01-01')
+        ->and($result['as_of'])->toBe('2026-06-01')
+        ->and($result['total_due'])->toBe(15000)
+        ->and($result['aging']['total'])->toBe(15000)
+        ->and($rows->sum('balance'))->toBe($result['total_due']);
+});
+
+it('omits the balance forward row when nothing open predates the start', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    postStatementInvoice($this, $customer, 'INV-NOFWD', '2026-02-01', '2026-03-03', 4000);
+
+    $result = app(CustomerStatementBuilder::class)->openInvoices(
+        $this->company,
+        $customer,
+        CarbonImmutable::create(2026, 6, 1),
+        CarbonImmutable::create(2026, 1, 1),
+    );
+
+    expect(collect($result['rows'])->pluck('kind')->all())->toBe(['invoice'])
+        ->and($result['total_due'])->toBe(4000);
+});
+
+it('carries the P.O., terms, amount paid and days past due on each open invoice', function () {
+    $customer = Contact::factory()->customer()->create();
+    $terms = PaymentTerm::create(['name' => 'Net 30', 'days' => 30, 'is_active' => true]);
+
+    $invoice = postStatementInvoice($this, $customer, 'INV-FIELDS', '2026-03-01', '2026-03-31', 20000);
+    $invoice->update(['customer_po' => 'PO-7781', 'terms_id' => $terms->id]);
+    postStatementInvoice($this, $customer, 'INV-NOT-DUE', '2026-05-30', '2026-06-29', 5000);
+
+    $undeposited = Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->first();
+    $receipt = CustomerReceipt::create([
+        'contact_id' => $customer->id,
+        'receipt_no' => 'REC-FIELDS',
+        'receipt_date' => CarbonImmutable::create(2026, 4, 15),
+        'deposit_to_account_id' => $undeposited->id,
+        'amount_cents' => 7500,
+    ]);
+    $receipt->applications()->create(['invoice_id' => $invoice->id, 'amount_cents' => 7500]);
+    app(ReceiptPoster::class)->post($receipt->fresh('applications'));
+
+    // Delivered from a queue worker, nothing is bound — the explicit company
+    // filters (terms included) must still carry every field through.
+    app()->forgetInstance('current_company');
+
+    $result = app(CustomerStatementBuilder::class)
+        ->openInvoices($this->company, $customer, CarbonImmutable::create(2026, 6, 1));
+
+    app()->instance('current_company', $this->company);
+
+    $rows = collect($result['rows'])->keyBy('invoice_no');
+
+    expect($rows['INV-FIELDS']['customer_po'])->toBe('PO-7781')
+        ->and($rows['INV-FIELDS']['terms'])->toBe('Net 30')
+        ->and($rows['INV-FIELDS']['total'])->toBe(20000)
+        ->and($rows['INV-FIELDS']['paid'])->toBe(7500)
+        ->and($rows['INV-FIELDS']['balance'])->toBe(12500)
+        // Due 2026-03-31, as of 2026-06-01 → 62 days.
+        ->and($rows['INV-FIELDS']['days_past_due'])->toBe(62)
+        ->and($rows['INV-NOT-DUE']['customer_po'])->toBe('')
+        ->and($rows['INV-NOT-DUE']['terms'])->toBe('')
+        ->and($rows['INV-NOT-DUE']['paid'])->toBe(0)
+        ->and($rows['INV-NOT-DUE']['days_past_due'])->toBe(0);
+});
+
+it('carries the invoice P.O. on activity lines and leaves it blank on other documents', function () {
+    $customer = Contact::factory()->customer()->create();
+
+    $invoice = postStatementInvoice($this, $customer, 'INV-ACT-PO', '2026-03-01', '2026-03-31', 20000);
+    $invoice->update(['customer_po' => 'PO-ACT-9']);
+    $bare = postStatementInvoice($this, $customer, 'INV-ACT-NOPO', '2026-03-05', '2026-04-04', 1000);
+
+    $undeposited = Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->first();
+    $receipt = CustomerReceipt::create([
+        'contact_id' => $customer->id,
+        'receipt_no' => 'REC-ACT-PO',
+        'receipt_date' => CarbonImmutable::create(2026, 3, 15),
+        'deposit_to_account_id' => $undeposited->id,
+        'amount_cents' => 5000,
+    ]);
+    $receipt->applications()->create(['invoice_id' => $invoice->id, 'amount_cents' => 5000]);
+    app(ReceiptPoster::class)->post($receipt->fresh('applications'));
+
+    $lines = collect(app(CustomerStatementBuilder::class)->activity(
+        $this->company,
+        $customer,
+        CarbonImmutable::create(2026, 1, 1),
+        CarbonImmutable::create(2026, 12, 31),
+    )['statement']['lines'])->keyBy('doc_no');
+
+    expect($lines['INV-ACT-PO']['customer_po'])->toBe('PO-ACT-9')
+        ->and($lines[$bare->invoice_no]['customer_po'])->toBe('')
+        ->and($lines['REC-ACT-PO']['customer_po'])->toBe('');
 });

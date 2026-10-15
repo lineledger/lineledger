@@ -14,6 +14,7 @@ use App\Models\VendorCredit;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -46,6 +47,7 @@ class VendorCreditPoster
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
         protected BillReconciler $billReconciler,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(VendorCredit $credit): JournalEntry
@@ -164,6 +166,10 @@ class VendorCreditPoster
             if ($credit->lines->isEmpty() || $credit->total_cents <= 0) {
                 throw new RuntimeException('Vendor credit has no lines or zero total; cannot repost.');
             }
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $credit->company_id, $entry->lines);
 
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 

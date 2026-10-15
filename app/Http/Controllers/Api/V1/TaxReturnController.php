@@ -35,7 +35,7 @@ class TaxReturnController extends ApiController
 
     public function show(TaxReturn $taxReturn): TaxReturnResource
     {
-        return new TaxReturnResource($taxReturn->load('lines'));
+        return new TaxReturnResource($taxReturn->load('lines', 'adjustments'));
     }
 
     /**
@@ -45,7 +45,7 @@ class TaxReturnController extends ApiController
     {
         $taxReturn = app(SaveTaxReturn::class)->handle($request->validated());
 
-        return (new TaxReturnResource($taxReturn->fresh(['lines'])))->response()->setStatusCode(201);
+        return (new TaxReturnResource($taxReturn->fresh(['lines', 'adjustments'])))->response()->setStatusCode(201);
     }
 
     /**
@@ -59,25 +59,32 @@ class TaxReturnController extends ApiController
 
         $taxReturn = app(SaveTaxReturn::class)->handle($request->validated(), $taxReturn);
 
-        return new TaxReturnResource($taxReturn->fresh(['lines']));
+        return new TaxReturnResource($taxReturn->fresh(['lines', 'adjustments']));
     }
 
     /**
-     * File a draft: snapshot the contributing journal lines and lock the period.
+     * File a draft: snapshot the contributing journal lines, post the adjustments
+     * coded to other accounts, and lock the period. A return that doesn't agree
+     * with the tax payable account is refused (422) unless
+     * `accepted_difference_cents` names that exact difference.
      */
-    public function file(TaxReturn $taxReturn): TaxReturnResource
+    public function file(Request $request, TaxReturn $taxReturn): TaxReturnResource
     {
         if ($taxReturn->status !== TaxReturnStatus::Draft) {
             $this->conflict('Only draft tax returns can be filed.');
         }
 
-        $taxReturn = $this->posting(fn (): TaxReturn => $this->filer->file($taxReturn));
+        $accepted = $request->validate([
+            'accepted_difference_cents' => ['nullable', 'integer'],
+        ])['accepted_difference_cents'] ?? null;
 
-        return new TaxReturnResource($taxReturn->fresh(['lines']));
+        $taxReturn = $this->posting(fn (): TaxReturn => $this->filer->file($taxReturn, $accepted === null ? null : (int) $accepted));
+
+        return new TaxReturnResource($taxReturn->fresh(['lines', 'adjustments']));
     }
 
     /**
-     * Void a filed return (record-keeping reversal — no GL impact).
+     * Void a filed return, reversing the journal entry its adjustments posted.
      */
     public function void(Request $request, TaxReturn $taxReturn): TaxReturnResource
     {
@@ -89,7 +96,7 @@ class TaxReturnController extends ApiController
 
         $this->posting(fn () => $this->filer->void($taxReturn, $reason));
 
-        return new TaxReturnResource($taxReturn->fresh(['lines']));
+        return new TaxReturnResource($taxReturn->fresh(['lines', 'adjustments']));
     }
 
     /**
@@ -102,6 +109,7 @@ class TaxReturnController extends ApiController
         }
 
         $taxReturn->lines()->delete();
+        $taxReturn->adjustments()->delete();
         $taxReturn->delete();
 
         return response()->json(null, 204);

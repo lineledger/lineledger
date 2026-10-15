@@ -182,7 +182,7 @@ it('honors a manual tax override on a reimbursement line', function () {
             'tax_code_id' => $gst->id,
             'secondary_tax_code_id' => null,
             'tax_code_ids' => [$gst->id],
-            'tax_override' => '3.33',   // override the auto-computed 5.00
+            'tax_overrides' => [$gst->id => '3.33'],   // override the auto-computed 5.00
             'subtotal' => 0,
             'auto_tax' => 0,
             'tax' => 0,

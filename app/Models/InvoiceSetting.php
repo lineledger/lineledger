@@ -3,9 +3,18 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Enums\CustomerStatementType;
+use App\Support\Reporting\StatementColumns;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * `statement_columns` holds the company's default optional customer-statement
+ * columns, keyed by CustomerStatementType value; null (or a missing type)
+ * means the StatementColumns defaults.
+ *
+ * @property array<string, list<string>>|null $statement_columns
+ */
 #[Fillable([
     'company_id',
     'default_sales_account_id',
@@ -47,6 +56,7 @@ use Illuminate\Database\Eloquent\Model;
     'email_default_message',
     'email_cc_self',
     'payment_instructions',
+    'statement_columns',
 ])]
 class InvoiceSetting extends Model
 {
@@ -101,7 +111,37 @@ class InvoiceSetting extends Model
             'email_default_message' => null,
             'email_cc_self' => false,
             'payment_instructions' => null,
+            'statement_columns' => null,
         ];
+    }
+
+    /**
+     * The company's saved optional statement columns for a type, or null when
+     * none are saved (the caller then falls back to the built-in defaults).
+     *
+     * @return list<string>|null
+     */
+    public function statementColumnsFor(CustomerStatementType $type): ?array
+    {
+        $saved = $this->statement_columns[$type->value] ?? null;
+
+        return is_array($saved) ? StatementColumns::sanitize($type, $saved) : null;
+    }
+
+    /**
+     * Save $keys as the company's default optional statement columns for a
+     * type, leaving the other type's default untouched.
+     *
+     * @param  array<int|string, mixed>  $keys
+     */
+    public function saveStatementColumns(CustomerStatementType $type, array $keys): void
+    {
+        $this->statement_columns = [
+            ...(is_array($this->statement_columns) ? $this->statement_columns : []),
+            $type->value => StatementColumns::sanitize($type, $keys),
+        ];
+
+        $this->save();
     }
 
     /**
@@ -143,6 +183,7 @@ class InvoiceSetting extends Model
             'show_memo' => 'boolean',
             'show_customer_message' => 'boolean',
             'email_cc_self' => 'boolean',
+            'statement_columns' => 'array',
         ];
     }
 }

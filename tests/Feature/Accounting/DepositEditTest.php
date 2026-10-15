@@ -136,14 +136,15 @@ it('releases a receipt back to Undeposited Funds when removed from the deposit',
         ->and($this->undep->fresh()->balance_cents)->toBe(15000);
 });
 
-it('blocks editing a deposit whose bank account is reconciled through that date', function () {
+it('blocks editing a deposit whose bank line a completed reconciliation ticked', function () {
     $deposit = postedReceiptDeposit();
 
-    BankReconciliation::factory()->completed()->create([
+    $rec = BankReconciliation::factory()->completed()->create([
         'company_id' => $this->company->id,
         'account_id' => $this->bank->id,
         'statement_date' => now()->addDay()->toDateString(),
     ]);
+    claimLinesForReconciliation($rec, $deposit->fresh()->journalEntry);
 
     Livewire::test('pages::deposits.form', ['company' => $this->company, 'deposit' => $deposit])
         ->set('memo', 'changed')

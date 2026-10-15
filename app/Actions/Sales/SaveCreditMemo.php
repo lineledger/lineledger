@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CreditMemo;
 use App\Models\TaxCode;
+use App\Services\Posting\CreditMemoPoster;
 use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\TaxCalculator;
 use Carbon\CarbonImmutable;
@@ -36,6 +37,7 @@ final class SaveCreditMemo
     public function __construct(
         protected DocumentNumberGenerator $numbers,
         protected TaxCalculator $taxCalculator,
+        protected CreditMemoPoster $poster,
     ) {}
 
     /**
@@ -119,6 +121,12 @@ final class SaveCreditMemo
 
             $memo->refresh();
             $memo->recalculateTotals();
+
+            // Rejected inside this transaction, so an edit that would take a
+            // refunded credit memo below its refunds writes nothing at all.
+            if ($memo->journal_entry_id !== null) {
+                $this->poster->ensureTotalCoversRefunds($memo);
+            }
 
             return $memo;
         });

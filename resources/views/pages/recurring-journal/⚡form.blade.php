@@ -357,17 +357,13 @@ new #[Title('Recurring journal entry')] class extends Component {
             </div>
 
             <div class="divide-y divide-border">
+                <x-account-combo.options key="accounts" :options="$this->accountOptions" />
                 @foreach ($lines as $i => $line)
                     <div wire:key="rj-line-{{ $i }}" data-test="recurring-journal-line-row" class="space-y-3 p-3">
                         <div class="{{ $lineGrid }} grid grid-cols-1 gap-3">
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
-                                    <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
-                                    @foreach ($this->accountOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="accounts" :placeholder="__('— Select —')" data-test="line-account" />
                             </div>
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Debit') }}</span>

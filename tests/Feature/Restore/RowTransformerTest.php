@@ -486,3 +486,36 @@ it('translates the polymorphic source pair snapshotted on tax_return_lines', fun
         ->and($result['row']['source_type'])->toBe(Invoice::class)
         ->and($result['row']['source_id'])->toBe(50);
 });
+
+it('remaps a refund\'s links to the payment it refunds and the invoice it came from', function () {
+    $transformer = buildTransformer(idMap: [
+        'customer_receipts' => [11 => 111],
+        'invoices' => [7 => 77],
+        'credit_memos' => [3 => 33],
+    ]);
+
+    // A card refund points at another receipt in the same table.
+    $receipt = $transformer->transform('customer_receipts', [
+        'id' => 12,
+        'company_id' => 5,
+        'refunded_receipt_id' => 11,
+        'from_invoice_id' => 7,
+        'credit_memo_id' => null,
+    ]);
+
+    expect($receipt['row']['refunded_receipt_id'])->toBe(111)
+        ->and($receipt['row']['from_invoice_id'])->toBe(77)
+        ->and($receipt['row']['credit_memo_id'])->toBeNull();
+
+    $cheque = $transformer->transform('cheques', [
+        'id' => 4,
+        'company_id' => 5,
+        'refunded_receipt_id' => 11,
+        'from_invoice_id' => 7,
+        'credit_memo_id' => 3,
+    ]);
+
+    expect($cheque['row']['refunded_receipt_id'])->toBe(111)
+        ->and($cheque['row']['from_invoice_id'])->toBe(77)
+        ->and($cheque['row']['credit_memo_id'])->toBe(33);
+});

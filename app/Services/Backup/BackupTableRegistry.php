@@ -111,6 +111,7 @@ use App\Models\StockMovement;
 use App\Models\TaxAgency;
 use App\Models\TaxCode;
 use App\Models\TaxReturn;
+use App\Models\TaxReturnAdjustment;
 use App\Models\TaxReturnLine;
 use App\Models\TaxReturnPayment;
 use App\Models\TimeEntry;
@@ -245,7 +246,8 @@ final class BackupTableRegistry
             ['table' => 'bill_payments', 'model' => BillPayment::class, 'group' => 'purchases'],
             // bill_payment_applications has no company_id (scoped via parent payment).
             ['table' => 'bill_payment_applications', 'model' => BillPaymentApplication::class, 'group' => 'purchases'],
-            // cheques.credit_memo_id -> credit_memos so cheques come after credit memos
+            // cheques.credit_memo_id -> credit_memos, refunded_receipt_id -> customer_receipts
+            // and from_invoice_id -> invoices, so cheques come after all three
             // (already exported in Sales group above).
             ['table' => 'cheques', 'model' => Cheque::class, 'group' => 'purchases'],
             ['table' => 'cheque_lines', 'model' => ChequeLine::class, 'group' => 'purchases'],
@@ -264,6 +266,7 @@ final class BackupTableRegistry
             // === Tax / Reconciliation / Assets ===
             ['table' => 'tax_returns', 'model' => TaxReturn::class, 'group' => 'tax'],
             ['table' => 'tax_return_lines', 'model' => TaxReturnLine::class, 'group' => 'tax'],
+            ['table' => 'tax_return_adjustments', 'model' => TaxReturnAdjustment::class, 'group' => 'tax'],
             ['table' => 'tax_return_payments', 'model' => TaxReturnPayment::class, 'group' => 'tax'],
             // partners (T5013 allocation) carry only company_id — no parent FK, so
             // no PARENT_FK_MAP entry is needed; the generic company_id swap suffices.

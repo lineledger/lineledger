@@ -397,12 +397,6 @@ parameters:
 			path: app/Http/Controllers/Api/V1/ChequeController.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ChequeStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 3
-			path: app/Http/Controllers/Api/V1/ChequeController.php
-
-		-
 			message: '#^Parameter \#1 \$query of method App\\Http\\Controllers\\Api\\V1\\CreditMemoController\:\:applyApiListFilters\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\CreditMemo\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -411,24 +405,6 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$query of method App\\Http\\Controllers\\Api\\V1\\CreditMemoController\:\:paginateApi\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\CreditMemo\> given\.$#'
 			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/CreditMemoController.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\CreditMemoStatus\:\:Posted will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Http/Controllers/Api/V1/CreditMemoController.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CreditMemoStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 3
-			path: app/Http/Controllers/Api/V1/CreditMemoController.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
 			count: 1
 			path: app/Http/Controllers/Api/V1/CreditMemoController.php
 
@@ -460,12 +436,6 @@ parameters:
 			message: '#^Parameter \#1 \$query of method App\\Http\\Controllers\\Api\\V1\\InvoiceController\:\:paginateApi\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Invoice\> given\.$#'
 			identifier: argument.type
 			count: 1
-			path: app/Http/Controllers/Api/V1/InvoiceController.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\InvoiceStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 3
 			path: app/Http/Controllers/Api/V1/InvoiceController.php
 
 		-
@@ -526,12 +496,6 @@ parameters:
 			message: '#^Parameter \#1 \$query of method App\\Http\\Controllers\\Api\\V1\\ReceiptController\:\:paginateApi\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\CustomerReceipt\> given\.$#'
 			identifier: argument.type
 			count: 1
-			path: app/Http/Controllers/Api/V1/ReceiptController.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ReceiptStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 3
 			path: app/Http/Controllers/Api/V1/ReceiptController.php
 
 		-
@@ -748,30 +712,6 @@ parameters:
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject
 			count: 1
-			path: app/Http/Resources/Api/V1/ChequeResource.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Resources/Api/V1/ChequeResource.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Http/Resources/Api/V1/CreditMemoResource.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Resources/Api/V1/CreditMemoResource.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
 			path: app/Http/Resources/Api/V1/DepositResource.php
 
 		-
@@ -779,30 +719,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Resources/Api/V1/DepositResource.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Http/Resources/Api/V1/InvoiceResource.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Resources/Api/V1/InvoiceResource.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Http/Resources/Api/V1/ReceiptResource.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type string\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Resources/Api/V1/ReceiptResource.php
 
 		-
 			message: '#^Cannot access property \$value on string\.$#'
@@ -865,6 +781,12 @@ parameters:
 			path: app/Livewire/Concerns/GuardsEditLockedForm.php
 
 		-
+			message: '#^Trait App\\Livewire\\Concerns\\HandlesPeriodLockOverride is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/HandlesPeriodLockOverride.php
+
+		-
 			message: '#^Trait App\\Livewire\\Concerns\\HoldsEditLock is used zero times and is not analysed\.$#'
 			identifier: trait.unused
 			count: 1
@@ -881,6 +803,12 @@ parameters:
 			identifier: trait.unused
 			count: 1
 			path: app/Livewire/Concerns/InteractsWithOpeningBalances.php
+
+		-
+			message: '#^Trait App\\Livewire\\Concerns\\IssuesCustomerRefunds is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/IssuesCustomerRefunds.php
 
 		-
 			message: '#^Trait App\\Livewire\\Concerns\\ManagesLineContacts is used zero times and is not analysed\.$#'
@@ -983,12 +911,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: app/Mcp/Tools/InventoryStatusTool.php
-
-		-
-			message: '#^Cannot call method label\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Mcp/Tools/ListInvoicesTool.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1309,12 +1231,6 @@ parameters:
 			path: app/Models/Grant.php
 
 		-
-			message: '#^Cannot call method isOpen\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Models/Invoice.php
-
-		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1505,12 +1421,6 @@ parameters:
 			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Models/SalesOrder.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\InvoiceStatus\:\:Void will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Models/SalesOrderLine.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaxReturnPaymentDirection\:\:Outgoing will always evaluate to false\.$#'
@@ -1791,7 +1701,7 @@ parameters:
 		-
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject
-			count: 9
+			count: 5
 			path: app/Services/GlobalSearch.php
 
 		-
@@ -1939,12 +1849,6 @@ parameters:
 			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
 
 		-
-			message: '#^Method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:contactMap\(\) should return array\<string, App\\Models\\Contact\> but returns array\<string, int\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
-
-		-
 			message: '#^Method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:existingHashes\(\) should return Illuminate\\Support\\Collection\<string, bool\> but returns Illuminate\\Support\\Collection\<mixed, \(int\|string\)\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1954,12 +1858,6 @@ parameters:
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 2
-			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
-
-		-
-			message: '#^Parameter \#8 \$contactId of method App\\Services\\Migration\\Importers\\GeneralLedgerReplayImporter\:\:postBlock\(\) expects int\|null, App\\Models\\Contact\|null given\.$#'
-			identifier: argument.type
-			count: 1
 			path: app/Services/Migration/Importers/GeneralLedgerReplayImporter.php
 
 		-
@@ -2293,12 +2191,6 @@ parameters:
 			path: app/Services/Posting/ChequePoster.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ChequeStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
-			path: app/Services/Posting/ChequePoster.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\CreditMemo\:\:\$currency_code\.$#'
 			identifier: property.notFound
 			count: 3
@@ -2332,12 +2224,6 @@ parameters:
 			message: '#^Strict comparison using \!\=\= between int\<0, max\> and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
-			path: app/Services/Posting/CreditMemoPoster.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CreditMemoStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
 			path: app/Services/Posting/CreditMemoPoster.php
 
 		-
@@ -2375,60 +2261,6 @@ parameters:
 			identifier: argument.unresolvableType
 			count: 1
 			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Paid\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Partial\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Posted\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\InvoiceStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
-			path: app/Services/Posting/InvoicePoster.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Services/Posting/InvoiceReconciler.php
-
-		-
-			message: '#^Cannot call method isOpen\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Services/Posting/InvoiceReconciler.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Paid\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoiceReconciler.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Partial\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoiceReconciler.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Posted\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/InvoiceReconciler.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between int\<0, max\> and null will always evaluate to false\.$#'
@@ -2470,30 +2302,6 @@ parameters:
 			message: '#^Access to an undefined property App\\Models\\CustomerReceipt\:\:\$fx_rate\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Paid\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Partial\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
-			message: '#^Property App\\Models\\Invoice\:\:\$status \(string\) does not accept App\\Enums\\InvoiceStatus\:\:Posted\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\ReceiptStatus\:\:Void will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
 			path: app/Services/Posting/ReceiptPoster.php
 
 		-
@@ -2605,12 +2413,6 @@ parameters:
 			path: app/Services/Proof/ProofArtifactWriter.php
 
 		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Services/Proof/ProofArtifactWriter.php
-
-		-
 			message: '#^Cannot call method label\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 3
@@ -2619,7 +2421,7 @@ parameters:
 		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
-			count: 3
+			count: 2
 			path: app/Services/Proof/ProofArtifactWriter.php
 
 		-
@@ -2630,18 +2432,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Bill\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Services/Proof/ProofArtifactWriter.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\CustomerReceipt\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Services/Proof/ProofArtifactWriter.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
 			path: app/Services/Proof/ProofArtifactWriter.php
@@ -2863,7 +2653,7 @@ parameters:
 			path: app/Services/Reporting/ContactStatementBuilder.php
 
 		-
-			message: '#^Offset ''3849'' on array\<string, array\{amount\: int, accounts\: non\-empty\-list\<array\{id\: int, code\: string, name\: string, amount\: int\}\>\}\> on left side of \?\?\= does not exist\.$#'
+			message: '#^Offset ''3849'' on array\<string, array\{amount\: int, accounts\: non\-empty\-list\<array\{id\: int\<0, max\>, code\: string, name\: string, amount\: int\}\>\}\> on left side of \?\?\= does not exist\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: app/Services/Reporting/GifiStatementBuilder.php
@@ -2972,12 +2762,6 @@ parameters:
 
 		-
 			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:generalLedgerAllAccounts\(\) should return array\{entries\: Illuminate\\Support\\Collection\<int, array\{entry_no\: string, date\: string, memo\: string\|null, total_debit\: int, total_credit\: int, lines\: array\<int, array\{account_code\: string, account_name\: string, memo\: string\|null, debit\: int, credit\: int\}\>\}\>, total_debit\: int, total_credit\: int, entry_count\: int, line_count\: int\} but returns array\{entries\: Illuminate\\Support\\Collection\<int, array\{entry_no\: string, date\: mixed, memo\: string\|null, total_debit\: int, total_credit\: int, lines\: array\<int, array\{account_code\: string, account_name\: string, memo\: string\|null, debit\: int, credit\: int\}\>\}\>, total_debit\: int, total_credit\: int, entry_count\: int\<0, max\>, line_count\: int\<0, max\>\}\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Reporting/ReportCalculator.php
-
-		-
-			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:salesTaxLines\(\) should return Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, \.\.\.\}\> but returns Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\<0, max\>\|null, \.\.\.\}\>\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Services/Reporting/ReportCalculator.php
@@ -3277,10 +3061,16 @@ parameters:
 			path: app/Services/Tax/CcaCalculator.php
 
 		-
-			message: '#^Method App\\Services\\Tax\\TaxReturnBuilder\:\:build\(\) should return Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, doc_label\: string, \.\.\.\}\> but returns Illuminate\\Support\\Collection\<int, array\{bucket\: ''collected''\|''paid'', amount_cents\: int, journal_line_id\: int, entry_id\: int, entry_no\: string, entry_date\: Carbon\\CarbonImmutable, source_type\: string\|null, source_id\: int\|null, \.\.\.\}\>\.$#'
-			identifier: return.type
+			message: '#^Anonymous function has an unused use \$acceptedDifferenceCents\.$#'
+			identifier: closure.unusedUse
 			count: 1
-			path: app/Services/Tax/TaxReturnBuilder.php
+			path: app/Services/Tax/TaxReturnFiler.php
+
+		-
+			message: '#^Anonymous function has an unused use \$reason\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/Tax/TaxReturnFiler.php
 
 		-
 			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaxReturnStatus\:\:Draft will always evaluate to true\.$#'

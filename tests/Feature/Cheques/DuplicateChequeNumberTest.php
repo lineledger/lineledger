@@ -59,7 +59,7 @@ function chequeFormLines(): array
         'tax_code_id' => null,
         'secondary_tax_code_id' => null,
         'tax_code_ids' => [],
-        'tax_override' => '',
+        'tax_overrides' => [],
         'class_id' => null,
         'location_id' => null,
         'auto_tax_cents' => 0,

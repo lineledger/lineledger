@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Enums\DepositStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
 use App\Models\Deposit;
@@ -27,6 +28,13 @@ use RuntimeException;
  *   DR  Bank account (total deposit)
  *   CR    Undeposited Funds (for receipt-source lines — moves $ from Undep → Bank)
  *   CR    Other account (for "other" deposit lines — e.g. owner contribution, refund received)
+ *
+ * A negative line flips its leg: a card refund (a negative receipt) debits
+ * Undeposited Funds, and a merchant fee debits its expense, so only the net
+ * hits the bank. When refunds outweigh the receipts — a card batch that settled
+ * negative, or a refund on a day with no sales — the total is negative and the
+ * bank is CREDITED: money out, matching the debit on the bank statement. Only a
+ * zero total is refused.
  *
  * Receipt-source lines mark the underlying CustomerReceipt as deposited
  * by linking through deposit_lines.customer_receipt_id, so they won't
@@ -62,8 +70,8 @@ class DepositPoster
 
             $deposit->recalculateAmount();
 
-            if ($deposit->lines->isEmpty() || $deposit->amount_cents <= 0) {
-                throw new RuntimeException('Deposit has no lines or zero amount.');
+            if ($deposit->lines->isEmpty() || (int) $deposit->amount_cents === 0) {
+                throw new PostingValidationException(__('A deposit needs at least one line and a total other than zero.'));
             }
 
             $undeposited = $this->undepositedFundsAccount($deposit);
@@ -116,9 +124,9 @@ class DepositPoster
      *
      * Use this when the user edits a posted deposit without the void+recreate
      * ceremony. Because a deposit moves money in and out of the bank account, the
-     * reconciliation lock is enforced explicitly here on both the original and the
-     * (possibly new) deposit date — JournalPoster::post() is not re-run, so its
-     * guard would otherwise be bypassed. The lock date is respected on both dates too.
+     * rebuild is refused if a completed reconciliation has ticked one of its lines.
+     * JournalPoster::post() is not re-run, so the lock date is enforced explicitly
+     * here on both the original and the (possibly new) deposit date.
      */
     public function repost(Deposit $deposit): JournalEntry
     {
@@ -148,24 +156,17 @@ class DepositPoster
 
             $deposit->recalculateAmount();
 
-            if ($deposit->lines->isEmpty() || $deposit->amount_cents <= 0) {
-                throw new RuntimeException('Deposit has no lines or zero amount.');
+            if ($deposit->lines->isEmpty() || (int) $deposit->amount_cents === 0) {
+                throw new PostingValidationException(__('A deposit needs at least one line and a total other than zero.'));
             }
 
             $undeposited = $this->undepositedFundsAccount($deposit);
 
-            // Capture old + new touched accounts and guard the reconciliation lock
-            // before mutating: the original date for the impact we're removing, the
-            // new date for the impact we're writing.
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $deposit->company_id, $entry->lines);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
-
-            $newAccountIds = collect([$deposit->bank_account_id]);
-            foreach ($deposit->lines as $line) {
-                $newAccountIds->push($line->isReceiptSource() ? $undeposited->id : $line->account_id);
-            }
-
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $deposit->company_id, $oldAccountIds, $originalEntryDate);
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $deposit->company_id, $newAccountIds->all(), $newEntryDate);
 
             $entry->forceFill([
                 'entry_date' => $deposit->deposit_date,
@@ -244,8 +245,8 @@ class DepositPoster
     }
 
     /**
-     * Debit the bank for the deposit total and credit each line's source. A
-     * deposit into a foreign bank converts every leg to home cents at the
+     * Debit the bank for the deposit total (credit it when the total is
+     * negative) and credit each line's source. A deposit into a foreign bank converts every leg to home cents at the
      * deposit-date rate, carrying the foreign amount as a memo. Receipt-source
      * lines clear Undeposited Funds, a home-currency clearing account, so they are
      * not allowed on a foreign deposit — foreign receipts deposit straight to the
@@ -293,16 +294,16 @@ class DepositPoster
 
         $entry->lines()->create([
             'account_id' => $deposit->bank_account_id,
-            'debit_cents' => $bankHome,
-            'credit_cents' => 0,
+            'debit_cents' => max($bankHome, 0),
+            'credit_cents' => max(-$bankHome, 0),
             'memo' => BankLineMemo::forSource($deposit),
             'line_order' => $order++,
-            ...Currency::lineMemo($currency, $rate, $totalForeign, 0),
+            ...Currency::lineMemo($currency, $rate, max($totalForeign, 0), max(-$totalForeign, 0)),
         ]);
 
         foreach ($legs as $leg) {
-            // A negative "other" line is a fee/deduction (e.g. a merchant charge):
-            // it posts as a DEBIT to its account so only the net hits the bank.
+            // A negative line is a fee/deduction (e.g. a merchant charge) or a card
+            // refund: it posts as a DEBIT to its account so only the net hits the bank.
             $home = (int) $leg['home'];
             $foreign = (int) $leg['foreign'];
 

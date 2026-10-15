@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Exceptions\Posting\LinkedJournalEntryException;
-use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Http\Concerns\AppliesApiListFilters;
 use App\Http\Requests\Api\V1\StoreJournalEntryRequest;
@@ -121,16 +121,16 @@ class JournalEntryController extends ApiController
             return (new JournalEntryResource($journalEntry->fresh(['lines'])))->response()->setStatusCode(200);
         }
 
-        $journalEntry->lines()->delete();
-        $journalEntry->delete();
+        app(DeleteDraftJournalEntry::class)->handle($journalEntry);
 
         return response()->json(null, 204);
     }
 
     /**
      * Overwrite a posted entry in place (mirrors the Livewire saveChanges path).
-     * The entry stays posted, so it must remain balanced and out of any locked
-     * period; affected account balances are recomputed across old and new lines.
+     * The entry stays posted, so it must remain balanced, out of any locked
+     * period (old and new date) and free of reconciled lines; affected account
+     * balances are recomputed across old and new lines.
      *
      * @param  array<string, mixed>  $data
      */
@@ -143,12 +143,7 @@ class JournalEntryController extends ApiController
             throw UnbalancedJournalException::from($debits, $credits);
         }
 
-        $entryDate = CarbonImmutable::parse($data['entry_date']);
-        $company = $this->company();
-
-        if ($company->isLockedFor($entryDate)) {
-            throw PeriodLockedException::for($entryDate, CarbonImmutable::parse($company->lock_date));
-        }
+        $this->poster->ensurePostedEntryEditable($journalEntry, CarbonImmutable::parse($data['entry_date']));
 
         $affectedAccountIds = $journalEntry->lines->pluck('account_id')->all();
 

@@ -58,7 +58,15 @@ new class extends Component {
                 </button>
             </flux:modal.trigger>
 
-            <x-calculator />
+            {{-- The calculator is static, so search re-renders must never morph
+                 it. Picking a result closes this modal (whose close handler
+                 calls clear()) while wire:navigate tears the page down; a
+                 morph landing mid-teardown re-initialises the calculator's
+                 keys outside their tapeCalculator scope and throws
+                 "display / pendingOp is not defined". --}}
+            <div wire:ignore class="flex shrink-0" data-test="calculator-island">
+                <x-calculator />
+            </div>
         </div>
 
         <flux:modal

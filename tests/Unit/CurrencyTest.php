@@ -32,3 +32,17 @@ it('offers only two-decimal currencies as selectable', function () {
         ->and($selectable)->toHaveKey('CAD')
         ->and($selectable)->not->toHaveKey('JPY');
 });
+
+it('selects only known two-decimal currencies', function () {
+    expect(Currency::isSelectable('CAD'))->toBeTrue()
+        ->and(Currency::isSelectable('usd'))->toBeTrue()
+        ->and(Currency::isSelectable('EUR'))->toBeTrue()
+        // Zero- and three-decimal: Money can't hold their amounts.
+        ->and(Currency::isSelectable('JPY'))->toBeFalse()
+        // Unknown: its decimal places aren't known.
+        ->and(Currency::isSelectable('XYZ'))->toBeFalse();
+
+    foreach (array_keys(Currency::selectable()) as $code) {
+        expect(Currency::isSelectable($code))->toBeTrue();
+    }
+});

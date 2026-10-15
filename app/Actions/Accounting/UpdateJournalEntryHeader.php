@@ -24,8 +24,9 @@ use RuntimeException;
  *
  * Because the lines are kept (not rebuilt), the bank line's cleared flag and
  * reconciliation link survive, so the reconciliation's marked set stays valid.
- * A date move re-runs the period-lock and reconciliation-lock checks on both
- * the old and the new date, and is recorded to the audit trail.
+ * A date move re-runs the period-lock check on both the old and the new date,
+ * is refused if a completed reconciliation has ticked one of the lines, and is
+ * recorded to the audit trail.
  *
  * Expected $data shape:
  *   entry_no:   ?string  (empty → unchanged)
@@ -67,11 +68,11 @@ final class UpdateJournalEntryHeader
                     }
                 }
 
-                // Guard both dates: leaving a reconciled period would alter the
-                // reconciled balance just as much as entering one.
-                $accountIds = $entry->lines->pluck('account_id')->all();
-                $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $originalDate);
-                $this->reconciliationLockGuard->ensureNotReconciled((int) $entry->company_id, $accountIds, $newDate);
+                // Re-dating a line a completed reconciliation has ticked would
+                // move it out of (or within) the period it was reconciled in.
+                if (! $newDate->isSameDay($originalDate)) {
+                    $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $entry->company_id, $entry->lines);
+                }
             }
 
             $header = [

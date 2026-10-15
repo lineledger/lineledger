@@ -68,7 +68,7 @@ Route::middleware(['throttle:api', 'auth.api_key'])
         // Contact resources share the {contact} binding (one Contact model, role-filtered).
         $resource('customers', 'contact', CustomerController::class, 'sales');
         $resource('sales-orders', 'salesOrder', SalesOrderController::class, 'sales', ['fulfill', 'cancel']);
-        $resource('invoices', 'invoice', InvoiceController::class, 'sales', ['post']);
+        $resource('invoices', 'invoice', InvoiceController::class, 'sales', ['post', 'refund']);
         $resource('receipts', 'receipt', ReceiptController::class, 'sales', ['post']);
         $resource('credit-memos', 'creditMemo', CreditMemoController::class, 'sales', ['post', 'refund']);
 

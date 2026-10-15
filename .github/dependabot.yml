@@ -9,6 +9,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      # TCPDF 7 is a facade over tc-lib-pdf that drops the internals FPDI's
+      # TCPDF adapter overrides (_putxobjects, _newobj, _out…), so the slip
+      # templates and the report merger can't run on it until FPDI supports it.
+      - dependency-name: tecnickcom/tcpdf
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /

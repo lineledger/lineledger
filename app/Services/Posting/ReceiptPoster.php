@@ -4,10 +4,12 @@ namespace App\Services\Posting;
 
 use App\Enums\AccountSubtype;
 use App\Enums\AuditAction;
+use App\Enums\ChequeStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
 use App\Models\Contact;
@@ -17,8 +19,10 @@ use App\Models\JournalEntry;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Banking\BankLineMemo;
 use App\Support\Currency;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -40,6 +44,9 @@ class ReceiptPoster
         protected AccountingAuditRecorder $auditRecorder,
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
+        protected CustomerRefundGuard $refundGuard,
+        protected InvoiceReconciler $invoiceReconciler,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(CustomerReceipt $receipt): JournalEntry
@@ -59,6 +66,7 @@ class ReceiptPoster
             }
 
             $this->assertAmountValid($receipt);
+            $this->refundGuard->assertWithinSource($receipt);
 
             $ar = $this->controlAccounts->resolve($receipt->company, AccountSubtype::AccountsReceivable, $receipt->currency_code);
 
@@ -83,6 +91,13 @@ class ReceiptPoster
             ])->save();
 
             $this->applyToInvoices($receipt);
+
+            // A refund raises the customer's GL AR. If the credit it pays back had
+            // closed an invoice via "Close settled balance", re-open that invoice,
+            // the way voiding a credit memo does.
+            if ($receipt->isRefund()) {
+                $this->invoiceReconciler->releaseExcessReconciliation($receipt->company, (int) $receipt->contact_id);
+            }
 
             $receipt->contact->recomputeArBalance();
 
@@ -157,6 +172,12 @@ class ReceiptPoster
 
             $this->assertAmountValid($receipt);
 
+            if ($receipt->isRefund()) {
+                $this->refundGuard->assertWithinSource($receipt);
+            } else {
+                $this->ensureAmountCoversRefunds($receipt);
+            }
+
             // Every invoice whose paid amount this edit can change: the ones
             // the receipt applies to now, plus the ones it applied to before
             // SaveReceipt rewrote the rows (it remembers them on the instance).
@@ -166,6 +187,10 @@ class ReceiptPoster
                 $receipt->applications->pluck('invoice_id')->all(),
                 $receipt->previousApplicationInvoiceIds(),
             ))));
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $receipt->company_id, $entry->lines);
 
             // Capture old JE account ids for balance recompute
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
@@ -239,6 +264,34 @@ class ReceiptPoster
     }
 
     /**
+     * Refuse a payment edit that would leave less unapplied credit than has
+     * already been refunded from it — lowering its amount, or applying the
+     * refunded credit to an invoice. The refund would then pay out credit the
+     * payment no longer holds, leaving the customer's AR in debit with nothing
+     * on the documents to explain it. Used by SaveReceipt before anything is
+     * posted, and by repost() for callers that skip the Action.
+     */
+    public function ensureAmountCoversRefunds(CustomerReceipt $receipt): void
+    {
+        if ($receipt->isRefund()) {
+            return;
+        }
+
+        $refunded = $receipt->refundedCents();
+
+        if ($refunded <= 0) {
+            return;
+        }
+
+        if ((int) $receipt->amount_cents - $receipt->appliedCents() < $refunded) {
+            throw new PostingValidationException(__(
+                ':amount of this payment has been refunded to the customer, so it must keep at least that much unapplied. Remove the refund first if the payment needs to change.',
+                ['amount' => Money::fromCents($refunded)->toDecimalString()],
+            ));
+        }
+    }
+
+    /**
      * Sum applications across all posted, non-void receipts targeting this
      * invoice. Updates amount_paid_cents and status. This is the safe
      * canonical recompute — no matter what mutations happen on receipts,
@@ -262,14 +315,40 @@ class ReceiptPoster
      */
     public function expectedPaidCents(Invoice $invoice): int
     {
-        $paid = (int) DB::table('receipt_applications as ra')
+        return min($this->liveAppliedCents($invoice), (int) $invoice->total_cents);
+    }
+
+    /**
+     * Live applications from posted, non-deleted receipts — uncapped, so it can
+     * exceed the invoice total when the data is already over-applied.
+     */
+    public function liveAppliedCents(Invoice $invoice): int
+    {
+        return (int) DB::table('receipt_applications as ra')
             ->join('customer_receipts as r', 'r.id', '=', 'ra.customer_receipt_id')
             ->where('ra.invoice_id', $invoice->id)
             ->where('r.status', ReceiptStatus::Posted->value)
             ->whereNull('r.deleted_at')
             ->sum('ra.amount_cents');
+    }
 
-        return min($paid, (int) $invoice->total_cents);
+    /**
+     * Refuse an invoice total below what its receipts already apply. The excess
+     * has nowhere to go: the paid cache caps at the total, and integrity:check
+     * keeps flagging the over-application until someone edits the receipts. So
+     * it's stopped here, by SaveInvoice before anything is written and by
+     * InvoicePoster::repost() for callers that skip the Action.
+     */
+    public function ensureTotalCoversApplications(Invoice $invoice): void
+    {
+        $applied = $this->liveAppliedCents($invoice);
+
+        if ((int) $invoice->total_cents < $applied) {
+            throw new PostingValidationException(__(
+                'Receipts have already applied :amount to this invoice, so its total can\'t go below that. Reduce the amount applied on the receipt first, or issue a credit memo to give the difference back.',
+                ['amount' => Money::fromCents($applied)->toDecimalString()],
+            ));
+        }
     }
 
     /**
@@ -330,6 +409,52 @@ class ReceiptPoster
     }
 
     /**
+     * Payments that have paid back more than they left unapplied: applied plus
+     * refunded exceeds the payment's amount. The refund guards refuse this on
+     * every write, so a row here means data written around them; it is
+     * reported, never "fixed" — only removing a refund or an application can
+     * resolve it.
+     *
+     * @return Collection<int, \stdClass>
+     */
+    public function overRefundedReceiptRows(int $companyId): Collection
+    {
+        $applied = DB::table('receipt_applications')
+            ->groupBy('customer_receipt_id')
+            ->selectRaw('customer_receipt_id, SUM(amount_cents) as applied_cents');
+
+        $byCard = DB::table('customer_receipts')
+            ->where('company_id', $companyId)
+            ->whereNotNull('refunded_receipt_id')
+            ->where('status', '!=', ReceiptStatus::Void->value)
+            ->whereNull('deleted_at')
+            ->groupBy('refunded_receipt_id')
+            ->selectRaw('refunded_receipt_id, SUM(-amount_cents) as refunded_cents');
+
+        $byCheque = DB::table('cheques')
+            ->where('company_id', $companyId)
+            ->whereNotNull('refunded_receipt_id')
+            ->where('status', '!=', ChequeStatus::Void->value)
+            ->whereNull('deleted_at')
+            ->groupBy('refunded_receipt_id')
+            ->selectRaw('refunded_receipt_id, SUM(amount_cents) as refunded_cents');
+
+        return DB::table('customer_receipts as r')
+            ->leftJoinSub($applied, 'a', 'a.customer_receipt_id', '=', 'r.id')
+            ->leftJoinSub($byCard, 'rc', 'rc.refunded_receipt_id', '=', 'r.id')
+            ->leftJoinSub($byCheque, 'rq', 'rq.refunded_receipt_id', '=', 'r.id')
+            ->where('r.company_id', $companyId)
+            ->whereNull('r.deleted_at')
+            ->where('r.status', '!=', ReceiptStatus::Void->value)
+            ->where(fn ($q) => $q->whereNotNull('rc.refunded_cents')->orWhereNotNull('rq.refunded_cents'))
+            ->whereRaw('COALESCE(a.applied_cents, 0) + COALESCE(rc.refunded_cents, 0) + COALESCE(rq.refunded_cents, 0) > r.amount_cents')
+            ->orderBy('r.id')
+            ->select(['r.id', 'r.receipt_no', 'r.amount_cents'])
+            ->selectRaw('COALESCE(a.applied_cents, 0) as applied_cents, COALESCE(rc.refunded_cents, 0) + COALESCE(rq.refunded_cents, 0) as refunded_cents')
+            ->get();
+    }
+
+    /**
      * @param  list<int>|null  $contactIds
      */
     private function invoicePaidCacheQuery(int $companyId, ?array $contactIds = null): Builder
@@ -368,6 +493,24 @@ class ReceiptPoster
 
             if ($receipt->status === ReceiptStatus::Void) {
                 throw new RuntimeException('Receipt is already voided.');
+            }
+
+            // Lock the row a new refund of this payment locks first, so a refund
+            // and a void can't both go through.
+            CustomerReceipt::query()->lockForUpdate()->find($receipt->id);
+
+            // A refund pays back this payment's unapplied credit. Voiding the
+            // payment would leave that refund standing against a credit that no
+            // longer exists, so the refunds come off first. Draft refund cheques
+            // count too: posting one later would hit the same problem.
+            if (! $receipt->isRefund() && $receipt->hasLiveRefunds()) {
+                throw new PostingValidationException(__('This payment has been refunded. Remove its refunds first, then void the payment.'));
+            }
+
+            if ($receipt->isRefund() && ($deposit = $this->refundGuard->depositHolding($receipt)) !== null) {
+                throw new PostingValidationException(__('This refund is on deposit :no. Remove it from the deposit first, then void the refund.', [
+                    'no' => $deposit->deposit_no,
+                ]));
             }
 
             $this->journalPoster->void($receipt->journalEntry, $voidDate, "Void of receipt {$receipt->receipt_no}");
@@ -449,10 +592,11 @@ class ReceiptPoster
      * Validate the receipt amount and applications.
      *
      * Ordinary receipts must be positive. A refund receipt — one linked to a
-     * credit memo, recording money paid back to the customer via the debit
-     * machine — must be negative and apply to no invoices; its negative AR
-     * credit posts a balanced entry that debits AR and credits Undeposited
-     * Funds, clearing the customer's credit.
+     * credit memo or to the payment whose unapplied credit it pays back,
+     * recording money returned to the customer via the debit machine — must be
+     * negative and apply to no invoices; its negative AR credit posts a
+     * balanced entry that debits AR and credits Undeposited Funds, clearing the
+     * customer's credit.
      */
     protected function assertAmountValid(CustomerReceipt $receipt): void
     {

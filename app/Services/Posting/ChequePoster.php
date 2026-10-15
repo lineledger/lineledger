@@ -49,6 +49,8 @@ class ChequePoster
         protected TaxPeriodLockGuard $taxLockGuard,
         protected ExchangeRateService $exchangeRates,
         protected BankReconciliationLockGuard $reconciliationLockGuard,
+        protected CustomerRefundGuard $refundGuard,
+        protected InvoiceReconciler $invoiceReconciler,
     ) {}
 
     public function post(Cheque $cheque): JournalEntry
@@ -79,6 +81,8 @@ class ChequePoster
                 throw new RuntimeException('Cheque has no lines or zero amount; cannot post.');
             }
 
+            $this->refundGuard->assertWithinSource($cheque);
+
             $entry = JournalEntry::create([
                 'entry_no' => $this->entryNumbers->next($cheque->company),
                 'entry_date' => $cheque->cheque_date,
@@ -104,6 +108,8 @@ class ChequePoster
             // refund-only case: a credit-memo refund cheque's single line IS the AR
             // leg. Must run after JournalPoster::post() flipped is_posted.
             $this->recomputeSubledgerBalances($cheque, $entry->lines);
+
+            $this->releaseRefundedReconciliation($cheque);
 
             $entry = $entry->fresh();
 
@@ -133,9 +139,9 @@ class ChequePoster
      * intact), then recompute every touched account balance.
      *
      * Mirrors {@see DepositPoster::repost()}: JournalPoster::post() is not
-     * re-run, so the period lock, tax-period lock and reconciliation lock are
-     * all enforced explicitly here on both the original and the (possibly new)
-     * cheque date.
+     * re-run, so the period lock and tax-period lock are enforced explicitly
+     * here on both the original and the (possibly new) cheque date, and the
+     * rebuild is refused if a completed reconciliation has ticked a line.
      */
     public function repost(Cheque $cheque): JournalEntry
     {
@@ -175,22 +181,18 @@ class ChequePoster
                 throw new RuntimeException('Cheque has no lines or zero amount; cannot post.');
             }
 
-            // Capture old + new touched accounts and guard the reconciliation
-            // lock before mutating: the original date for the impact we're
-            // removing, the new date for the impact we're writing.
+            $this->refundGuard->assertWithinSource($cheque);
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $cheque->company_id, $entry->lines);
+
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
             // Keep the old line models too: a contact this edit REMOVES still needs
             // its cache corrected, and $entry->refresh() below swaps the relation
             // for the rebuilt lines.
             $oldLines = $entry->lines->all();
-
-            $newAccountIds = collect([$cheque->bank_account_id])
-                ->merge($cheque->lines->pluck('account_id'))
-                ->merge(array_keys($this->recoverableTaxByPayableAccount($cheque)));
-
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $oldAccountIds, $originalEntryDate);
-            $this->reconciliationLockGuard->ensureNotReconciled((int) $cheque->company_id, $newAccountIds->all(), $newEntryDate);
 
             $entry->forceFill([
                 'entry_date' => $cheque->cheque_date,
@@ -213,6 +215,8 @@ class ChequePoster
 
             $this->recomputeSubledgerBalances($cheque, [...$oldLines, ...$entry->lines->all()]);
 
+            $this->releaseRefundedReconciliation($cheque);
+
             $entry = $entry->fresh();
 
             $this->auditRecorder->record(
@@ -234,6 +238,20 @@ class ChequePoster
 
             return $entry;
         }));
+    }
+
+    /**
+     * A refund cheque raises the customer's GL AR. If the credit it pays back
+     * had closed an invoice via "Close settled balance", re-open that invoice,
+     * the way voiding a credit memo does.
+     */
+    protected function releaseRefundedReconciliation(Cheque $cheque): void
+    {
+        $contactId = $cheque->refundSource()?->contact_id;
+
+        if ($contactId !== null) {
+            $this->invoiceReconciler->releaseExcessReconciliation($cheque->company, (int) $contactId);
+        }
     }
 
     public function void(Cheque $cheque, ?CarbonImmutable $voidDate = null): void

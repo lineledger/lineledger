@@ -12,8 +12,11 @@ use App\Enums\Industry;
 use App\Enums\JurisdictionCapability;
 use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
+use App\Enums\PeriodLockMode;
 use App\Enums\RemittanceFrequency;
 use App\Enums\Section;
+use App\Services\Posting\PeriodLockOverride;
+use App\Support\Currency;
 use App\Support\Jurisdiction\JurisdictionProfile;
 use App\Support\SiteSettings;
 use App\Support\Storage\StorageDisks;
@@ -31,10 +34,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Larastan cannot infer casts() on a model this large, so the two attributes
+ * Larastan cannot infer casts() on a model this large, so the attributes
  * whose mis-inference (string) breaks call sites are annotated explicitly.
  *
  * @property OrganizationType|null $organization_type
+ * @property PeriodLockMode|null $lock_mode
  * @property array<string, mixed>|null $settings
  * @property string|null $inbound_email_token
  * @property bool $inbound_email_enabled
@@ -65,6 +69,7 @@ use Illuminate\Support\Facades\Storage;
     'default_inventory_asset_account_id',
     'default_cogs_account_id',
     'lock_date',
+    'lock_mode',
     'tax_number',
     'company_registration_number',
     'phone',
@@ -155,6 +160,7 @@ class Company extends Model
             $company->address_country ??= Country::Canada->value;
             $country = Country::tryFrom($company->address_country) ?? Country::Canada;
             $company->currency_code ??= $country->defaultCurrencyCode();
+            self::assertSupportedHomeCurrency($company->currency_code);
             $company->fiscal_year_start_month ??= 1;
 
             if (empty($company->timezone)) {
@@ -171,7 +177,25 @@ class Company extends Model
                 && $company->getOriginal('address_country') !== null) {
                 throw new DomainException('Company country cannot be changed after creation.');
             }
+
+            // Only a change is checked, so a company already on an unsupported
+            // currency can still save its other settings.
+            if ($company->isDirty('currency_code')) {
+                self::assertSupportedHomeCurrency((string) $company->currency_code);
+            }
         });
+    }
+
+    /**
+     * Money assumes two decimals, so a zero- or three-decimal home currency
+     * would book amounts the currency can't hold (a ¥1 invoice at 10% posts
+     * ¥0.10 tax). See {@see Currency::isSelectable()}.
+     */
+    private static function assertSupportedHomeCurrency(string $currencyCode): void
+    {
+        if (! Currency::isSelectable($currencyCode)) {
+            throw new DomainException("Home currency [{$currencyCode}] is not supported. Only two-decimal currencies can be used.");
+        }
     }
 
     public function owner(): ?User
@@ -292,11 +316,27 @@ class Company extends Model
 
     /**
      * Determine if posting on the given date is blocked by the company lock date.
+     * A date inside the closed period counts as open while the user's confirmed
+     * override is running ({@see PeriodLockOverride}).
      */
     public function isLockedFor(CarbonInterface $date): bool
     {
+        return $this->isInClosedPeriod($date)
+            && ! PeriodLockOverride::allows($this, $date);
+    }
+
+    /**
+     * Whether the date falls on or before the lock date, ignoring any override.
+     */
+    public function isInClosedPeriod(CarbonInterface $date): bool
+    {
         return $this->lock_date !== null
             && $date->lessThanOrEqualTo($this->lock_date);
+    }
+
+    public function lockMode(): PeriodLockMode
+    {
+        return $this->lock_mode ?? PeriodLockMode::Block;
     }
 
     /**
@@ -324,7 +364,9 @@ class Company extends Model
             // Americas
             'Hawaii' => 'Pacific/Honolulu',
             'Alaska' => 'America/Anchorage',
-            'Pacific Time (US & Canada)' => 'America/Los_Angeles',
+            'Pacific Time (US)' => 'America/Los_Angeles',
+            'British Columbia (no DST)' => 'America/Vancouver',
+            'Yukon (no DST)' => 'America/Whitehorse',
             'Mountain Time (US & Canada)' => 'America/Denver',
             'Arizona (no DST)' => 'America/Phoenix',
             'Central Time (US & Canada)' => 'America/Chicago',
@@ -719,6 +761,7 @@ class Company extends Model
             'contribution_method' => ContributionMethod::class,
             'setup_completed_at' => 'datetime',
             'lock_date' => 'date:Y-m-d',
+            'lock_mode' => PeriodLockMode::class,
             'fiscal_year_start_month' => 'integer',
             'document_logo_max_height' => 'integer',
             'auto_apply_customer_credits' => 'boolean',
@@ -774,10 +817,15 @@ class Company extends Model
      * portal: a Stripe account is linked and its connection has not been flagged
      * broken. A revoked/severed connection trips this to false so the portal
      * degrades gracefully instead of every customer hitting a failed charge.
+     * Also false for a home currency Money can't represent: Stripe reads a
+     * zero-decimal amount in whole units, so ¥1,000 (stored as 100000) would
+     * charge ¥100,000.
      */
     public function canAcceptCardPayments(): bool
     {
-        return $this->stripe_account_id !== null && $this->stripe_disconnected_at === null;
+        return $this->stripe_account_id !== null
+            && $this->stripe_disconnected_at === null
+            && Currency::isSelectable((string) $this->currency_code);
     }
 
     /**

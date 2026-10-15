@@ -24,9 +24,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stops answering. Nothing is deleted — tickets already raised stay readable in
   the admin portal, so switching it back on loses nothing. See
   `config/support.php`.
+- **Pay an expense from a loan account** — a new **Use to pay expenses** switch on
+  a current, long-term, or other liability in the Chart of Accounts adds it to an
+  expense's Paid from, alongside bank and credit card. When an owner pays a business
+  cost personally you can post it straight to their Shareholder Loan: debit the
+  expense and any recoverable tax, credit the loan, in one entry with no clearing
+  account. Off by default; system accounts such as the payroll payables can't be
+  switched on. ([#50](https://github.com/lineledger/lineledger/issues/50))
+- **Adjust a tax return before filing.** A draft return takes adjustments: a
+  change to the tax collected or the input tax credits by any amount, or another
+  amount such as a collector's commission, a bank fee, or a balance carried from
+  an earlier period, each with an account and a memo. Coded to the agency's tax
+  payable account, an adjustment only changes the return (the amount is already
+  in the ledger). Coded to any other account, filing posts it against the tax
+  payable account, dated the period's last day: a PST commission posts debit PST
+  Payable, credit PST Commission Income. Voiding the return reverses that entry.
+  The API takes `adjustments` on a tax return.
+- **Reconcile a tax return to the ledger.** The return form and page set the
+  return beside the agency's tax payable account. The panel shows the opening
+  balance, the payments and refunds in the period, the tax collected, the ITCs,
+  any excluded lines and the adjustments filing will post, then the balance after
+  filing and the difference from the net owing. A return that doesn't agree with
+  the ledger files only when you accept that difference. Filing freezes the
+  reconciliation on the return.
+- **Refund an overpayment — no credit memo needed.** When a customer pays twice
+  (by card, then again by cheque) the second payment is an overpayment, kept as
+  credit on their account. An invoice now lists its **Payments** and the
+  customer's **Overpayment (customer credit)**, and **Refund to client** pays that
+  credit back by card — a negative receipt to Undeposited Funds that nets into
+  the next card deposit — or by cheque, as a draft refund cheque. Nothing is
+  credited, so revenue is untouched, and the invoice stays paid by its original
+  payment. A payment's own page shows its unapplied credit and offers the same
+  refund. The API takes `POST /api/v1/invoices/{id}/refund`.
+- **Refund-only deposits.** A deposit whose card refunds outweigh its receipts —
+  or that holds only a refund — now posts with a negative total, as money out of
+  the bank, matching the card processor's debit on the statement. It lists with
+  the payments when you reconcile. Only a deposit netting to zero is refused.
 
 ### Changed
 
+- **Type a GL number or a name to pick a line's account.** Every line "Account"
+  picker (cheques, expenses, bills, deposits, journal entries, invoices and the
+  rest of the sales and purchase forms, recurring documents and templates,
+  reimbursements, inbox review, tax return adjustments, budgets, and the bank
+  review categories and splits) is now one search box instead of a long
+  dropdown. "24" lists 2400, 2410… first; "disb" or "bmo usd" finds the account
+  by name, words in any order, ignoring case and punctuation. Arrow keys and
+  Enter pick, Tab takes the highlighted match after you type, Escape backs out,
+  and emptying the box clears the account.
+- **Customer statements get their own page.** Statement… (on the Customers list,
+  a customer's Open balance, or the AR statement report) now opens a Customer
+  statement page that previews the statement like any report, then exports it to
+  PDF or emails it exactly as shown; the old dialog is gone. Pick a Start and End
+  date: an Open invoices statement lists the invoices dated in that range and
+  carries anything older still owing as one **Balance forward** row, so Total Due
+  still matches AR Aging (the default period, All, prints every open invoice as
+  before). A **Columns** menu adds the invoice's **P.O. #**, Terms, Amount Paid
+  and Days Past Due, or hides Memo, Due Date and Original Amount; Account activity
+  can add P.O. # or hide Type and Memo. **Save as default columns** makes a choice
+  the company default (Settings access required).
 - **The browser tab title follows `APP_NAME`** instead of a hardcoded "Line
   Ledger". Deployments that want the spaced form should set
   `APP_NAME="Line Ledger"`.
@@ -35,6 +91,150 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installation. `APP_REGION` still picks which marketing site the legal links
   point at, but no longer forces the banner, so a self-host that set it to get the
   right legal documents is no longer offered a trip to someone else's app.
+- **API: filing a tax return that doesn't reconcile is refused.** `POST
+  /tax-returns/{id}/file` answers 422 when the return differs from the tax payable
+  account, unless `accepted_difference_cents` names that exact difference.
+- **Sales tax figures leave out payments to the agency.** The Sales Tax report,
+  the sales tax MCP tool, and the tax set-aside insight used to count a remittance
+  as an input tax credit. That covered a recorded tax payment, and a cheque or
+  journal entry moving money between the payable account and a bank. A period
+  that contains a remittance now reports a lower Paid figure and the correct,
+  higher net. Credit-memo tax now lowers Collected instead of adding to
+  Paid, and vendor-credit tax lowers Paid instead of adding to Collected. Net
+  figures are unchanged by that split.
+- **Dependencies refreshed** — Laravel 13.35, Livewire 4.4.7, Fortify 1.41,
+  Passport 13.9, Flux 2.20.1, laravel/mcp 1.0, stripe-php 22 and symfony/yaml 8;
+  the PHP ^8.5 and Laravel 13 requirements are unchanged. TCPDF stays on 6.x:
+  TCPDF 7 drops the internals FPDI builds on, and the payroll slips and the
+  management report package both print through FPDI.
+- **MCP servers speak protocol revision 2026-07-28.** Connectors that open with
+  `initialize` keep working: 2025-06-18 and 2025-11-25 are answered as asked,
+  and a client asking for 2025-03-26 or 2024-11-05 is offered 2025-11-25. There
+  is no `Mcp-Session-Id` any more; every request stands alone. An unexpected
+  error inside a tool now comes back as a tool error rather than a JSON-RPC
+  error, without the exception's message unless `APP_DEBUG` is on.
+- **Stripe requests use API version `2026-09-30.endive`** (was
+  `2026-06-24.dahlia`), the version stripe-php 22 pins. Webhook payloads follow
+  the API version set on the webhook endpoint in Stripe, which this doesn't
+  change.
+- **A tax amount for each tax on a purchase line.** On cheques, expenses, bills,
+  reimbursements and the inbox review screen, every tax code ticked on a line now
+  gets its own amount field, labelled with the code and showing its calculated
+  amount. With GST and PST on one line you can correct either or both; the single
+  field used to override only the first tax. A line with no tax code shows no
+  field.
+- **A receipt's `unapplied_cents` nets out refunds.** The API's figure is now
+  what the payment neither applied nor refunded, and a refund receipt reports 0
+  instead of its negative amount. Receipts also return `refunded_cents`,
+  `credit_memo_id`, `refunded_receipt_id` and `from_invoice_id`; cheques return
+  `refunded_receipt_id` and `from_invoice_id`. Deposit lines accept a negative
+  `amount_cents` (a card refund or a fee) and refuse only 0 — they used to refuse
+  anything below 1, so the API couldn't net a fee out of a deposit.
+- **A refunded payment keeps its refunded credit.** While a refund stands, the
+  payment can't be voided or moved to another customer, and its refunded credit
+  can't be applied to an invoice or auto-applied to a new one. Remove the refund
+  first. A refund receipt opens on its own page and no longer offers Edit (the
+  form always refused its negative amount); remove it and record it again.
+- **Refund cheques from a credit memo fill in the payee's mailing address**, and
+  every refund is paid from a bank or Undeposited Funds account in your home
+  currency.
+
+### Fixed
+
+- **Delete a draft journal entry.** A manual journal entry saved as a draft had
+  no way out: Void is only for posted entries, and the page offered nothing
+  else. Its Actions menu now has **Delete draft**, which removes the entry and
+  its lines (the deletion is recorded in the audit log). A posted entry still
+  offers Void, and an entry created by another document is still managed from
+  that document. `DELETE /api/v1/journal-entries/{id}` now goes through the same
+  action, so it also refuses a source-linked draft (422) instead of deleting it
+  out from under its document.
+- **A paid invoice can't be edited below what its receipts applied.** Lowering
+  the total of an invoice that receipts had already paid saved anyway, leaving
+  more applied than the invoice was worth. Its balance cache stopped matching
+  its payments, and the nightly integrity check reported an over-application.
+  The edit is now refused with the amount applied. Reduce the amount applied on
+  the receipt first, or issue a credit memo for the difference. A failed post
+  from the invoice form also no longer leaves the edit half-saved.
+- **A refunded credit memo can't be voided or edited below its refunds.**
+  Voiding a credit memo that had a refund cheque or card refund against it, or
+  editing its total below the amount refunded, left refunds with no credit
+  behind them. Both are now refused until the refund is voided. The API answers
+  either with 422.
+- **BC organizations keep BC time through the winter.** British Columbia stops
+  changing its clocks on November 1, 2026 and stays on UTC−7, but BC and Yukon
+  organizations were set to US Pacific time, which still falls back to UTC−8.
+  From November to March their "today" would have run an hour behind: between
+  midnight and 1 am new entries defaulted to the day before, report stamps read
+  an hour early, and payment reminders and scheduled report emails went out a
+  day late. They now use British Columbia and Yukon time, which the
+  Timezone picker offers as choices, and existing organizations left on US
+  Pacific time move across automatically when you upgrade. The server's timezone
+  data must know about the change: `php -r 'echo (new
+  DateTime("2026-12-01", new DateTimeZone("America/Vancouver")))->format("P");'`
+  should print `-07:00`.
+- **Clearing a cheque line's account no longer breaks the form.** Choosing "—"
+  on a line that had an account threw an error instead of emptying the line.
+- **Pressing Post twice on a new journal entry no longer errors.** A
+  double-click, or Enter pressed again before the page moved on, reached the
+  server holding the entry the first click had just posted: it rewrote that
+  posted entry's lines and then failed with "already posted" (a server error on
+  journal entries). The repeat now changes nothing and opens the posted entry.
+  New expenses and transfers get the same guard, and Save draft never rewrites
+  a posted entry.
+- **Two people posting at once no longer breaks a new journal entry.** The New
+  journal entry page fills in the next JE number when it opens, but cheques,
+  bills, invoices and every other posting share that sequence. If anyone posted
+  before you clicked Post, the save failed with a server error. A suggested
+  number is now only a preview: the entry takes the next free number as it
+  saves. A number you type yourself is kept, and if it is already used you get a
+  message under Entry # instead. The number sequence also never hands out a
+  number that is already taken.
+- **A saved draft tax return shows its figures.** Its page read 0.00 and "No
+  snapshot lines yet" until the return was filed, and the list showed 0.00 too. A
+  draft's page now works its figures out live from the ledger. Each save also
+  stores them for the list (existing drafts pick them up on their next save).
+- **Updating a tax return through the API no longer clears its excluded lines.**
+  A `PATCH` without `excluded_journal_line_ids` used to wipe the lines unchecked in
+  the web form. Omitting the key now leaves them as they are.
+- **"Include in transfers" now saves.** The switch on a Chart of Accounts
+  account was shown and read back, but saving never stored it, so a line of
+  credit or other non-bank account could not be added to the transfer form.
+- **A credit memo's form total now counts both taxes.** With two taxes on a line
+  (GST and PST), the Total on the new / edit credit memo form added only the
+  first, so a memo the credit memo page showed as 140.00 read 130.75 while being
+  edited. Display only — the saved memo, its journal entry and refunds always used
+  the right amount.
+- **Cheque and expense lines list every account.** The line Account picker on the
+  cheque and expense forms left out revenue accounts, so a customer refund or a
+  reversed commission couldn't be coded there. It now lists every active account,
+  as the journal entry form does. Picking a revenue account doesn't bring along a
+  sales-only default tax code, which never applies to a purchase.
+- **A tax amount without a tax code is ignored.** A cheque, expense or bill line
+  could save a typed tax amount with no tax code. The amount went into the total,
+  but with no tax agency to post it to, the journal entry put it in the expense
+  account instead.
+- **Cheque and expense pages show the first tax.** The totals on a cheque's or
+  expense's page left out each line's first tax: a GST-only cheque showed no tax
+  row, and a GST + PST one showed only PST. Display only — the saved amounts and
+  the journal entry were right.
+- **A draft refund cheque can't be edited past its credit.** Raising the amount
+  of a credit memo's draft refund cheque in the cheque form saved, so posting it
+  refunded more than the memo granted. Saving, posting and reposting a refund
+  cheque now refuse an amount above the credit left.
+
+### Security
+
+- **league/commonmark 2.10.3**, which renders the Markdown in outgoing mail. It
+  fixes a quadratic-time denial of service in the GitHub-flavoured table
+  extension ([GHSA-3q6v-r5mr-hxv8](https://github.com/advisories/GHSA-3q6v-r5mr-hxv8))
+  and a bypass of the raw-HTML tag filter
+  ([GHSA-97jj-33gv-5xf9](https://github.com/advisories/GHSA-97jj-33gv-5xf9)).
+- **laravel/mcp 1.0.1**, which registers MCP connectors over OAuth. It matches a
+  loopback redirect URI on its parsed host instead of a `http://localhost:`
+  prefix, which a crafted URI could use to get past `MCP_REDIRECT_DOMAINS`, and
+  refuses redirect URIs that carry a username or password
+  ([GHSA-mx2h-h55v-pm44](https://github.com/laravel/mcp/security/advisories/GHSA-mx2h-h55v-pm44)).
 
 ## [1.1.0] - 2026-09-18
 

@@ -184,6 +184,10 @@ final class RowTransformer
             'journal_line_id' => 'journal_lines',
             'journal_entry_id' => 'journal_entries',
         ],
+        'tax_return_adjustments' => [
+            'tax_return_id' => 'tax_returns',
+            'account_id' => 'accounts',
+        ],
         'stock_adjustment_lines' => [
             'stock_adjustment_id' => 'stock_adjustments',
             'item_id' => 'items',
@@ -269,6 +273,10 @@ final class RowTransformer
         'customer_receipts' => [
             'contact_id' => 'contacts',
             'credit_memo_id' => 'credit_memos',
+            // Self-referential: a refund names the payment whose credit it
+            // returns. The refund is always created later, so lower ids insert first.
+            'refunded_receipt_id' => 'customer_receipts',
+            'from_invoice_id' => 'invoices',
             'deposit_to_account_id' => 'accounts',
             'payment_method_id' => 'payment_methods',
             'journal_entry_id' => 'journal_entries',
@@ -337,6 +345,8 @@ final class RowTransformer
             'bank_account_id' => 'accounts',
             'payee_contact_id' => 'contacts',
             'credit_memo_id' => 'credit_memos',
+            'refunded_receipt_id' => 'customer_receipts',
+            'from_invoice_id' => 'invoices',
             'journal_entry_id' => 'journal_entries',
         ],
         'expenses' => [
@@ -398,6 +408,7 @@ final class RowTransformer
         ],
         'tax_returns' => [
             'tax_agency_id' => 'tax_agencies',
+            'adjustment_journal_entry_id' => 'journal_entries',
         ],
         'tax_return_payments' => [
             'tax_return_id' => 'tax_returns',

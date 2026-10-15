@@ -291,9 +291,9 @@ class OpeningBalanceJournalSynchronizer
 
     /**
      * In-place rebuild on the same journal entry — the DepositPoster::repost
-     * idiom. JournalPoster::post() is not re-run, so the period and
-     * reconciliation locks are enforced explicitly on both the original and
-     * the new entry date.
+     * idiom. JournalPoster::post() is not re-run, so the period lock is
+     * enforced explicitly on both the original and the new entry date, and the
+     * rebuild is refused if a completed reconciliation has ticked a line.
      *
      * @param  array<int, int>  $lines
      */
@@ -310,11 +310,9 @@ class OpeningBalanceJournalSynchronizer
             }
         }
 
-        $oldAccountIds = $entry->lines->pluck('account_id')->all();
-        $newAccountIds = [...array_keys($lines), $obe->id];
+        $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $company->id, $entry->lines);
 
-        $this->reconciliationLockGuard->ensureNotReconciled((int) $company->id, $oldAccountIds, $originalDate);
-        $this->reconciliationLockGuard->ensureNotReconciled((int) $company->id, $newAccountIds, $asOf);
+        $oldAccountIds = $entry->lines->pluck('account_id')->all();
 
         $entry->forceFill([
             'entry_date' => $asOf->toDateString(),

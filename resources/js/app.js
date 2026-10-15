@@ -1,8 +1,10 @@
 import './charts.js';
 import { evaluateAmountExpression, isAmountExpression, roundHalfUp } from './amount-expression.js';
 import { editLockBlockedPoller, editLockKeeper } from './edit-lock.js';
+import { installAccountCombo } from './account-combo.js';
 import { installEscapeBack } from './escape-back.js';
 import { installDatePicker } from './date-picker.js';
+import { resizableColumnsDirective } from './resizable-columns.js';
 
 /** Escape goes back to the previous page. See ./escape-back.js. */
 installEscapeBack();
@@ -19,10 +21,24 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data('editLockBlockedPoller', editLockBlockedPoller);
 
     /**
+     * Typeable account picker for line "Account" columns: search by GL number
+     * or name. See ./account-combo.js and <x-account-combo>.
+     */
+    installAccountCombo(window.Alpine);
+
+    /**
+     * Drag-to-resize columns on the line-item tables, remembered per browser:
+     * x-resizable-columns="'cheque-lines'" on the <table>, <x-col-resize-handle>
+     * in each resizable <th>. See ./resizable-columns.js.
+     */
+    window.Alpine.directive('resizable-columns', resizableColumnsDirective);
+
+    /**
      * Guest country-switcher banner (CA / US / GB twins). Mirrors the marketing
      * site's GeoBanner, but the trigger is the REFERRER rather than the browser
      * timezone: it offers sibling-country apps unless the visitor already
-     * arrived from a lineledger domain or has already decided here.
+     * arrived from a lineledger domain (so they chose their country on the
+     * marketing site) or has already decided here.
      *
      * The choice is remembered in localStorage['ll_region'] (single origin per
      * country, never sent to the server) so we never nag twice. The element

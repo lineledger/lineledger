@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  * posted expense must be voided and recreated (mirrors the cheque flow).
  *
  * Expected $data shape (cents-based, framework-agnostic):
- *   payment_account_id: int       (bank asset OR credit-card liability)
+ *   payment_account_id: int       (bank asset, credit card, or loan liability — see Account::scopeExpensePaymentSources)
  *   payment_method_id:  ?int
  *   reference:          ?string   (confirmation / cheque number, optional)
  *   expense_date:       string
@@ -87,8 +87,11 @@ final class SaveExpense
                     ? TaxCode::withoutGlobalScopes()->where('company_id', app('current_company')->id)->find($line['secondary_tax_code_id'])
                     : null;
 
-                $override = $line['tax_override_cents'] ?? null;
-                $secondaryOverride = $line['secondary_tax_override_cents'] ?? null;
+                // A tax amount only means something against a tax code: with no
+                // code there is no agency to post it to, so the poster would skip
+                // it and the rounding plug would quietly push it into an expense.
+                $override = $taxCode !== null && isset($line['tax_override_cents']) ? (int) $line['tax_override_cents'] : null;
+                $secondaryOverride = $secondaryTaxCode !== null && isset($line['secondary_tax_override_cents']) ? (int) $line['secondary_tax_override_cents'] : null;
 
                 if (($line['amount_includes_tax'] ?? false) && ($taxCode !== null || $secondaryTaxCode !== null)) {
                     $split = InclusiveTaxSplit::split($amountCents, $taxCode, $secondaryTaxCode);
@@ -102,7 +105,7 @@ final class SaveExpense
                     }
 
                     // Persist the split as explicit overrides so a re-save reproduces it.
-                    $override = $taxCents;
+                    $override = $taxCode !== null ? $taxCents : null;
                     $secondaryOverride = $secondaryTaxCode !== null ? $secondaryTaxCents : null;
                 } else {
                     $taxCents = $override !== null

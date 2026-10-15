@@ -103,6 +103,7 @@ final class AccountReferenceRegistry
             ['table' => 'tax_return_payments', 'column' => 'penalty_account_id'],
             ['table' => 'tax_return_payments', 'column' => 'interest_account_id'],
             ['table' => 'tax_return_payments', 'column' => 'commission_account_id'],
+            ['table' => 'tax_return_adjustments', 'column' => 'account_id'],
 
             // Banking.
             ['table' => 'bank_reconciliations', 'column' => 'account_id'],

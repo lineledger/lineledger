@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Sales\RecordCustomerRefund;
 use App\Actions\Sales\SaveInvoice;
 use App\Enums\InvoiceStatus;
+use App\Enums\RefundMethod;
 use App\Http\Concerns\AppliesApiListFilters;
+use App\Http\Requests\Api\V1\RefundInvoiceRequest;
 use App\Http\Requests\Api\V1\StoreInvoiceRequest;
 use App\Http\Requests\Api\V1\UpdateInvoiceRequest;
 use App\Http\Resources\Api\V1\InvoiceResource;
+use App\Http\Resources\Api\V1\ReceiptResource;
+use App\Models\CustomerReceipt;
 use App\Models\Invoice;
+use App\Services\EditLocks\EditLockManager;
 use App\Services\Posting\InvoicePoster;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -115,5 +121,40 @@ class InvoiceController extends ApiController
         $invoice->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Refund a customer's overpayment from this invoice — the API equivalent of
+     * the invoice's "Refund to client → by credit card": pays back the unapplied
+     * credit of refunded_receipt_id (a payment by this invoice's customer) as a
+     * posted NEGATIVE customer receipt (DR Accounts Receivable, CR the deposit
+     * account), linked to that payment and to this invoice. The invoice itself
+     * is unchanged. Returns the created receipt.
+     */
+    public function refund(RefundInvoiceRequest $request, Invoice $invoice, RecordCustomerRefund $refunds, EditLockManager $locks): JsonResponse
+    {
+        if (! in_array($invoice->status, [InvoiceStatus::Posted, InvoiceStatus::Partial, InvoiceStatus::Paid], true)) {
+            $this->conflict('Only a posted invoice can issue a refund.');
+        }
+
+        $data = $request->validated();
+        $payment = CustomerReceipt::query()->findOrFail((int) $data['refunded_receipt_id']);
+
+        // The refund spends the payment's credit: refused (423) while someone is
+        // editing that payment in the web app, like any other write to it.
+        $receipt = $locks->guardWrite($payment, null, fn (): CustomerReceipt => $this->posting(
+            fn (): CustomerReceipt => $refunds->handle($payment, [
+                'method' => RefundMethod::Card,
+                'amount_cents' => (int) $data['amount_cents'],
+                'refund_date' => $data['refund_date'],
+                'deposit_to_account_id' => (int) $data['deposit_to_account_id'],
+                'payment_method_id' => $data['payment_method_id'] ?? null,
+                'reference' => $data['reference'] ?? null,
+                'receipt_no' => $data['receipt_no'] ?? null,
+                'memo' => $data['memo'] ?? null,
+            ], $invoice),
+        ));
+
+        return (new ReceiptResource($receipt->load(ReceiptResource::RELATIONS)))->response()->setStatusCode(201);
     }
 }

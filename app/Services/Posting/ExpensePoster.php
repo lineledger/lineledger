@@ -23,10 +23,10 @@ use RuntimeException;
  * Posts a pay-now expense (QuickBooks "Expense") to the GL.
  *   DR  Expense (per-line, grouped by account, gross-up non-recoverable tax)
  *   DR  Tax Payable (per-agency, recoverable tax = input tax credit)
- *   CR    Payment account (bank asset OR credit-card liability)
+ *   CR    Payment account (bank asset, credit card, or loan liability such as a shareholder loan)
  *
  * Mirrors {@see ChequePoster}; the structural difference is that the credit
- * leg is the chosen payment account (which may be a credit card), and the
+ * leg is the chosen payment account (which may be a credit card or loan), and the
  * document carries a payment method for expense-report filtering. Like the
  * cheque, there is no repost path — a posted expense is voided and recreated.
  */

@@ -84,7 +84,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
             <li>{{ __('Open Employees → Reimbursements, then select New reimbursement.') }}</li>
             <li>{{ __('Choose the Employee. The Reimbursement # fills in automatically — change it if you number expense reports your own way. Set the Expense date and the Pay by date (a click anywhere in a date field opens the calendar), and add a Memo such as “October expense report”.') }}</li>
             <li>{{ __('On each line, enter a Description, pick the Expense account the cost belongs to, and enter the Qty and Amount. The line Total calculates as you type, and the Amount cell doubles as a calculator — type 42.50+18.25 and press Enter.') }}</li>
-            <li>{{ __('Open the Tax picker on the line if the expense included recoverable tax. You can tick up to two codes (say GST and PST), and the tax for each is worked out for you. The box below the picker holds only the tax for the first code you tick, with its calculated amount shown in grey; type over it when the receipt shows a different figure for that tax. The second code’s tax is always calculated and added on top, so never type the receipt’s combined tax into the box, or the second tax is counted twice.') }}</li>
+            <li>{{ __('Open the Tax picker on the line if the expense included recoverable tax. You can tick up to two codes (say GST and PST), and the tax for each is worked out for you. Each code you tick gets its own box below the picker, labelled with the code and showing its calculated amount in grey; type over a box when the receipt shows a different figure for that tax. Enter each tax in its own box, never the receipt’s combined tax in one.') }}</li>
             <li>{{ __('Select Add line for each further receipt, then select Post reimbursement to finalize it, or Save draft to keep working on it later.') }}</li>
         </ol>
 
@@ -97,7 +97,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
         <x-docs.figure
             src="{{ asset('docs/screenshots/employees/reimbursement-form.png') }}"
             alt="{{ __('The New reimbursement form with employee, reimbursement number, expense date, pay by date, memo, and a line grid for description, expense account, quantity, amount, and tax') }}"
-            caption="{{ __('The New reimbursement form. Each line points an out-of-pocket cost at the expense account it belongs to; the box under the Tax picker holds the first tax code’s amount.') }}"
+            caption="{{ __('The New reimbursement form. Each line points an out-of-pocket cost at the expense account it belongs to; each tax code ticked in the Tax picker gets its own amount box under it.') }}"
         />
 
         <x-docs.callout type="note" heading="{{ __('What posting does to your books') }}">

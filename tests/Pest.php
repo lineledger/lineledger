@@ -4,12 +4,20 @@ use App\Actions\Sales\SaveInvoice;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Models\Account;
+use App\Models\BankReconciliation;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
+use App\Models\CustomerReceipt;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
+use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Services\Posting\InvoicePoster;
+use App\Services\Posting\ReceiptPoster;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /*
@@ -77,6 +85,18 @@ function bindMcpTenant(Company $company, array $abilities = []): void
 }
 
 /**
+ * Give $company a home currency saved before the two-decimal rule (e.g. JPY).
+ * Written raw because the Company model now refuses it. Returns the refreshed
+ * company. Shared by the home-currency restriction tests.
+ */
+function forceLegacyHomeCurrency(Company $company, string $currencyCode): Company
+{
+    DB::table('companies')->where('id', $company->id)->update(['currency_code' => $currencyCode]);
+
+    return $company->refresh();
+}
+
+/**
  * A user who is a member of $company with $role — for edit-lock tests, which
  * need several people in one company.
  */
@@ -120,4 +140,82 @@ function escapeBackBodyTag(string $html): string
     preg_match('/<body\b[^>]*>/s', $html, $match);
 
     return $match[0] ?? '';
+}
+
+/**
+ * A posted, tax-free invoice of $cents for $customer — for the overpayment
+ * refund tests. Expects the company to be bound as current.
+ */
+function overpaymentInvoice(Contact $customer, int $cents, ?string $date = null): Invoice
+{
+    $date ??= now()->subDays(10)->toDateString();
+    $income = Account::query()->where('subtype', AccountSubtype::Income->value)->orderBy('code')->firstOrFail();
+
+    $invoice = Invoice::create([
+        'contact_id' => $customer->id,
+        'invoice_no' => 'INV-'.uniqid(),
+        'invoice_date' => $date,
+        'due_date' => $date,
+    ]);
+
+    $invoice->lines()->create([
+        'account_id' => $income->id,
+        'description' => 'Services',
+        'quantity' => '1',
+        'unit_price_cents' => $cents,
+        'line_subtotal_cents' => $cents,
+        'line_tax_cents' => 0,
+        'line_total_cents' => $cents,
+        'line_order' => 0,
+    ]);
+
+    app(InvoicePoster::class)->post($invoice);
+
+    return $invoice->fresh();
+}
+
+/**
+ * A posted payment of $cents from $customer to Undeposited Funds, applied in
+ * full to $appliedTo when given (otherwise left unapplied: customer credit).
+ * $method names a payment method ("Credit card", "Cheque") when it exists.
+ * Expects the company to be bound as current.
+ */
+function overpaymentReceipt(Contact $customer, int $cents, ?Invoice $appliedTo = null, ?string $date = null, ?string $method = null): CustomerReceipt
+{
+    $undeposited = Account::query()->where('subtype', AccountSubtype::UndepositedFunds->value)->firstOrFail();
+
+    $receipt = CustomerReceipt::create([
+        'contact_id' => $customer->id,
+        'receipt_no' => 'REC-'.uniqid(),
+        'receipt_date' => $date ?? now()->subDays(5)->toDateString(),
+        'deposit_to_account_id' => $undeposited->id,
+        'payment_method_id' => $method !== null ? PaymentMethod::query()->where('name', $method)->value('id') : null,
+        'amount_cents' => $cents,
+    ]);
+
+    if ($appliedTo !== null) {
+        $receipt->applications()->create(['invoice_id' => $appliedTo->id, 'amount_cents' => $cents]);
+    }
+
+    app(ReceiptPoster::class)->post($receipt->fresh('applications'));
+
+    return $receipt->fresh();
+}
+
+/**
+ * Stamp $entry's lines on $rec's account as ticked by $rec — the state
+ * BankReconciliationService::complete() leaves behind — and add them to its
+ * marked set. Pair with a completed() factory rec to put an entry's bank line
+ * "on a completed reconciliation" without balancing a real one.
+ */
+function claimLinesForReconciliation(BankReconciliation $rec, JournalEntry $entry): void
+{
+    $ids = $entry->lines()->where('account_id', $rec->account_id)->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+    JournalLine::query()->whereIn('id', $ids)->update([
+        'bank_reconciliation_id' => $rec->id,
+        'cleared_at' => now(),
+    ]);
+
+    $rec->forceFill(['marked_line_ids' => array_values(array_unique([...$rec->markedLineIds(), ...$ids]))])->save();
 }

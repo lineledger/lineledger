@@ -15,7 +15,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </flux:text>
 
         <flux:text>
-            {{ __('Open Customers from the sidebar — it sits in the Sales group (called Revenues for a non-profit organization). Each row shows the customer’s Open balance: their balance in Accounts Receivable, the same figure AR Aging and their statement show. It nets their invoices against payments, credit memos, and any journal entries posted to Accounts Receivable, so it can be negative when they have credit on account — in the demo data, Acme Studios shows -120.00 after a goodwill credit memo. The name opens their statement report, the balance figure opens the Customer statement dialog (see Send a customer a statement below), and the row’s menu offers Edit, Statement…, Merge…, and Deactivate. Search by name or email, and switch on Show inactive to include customers you no longer do business with.') }}
+            {{ __('Open Customers from the sidebar — it sits in the Sales group (called Revenues for a non-profit organization). Each row shows the customer’s Open balance: their balance in Accounts Receivable, the same figure AR Aging and their statement show. It nets their invoices against payments, credit memos, and any journal entries posted to Accounts Receivable, so it can be negative when they have credit on account — in the demo data, Acme Studios shows -120.00 after a goodwill credit memo. The name opens their statement report, the balance figure opens their customer statement (see Send a customer a statement below), and the row’s menu offers Edit, Statement…, Merge…, and Deactivate. Search by name or email, and switch on Show inactive to include customers you no longer do business with.') }}
         </flux:text>
 
         <x-docs.figure
@@ -157,7 +157,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="warning">
-            {{ __('A posted invoice is not edited the way a draft is. Choose Edit from the Actions menu, make your change, and select Save changes: the app re-posts the same journal entry in place, so your books and audit trail stay in step. It can no longer be saved back to a draft, and a change dated on or before your closing date is refused. Never simply delete a posted invoice — that would leave a gap in your numbered records. To cancel one, choose Void: the app reverses the ledger entry (and any stock movement) and keeps the voided invoice on file for your audit trail.') }}
+            {{ __('A posted invoice is not edited the way a draft is. Choose Edit from the Actions menu, make your change, and select Save changes: the app re-posts the same journal entry in place, so your books and audit trail stay in step. It can no longer be saved back to a draft, and a change dated on or before your closing date is refused. Once receipts have been applied to an invoice, its total can’t go below what they applied: reduce the amount applied on the receipt first, or issue a credit memo for the difference. Never simply delete a posted invoice — that would leave a gap in your numbered records. To cancel one, choose Void: the app reverses the ledger entry (and any stock movement) and keeps the voided invoice on file for your audit trail.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('Imported books: a balance that was already settled') }}">
@@ -249,7 +249,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </x-docs.callout>
 
         <flux:text>
-            {{ __('When the customer would rather have their money back than a credit on account, open the posted credit memo and select Refund to client. Choose By cheque to create a draft refund cheque you review and post — it debits Accounts Receivable and credits your bank — or By credit card to record the refund straight away. The card option books a negative customer receipt against Undeposited Funds, so you deposit it with your other card takings on a bank deposit. Either way the credit memo tracks how much has been refunded and shows a Partly refunded or Refunded badge, and you can drop a refund back off by voiding it.') }}
+            {{ __('When the customer would rather have their money back than a credit on account, open the posted credit memo and select Refund to client. Choose By cheque to create a draft refund cheque you review and post — it debits Accounts Receivable and credits your bank — or By credit card to record the refund straight away. The card option books a negative customer receipt against Undeposited Funds, so you deposit it with your other card takings on a bank deposit. Either way the credit memo tracks how much has been refunded and shows a Partly refunded or Refunded badge, and you can drop a refund back off by voiding it. While a refund stands, the credit memo can’t be voided or edited below the amount refunded, so void the refund first.') }}
         </flux:text>
 
         {{-- ────────────────────── Receive a payment ──────────────────────── --}}
@@ -281,34 +281,54 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
             {{ __('If the customer has credit on account — a credit memo or an earlier overpayment — a green panel on the form shows the available credit and what they actually owe once it is taken off. Any part of a receipt you do not apply to an invoice is kept as customer credit, and the form says so before you post. Once you have typed into an Apply cell, or when you reopen a saved receipt, changing the Amount no longer moves money between invoices, so a payment cannot be silently pulled off the invoice it was meant for.') }}
         </x-docs.callout>
 
+        {{-- ─────────────────────── Refund an overpayment ────────────────────── --}}
+        <flux:heading size="md" class="mt-6">{{ __('Refund an overpayment') }}</flux:heading>
+        <flux:text>
+            {{ __('Sometimes a customer pays the same invoice twice — by card, then again by cheque — and you hand one payment back. No goods or services are being credited, so this needs no credit memo: the second payment is an overpayment, kept as credit on their account, and you refund that credit.') }}
+        </flux:text>
+
+        <p><strong>{{ __('To refund an overpayment:') }}</strong></p>
+        <ol class="list-decimal ps-6 space-y-1">
+            <li>{{ __('Open the invoice. Under Payments it lists the payments applied to it; under Overpayment (customer credit) it lists the customer’s payments that no invoice took, and the credit remaining.') }}</li>
+            <li>{{ __('Select Refund to client. When more than one payment holds credit, choose one under From payment — the newest is picked for you.') }}</li>
+            <li>{{ __('Choose By credit card for a refund made through the card terminal, or By cheque to write one. Check the Amount and the Date, then select Record refund or Create draft cheque.') }}</li>
+        </ol>
+
+        <flux:text>
+            {{ __('A card refund books a negative receipt to Undeposited Funds: it debits Accounts Receivable and credits Undeposited Funds. Put it on a bank deposit with your other card takings and it nets out of the batch; when refunds outweigh the receipts, the deposit total is negative and the deposit takes the money out of the bank, as the card processor does on your statement. A cheque refund is a draft cheque that debits Accounts Receivable and credits your bank — review, print and post it. The invoice itself doesn’t change: it stays paid by its original payment, and the refund is listed under the payment whose credit it used. You can also refund from the payment’s own page, which shows its unapplied credit.') }}
+        </flux:text>
+
+        <x-docs.callout type="note">
+            {{ __('While a refund stands, its payment can’t be voided or moved to another customer, and the refunded credit can’t be applied to an invoice — remove the refund first. Remove a refund from the invoice or the payment: a card refund is voided, a draft refund cheque deleted. A card refund already on a deposit has to come off the deposit first. Refunds of foreign-currency payments aren’t supported yet, and a refund of a payment taken through Stripe is only recorded here — issue it in your Stripe dashboard too.') }}
+        </x-docs.callout>
+
         {{-- ─────────────────── Send a customer a statement ───────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Send a customer a statement') }}</flux:heading>
         <flux:text>
-            {{ __('A statement is the customer’s view of their account with Demo Company Inc. — the classic “here is what you owe” letter. LineLedger builds it straight from the ledger, so it always ties to AR Aging, and it can be viewed, downloaded, or emailed from the Customers list.') }}
+            {{ __('A statement is the customer’s view of their account with Demo Company Inc. — the classic “here is what you owe” letter. LineLedger builds it straight from the ledger, so it always ties to AR Aging. The Customer statement page previews it on screen like any report; what you see there is exactly what the PDF and the email carry.') }}
         </flux:text>
 
-        <p><strong>{{ __('To generate or email a statement:') }}</strong></p>
+        <p><strong>{{ __('To preview, download, or email a statement:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('On the Customers list, select the customer’s Open balance, or choose Statement… from their row menu.') }}</li>
-            <li>{{ __('Pick the Statement type. Open invoices lists what is owed as of a date — each unpaid invoice with its due date, plus an aging summary. Account activity lists every charge and payment over a period, with a running balance.') }}</li>
-            <li>{{ __('Set the As of date (or the From and To dates for account activity).') }}</li>
+            <li>{{ __('On the Customers list, select the customer’s Open balance, or choose Statement… from their row menu. (The Statement… button on the customer’s AR statement report opens the same page.)') }}</li>
+            <li>{{ __('Pick the Statement type. Open invoices lists each unpaid invoice with its due date and balance, plus an aging summary. Account activity lists every charge and payment over the period, with a running balance.') }}</li>
+            <li>{{ __('Choose the Period, or set Start and End. For Open invoices the period starts out as All — every invoice still open on the End date. Narrow it and the invoices dated inside the range are listed, with everything still open from before the Start date gathered into one Balance forward row. Account activity starts at the fiscal year to date.') }}</li>
+            <li>{{ __('Use Columns to choose what the statement shows. Date, the invoice or document number, and the balance always print; Memo, Due Date, Original Amount, P.O. #, Terms, Amount Paid, and Days Past Due are yours to switch on or off for Open invoices, and Type, P.O. #, and Memo for Account activity. P.O. # is the customer’s purchase-order number from each invoice.') }}</li>
             <li>{{ __('Select View PDF to open it in a new tab, or Download to save it.') }}</li>
-            <li>{{ __('To email it, confirm the To address under Email to customer (separate several with commas), add a CC if you like, tick “CC my business email” to keep a copy, edit the Message, and select Send.') }}</li>
+            <li>{{ __('To email it, select Email…, confirm the To address (separate several with commas), add a CC if you like, tick “CC my business email” to keep a copy, edit the Message, and select Send.') }}</li>
         </ol>
 
-        <x-docs.figure
-            src="{{ asset('docs/screenshots/customers/customer-statement-modal.png') }}"
-            alt="{{ __('The Customer statement dialog with Open invoices and Account activity statement types, an As of date, View PDF and Download buttons, and the Email to customer form with To, CC, CC my business email, and a message') }}"
-            caption="{{ __('The Customer statement dialog. View or download the PDF, or email it with a one-click link to the customer’s portal.') }}"
-        />
+        <x-docs.callout type="tip" heading="{{ __('Make your columns the default') }}">
+            {{ __('Column choices apply to the statement in front of you. When the selection differs from the company default, a Save as default columns button appears — select it and every statement of that type starts with those columns, including the PDF and the emailed copy. Saving the default takes the same access as Settings → Invoices. The sales rep is never offered: it is internal, and stays off everything the customer receives.') }}
+        </x-docs.callout>
 
         <flux:text>
             {{ __('The emailed statement carries the PDF and a one-click link to the live statement in the') }}
-            <a class="underline" href="{{ route('docs.customer-portal') }}" wire:navigate>{{ __('Customer portal') }}</a>{{ __('. Replies go to the address set under Settings → Invoices — the dialog shows it. Sending a statement by hand works even for a customer whose automated invoice emails are turned off, and does not change that setting. The same dialog opens from the Statement… button on the customer’s statement report.') }}
+            <a class="underline" href="{{ route('docs.customer-portal') }}" wire:navigate>{{ __('Customer portal') }}</a>{{ __('. Replies go to the address set under Settings → Invoices — the email form shows it. Sending a statement by hand works even for a customer whose automated invoice emails are turned off, and does not change that setting.') }}
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('Why the statement always matches the aging report') }}">
-            {{ __('An Open invoices statement shows each invoice’s memo, due date, and balance. If the customer’s ledger balance differs from their open invoices — because of a credit memo, an unapplied payment, or a journal entry posted to Accounts Receivable — one extra row, Credits on account or Other balance, absorbs the difference, so the rows always add up to the aging total.') }}
+            {{ __('An Open invoices statement’s rows always add up to the customer’s balance in Accounts Receivable. Invoices from before the Start date are carried in the Balance forward row, and if the ledger balance differs from the open invoices — because of a credit memo, an unapplied payment, or a journal entry posted to Accounts Receivable — one extra row, Credits on account or Other balance, absorbs the difference, so the total due equals the aging total.') }}
         </x-docs.callout>
 
         {{-- ────────────────────── Payment reminders ─────────────────────── --}}

@@ -2,10 +2,12 @@
 
 use App\Enums\AccountSubtype;
 use App\Models\Account;
+use App\Models\BankReconciliation;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Deposit;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -136,6 +138,42 @@ it('rejects overwriting a posted entry into an unbalanced state with 422', funct
     ]), $this->h)->assertStatus(422);
 });
 
+it('rejects overwriting a posted entry whose bank line is reconciled with 422', function () {
+    $id = $this->postJson('/api/v1/journal-entries', journalPayload(), $this->h)->json('data.id');
+
+    app()->instance('current_company', $this->company);
+    $rec = BankReconciliation::factory()->completed()->create([
+        'company_id' => $this->company->id,
+        'account_id' => $this->creditAccount->id,
+        'statement_date' => '2026-05-31',
+    ]);
+    claimLinesForReconciliation($rec, JournalEntry::query()->findOrFail($id));
+    app()->forgetInstance('current_company');
+
+    $this->patchJson("/api/v1/journal-entries/{$id}", journalPayload([
+        'lines' => [
+            ['account_id' => $this->debitAccount->id, 'debit_cents' => 12300, 'credit_cents' => 0],
+            ['account_id' => $this->creditAccount->id, 'debit_cents' => 0, 'credit_cents' => 12300],
+        ],
+    ]), $this->h)
+        ->assertStatus(422)
+        ->assertJsonPath('message', fn (string $m) => str_contains($m, 'reconciled bank line'));
+
+    expect(JournalLine::query()->where('journal_entry_id', $id)->sum('debit_cents'))->toEqual(5000);
+});
+
+it('still allows the API to post a new entry dated inside a reconciled period', function () {
+    BankReconciliation::factory()->completed()->create([
+        'company_id' => $this->company->id,
+        'account_id' => $this->creditAccount->id,
+        'statement_date' => '2026-05-31',
+    ]);
+
+    $this->postJson('/api/v1/journal-entries', journalPayload(), $this->h)
+        ->assertStatus(201)
+        ->assertJsonPath('data.status', 'posted');
+});
+
 it('posts a draft via the post action', function () {
     $id = $this->postJson('/api/v1/journal-entries', journalPayload(['post' => false]), $this->h)->json('data.id');
 
@@ -160,6 +198,18 @@ it('deletes a draft entry', function () {
     $id = $this->postJson('/api/v1/journal-entries', journalPayload(['post' => false]), $this->h)->json('data.id');
 
     $this->deleteJson("/api/v1/journal-entries/{$id}", [], $this->h)->assertStatus(204);
+
+    expect(JournalEntry::withoutGlobalScopes()->whereKey($id)->exists())->toBeFalse()
+        ->and(JournalLine::withoutGlobalScopes()->where('journal_entry_id', $id)->exists())->toBeFalse();
+});
+
+it('refuses to delete a source-linked draft entry', function () {
+    $id = $this->postJson('/api/v1/journal-entries', journalPayload(['post' => false]), $this->h)->json('data.id');
+    JournalEntry::withoutGlobalScopes()->whereKey($id)->update(['source_type' => Deposit::class, 'source_id' => 1]);
+
+    $this->deleteJson("/api/v1/journal-entries/{$id}", [], $this->h)->assertStatus(422);
+
+    expect(JournalEntry::withoutGlobalScopes()->whereKey($id)->exists())->toBeTrue();
 });
 
 it('returns 404 for another company\'s entry', function () {

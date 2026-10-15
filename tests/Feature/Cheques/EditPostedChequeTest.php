@@ -60,7 +60,7 @@ function editChequeFormLine(int $accountId, string $amount): array
         'tax_code_id' => null,
         'secondary_tax_code_id' => null,
         'tax_code_ids' => [],
-        'tax_override' => '',
+        'tax_overrides' => [],
         'class_id' => null,
         'location_id' => null,
         'auto_tax_cents' => 0,
@@ -147,7 +147,9 @@ it('blocks editing a posted cheque into a locked period and leaves the ledger un
     Livewire::test('pages::cheques.form', ['company' => $this->company->fresh(), 'cheque' => $cheque])
         ->set('lines', editChequeFormLine($this->expense->id, '999.00'))
         ->call('postCheque')
-        ->assertHasErrors('lines');
+        // An owner is offered the Block-mode password override instead.
+        ->assertSet('periodLockRetryAction', 'postCheque')
+        ->assertNoRedirect();
 
     // The rewrite rolled back with the failed repost.
     expect($cheque->fresh()->amount_cents)->toBe(10000)

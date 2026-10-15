@@ -8,6 +8,7 @@ use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesLineContacts;
 use App\Models\Account;
 use App\Models\Classification;
@@ -20,15 +21,23 @@ use App\Models\Location;
 use App\Models\TaxCode;
 use App\Rules\MoneyString;
 use App\Services\Audit\AccountingAuditRecorder;
+use App\Services\Posting\BackdatedEntryWarnings;
 use App\Services\Posting\EntryNumberGenerator;
 use App\Services\Posting\JournalPoster;
+use App\Services\Posting\PeriodLockOverride;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Support\Reporting\SourceLinkResolver;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -36,6 +45,7 @@ use Livewire\Component;
 new #[Title('Journal entry')] class extends Component
 {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
     use ManagesLineContacts;
 
     public Company $company;
@@ -43,6 +53,14 @@ new #[Title('Journal entry')] class extends Component
     public ?JournalEntry $entry = null;
 
     public string $entryNo = '';
+
+    /**
+     * The number a new entry's page suggested when it opened. Left as is it is
+     * only a preview: every posting in the company draws from the same JE
+     * sequence, so the real number is taken when the entry is first saved.
+     */
+    #[Locked]
+    public string $suggestedEntryNo = '';
 
     public string $entryDate = '';
 
@@ -60,6 +78,20 @@ new #[Title('Journal entry')] class extends Component
     public ?string $sourceUrl = null;
 
     public string $sourceLabel = '';
+
+    /**
+     * Reasons to pause before a back-dated post or save (see
+     * BackdatedEntryWarnings), listed in the confirm dialog.
+     *
+     * @var list<string>
+     */
+    #[Locked]
+    public array $backdateWarnings = [];
+
+    /**
+     * Set for the one request in which the user confirmed the dialog.
+     */
+    private bool $backdateAcknowledged = false;
 
     #[Url(as: 'from')]
     public ?int $duplicateFromId = null;
@@ -125,7 +157,7 @@ new #[Title('Journal entry')] class extends Component
         }
 
         $this->entryDate = $this->company->currentDateTime()->toDateString();
-        $this->entryNo = app(EntryNumberGenerator::class)->next($company);
+        $this->entryNo = $this->suggestedEntryNo = app(EntryNumberGenerator::class)->next($company);
         $this->lines = [$this->emptyLine(), $this->emptyLine()];
 
         if ($this->duplicateFromId) {
@@ -206,7 +238,10 @@ new #[Title('Journal entry')] class extends Component
     }
 
     /**
-     * @return array<int, array{value: int, label: string}>
+     * The code and name ride alongside the label for the typeable account
+     * picker (<x-account-combo>), which ranks GL-number matches first.
+     *
+     * @return array<int, array{value: int, label: string, code: string, name: string}>
      */
     #[Computed]
     public function accountOptions(): array
@@ -216,7 +251,7 @@ new #[Title('Journal entry')] class extends Component
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}", 'code' => (string) $a->code, 'name' => $a->name])
             ->all();
     }
 
@@ -434,6 +469,10 @@ new #[Title('Journal entry')] class extends Component
 
     public function saveDraft(): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
         $this->persist(post: false);
         Flux::toast(variant: 'success', text: __('Draft saved.'));
         $this->redirectRoute('journal.edit', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
@@ -441,11 +480,25 @@ new #[Title('Journal entry')] class extends Component
 
     public function postEntry(JournalPoster $poster): void
     {
+        if ($this->finishIfAlreadyPosted()) {
+            return;
+        }
+
+        if ($this->differenceCents === 0 && $this->totalDebitsCents > 0 && $this->holdForBackdateWarnings()) {
+            return;
+        }
+
         $this->persist(post: false);
 
         try {
             $poster->post($this->entry);
-        } catch (UnbalancedJournalException|PeriodLockedException|ReconciliationLockedException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'postEntry')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (UnbalancedJournalException|ReconciliationLockedException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -456,9 +509,91 @@ new #[Title('Journal entry')] class extends Component
     }
 
     /**
+     * "Post anyway" / "Save anyway" from the back-dated entry dialog: re-run the
+     * action the dialog interrupted, this time without stopping for warnings.
+     */
+    public function confirmBackdated(JournalPoster $poster): void
+    {
+        $this->backdateAcknowledged = true;
+        $this->backdateWarnings = [];
+        Flux::modal('backdate-warning')->close();
+
+        $this->isPosted ? $this->saveChanges($poster) : $this->postEntry($poster);
+    }
+
+    /**
+     * Open the confirm dialog — and stop the action — when the entry date gives
+     * a reason to pause (a reconciled period, a prior fiscal year). Advisory
+     * only: a locked period or a reconciled line is left to the action's own
+     * hard error, and an unparseable date to validation.
+     */
+    private function holdForBackdateWarnings(): bool
+    {
+        // A closed-period override the user just confirmed is the stronger
+        // warning; don't stack a second dialog on top of it.
+        if ($this->backdateAcknowledged || PeriodLockOverride::isActive()) {
+            return false;
+        }
+
+        try {
+            $date = CarbonImmutable::parse($this->entryDate);
+        } catch (InvalidFormatException) {
+            return false;
+        }
+
+        if ($this->entryDate === '' || $this->company->isLockedFor($date)) {
+            return false;
+        }
+
+        // A posted entry carrying a reconciled line can't be saved at all; let
+        // the action report that rather than warn about it first.
+        if ($this->isPosted && $this->entry) {
+            try {
+                app(BankReconciliationLockGuard::class)->ensureLinesNotReconciled((int) $this->company->id, $this->entry->lines);
+            } catch (ReconciliationLockedException) {
+                return false;
+            }
+        }
+
+        $accountIds = $this->linesLocked && $this->entry
+            ? $this->entry->lines->pluck('account_id')
+            : collect($this->lines)->pluck('account_id');
+
+        $this->backdateWarnings = app(BackdatedEntryWarnings::class)->for($this->company, $accountIds, $date);
+
+        if ($this->backdateWarnings === []) {
+            return false;
+        }
+
+        Flux::modal('backdate-warning')->show();
+
+        return true;
+    }
+
+    /**
+     * A second Post or Save draft — a double-click, or Enter pressed again
+     * before the redirect lands — arrives holding the entry the first request
+     * just posted. Saving it as a draft would rewrite a posted entry's lines
+     * outside saveChanges() (no lock check, no balance recompute) and posting
+     * it again throws, so finish the way the first request did instead. Reads
+     * the row fresh: the posting may have committed after this request began.
+     */
+    private function finishIfAlreadyPosted(): bool
+    {
+        if (! $this->entry?->exists || ! $this->entry->fresh()?->isPosted()) {
+            return false;
+        }
+
+        $this->redirectRoute('journal.show', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+
+        return true;
+    }
+
+    /**
      * Save edits to an already-posted entry in place. The entry stays posted, so it
-     * must remain balanced and out of any locked period; affected account balances
-     * are recomputed and the overwrite is recorded to the audit trail.
+     * must remain balanced, out of any locked period and free of reconciled lines;
+     * affected account balances are recomputed and the overwrite is recorded to the
+     * audit trail.
      */
     public function saveChanges(JournalPoster $poster): void
     {
@@ -466,7 +601,9 @@ new #[Title('Journal entry')] class extends Component
         abort_unless($this->entry->isEditableInJournal(), 403);
 
         if ($this->entry->hasLockedLines()) {
-            $this->saveHeaderOnly();
+            if (! $this->holdForBackdateWarnings()) {
+                $this->saveHeaderOnly();
+            }
 
             return;
         }
@@ -477,9 +614,21 @@ new #[Title('Journal entry')] class extends Component
             return;
         }
 
-        if ($this->company->isLockedFor(CarbonImmutable::parse($this->entryDate))) {
-            $this->addError('lines', __('That date falls in a locked period.'));
+        try {
+            $poster->ensurePostedEntryEditable($this->entry, CarbonImmutable::parse($this->entryDate));
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'saveChanges')) {
+                $this->addError('lines', $e->getMessage());
+            }
 
+            return;
+        } catch (ReconciliationLockedException $e) {
+            $this->addError('lines', $e->getMessage());
+
+            return;
+        }
+
+        if ($this->holdForBackdateWarnings()) {
             return;
         }
 
@@ -512,10 +661,10 @@ new #[Title('Journal entry')] class extends Component
     protected function saveHeaderOnly(): void
     {
         $validated = $this->validate([
-            'entryNo' => ['required', 'string', 'max:40'],
+            'entryNo' => ['required', 'string', 'max:40', $this->entryNoIsFree()],
             'entryDate' => ['required', 'date'],
             'memo' => ['nullable', 'string'],
-        ]);
+        ], $this->entryNoMessages());
 
         try {
             $this->entry = app(UpdateJournalEntryHeader::class)->handle($this->entry, [
@@ -523,7 +672,13 @@ new #[Title('Journal entry')] class extends Component
                 'entry_date' => $validated['entryDate'],
                 'memo' => $validated['memo'] ?: null,
             ]);
-        } catch (PeriodLockedException|ReconciliationLockedException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'saveChanges')) {
+                $this->addError('entryDate', $e->getMessage());
+            }
+
+            return;
+        } catch (ReconciliationLockedException $e) {
             $this->addError('entryDate', $e->getMessage());
 
             return;
@@ -537,8 +692,13 @@ new #[Title('Journal entry')] class extends Component
     {
         $companyId = $this->company->id;
 
+        // A new entry still showing the number its page suggested takes the
+        // next free one as it saves (someone may have posted since the page
+        // opened); a number typed by hand is kept, and must be free.
+        $autoNumber = ! $this->entry?->exists && trim($this->entryNo) === $this->suggestedEntryNo;
+
         $validated = $this->validate([
-            'entryNo' => ['required', 'string', 'max:40'],
+            'entryNo' => $autoNumber ? ['required', 'string', 'max:40'] : ['required', 'string', 'max:40', $this->entryNoIsFree()],
             'entryDate' => ['required', 'date'],
             'memo' => ['nullable', 'string'],
             'lines' => ['array', 'min:2'],
@@ -551,7 +711,7 @@ new #[Title('Journal entry')] class extends Component
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
             'lines.*.fund_id' => ['nullable', 'integer', Rule::exists('funds', 'id')->where('company_id', $companyId)],
-        ]);
+        ], $this->entryNoMessages());
 
         $this->resolveNewLineContacts();
         $this->validateLineContacts();
@@ -573,12 +733,43 @@ new #[Title('Journal entry')] class extends Component
             ];
         }
 
-        $this->entry = app(SaveJournalEntry::class)->handle([
-            'entry_no' => $validated['entryNo'],
-            'entry_date' => $validated['entryDate'],
-            'memo' => $validated['memo'] ?: null,
-            'lines' => $lines,
-        ], $this->entry);
+        try {
+            $this->entry = app(SaveJournalEntry::class)->handle([
+                'entry_no' => $autoNumber ? null : $validated['entryNo'],
+                'entry_date' => $validated['entryDate'],
+                'memo' => $validated['memo'] ?: null,
+                'lines' => $lines,
+            ], $this->entry);
+        } catch (UniqueConstraintViolationException $e) {
+            // A typed number taken between validation and the insert. The
+            // save rolled back, so nothing was written.
+            if (! str_contains($e->getMessage(), 'entry_no')) {
+                throw $e;
+            }
+
+            throw ValidationException::withMessages(['entryNo' => $this->entryNoMessages()['entryNo.unique']]);
+        }
+
+        $this->entryNo = $this->entry->entry_no;
+    }
+
+    /**
+     * Entry numbers are unique per company (any entry, including another
+     * document's posting), apart from this entry's own.
+     */
+    private function entryNoIsFree(): Unique
+    {
+        return Rule::unique('journal_entries', 'entry_no')
+            ->where('company_id', $this->company->id)
+            ->ignore($this->entry?->id);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function entryNoMessages(): array
+    {
+        return ['entryNo.unique' => __('Entry # :input is already used. Pick another number.')];
     }
 
     /**
@@ -687,18 +878,14 @@ new #[Title('Journal entry')] class extends Component
             </div>
 
             <div class="divide-y divide-border">
+                <x-account-combo.options key="accounts" :options="$this->accountOptions" />
                 @foreach ($lines as $i => $line)
                     <div wire:key="line-{{ $i }}" data-test="entry-line-row" class="space-y-3 p-3">
                         {{-- Tier 1: account, debit, credit, memo, remove --}}
                         <div class="{{ $lineGrid }} grid grid-cols-1 gap-3">
                             <div>
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="line-account">
-                                    <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
-                                    @foreach ($this->accountOptions as $opt)
-                                        <flux:select.option :value="$opt['value']">{{ $opt['label'] }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="accounts" :placeholder="__('— Select —')" data-test="line-account" />
 
                                 @php($contactRole = $this->contactRequiringAccounts[(int) ($line['account_id'] ?? 0)] ?? null)
                                 @if ($contactRole === 'customer')
@@ -860,6 +1047,30 @@ new #[Title('Journal entry')] class extends Component
                 <flux:button variant="primary" type="submit" data-test="save-as-je-template-confirm">{{ __('Save template') }}</flux:button>
             </div>
         </form>
+    </flux:modal>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
+
+    <flux:modal name="backdate-warning" class="max-w-lg" data-test="backdate-warning-modal">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Post to an earlier period?') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('Check the date before you continue:') }}</flux:text>
+            </div>
+
+            <ul class="list-disc space-y-2 ps-5">
+                @foreach ($backdateWarnings as $warning)
+                    <li><flux:text data-test="backdate-warning">{{ $warning }}</flux:text></li>
+                @endforeach
+            </ul>
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close><flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                <flux:button variant="primary" type="button" wire:click="confirmBackdated" data-test="backdate-confirm-button">
+                    {{ $isPosted ? __('Save anyway') : __('Post anyway') }}
+                </flux:button>
+            </div>
+        </div>
     </flux:modal>
     @endif
 </section>

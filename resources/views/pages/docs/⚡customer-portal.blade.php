@@ -93,7 +93,7 @@ new #[Title('Documentation — Customer portal')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Sending a customer their statement') }}</flux:heading>
         <flux:text>
-            {{ __('You do not have to wait for customers to look. Select Statement… on a customer’s row in the Customers list (or click their Open balance) to open the Customer statement dialog, choose Open invoices as of a date or Account activity over a period, and select Send under Email to customer. The email carries the PDF you chose plus a View statement online button that signs the customer straight into the portal statement above — the live, running-balance view, whichever PDF style you attached. Both PDF styles print a Memo column as well: Open invoices shows each invoice’s own Memo field, and Account activity shows the posting memo. The dialog is described in full on the') }}
+            {{ __('You do not have to wait for customers to look. Select Statement… on a customer’s row in the Customers list (or click their Open balance) to open their Customer statement page, choose Open invoices or Account activity, the period and the columns, then select Email… and Send. The email carries the PDF exactly as previewed plus a View statement online button that signs the customer straight into the portal statement above — the live, running-balance view, whichever PDF style you attached. The statement page is described in full on the') }}
             <a class="underline" href="{{ route('docs.customers') }}" wire:navigate>{{ __('Customers') }}</a>{{ __(' page.') }}
         </flux:text>
 

@@ -37,6 +37,26 @@ it('renders the calculator trigger and modal beside global search', function () 
     expect($html)->not->toContain('<flux:');
 });
 
+it('keeps the calculator out of global search re-renders', function () {
+    $html = Livewire::test('global-search')->html();
+
+    $dom = new DOMDocument;
+    @$dom->loadHTML('<?xml encoding="utf-8"?>'.$html);
+    $xpath = new DOMXPath($dom);
+
+    // Both the trigger and the modal body sit inside one wire:ignore island,
+    // so a search update (e.g. clear() on close while a result navigates) can
+    // never morph the calculator mid-teardown.
+    foreach (['calculator-trigger', 'calculator-body'] as $test) {
+        $node = $xpath->query('//*[@data-test="'.$test.'"]')->item(0);
+        expect($node)->not->toBeNull();
+
+        $island = $xpath->query('ancestor::*[@data-test="calculator-island"]', $node)->item(0);
+        expect($island)->not->toBeNull()
+            ->and($island->hasAttribute('wire:ignore'))->toBeTrue();
+    }
+});
+
 it('renders the standard keypad without a Total key by default', function () {
     expect($this->user->calculator_mode)->toBe(CalculatorMode::Standard);
 

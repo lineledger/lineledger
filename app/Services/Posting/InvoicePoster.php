@@ -22,6 +22,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Currency\ExchangeRateService;
 use App\Services\Inventory\InventoryCostingFactory;
 use App\Services\Inventory\MovementContext;
+use App\Services\Reconciliation\BankReconciliationLockGuard;
 use App\Services\Tax\TaxPeriodLockGuard;
 use App\Support\Currency;
 use Carbon\CarbonImmutable;
@@ -48,6 +49,8 @@ class InvoicePoster
         protected InventoryCostingFactory $costingFactory,
         protected ControlAccountResolver $controlAccounts,
         protected ExchangeRateService $exchangeRates,
+        protected ReceiptPoster $receipts,
+        protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
 
     public function post(Invoice $invoice): JournalEntry
@@ -138,7 +141,8 @@ class InvoicePoster
      * from the current invoice state, and recomputes balances on every
      * account that was touched (old + new). Payment applications are NOT
      * disturbed — the invoice keeps its amount_paid and the status is
-     * recomputed (paid/partial/posted) against the new total.
+     * recomputed (paid/partial/posted) against the new total, which may not
+     * drop below what receipts already applied.
      *
      * Use this when the user wants to edit a posted invoice without the
      * void+recreate ceremony. Caller is responsible for the trade-off of
@@ -186,6 +190,12 @@ class InvoicePoster
                 throw new RuntimeException('Invoice has no lines or zero total; cannot repost.');
             }
 
+            $this->receipts->ensureTotalCoversApplications($invoice);
+
+            // The rebuild deletes and rewrites every line, so refuse it if a
+            // completed reconciliation has claimed one of them.
+            $this->reconciliationLockGuard->ensureLinesNotReconciled((int) $invoice->company_id, $entry->lines);
+
             // Capture every account id touched by the old lines so we can
             // recompute their balances after we wipe and rebuild.
             $oldAccountIds = $entry->lines->pluck('account_id')->all();
@@ -225,9 +235,8 @@ class InvoicePoster
                 Account::withoutGlobalScopes()->find($id)?->recomputeBalance();
             }
 
-            // Recompute invoice status against the new total. If the new
-            // total is lower than what was already paid, the invoice falls
-            // to "paid" (over-payment is left to manual reconciliation).
+            // Recompute invoice status against the new total. It can't be
+            // lower than what receipts already applied (guarded above).
             $this->recomputeStatus($invoice);
             $invoice->contact->recomputeArBalance();
 
@@ -475,6 +484,12 @@ class InvoicePoster
      * Creates ReceiptApplication rows and updates the invoice's amount_paid /
      * status. The GL is already correct — receipts originally credited AR — so
      * this only retroactively attaches the credit to a specific invoice.
+     *
+     * A payment's credit is what it neither applied nor refunded: credit paid
+     * back to the customer is gone and must not pay this invoice too. Refund
+     * receipts carry no credit of their own and are skipped. The receipt rows
+     * are locked so a refund being recorded at the same moment can't spend the
+     * same credit.
      */
     protected function autoApplyCustomerCredits(Invoice $invoice): void
     {
@@ -487,8 +502,12 @@ class InvoicePoster
             ->where('contact_id', $invoice->contact_id)
             ->where('status', ReceiptStatus::Posted->value)
             ->where('receipt_date', '<=', $invoice->invoice_date)
+            ->where('amount_cents', '>', 0)
+            ->whereNull('credit_memo_id')
+            ->whereNull('refunded_receipt_id')
             ->orderBy('receipt_date')
             ->orderBy('id')
+            ->lockForUpdate()
             ->get(['id', 'amount_cents']);
 
         if ($receipts->isEmpty()) {
@@ -501,6 +520,8 @@ class InvoicePoster
             ->selectRaw('customer_receipt_id, SUM(amount_cents) AS applied_cents')
             ->pluck('applied_cents', 'customer_receipt_id');
 
+        $refundedByReceipt = CustomerReceipt::refundedCentsByReceipt($receipts->pluck('id')->all());
+
         $newlyApplied = 0;
 
         foreach ($receipts as $receipt) {
@@ -508,7 +529,9 @@ class InvoicePoster
                 break;
             }
 
-            $unapplied = (int) $receipt->amount_cents - (int) ($appliedSumByReceipt[$receipt->id] ?? 0);
+            $unapplied = (int) $receipt->amount_cents
+                - (int) ($appliedSumByReceipt[$receipt->id] ?? 0)
+                - ($refundedByReceipt[$receipt->id] ?? 0);
             if ($unapplied <= 0) {
                 continue;
             }

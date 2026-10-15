@@ -14,6 +14,7 @@ use App\Models\Company;
 use App\Models\TaxAgency;
 use App\Rules\CompanyName;
 use App\Services\Migration\QuickBooksMigrationService;
+use App\Support\Currency;
 use App\Support\Defaults\ChartTemplateBuilder;
 use App\Support\SiteSettings;
 use App\Support\Tax\ProvincialSalesTax;
@@ -699,7 +700,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
             1 => [
                 'companyName' => ['required', 'string', 'max:255', new CompanyName],
                 'country' => ['required', Rule::in(array_map(fn ($c) => $c->value, Country::cases()))],
-                'currency' => ['required', 'string', 'size:3'],
+                'currency' => ['required', 'string', Rule::in(array_keys(Currency::selectable()))],
                 'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
                 'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
                 'region' => $this->regions !== []

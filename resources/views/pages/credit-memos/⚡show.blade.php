@@ -1,27 +1,24 @@
 <?php
 
-use App\Enums\AccountSubtype;
+use App\Actions\Sales\RecordCustomerRefund;
+use App\Enums\ChequeStatus;
 use App\Enums\CreditMemoStatus;
-use App\Exceptions\EditLocks\RecordEditLockedException;
+use App\Enums\ReceiptStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
-use App\Models\Account;
 use App\Models\Attachment;
-use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\CreditMemo;
-use App\Models\CustomerReceipt;
 use App\Models\InvoiceSetting;
-use App\Models\PaymentMethod;
 use App\Services\AttachmentService;
-use App\Services\EditLocks\EditLockManager;
 use App\Services\Posting\ChequePoster;
 use App\Services\Posting\CreditMemoPoster;
-use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\ReceiptPoster;
-use App\Support\Money;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -29,6 +26,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new #[Title('Credit memo')] class extends Component {
+    use IssuesCustomerRefunds;
     use ShowsEditLock;
     use WithFileUploads;
 
@@ -58,23 +56,6 @@ new #[Title('Credit memo')] class extends Component {
         'tax_column' => 'show_tax_column',
         'service_date_column' => 'show_service_date_column',
     ];
-
-    public bool $showRefundModal = false;
-
-    /** @var 'cheque'|'card' */
-    public string $refundMethod = 'cheque';
-
-    public string $refundAmount = '';
-
-    public string $refundDate = '';
-
-    public ?int $refundBankAccountId = null;
-
-    public ?int $refundPaymentMethodId = null;
-
-    public ?int $refundDepositToAccountId = null;
-
-    public string $refundReference = '';
 
     protected function editLockRecord(): ?Model
     {
@@ -143,290 +124,59 @@ new #[Title('Credit memo')] class extends Component {
     }
 
     #[GuardsEditLock]
+    public function submitRefund(RecordCustomerRefund $action): void
+    {
+        $this->processRefund($action);
+    }
+
+    #[GuardsEditLock]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
-        $cheque = $this->creditMemo->refundCheques()->find($chequeId);
-
-        if (! $cheque || ! $this->refundEditable($cheque)) {
-            return;
-        }
-
-        if ($cheque->journal_entry_id) {
-            try {
-                $poster->void($cheque);
-            } catch (\RuntimeException $e) {
-                Flux::toast(variant: 'danger', text: $e->getMessage());
-
-                return;
-            }
-        } else {
-            $cheque->lines()->delete();
-            $cheque->delete();
-        }
-
-        $this->afterRefundRemoved();
-        Flux::toast(variant: 'success', text: __('Refund removed.'));
+        $this->removeRefundCheque($chequeId, $poster);
     }
 
     #[GuardsEditLock]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
-        $receipt = $this->creditMemo->refundReceipts()->find($receiptId);
-
-        if (! $receipt || ! $this->refundEditable($receipt)) {
-            return;
-        }
-
-        try {
-            $poster->void($receipt);
-        } catch (\RuntimeException $e) {
-            Flux::toast(variant: 'danger', text: $e->getMessage());
-
-            return;
-        }
-
-        $this->afterRefundRemoved();
-        Flux::toast(variant: 'success', text: __('Refund removed.'));
-    }
-
-    protected function afterRefundRemoved(): void
-    {
-        unset($this->refundCheques, $this->refundReceipts, $this->canRefund);
-        $this->creditMemo->refresh();
+        $this->removeRefundReceipt($receiptId, $poster);
     }
 
     /**
-     * The refund cheque or receipt has its own edit lock: refuse removing one
-     * someone has open, and invalidate an editor that opened it earlier.
+     * A posted credit memo with credit left refunds itself.
      */
-    protected function refundEditable(Model $refund): bool
+    protected function eligibleRefundSources(): Collection
     {
-        $locks = app(EditLockManager::class);
-
-        try {
-            $locks->assertWritable($refund, Auth::user());
-        } catch (RecordEditLockedException $e) {
-            Flux::toast(variant: 'danger', text: $e->getMessage());
-
-            return false;
-        }
-
-        $locks->touch($refund);
-
-        return true;
+        return $this->creditMemo->status === CreditMemoStatus::Posted && $this->creditMemo->remainingRefundableCents() > 0
+            ? collect([$this->creditMemo])
+            : collect();
     }
 
-    #[Computed]
-    public function canRefund(): bool
+    protected function removableRefundCheques(): HasMany
     {
-        return $this->creditMemo->status === CreditMemoStatus::Posted
-            && $this->creditMemo->remainingRefundableCents() > 0;
+        return $this->creditMemo->refundCheques();
+    }
+
+    protected function removableRefundReceipts(): HasMany
+    {
+        return $this->creditMemo->refundReceipts();
+    }
+
+    protected function afterRefundChanged(): void
+    {
+        unset($this->refundCheques, $this->refundReceipts);
+        $this->creditMemo->refresh();
     }
 
     #[Computed]
     public function refundCheques()
     {
-        return $this->creditMemo->refundCheques()->where('status', '!=', 'void')->orderBy('id')->get();
+        return $this->creditMemo->refundCheques()->where('status', '!=', ChequeStatus::Void->value)->orderBy('id')->get();
     }
 
     #[Computed]
     public function refundReceipts()
     {
-        return $this->creditMemo->refundReceipts()->where('status', '!=', 'void')->orderBy('id')->get();
-    }
-
-    #[Computed]
-    public function bankAccounts()
-    {
-        return Account::query()->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
-    }
-
-    #[Computed]
-    public function depositAccounts()
-    {
-        return Account::query()
-            ->whereIn('subtype', [AccountSubtype::UndepositedFunds->value, AccountSubtype::Bank->value])
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name']);
-    }
-
-    #[Computed]
-    public function paymentMethods()
-    {
-        return PaymentMethod::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
-    }
-
-    public function openRefund(): void
-    {
-        if (! $this->canRefund) {
-            return;
-        }
-
-        $this->resetErrorBag();
-        $this->refundMethod = 'cheque';
-        $this->refundAmount = Money::fromCents($this->creditMemo->remainingRefundableCents())->toDecimalString();
-        $this->refundDate = $this->company->currentDateTime()->toDateString();
-        $this->refundReference = '';
-        $this->refundBankAccountId = $this->bankAccounts->first()?->id;
-        $this->refundPaymentMethodId = $this->paymentMethods->first()?->id;
-        $this->refundDepositToAccountId = Account::query()
-            ->where('subtype', AccountSubtype::UndepositedFunds->value)
-            ->where('is_active', true)
-            ->value('id');
-
-        $this->showRefundModal = true;
-    }
-
-    #[GuardsEditLock]
-    public function submitRefund(ReceiptPoster $poster): void
-    {
-        if (! $this->canRefund) {
-            return;
-        }
-
-        $this->validate([
-            'refundMethod' => ['required', 'in:cheque,card'],
-            'refundAmount' => ['required', 'string'],
-            'refundDate' => ['required', 'date'],
-        ]);
-
-        try {
-            $amountCents = Money::fromString($this->refundAmount)->cents;
-        } catch (\Throwable) {
-            $this->addError('refundAmount', __('Enter a valid amount.'));
-
-            return;
-        }
-
-        $remaining = $this->creditMemo->remainingRefundableCents();
-
-        if ($amountCents <= 0) {
-            $this->addError('refundAmount', __('Refund amount must be greater than zero.'));
-
-            return;
-        }
-
-        if ($amountCents > $remaining) {
-            $this->addError('refundAmount', __('Refund cannot exceed the remaining :amount.', ['amount' => Money::fromCents($remaining)->toDecimalString()]));
-
-            return;
-        }
-
-        if ($this->refundMethod === 'cheque') {
-            $this->refundByCheque($amountCents);
-
-            return;
-        }
-
-        $this->refundByCard($poster, $amountCents);
-    }
-
-    protected function refundByCheque(int $amountCents): void
-    {
-        $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->find($this->refundBankAccountId);
-
-        if (! $bank) {
-            $this->addError('refundBankAccountId', __('Select a bank account.'));
-
-            return;
-        }
-
-        $ar = $this->systemAccount(AccountSubtype::AccountsReceivable);
-
-        if (! $ar) {
-            Flux::toast(variant: 'danger', text: __('No Accounts Receivable control account is configured.'));
-
-            return;
-        }
-
-        $cheque = Cheque::create([
-            'bank_account_id' => $bank->id,
-            'cheque_no' => $this->nextChequeNumber($bank->id),
-            'cheque_date' => $this->refundDate,
-            'payee_contact_id' => $this->creditMemo->contact_id,
-            'credit_memo_id' => $this->creditMemo->id,
-            'payee_name' => $this->creditMemo->contact->display_name,
-            'memo' => __('Refund of credit memo :no', ['no' => $this->creditMemo->credit_memo_no]),
-        ]);
-
-        $cheque->lines()->create([
-            'account_id' => $ar->id,
-            // The AR line belongs to the credit memo's customer — the payee may be
-            // someone else by the time the operator reviews the draft.
-            'contact_id' => $this->creditMemo->contact_id,
-            'description' => __('Refund of credit memo :no', ['no' => $this->creditMemo->credit_memo_no]),
-            'amount_cents' => $amountCents,
-            'line_order' => 0,
-        ]);
-
-        $cheque->recalculateAmount();
-
-        Flux::toast(text: __('Draft refund cheque created — review and post it.'));
-        $this->redirectRoute('cheques.edit', ['company' => $this->company->slug, 'cheque' => $cheque->id], navigate: true);
-    }
-
-    protected function refundByCard(ReceiptPoster $poster, int $amountCents): void
-    {
-        $depositTo = Account::query()
-            ->whereIn('subtype', [AccountSubtype::UndepositedFunds->value, AccountSubtype::Bank->value])
-            ->find($this->refundDepositToAccountId);
-
-        if (! $depositTo) {
-            $this->addError('refundDepositToAccountId', __('Select an account to refund from.'));
-
-            return;
-        }
-
-        $receipt = CustomerReceipt::create([
-            'contact_id' => $this->creditMemo->contact_id,
-            'credit_memo_id' => $this->creditMemo->id,
-            'receipt_no' => app(DocumentNumberGenerator::class)->next($this->company, CustomerReceipt::class, 'receipt_no', 'REC'),
-            'receipt_date' => $this->refundDate,
-            'deposit_to_account_id' => $depositTo->id,
-            'payment_method_id' => $this->refundPaymentMethodId ?: null,
-            'reference' => $this->refundReference ?: null,
-            'amount_cents' => -$amountCents,
-            'memo' => __('Refund of credit memo :no', ['no' => $this->creditMemo->credit_memo_no]),
-        ]);
-
-        try {
-            $poster->post($receipt);
-        } catch (\RuntimeException $e) {
-            $receipt->delete();
-            Flux::toast(variant: 'danger', text: $e->getMessage());
-
-            return;
-        }
-
-        $this->showRefundModal = false;
-        unset($this->refundReceipts, $this->canRefund);
-        $this->creditMemo->refresh();
-
-        Flux::toast(variant: 'success', text: __('Credit-card refund recorded. Deposit it with your other card receipts.'));
-    }
-
-    protected function systemAccount(AccountSubtype $subtype): ?Account
-    {
-        return Account::query()
-            ->where('subtype', $subtype->value)
-            ->where('is_system', true)
-            ->first();
-    }
-
-    protected function nextChequeNumber(int $bankAccountId): string
-    {
-        $last = Cheque::withoutGlobalScopes()
-            ->where('company_id', $this->company->id)
-            ->where('bank_account_id', $bankAccountId)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($last && is_numeric($last->cheque_no)) {
-            return (string) (((int) $last->cheque_no) + 1);
-        }
-
-        return '1001';
+        return $this->creditMemo->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->orderBy('id')->get();
     }
 
     public function uploadAttachments(AttachmentService $service): void
@@ -668,93 +418,17 @@ new #[Title('Credit memo')] class extends Component {
                 </flux:text>
             </div>
 
-            @foreach ($this->refundCheques as $cheque)
-                <div class="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm" wire:key="rc-{{ $cheque->id }}">
-                    <a href="{{ route($cheque->journal_entry_id ? 'cheques.show' : 'cheques.edit', ['company' => $company->slug, 'cheque' => $cheque->id]) }}" wire:navigate class="flex items-center gap-2 hover:underline">
-                        <flux:icon name="banknotes" class="size-4 text-muted-foreground" />
-                        <span>{{ __('Cheque') }} {{ $cheque->cheque_no }}</span>
-                        <flux:badge size="sm" :color="$cheque->journal_entry_id ? 'blue' : 'amber'">
-                            {{ $cheque->journal_entry_id ? __('Posted') : __('Draft') }}
-                        </flux:badge>
-                    </a>
-                    <div class="flex items-center gap-2">
-                        <span class="font-mono">{{ number_format($cheque->amount_cents / 100, 2) }}</span>
-                        <flux:button variant="ghost" size="sm" icon="x-mark"
-                            wire:click="deleteRefundCheque({{ $cheque->id }})"
-                            wire:confirm="{{ $cheque->journal_entry_id
-                                ? __('Void this refund cheque? A reversing GL entry will be posted.')
-                                : __('Delete this draft refund cheque?') }}"
-                            data-test="delete-refund-cheque" />
-                    </div>
-                </div>
-            @endforeach
-
-            @foreach ($this->refundReceipts as $receipt)
-                <div class="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm" wire:key="rr-{{ $receipt->id }}">
-                    <a href="{{ route('receipts.show', ['company' => $company->slug, 'receipt' => $receipt->id]) }}" wire:navigate class="flex items-center gap-2 hover:underline">
-                        <flux:icon name="credit-card" class="size-4 text-muted-foreground" />
-                        <span>{{ __('Card refund') }} {{ $receipt->receipt_no }}</span>
-                    </a>
-                    <div class="flex items-center gap-2">
-                        <span class="font-mono">{{ number_format(abs($receipt->amount_cents) / 100, 2) }}</span>
-                        <flux:button variant="ghost" size="sm" icon="x-mark"
-                            wire:click="deleteRefundReceipt({{ $receipt->id }})"
-                            wire:confirm="{{ __('Void this card refund? A reversing GL entry will be posted.') }}"
-                            data-test="delete-refund-receipt" />
-                    </div>
-                </div>
-            @endforeach
+            <x-customer-refund.list :company="$company" :cheques="$this->refundCheques" :receipts="$this->refundReceipts" />
         </div>
     @endif
 
-    <flux:modal wire:model.self="showRefundModal" class="md:w-[32rem]">
-        <form wire:submit="submitRefund" class="space-y-5">
-            <div>
-                <flux:heading size="lg">{{ __('Refund to client') }}</flux:heading>
-                <flux:subheading>{{ $creditMemo->contact->display_name }}</flux:subheading>
-            </div>
-
-            <flux:radio.group wire:model.live="refundMethod" :label="__('Method')" variant="segmented">
-                <flux:radio value="cheque" :label="__('By cheque')" />
-                <flux:radio value="card" :label="__('By credit card')" />
-            </flux:radio.group>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <flux:input wire:model="refundAmount" :label="__('Amount')" class="text-right" data-test="refund-amount-input" />
-                <flux:input type="date" wire:model="refundDate" :label="__('Date')" />
-            </div>
-
-            @if ($refundMethod === 'cheque')
-                <flux:select wire:model="refundBankAccountId" :label="__('Bank account')" data-test="refund-bank-select">
-                    @foreach ($this->bankAccounts as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:text class="text-sm text-muted-foreground">{{ __('A draft cheque is created (debits Accounts Receivable, credits the bank). Review and post it to print.') }}</flux:text>
-            @else
-                <flux:select wire:model="refundDepositToAccountId" :label="__('Refund from')" data-test="refund-deposit-select">
-                    @foreach ($this->depositAccounts as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:select wire:model="refundPaymentMethodId" :label="__('Payment method')">
-                    <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
-                    @foreach ($this->paymentMethods as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:input wire:model="refundReference" :label="__('Reference (optional)')" />
-                <flux:text class="text-sm text-muted-foreground">{{ __('Records a negative receipt to Undeposited Funds. Deposit it with your other card receipts.') }}</flux:text>
-            @endif
-
-            <div class="flex justify-end gap-2">
-                <flux:button variant="ghost" type="button" wire:click="$set('showRefundModal', false)">{{ __('Cancel') }}</flux:button>
-                <flux:button variant="primary" type="submit" data-test="submit-refund-button">
-                    {{ $refundMethod === 'cheque' ? __('Create draft cheque') : __('Record refund') }}
-                </flux:button>
-            </div>
-        </form>
-    </flux:modal>
+    <x-customer-refund.modal
+        :contact-name="$creditMemo->contact->display_name"
+        :method="$refundMethod"
+        :bank-accounts="$this->refundBankAccounts"
+        :deposit-accounts="$this->refundDepositAccounts"
+        :payment-methods="$this->refundPaymentMethods"
+    />
 
     <div class="mt-6 space-y-3 rounded-lg border border-border p-4" data-test="credit-memo-attachments">
         <flux:heading size="sm">{{ __('Attachments') }}</flux:heading>

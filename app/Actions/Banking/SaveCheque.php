@@ -7,6 +7,7 @@ use App\Enums\ChequeStatus;
 use App\Models\Cheque;
 use App\Models\Contact;
 use App\Models\TaxCode;
+use App\Services\Posting\CustomerRefundGuard;
 use App\Support\Accounting\ControlAccountRoles;
 use Illuminate\Support\Facades\DB;
 
@@ -48,6 +49,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class SaveCheque
 {
+    public function __construct(private CustomerRefundGuard $refundGuard) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -102,6 +105,12 @@ final class SaveCheque
                     ? TaxCode::withoutGlobalScopes()->where('company_id', app('current_company')->id)->find($secondaryTaxCodeId)
                     : null;
 
+                // A tax amount only means something against a tax code: with no
+                // code there is no agency to post it to, so the poster would skip
+                // it and the rounding plug would quietly push it into an expense.
+                $override = $taxCode !== null && $override !== null ? (int) $override : null;
+                $secondaryOverride = $secondaryTaxCode !== null && $secondaryOverride !== null ? (int) $secondaryOverride : null;
+
                 $taxCents = $override !== null
                     ? (int) $override
                     : ($taxCode ? $taxCode->taxFor($amountCents) : 0);
@@ -129,6 +138,10 @@ final class SaveCheque
 
             $cheque->refresh();
             $cheque->recalculateAmount();
+
+            // A refund cheque pays back a credit memo or a payment's unapplied
+            // credit; editing its draft can't raise it past what is left.
+            $this->refundGuard->assertWithinSource($cheque);
 
             return $cheque;
         });

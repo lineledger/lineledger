@@ -3,6 +3,7 @@
 use App\Actions\Companies\CreateCompany;
 use App\Enums\Country;
 use App\Rules\CompanyName;
+use App\Support\Currency;
 use App\Support\UserCompany;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -61,7 +62,7 @@ new #[Title('Organizations')] class extends Component {
         $rules = [
             'name' => ['required', 'string', 'max:255', new CompanyName],
             'country' => ['required', Rule::in(array_map(fn ($c) => $c->value, Country::cases()))],
-            'currency' => ['required', 'string', 'size:3'],
+            'currency' => ['required', 'string', Rule::in(array_keys(Currency::selectable()))],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
         ];
 

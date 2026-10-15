@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\PaymentTerm;
 use App\Models\TaxCode;
 use App\Services\Posting\DocumentNumberGenerator;
+use App\Services\Posting\ReceiptPoster;
 use App\Services\Posting\TaxCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,7 @@ final class SaveInvoice
     public function __construct(
         protected DocumentNumberGenerator $numbers,
         protected TaxCalculator $taxCalculator,
+        protected ReceiptPoster $receipts,
     ) {}
 
     /**
@@ -163,6 +165,12 @@ final class SaveInvoice
             ])->save();
 
             $invoice->recalculateTotals();
+
+            // Rejected inside this transaction, so an edit to a paid invoice that
+            // would drop it below its receipts writes nothing at all.
+            if ($invoice->journal_entry_id !== null) {
+                $this->receipts->ensureTotalCoversApplications($invoice);
+            }
 
             return $invoice;
         });

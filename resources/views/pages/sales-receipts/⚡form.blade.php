@@ -7,6 +7,7 @@ use App\Enums\ItemType;
 use App\Enums\SalesReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Concerns\GuardsEditLockedForm;
+use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -29,6 +30,7 @@ use Livewire\Component;
 
 new #[Title('Sales receipt')] class extends Component {
     use GuardsEditLockedForm;
+    use HandlesPeriodLockOverride;
 
     public Company $company;
 
@@ -326,7 +328,13 @@ new #[Title('Sales receipt')] class extends Component {
 
         try {
             $wasPosted ? $poster->repost($this->receipt) : $poster->post($this->receipt);
-        } catch (PeriodLockedException|RuntimeException $e) {
+        } catch (PeriodLockedException $e) {
+            if (! $this->offerPeriodLockOverride($e, 'post')) {
+                $this->addError('lines', $e->getMessage());
+            }
+
+            return;
+        } catch (RuntimeException $e) {
             $this->addError('lines', $e->getMessage());
 
             return;
@@ -571,6 +579,8 @@ new #[Title('Sales receipt')] class extends Component {
         <div class="overflow-x-auto rounded-lg border border-border">
             <table
                 class="w-full text-sm"
+                x-resizable-columns="'sales-receipt-lines'"
+                wire:ignore.self
                 x-on:keydown.tab.capture="tabAddRow($event)"
                 x-data="{
                     addRowAndFocus(next) {
@@ -593,18 +603,19 @@ new #[Title('Sales receipt')] class extends Component {
             >
                 <thead class="hidden bg-muted lg:table-header-group">
                     <tr>
-                        <th class="px-2 py-2 text-left w-44">{{ __('Item') }}</th>
-                        <th class="px-2 py-2 text-left">{{ __('Description') }}</th>
-                        <th class="px-2 py-2 text-left w-44">{{ __('Account') }}</th>
-                        <th class="px-2 py-2 text-right w-20">{{ __('Qty') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Unit price') }}</th>
-                        <th class="px-2 py-2 text-right w-20">{{ __('Disc %') }}</th>
-                        <th class="px-2 py-2 text-left w-32">{{ __('Tax') }}</th>
-                        <th class="px-2 py-2 text-right w-28">{{ __('Amount') }}</th>
-                        <th class="px-2 py-2 w-10"></th>
+                        <th class="relative px-2 py-2 text-left w-44" data-col="item" data-col-min="120" wire:ignore.self>{{ __('Item') }}<x-col-resize-handle /></th>
+                        <th class="px-2 py-2 text-left" data-col-flex>{{ __('Description') }}</th>
+                        <th class="relative px-2 py-2 text-left w-64" data-col="account" data-col-min="120" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Account') }}</th>
+                        <th class="relative px-2 py-2 text-right w-20" data-col="qty" data-col-min="56" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Qty') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="unit-price" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Unit price') }}</th>
+                        <th class="relative px-2 py-2 text-right w-20" data-col="discount" data-col-min="56" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Disc %') }}</th>
+                        <th class="relative px-2 py-2 text-left w-32" data-col="tax" data-col-min="128" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Tax') }}</th>
+                        <th class="relative px-2 py-2 text-right w-28" data-col="amount" data-col-min="88" wire:ignore.self><x-col-resize-handle edge="start" />{{ __('Amount') }}</th>
+                        <th class="px-2 py-2 w-15"></th>
                     </tr>
                 </thead>
                 <tbody class="lg:divide-y lg:divide-border">
+                    <x-account-combo.options key="accounts" :options="$this->accountOptions" />
                     @foreach ($lines as $i => $line)
                         <tr wire:key="sr-line-{{ $i }}" data-test="sales-receipt-line-row" class="block border-b border-border p-3 lg:table-row lg:border-0 lg:p-0">
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
@@ -617,12 +628,7 @@ new #[Title('Sales receipt')] class extends Component {
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
                                 <span class="mb-1 block text-xs font-medium text-muted-foreground lg:hidden">{{ __('Account') }}</span>
-                                <flux:select wire:model.live="lines.{{ $i }}.account_id" data-test="sr-line-account">
-                                    <flux:select.option value="">{{ __('—') }}</flux:select.option>
-                                    @foreach ($this->accountOptions as $opt)
-                                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
-                                    @endforeach
-                                </flux:select>
+                                <x-account-combo model="lines.{{ $i }}.account_id" options="accounts" data-test="sr-line-account" />
                                 @error('lines.'.$i.'.account_id') <flux:text class="mt-1 text-xs text-red-600">{{ __('Account is required.') }}</flux:text> @enderror
                             </td>
                             <td class="block px-2 py-1 lg:table-cell lg:py-2">
@@ -718,5 +724,7 @@ new #[Title('Sales receipt')] class extends Component {
             </div>
         </div>
     </form>
+
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
     @endif
 </section>
