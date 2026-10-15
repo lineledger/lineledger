@@ -59,11 +59,12 @@ return [
     | Country Region
     |--------------------------------------------------------------------------
     |
-    | Which country this deployment serves (CA / US). In production this is
-    | normally derived from the request host (books.lineledger.ca vs .com), but
-    | setting APP_REGION forces it — useful on host-agnostic environments like
-    | local dev (localhost). Drives the guest country-switcher banner, whose
-    | "Go to <country>" links point at the sibling app via "app_urls".
+    | Which country this deployment serves (CA / US / GB). In production this is
+    | normally derived from the request host (books.lineledger.ca vs .com vs
+    | .co.uk), but setting APP_REGION forces it — useful on host-agnostic
+    | environments like local dev (localhost). Legal links use this region; the
+    | guest country-switcher banner only appears on the sibling hosts listed in
+    | "app_urls".
     |
     */
 
@@ -72,6 +73,7 @@ return [
     'app_urls' => [
         'CA' => env('APP_URL_CA', 'https://books.lineledger.ca'),
         'US' => env('APP_URL_US', 'https://books.lineledger.com'),
+        'GB' => env('APP_URL_GB', 'https://books.lineledger.co.uk'),
     ],
 
     /*
@@ -84,6 +86,7 @@ return [
     'marketing_urls' => [
         'CA' => env('MARKETING_URL_CA', 'https://lineledger.ca'),
         'US' => env('MARKETING_URL_US', 'https://lineledger.com'),
+        'GB' => env('MARKETING_URL_GB', 'https://lineledger.co.uk'),
     ],
 
     /*

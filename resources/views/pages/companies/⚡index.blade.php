@@ -181,6 +181,7 @@ new #[Title('Organizations')] class extends Component {
             <flux:select wire:model="currency" :label="__('Base currency')" data-test="create-company-currency">
                 <flux:select.option value="CAD">CAD &mdash; Canadian Dollar</flux:select.option>
                 <flux:select.option value="USD">USD &mdash; United States Dollar</flux:select.option>
+                <flux:select.option value="GBP">GBP &mdash; British Pound</flux:select.option>
             </flux:select>
 
             <flux:select wire:model="timezone" :label="__('Timezone')" :description="__('Transaction dates default to today in this timezone.')" data-test="create-company-timezone">

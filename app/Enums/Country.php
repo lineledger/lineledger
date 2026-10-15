@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use App\Models\Company;
 use App\Support\Defaults\AmericanDefaults;
+use App\Support\Defaults\BritishDefaults;
 use App\Support\Defaults\CanadianDefaults;
 use App\Support\Defaults\CompanyDefaults;
 
@@ -20,12 +21,14 @@ enum Country: string
 {
     case Canada = 'CA';
     case UnitedStates = 'US';
+    case UnitedKingdom = 'GB';
 
     public function label(): string
     {
         return match ($this) {
             self::Canada => 'Canada',
             self::UnitedStates => 'United States',
+            self::UnitedKingdom => 'United Kingdom',
         };
     }
 
@@ -37,19 +40,28 @@ enum Country: string
         return match ($this) {
             self::Canada => '🇨🇦',
             self::UnitedStates => '🇺🇸',
+            self::UnitedKingdom => '🇬🇧',
         };
     }
 
     /**
      * Resolve the deployment's country from its request host: a `.ca` apex maps
-     * to Canada, anything else (`.com`, `localhost`, …) to the United States.
-     * Used to tailor the guest country-switcher banner to the site being viewed.
+     * to Canada, a `.uk` apex (including `.co.uk`) to the United Kingdom, and
+     * anything else (`.com`, `localhost`, …) to the United States.
      */
     public static function fromHost(?string $host): self
     {
         $host = mb_strtolower(trim((string) $host));
 
-        return str_ends_with($host, '.ca') ? self::Canada : self::UnitedStates;
+        if (str_ends_with($host, '.ca')) {
+            return self::Canada;
+        }
+
+        if (str_ends_with($host, '.uk')) {
+            return self::UnitedKingdom;
+        }
+
+        return self::UnitedStates;
     }
 
     public function defaultCurrencyCode(): string
@@ -57,6 +69,7 @@ enum Country: string
         return match ($this) {
             self::Canada => 'CAD',
             self::UnitedStates => 'USD',
+            self::UnitedKingdom => 'GBP',
         };
     }
 
@@ -93,6 +106,7 @@ enum Country: string
                 'HI' => 'Pacific/Honolulu',
                 default => 'America/New_York',
             },
+            self::UnitedKingdom => 'Europe/London',
         };
     }
 
@@ -135,6 +149,8 @@ enum Country: string
                 'America/Boise' => 'ID',
                 default => null,
             },
+            // Europe/London covers all four nations — do not guess.
+            self::UnitedKingdom => null,
         };
 
         // Never return a code we don't actually offer as a selectable option.
@@ -146,6 +162,7 @@ enum Country: string
         return match ($this) {
             self::Canada => 'Province',
             self::UnitedStates => 'State',
+            self::UnitedKingdom => 'Nation',
         };
     }
 
@@ -154,6 +171,7 @@ enum Country: string
         return match ($this) {
             self::Canada => 'Postal Code',
             self::UnitedStates => 'ZIP Code',
+            self::UnitedKingdom => 'Postcode',
         };
     }
 
@@ -162,6 +180,51 @@ enum Country: string
         return match ($this) {
             self::Canada => 'GST/HST',
             self::UnitedStates => 'Sales Tax',
+            self::UnitedKingdom => 'VAT',
+        };
+    }
+
+    /**
+     * Label for the corporate registry number field (e.g. Companies House), or
+     * null when this jurisdiction does not collect one on company setup.
+     */
+    public function companyRegistrationNumberLabel(): ?string
+    {
+        return match ($this) {
+            self::UnitedKingdom => 'Company number',
+            default => null,
+        };
+    }
+
+    /**
+     * Whether a company of this organization type typically has a corporate
+     * registry number in this jurisdiction (UK Ltd/PLC and LLP do; sole traders
+     * do not).
+     */
+    public function usesCompanyRegistrationNumber(?OrganizationType $organizationType): bool
+    {
+        if ($this->companyRegistrationNumberLabel() === null || $organizationType === null) {
+            return false;
+        }
+
+        return match ($this) {
+            self::UnitedKingdom => in_array($organizationType, [
+                OrganizationType::Corporation,
+                OrganizationType::Partnership,
+            ], true),
+            default => false,
+        };
+    }
+
+    /**
+     * Short label printed on invoices/PDFs next to {@see Company::$tax_number}.
+     */
+    public function taxNumberDocumentLabel(): string
+    {
+        return match ($this) {
+            self::Canada => 'GST/HST No.',
+            self::UnitedStates => 'Tax No.',
+            self::UnitedKingdom => 'VAT No.',
         };
     }
 
@@ -201,6 +264,13 @@ enum Country: string
                 'UT' => 'Utah', 'VT' => 'Vermont', 'VA' => 'Virginia', 'WA' => 'Washington',
                 'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming',
             ],
+            self::UnitedKingdom => [
+                'ENG' => 'England',
+                'SCT' => 'Scotland',
+                'WLS' => 'Wales',
+                'NIR' => 'Northern Ireland',
+                'IM' => 'Isle of Man',
+            ],
         };
     }
 
@@ -211,7 +281,7 @@ enum Country: string
     public function cheque(string $form = 'singular'): string
     {
         $singular = match ($this) {
-            self::Canada => 'Cheque',
+            self::Canada, self::UnitedKingdom => 'Cheque',
             self::UnitedStates => 'Check',
         };
 
@@ -235,7 +305,6 @@ enum Country: string
         $singular = $this->cheque('singular');
         $plural = $this->cheque('plural');
         $lower = mb_strtolower($singular);
-        $lowerPlural = mb_strtolower($plural);
 
         return match ($key) {
             'number' => $singular.' #',
@@ -246,7 +315,7 @@ enum Country: string
             'ref' => $singular.' # or txn ref',
             'section' => $plural.' and Payments',
             'checkbook' => match ($this) {
-                self::Canada => 'Chequebook view',
+                self::Canada, self::UnitedKingdom => 'Chequebook view',
                 self::UnitedStates => 'Checkbook view',
             },
             'method' => $singular.' method',
@@ -261,12 +330,13 @@ enum Country: string
         return match ($this) {
             self::Canada => new CanadianDefaults,
             self::UnitedStates => new AmericanDefaults,
+            self::UnitedKingdom => new BritishDefaults,
         };
     }
 
     /**
      * Country cases offered as form options, in declaration order
-     * (Canada, United States).
+     * (Canada, United States, United Kingdom).
      *
      * @return array<array{value: string, label: string}>
      */

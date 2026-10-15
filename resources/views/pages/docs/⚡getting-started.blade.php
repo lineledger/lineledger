@@ -46,7 +46,7 @@ new #[Title('Documentation — Getting started')] class extends Component {}; ?>
         {{-- ────────────────── Creating your first organization ───────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Creating your first organization') }}</flux:heading>
         <flux:text>
-            {{ __('A new account starts empty — you create your first organization explicitly. When you do, you choose a country (Canada or the United States). That choice seeds a starting chart of accounts, tax codes and tax agency, default payment methods, and currency, and sets the wording the app uses (Cheque vs. Check, GST/HST vs. Sales Tax). Pick carefully: the country can\'t be changed once the organization exists.') }}
+            {{ __('A new account starts empty — you create your first organization explicitly. When you do, you choose a country (Canada, the United States, or the United Kingdom). That choice seeds a starting chart of accounts, tax codes and tax agency, default payment methods, and currency, and sets the wording the app uses (Cheque vs. Check, GST/HST vs. Sales Tax vs. VAT). Pick carefully: the country can\'t be changed once the organization exists.') }}
         </flux:text>
         <flux:text>
             {{ __('An 8-step wizard walks you through your organization type, industry and chart of accounts, the features you want, sales tax, and how to start. See the full walkthrough — including examples for sole proprietorships, corporations, and non-profits — on the') }}

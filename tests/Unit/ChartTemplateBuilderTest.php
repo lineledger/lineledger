@@ -62,6 +62,10 @@ test('jurisdiction core uses jurisdiction-specific naming', function () {
     $us = collect($builder->build(Country::UnitedStates, Industry::General, OrganizationType::Other, minimal: true));
     expect($us->firstWhere('code', '1000')['name'])->toBe('Checking');
     expect($us->firstWhere('code', '2200')['name'])->toBe('Sales Tax Payable');
+
+    $gb = collect($builder->build(Country::UnitedKingdom, Industry::General, OrganizationType::Other, minimal: true));
+    expect($gb->firstWhere('code', '1000')['name'])->toBe('Current Account');
+    expect($gb->firstWhere('code', '2200')['name'])->toBe('VAT Payable');
 });
 
 test('non-profit org type relabels the core Retained Earnings line to Net Assets', function () {
@@ -150,6 +154,9 @@ test('a corporation gets share-capital equity with jurisdiction-specific termino
 
     $ca = collect((new ChartTemplateBuilder)->build(Country::Canada, Industry::General, OrganizationType::Corporation));
     expect($ca->firstWhere('code', '3100')['name'])->toBe('Common Shares');
+
+    $gb = collect((new ChartTemplateBuilder)->build(Country::UnitedKingdom, Industry::General, OrganizationType::Corporation));
+    expect($gb->firstWhere('code', '3100')['name'])->toBe('Ordinary Shares');
 });
 
 test('the org-type equity pass overrides an industry that guessed a different entity', function () {

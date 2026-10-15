@@ -19,11 +19,10 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data('editLockBlockedPoller', editLockBlockedPoller);
 
     /**
-     * Guest country-switcher banner (books.lineledger.com vs .ca). Mirrors the
-     * marketing site's GeoBanner, but the trigger is the REFERRER rather than
-     * the browser timezone: it offers to switch to the sibling-country app
-     * unless the visitor already arrived from a lineledger domain (so they
-     * chose their country on the marketing site) or has already decided here.
+     * Guest country-switcher banner (CA / US / GB twins). Mirrors the marketing
+     * site's GeoBanner, but the trigger is the REFERRER rather than the browser
+     * timezone: it offers sibling-country apps unless the visitor already
+     * arrived from a lineledger domain or has already decided here.
      *
      * The choice is remembered in localStorage['ll_region'] (single origin per
      * country, never sent to the server) so we never nag twice. The element
@@ -32,9 +31,8 @@ document.addEventListener('alpine:init', () => {
      */
     window.Alpine.data('geoBanner', (config = {}) => ({
         show: false,
-        current: config.current,    // 'ca' | 'us' — the site they're viewing
-        other: config.other,        // 'ca' | 'us' — the site we'd switch them to
-        otherUrl: config.otherUrl,  // sibling app origin, e.g. https://books.lineledger.ca
+        current: config.current,       // 'ca' | 'us' | 'gb'
+        siblings: config.siblings || [], // [{ code, label, flag, url }, ...]
 
         KEY: 'll_region',
 
@@ -57,7 +55,7 @@ document.addEventListener('alpine:init', () => {
             // 1. Honor an explicit ?ll= choice carried across the domain switch.
             const params = new URLSearchParams(window.location.search);
             const ll = params.get('ll');
-            if (ll === 'ca' || ll === 'us') {
+            if (ll === 'ca' || ll === 'us' || ll === 'gb') {
                 this.remember(ll);
                 params.delete('ll');
                 const qs = params.toString();
@@ -105,7 +103,7 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        /** Did the visitor arrive from a lineledger.com / .ca page (any subdomain)? */
+        /** Did the visitor arrive from a lineledger.com / .ca / .co.uk page? */
         fromLineLedger() {
             try {
                 if (!document.referrer) {
@@ -113,21 +111,21 @@ document.addEventListener('alpine:init', () => {
                 }
                 const host = new URL(document.referrer).hostname;
 
-                return /(^|\.)lineledger\.(com|ca)$/i.test(host);
+                return /(^|\.)lineledger\.(com|ca|co\.uk|uk)$/i.test(host);
             } catch (e) {
                 return false;
             }
         },
 
         /** The sibling app, on the same page, carrying the explicit ?ll choice. */
-        switchHref() {
-            return this.otherUrl + window.location.pathname + '?ll=' + this.other;
+        switchHref(sibling) {
+            return sibling.url + window.location.pathname + '?ll=' + sibling.code;
         },
 
-        /** "Go to <country>": remember the switch, then leave for the sibling app. */
-        go() {
-            this.remember(this.other);
-            window.location.assign(this.switchHref());
+        /** Remember the switch, then leave for the chosen sibling app. */
+        go(sibling) {
+            this.remember(sibling.code);
+            window.location.assign(this.switchHref(sibling));
         },
 
         /** "Stay here": record this country and dismiss for good. */

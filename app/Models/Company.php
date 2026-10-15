@@ -66,6 +66,7 @@ use Illuminate\Support\Facades\Storage;
     'default_cogs_account_id',
     'lock_date',
     'tax_number',
+    'company_registration_number',
     'phone',
     'website',
     'email',

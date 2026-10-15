@@ -33,6 +33,21 @@ test('a club is the lightest non-profit tier', function () {
     expect(OrganizationType::Club->label())->toBe('Club / Association');
 });
 
+test('United Kingdom organization types use British legal wording', function () {
+    $gb = \App\Enums\Country::UnitedKingdom;
+
+    expect(OrganizationType::SoleProprietorship->label($gb))->toBe('Sole trader');
+    expect(OrganizationType::Partnership->label($gb))->toBe('Partnership / LLP');
+    expect(OrganizationType::Corporation->label($gb))->toBe('Limited company (Ltd)');
+
+    $options = collect(OrganizationType::options($gb))->keyBy('value');
+
+    expect($options['corporation']['label'])->toBe('Limited company (Ltd)');
+    expect($options['partnership']['description'])->toContain('LLP');
+    expect($options['corporation']['help'])->toContain('Ltd');
+    expect($options['corporation']['help'])->toContain('not for an LLP');
+});
+
 test('the equity section is relabelled to match the entity type', function () {
     expect(OrganizationType::SoleProprietorship->equitySectionLabel())->toBe("Owner's Equity");
     expect(OrganizationType::Partnership->equitySectionLabel())->toBe("Partners' Equity");

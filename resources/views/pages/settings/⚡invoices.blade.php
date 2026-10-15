@@ -208,7 +208,13 @@ new #[Title('Invoice settings')] class extends Component {
                     <flux:subheading>{{ __('Shown at the bottom of the invoice.') }}</flux:subheading>
                 </div>
 
-                <flux:input wire:model="taxNumber" :label="__('Tax / GST/HST registration number')" maxlength="50" :description="__('Printed as “GST/HST No.” on the invoice footer.')" data-test="invoice-tax-number" />
+                <flux:input
+                    wire:model="taxNumber"
+                    :label="__('Tax / :tax registration number', ['tax' => $company->jurisdiction->taxLabel()])"
+                    maxlength="50"
+                    :description="__('Printed as “:label” on the invoice footer.', ['label' => $company->jurisdiction->taxNumberDocumentLabel()])"
+                    data-test="invoice-tax-number"
+                />
                 <flux:switch wire:model="showTaxNumber" :label="__('Show tax number on invoices')" data-test="invoice-show-tax-number" />
 
                 <flux:textarea wire:model="footerMessage" :label="__('Footer message')" rows="3" :description="__('e.g. payment instructions or a thank-you note.')" data-test="invoice-footer-message" />

@@ -135,6 +135,9 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
     // provincial tax agency. Only collected for provinces that levy it.
     public string $pstNumber = '';
 
+    // Companies House / corporate registry number (UK Ltd & LLP). Distinct from VAT.
+    public string $companyRegistrationNumber = '';
+
     // Step 6 — how to start: fresh vs import vs restore-backup
     public string $startMode = 'fresh'; // 'fresh' | 'import' | 'restore-backup'
 
@@ -172,21 +175,24 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
         $this->startDate = now()->toDateString();
 
         // Prefill the country from Cloudflare's edge geolocation header when the
-        // app is fronted by Cloudflare. Only our two supported jurisdictions are
-        // honoured; anything else falls back to the host's national TLD for
-        // self-hosted/non-Cloudflare deploys. We only trust the confident
-        // .ca → Canada signal — a non-.ca host (a self-hosted .com, localhost) is
-        // not evidence of the US, so it leaves the field blank for the owner to
-        // pick explicitly. Country is immutable after creation.
+        // app is fronted by Cloudflare. Only our supported jurisdictions are
+        // honoured; anything else falls back to a confident national-TLD host
+        // signal (.ca → Canada, .uk → United Kingdom). A non-matching host
+        // (self-hosted .com, localhost) is not evidence of the US, so it leaves
+        // the field blank for the owner to pick explicitly. Country is immutable
+        // after creation.
         $geoCountry = match (mb_strtoupper((string) request()->header('CF-IPCountry'))) {
             'CA' => Country::Canada,
             'US' => Country::UnitedStates,
+            'GB' => Country::UnitedKingdom,
             default => null,
         };
 
-        $hostCountry = Country::fromHost(request()->getHost()) === Country::Canada
-            ? Country::Canada
-            : null;
+        $hostCountry = match (Country::fromHost(request()->getHost())) {
+            Country::Canada => Country::Canada,
+            Country::UnitedKingdom => Country::UnitedKingdom,
+            default => null,
+        };
 
         $this->country = ($geoCountry ?? $hostCountry)?->value ?? '';
 
@@ -231,6 +237,18 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
     }
 
     /**
+     * Whether this jurisdiction + organization type collects a corporate registry
+     * number (e.g. Companies House for UK Ltd / LLP).
+     */
+    public function asksForCompanyRegistrationNumber(): bool
+    {
+        $country = $this->countryEnum();
+        $orgType = OrganizationType::tryFrom($this->organizationType);
+
+        return $country !== null && $country->usesCompanyRegistrationNumber($orgType);
+    }
+
+    /**
      * Base currency we pre-select for a jurisdiction. Unsupported/blank countries
      * resolve to '', forcing an explicit choice.
      */
@@ -239,6 +257,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
         return match ($country) {
             Country::Canada => 'CAD',
             Country::UnitedStates => 'USD',
+            Country::UnitedKingdom => 'GBP',
             default => '',
         };
     }
@@ -626,22 +645,22 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
     }
 
     /**
-     * The collapsed non-profit entry. The US has no CRA "registered charity"
-     * concept, so the copy drops the charity wording there.
+     * The collapsed non-profit entry. Outside Canada there is no CRA
+     * "registered charity" concept, so the copy drops the charity wording.
      *
      * @return array{value: string, label: string, description: string, help: string}
      */
     private function nonProfitChoice(?Country $country): array
     {
-        $isUs = $country === Country::UnitedStates;
+        $hidesCharity = $country !== null && $country !== Country::Canada;
 
         return [
             'value' => self::NONPROFIT_CATEGORY,
-            'label' => $isUs ? __('Non-profit') : __('Non-profit or charity'),
-            'description' => $isUs
+            'label' => $hidesCharity ? __('Non-profit') : __('Non-profit or charity'),
+            'description' => $hidesCharity
                 ? __('A club, association, or non-profit organization.')
                 : __('A club, association, non-profit, or registered charity.'),
-            'help' => $isUs
+            'help' => $hidesCharity
                 ? __('Choose this for any not-for-profit — an unincorporated club or association, or an incorporated non-profit. The next question pins down which, since each has different filing rules.')
                 : __('Choose this for any not-for-profit — an unincorporated club or association, an incorporated non-profit, or a registered charity. The next question pins down which, since each has different filing and receipting rules.'),
         ];
@@ -693,7 +712,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 // as defense in depth. Charity isn't offered outside Canada.
                 'organizationType' => array_merge(
                     ['required', Rule::enum(OrganizationType::class)],
-                    $this->countryEnum() === Country::UnitedStates
+                    $this->countryEnum() !== null && $this->countryEnum() !== Country::Canada
                         ? [Rule::notIn([OrganizationType::Charity->value])]
                         : [],
                 ),
@@ -704,7 +723,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                         Rule::enum(LegalStructure::class),
                     ],
                     // Registered charity isn't offered outside Canada.
-                    $this->countryEnum() === Country::UnitedStates
+                    $this->countryEnum() !== null && $this->countryEnum() !== Country::Canada
                         ? [Rule::notIn([LegalStructure::RegisteredCharity->value])]
                         : [],
                 ),
@@ -714,6 +733,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                     Rule::enum(ContributionMethod::class),
                 ],
                 'charityRegistrationNumber' => ['nullable', 'string', 'max:32', 'regex:/^\d{9}RR\d{4}$/'],
+                'companyRegistrationNumber' => ['nullable', 'string', 'max:32'],
             ],
             3 => [
                 'industry' => ['required', Rule::enum(Industry::class)],
@@ -813,6 +833,9 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 'organization_type' => $this->organizationType,
                 ...$this->nonProfitAttributes(),
                 'tax_number' => $this->taxNumber ?: null,
+                'company_registration_number' => $this->asksForCompanyRegistrationNumber()
+                    ? ($this->companyRegistrationNumber ?: null)
+                    : null,
                 'features_inventory' => $this->featuresInventory,
                 'features_employees' => $this->featuresEmployees,
                 'features_payroll' => $this->featuresPayroll && $this->countryEnum() === Country::Canada,
@@ -902,6 +925,9 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                 'organization_type' => $this->organizationType,
                 ...$this->nonProfitAttributes(),
                 'tax_number' => $this->taxNumber ?: null,
+                'company_registration_number' => $this->asksForCompanyRegistrationNumber()
+                    ? ($this->companyRegistrationNumber ?: null)
+                    : null,
                 'features_inventory' => $this->featuresInventory,
                 'features_employees' => $this->featuresEmployees,
                 'features_payroll' => $this->featuresPayroll && $this->countryEnum() === Country::Canada,
@@ -1037,6 +1063,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                             <flux:select.option value="">{{ __('Select…') }}</flux:select.option>
                             <flux:select.option value="CAD">CAD &mdash; Canadian Dollar</flux:select.option>
                             <flux:select.option value="USD">USD &mdash; United States Dollar</flux:select.option>
+                            <flux:select.option value="GBP">GBP &mdash; British Pound</flux:select.option>
                         </flux:select>
 
                         <flux:select wire:model="timezone" :label="__('Timezone')" data-test="wizard-timezone">
@@ -1096,6 +1123,18 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                             </div>
                         @endforeach
                     </flux:radio.group>
+
+                    @if ($this->asksForCompanyRegistrationNumber())
+                        <div class="mt-8 space-y-2 border-t border-border pt-8">
+                            <flux:input
+                                wire:model="companyRegistrationNumber"
+                                :label="$this->countryEnum()?->companyRegistrationNumberLabel() ?? __('Company number')"
+                                placeholder="12345678"
+                                :description="__('Your Companies House registration number. Optional — you can add it later in settings. Printed on invoices when set.')"
+                                data-test="wizard-company-registration-number"
+                            />
+                        </div>
+                    @endif
 
                     @if ($this->nonProfitSelected)
                         <div class="mt-8 space-y-8 border-t border-border pt-8" data-test="wizard-nonprofit">
@@ -1337,7 +1376,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
                         </div>
                         <div class="flex justify-between border-b border-border pb-2">
                             <dt class="text-muted-foreground">{{ __('Organization') }}</dt>
-                            <dd class="font-medium">{{ \App\Enums\OrganizationType::tryFrom($organizationType)?->label() }}</dd>
+                            <dd class="font-medium">{{ \App\Enums\OrganizationType::tryFrom($organizationType)?->label($this->countryEnum()) }}</dd>
                         </div>
                         @if (\App\Enums\OrganizationType::tryFrom($organizationType)?->isNonProfit())
                             <div class="flex justify-between border-b border-border pb-2">

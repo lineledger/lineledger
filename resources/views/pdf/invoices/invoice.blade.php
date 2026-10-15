@@ -258,9 +258,7 @@
     @endif
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($invoice->customer_message))
             <div class="message">{{ $invoice->customer_message }}</div>
         @endif

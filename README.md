@@ -313,9 +313,9 @@ unlock specific subsystems. Set the same keys in production via Forge → Site �
 | `APP_NAME` | App name shown in UI & emails | `LineLedger` | `LineLedger` |
 | `APP_URL` | Absolute base URL (links, passkey RP ID, Stripe redirects) | `http://localhost:8000` | `https://books.lineledger.ca` |
 | `APP_KEY` | Encryption key | `php artisan key:generate` | generated once, kept secret |
-| `APP_REGION` | Country this deployment serves (`CA` / `US`). Picks which marketing site the footer's legal links point at. Leave **unset in production** to derive it from the request host (a `.ca` host → CA, anything else → US); set it explicitly on host-agnostic environments like local dev | `CA` (`.env.example` ships it blank) | unset (derived from host) |
-| `APP_URL_CA` / `APP_URL_US` | The project's two sibling app deployments. The guest country-switcher banner offers a visitor the other one, and **renders only on these two hosts** — so a self-hosted instance on its own domain never shows it, whatever `APP_REGION` says | `https://books.lineledger.ca` / `https://books.lineledger.com` | your two app hosts |
-| `MARKETING_URL_CA` / `MARKETING_URL_US` | Marketing sites hosting the legal documents linked from the footer, chosen by region | `https://lineledger.ca` / `https://lineledger.com` | your marketing sites |
+| `APP_REGION` | Country this deployment serves (`CA` / `US` / `GB`). Picks which marketing site the footer's legal links point at. Leave **unset in production** to derive it from the request host (`.ca` → CA, `.uk` → GB, anything else → US); set it explicitly on host-agnostic environments like local dev | `CA` (`.env.example` ships it blank) | unset (derived from host) |
+| `APP_URL_CA` / `APP_URL_US` / `APP_URL_GB` | The project's sibling app deployments. The guest country-switcher banner offers a visitor the other ones, and **renders only on these hosts** — so a self-hosted instance on its own domain never shows it, whatever `APP_REGION` says | `https://books.lineledger.ca` / `https://books.lineledger.com` / `https://books.lineledger.co.uk` | your sibling app hosts |
+| `MARKETING_URL_CA` / `MARKETING_URL_US` / `MARKETING_URL_GB` | Marketing sites hosting the legal documents linked from the footer, chosen by region | `https://lineledger.ca` / `https://lineledger.com` / `https://lineledger.co.uk` | your marketing sites |
 | `BRAND_LOGO` / `BRAND_LOGO_DARK` | The mark on the sign-in, registration and onboarding screens, and in the sidebar until an organization uploads its own. Any path the browser can fetch: a file under `public/`, a `/storage/…` path (which survives a deploy), or an absolute URL. The dark variant is optional — unset, the one logo serves both themes. The name beside it is `APP_NAME` | `/logo/line-ledger-logo.png` / unset | your logo |
 | `BRAND_FOOTER_OWNER` | Who operates this deployment — the name in the footer's copyright line | `Local Foundry Inc.` | your company |
 | `BRAND_SHOW_PROJECT_LINKS` | The upstream links beside it (version → release notes, licence, source, legal). `false` keeps the copyright line and a plain version number. **Read `config/brand.php` first**: the source link is how this app offers its source to the people using it, which AGPL-3.0 §13 requires of a modified version run as a network service | `true` | `true` |
@@ -902,8 +902,9 @@ can move some and not others:
 | `LOGO_DISK` | Organization logos (browser-visible) | `public` | `s3_public` |
 | `BACKUP_DISK` | Organization backup ZIPs | `local` | `s3` |
 
-**Two buckets, both in the region you serve** (`ca-central-1` for Canada — the
-default if `AWS_DEFAULT_REGION` is unset):
+**Two buckets, both in the region you serve** (`ca-central-1` for Canada,
+`eu-west-2` for the United Kingdom — the default if `AWS_DEFAULT_REGION` is unset
+is `us-east-1` on most AWS accounts; set it explicitly per twin):
 
 1. **Private** (`AWS_BUCKET`) — attachments and backups. Leave **Block Public
    Access fully on**. Nothing here is ever served directly; the app streams

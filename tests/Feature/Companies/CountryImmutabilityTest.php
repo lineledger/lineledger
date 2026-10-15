@@ -25,7 +25,9 @@ test('changing other fields on a company still works', function () {
 test('the jurisdiction accessor returns the correct Country case', function () {
     $ca = Company::factory()->forCountry(Country::Canada)->create();
     $us = Company::factory()->forCountry(Country::UnitedStates)->create();
+    $gb = Company::factory()->forCountry(Country::UnitedKingdom)->create();
 
     expect($ca->jurisdiction)->toBe(Country::Canada);
     expect($us->jurisdiction)->toBe(Country::UnitedStates);
+    expect($gb->jurisdiction)->toBe(Country::UnitedKingdom);
 });

@@ -44,6 +44,8 @@ new class extends Component
 
     public string $legalName = '';
 
+    public string $companyRegistrationNumber = '';
+
     public string $lockDate = '';
 
     public string $lockPassword = '';
@@ -166,6 +168,7 @@ new class extends Component
         $this->companyModel = $company;
         $this->companyName = $company->name;
         $this->legalName = (string) ($company->legal_name ?? '');
+        $this->companyRegistrationNumber = (string) ($company->company_registration_number ?? '');
         $this->lockDate = $company->lock_date?->toDateString() ?? '';
         $this->currencyCode = $company->currency_code;
         $this->fiscalYearStartMonth = $company->fiscal_year_start_month;
@@ -224,6 +227,7 @@ new class extends Component
         $rules = [
             'companyName' => ['required', 'string', 'max:255', new CompanyName],
             'legalName' => ['nullable', 'string', 'max:255'],
+            'companyRegistrationNumber' => ['nullable', 'string', 'max:32'],
             'currencyCode' => ['required', 'string', 'size:3'],
             'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
@@ -292,6 +296,9 @@ new class extends Component
             $attributes = [
                 'name' => $validated['companyName'],
                 'legal_name' => filled($validated['legalName'] ?? null) ? trim($validated['legalName']) : null,
+                'company_registration_number' => $this->companyModel->jurisdiction->companyRegistrationNumberLabel() !== null
+                    ? (filled($validated['companyRegistrationNumber'] ?? null) ? trim($validated['companyRegistrationNumber']) : null)
+                    : $company->company_registration_number,
                 'currency_code' => strtoupper($validated['currencyCode']),
                 'fiscal_year_start_month' => $validated['fiscalYearStartMonth'],
                 'timezone' => $validated['timezone'],
@@ -695,6 +702,15 @@ new class extends Component
 
                             <flux:input wire:model="legalName" :label="__('Legal name')" :description="__('Registered legal name. Printed on documents when “Show legal name” is enabled in invoice settings, and used on donation tax receipts.')" data-test="company-legal-name-input" />
 
+                            @if ($jurisdiction->companyRegistrationNumberLabel() !== null)
+                                <flux:input
+                                    wire:model="companyRegistrationNumber"
+                                    :label="$jurisdiction->companyRegistrationNumberLabel()"
+                                    :description="__('Your Companies House registration number. Printed on invoices when set.')"
+                                    data-test="company-registration-number-input"
+                                />
+                            @endif
+
                             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <flux:input wire:model="addressLine1" :label="__('Address')" data-test="company-address-input" />
                                 <flux:input wire:model="addressCity" :label="__('City')" data-test="company-city-input" />
@@ -1012,7 +1028,7 @@ new class extends Component
                                     </flux:select>
                                 @else
                                     <div data-test="company-organization-type-display">
-                                        <flux:text class="font-medium">{{ $companyModel->organization_type->label() }}</flux:text>
+                                        <flux:text class="font-medium">{{ $companyModel->organization_type->label($companyModel->jurisdiction) }}</flux:text>
                                         <flux:text class="mt-1 text-sm text-muted-foreground">{{ __('The organization type is set once and cannot be changed.') }}</flux:text>
                                     </div>
                                 @endif

@@ -6,17 +6,37 @@
 
 **What:** A second Forge site with its own database, queue worker, and scheduler.
 
-**Why:** The app ships with a two-region model, and the country-switcher banner links
+**Why:** The app ships with a multi-region model, and the country-switcher banner links
 guests to `APP_URL_US`. Until that host exists the banner is a dead link.
 
-**Context:** The application side is already done — `APP_REGION`, `APP_URL_CA`, and
-`APP_URL_US` all ship in `.env.example` and the banner reads them. What's left is
-purely the Forge site. Set `APP_URL=https://books.lineledger.com` and leave `APP_REGION` unset so
-the region derives from the host (a `.ca` host resolves to Canada, anything else to the
-US). It needs its own `DB_*`, its own Stripe webhook endpoint, and its own SSL. Canada
-is the primary market, so this is optional-but-linked: if you'd rather defer it, point
-`APP_URL_US` at the Canadian host instead so the banner degrades gracefully. Full env
-table is in README → Environment.
+**Context:** The application side is already done — `APP_REGION`, `APP_URL_CA`,
+`APP_URL_US`, and `APP_URL_GB` all ship in `.env.example` and the banner reads them.
+What's left is purely the Forge site. Set `APP_URL=https://books.lineledger.com` and
+leave `APP_REGION` unset so the region derives from the host (`.ca` → Canada, `.uk` →
+United Kingdom, otherwise US). It needs its own `DB_*`, its own Stripe webhook
+endpoint, and its own SSL. Canada is the primary market, so this is
+optional-but-linked: if you'd rather defer it, point `APP_URL_US` at the Canadian
+host instead so the banner degrades gracefully. Full env table is in README →
+Environment.
+
+**Effort:** M
+**Priority:** P1
+**Depends on:** None
+
+### Stand up the UK app deployment at books.lineledger.co.uk
+
+**What:** A third Forge site with its own database, queue worker, and scheduler,
+plus a marketing twin at `lineledger.co.uk`.
+
+**Why:** The application side already supports `Country::UnitedKingdom` (`GB`),
+`BritishDefaults` (VAT / HMRC / GBP), and a three-sibling country switcher. Until
+the `.co.uk` host exists, UK visitors stay on the CA/US twins.
+
+**Context:** Set `APP_URL=https://books.lineledger.co.uk` and leave `APP_REGION`
+unset (host derives GB). Own `DB_*`, Stripe Connect + webhook for GBP, and object
+storage in `eu-west-2`. Put `APP_URL_GB` / `MARKETING_URL_GB` on **all three**
+app hosts so the banner can link every direction. Point
+`MARKETING_URL_GB=https://lineledger.co.uk` once the marketing twin exists.
 
 **Effort:** M
 **Priority:** P1
@@ -31,7 +51,8 @@ both deployments reading the same `DB_NAME`.
 would let IDs collide and split votes across the two sites.
 
 **Context:** One shared database keeps IDs unique and votes unified. This lives in the
-`lineledger-site` repo, which already has CI covering both region builds.
+`lineledger-site` repo, which already has CI covering both region builds. When the
+UK marketing twin lands, add a `PUBLIC_REGION=gb` build against the same shared DB.
 
 **Effort:** S
 **Priority:** P1
@@ -85,7 +106,15 @@ nav grouping should follow the app sidebar order the in-app nav now uses.
 ### End-to-end test for the guest country-switcher banner
 
 **What:** A browser test that loads a page on a `.ca` host as a guest, asserts the
-banner offers the US site, and follows the link to `APP_URL_US`.
+banner offers the US and UK sibling sites, and follows a link to `APP_URL_US`
+(or `APP_URL_GB`).
+
+**Why:** The country-switcher is guest-facing and currently covered
+only at the unit level (`Country::fromHost`). The rendering, the `ll_region` cookie, the
+referrer short-circuit, and the cross-origin handoff are all untested end-to-end.
+
+**Context:** Feature coverage already lives in `tests/Feature/BrandingTest.php` for
+`resources/views/components/geo-banner.blade.php` and the `geoBanner` component in
 
 **Why:** The banner is the only cross-region navigation and it is currently covered
 only at the unit level (`Country::fromHost`). The rendering, the `ll_region` cookie, the

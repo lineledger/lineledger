@@ -15,8 +15,9 @@ use App\Models\Company;
  *
  * Canada lists the Canada Revenue Agency plus the provinces that levy their own
  * sales tax ({@see ProvincialSalesTax}); the United States lists each state's
- * department of revenue. Entries the company already has an agency for are
- * filtered out by the caller, so a company never sees a duplicate it can't use.
+ * department of revenue; the United Kingdom lists HM Revenue & Customs.
+ * Entries the company already has an agency for are filtered out by the caller,
+ * so a company never sees a duplicate it can't use.
  */
 final class TaxAuthorityCatalog
 {
@@ -33,6 +34,7 @@ final class TaxAuthorityCatalog
         return match ($company->jurisdiction) {
             Country::Canada => self::canada(),
             Country::UnitedStates => self::unitedStates(),
+            Country::UnitedKingdom => self::unitedKingdom(),
         };
     }
 
@@ -74,5 +76,17 @@ final class TaxAuthorityCatalog
         }
 
         return $entries;
+    }
+
+    /**
+     * @return list<array{key: string, name: string, account_name: string}>
+     */
+    private static function unitedKingdom(): array
+    {
+        return [[
+            'key' => 'HMRC',
+            'name' => 'HM Revenue & Customs',
+            'account_name' => 'VAT Payable',
+        ]];
     }
 }

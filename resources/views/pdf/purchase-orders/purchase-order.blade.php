@@ -162,9 +162,7 @@
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('Tax No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($purchaseOrder->vendor_message))
             <div class="message">{{ $purchaseOrder->vendor_message }}</div>
         @endif

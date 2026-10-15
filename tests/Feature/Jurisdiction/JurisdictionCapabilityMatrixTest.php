@@ -13,7 +13,7 @@ use Livewire\Livewire;
 | Jurisdiction capability matrix — anti-drift lock
 |--------------------------------------------------------------------------
 |
-| This test pins the Canada/US capability classification so it cannot silently
+| This test pins the Canada/US/GB capability classification so it cannot silently
 | drift. The two arrays below are the canonical lists the suite asserts against;
 | the anti-drift case (C) fails if a new JurisdictionCapability is added without
 | being classified here.
@@ -74,6 +74,44 @@ it('blocks every US-only capability for a CA company', function (JurisdictionCap
 
     expect($company->supports($capability))->toBeFalse();
 })->with(US_ONLY);
+
+it('blocks every CA-only and US-only capability for a UK company', function (JurisdictionCapability $capability) {
+    // GB mirrors the shared books stack only — no payroll, CRA forms, or 1099.
+    $company = Company::factory()->make([
+        'address_country' => 'GB',
+        'organization_type' => OrganizationType::Corporation->value,
+        'features_payroll' => true,
+    ]);
+
+    expect($company->supports($capability))->toBeFalse();
+})->with([...CA_ONLY, ...US_ONLY]);
+
+it('404s the payroll index for a UK company even with payroll enabled', function () {
+    $gb = Company::factory()->create([
+        'address_country' => 'GB',
+        'currency_code' => 'GBP',
+        'features_payroll' => true,
+    ]);
+    $user = User::factory()->create();
+    $gb->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user)
+        ->get(route('payroll.index', ['company' => $gb->slug]))
+        ->assertNotFound();
+});
+
+it('forbids the 1099 report for a UK company', function () {
+    $gb = Company::factory()->create([
+        'address_country' => 'GB',
+        'currency_code' => 'GBP',
+    ]);
+    $user = User::factory()->create();
+    $gb->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user)
+        ->get(route('reports.form-1099', ['company' => $gb->slug]))
+        ->assertForbidden();
+});
 
 /*
 |--------------------------------------------------------------------------

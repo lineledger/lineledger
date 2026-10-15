@@ -144,8 +144,9 @@ class CompanyObserver
 
     /**
      * Seed the jurisdiction's primary tax authority (CRA in Canada, the state
-     * department of revenue in the US) and its codes against the system
-     * tax-payable account (GST/HST Payable / Sales Tax Payable, code 2200).
+     * department of revenue in the US, HMRC in the UK) and its codes against the
+     * system tax-payable account (GST/HST Payable / Sales Tax Payable / VAT
+     * Payable, code 2200).
      *
      * Keying off the *system* account — rather than the first tax-payable by code
      * — keeps the federal codes off a province-only company's PST Payable account.
