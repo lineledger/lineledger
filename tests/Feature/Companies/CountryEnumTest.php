@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Country;
+use App\Enums\OrganizationType;
 
 test('canada exposes Canadian-flavoured terminology', function () {
     $c = Country::Canada;
@@ -30,31 +31,65 @@ test('united states exposes US-flavoured terminology', function () {
     expect($c->chequeLabel('checkbook'))->toBe('Checkbook view');
 });
 
-test('regions include BC for Canada and WA for the United States', function () {
+test('united kingdom exposes British-flavoured terminology', function () {
+    $c = Country::UnitedKingdom;
+
+    expect($c->label())->toBe('United Kingdom');
+    expect($c->defaultCurrencyCode())->toBe('GBP');
+    expect($c->defaultTimezone())->toBe('Europe/London');
+    expect($c->regionLabel())->toBe('Nation');
+    expect($c->postalCodeLabel())->toBe('Postcode');
+    expect($c->taxLabel())->toBe('VAT');
+    expect($c->taxNumberDocumentLabel())->toBe('VAT No.');
+    expect($c->companyRegistrationNumberLabel())->toBe('Company number');
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::Corporation))->toBeTrue();
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::Partnership))->toBeTrue();
+    expect($c->usesCompanyRegistrationNumber(OrganizationType::SoleProprietorship))->toBeFalse();
+    expect($c->cheque('singular'))->toBe('Cheque');
+    expect($c->cheque('plural'))->toBe('Cheques');
+    expect($c->chequeLabel('number'))->toBe('Cheque #');
+    expect($c->chequeLabel('checkbook'))->toBe('Chequebook view');
+});
+
+test('regions include BC for Canada, WA for the United States, and ENG for the United Kingdom', function () {
     expect(Country::Canada->regions())->toHaveKey('BC');
     expect(Country::Canada->regions()['BC'])->toBe('British Columbia');
 
     expect(Country::UnitedStates->regions())->toHaveKey('WA');
     expect(Country::UnitedStates->regions()['WA'])->toBe('Washington');
+
+    expect(Country::UnitedKingdom->regions())->toHaveKey('ENG');
+    expect(Country::UnitedKingdom->regions()['ENG'])->toBe('England');
+    expect(Country::UnitedKingdom->regions())->toHaveKey('SCT');
+    expect(Country::UnitedKingdom->regions())->toHaveKey('WLS');
+    expect(Country::UnitedKingdom->regions())->toHaveKey('NIR');
+    expect(Country::UnitedKingdom->regions())->toHaveKey('IM');
+    expect(Country::UnitedKingdom->regions()['IM'])->toBe('Isle of Man');
 });
 
 test('options exposes each case as a label/value pair', function () {
     $options = Country::options();
 
-    expect($options)->toHaveCount(2);
+    expect($options)->toHaveCount(3);
     expect($options[0])->toBe(['value' => 'CA', 'label' => 'Canada']);
     expect($options[1])->toBe(['value' => 'US', 'label' => 'United States']);
+    expect($options[2])->toBe(['value' => 'GB', 'label' => 'United Kingdom']);
 });
 
 test('each case exposes its flag emoji', function () {
     expect(Country::Canada->flag())->toBe('🇨🇦');
     expect(Country::UnitedStates->flag())->toBe('🇺🇸');
+    expect(Country::UnitedKingdom->flag())->toBe('🇬🇧');
 });
 
-test('fromHost maps a .ca apex to Canada and everything else to the United States', function () {
+test('fromHost maps national TLDs to their countries and everything else to the United States', function () {
     expect(Country::fromHost('books.lineledger.ca'))->toBe(Country::Canada);
     expect(Country::fromHost('lineledger.ca'))->toBe(Country::Canada);
     expect(Country::fromHost('BOOKS.LINELEDGER.CA'))->toBe(Country::Canada);
+
+    expect(Country::fromHost('books.lineledger.co.uk'))->toBe(Country::UnitedKingdom);
+    expect(Country::fromHost('lineledger.co.uk'))->toBe(Country::UnitedKingdom);
+    expect(Country::fromHost('books.lineledger.uk'))->toBe(Country::UnitedKingdom);
 
     expect(Country::fromHost('books.lineledger.com'))->toBe(Country::UnitedStates);
     expect(Country::fromHost('localhost'))->toBe(Country::UnitedStates);
@@ -92,6 +127,8 @@ test('regionForTimezone returns null for a zone that spans several regions', fun
     expect(Country::Canada->regionForTimezone('America/Chicago'))->toBeNull();
     expect(Country::UnitedStates->regionForTimezone('America/Los_Angeles'))->toBeNull();
     expect(Country::UnitedStates->regionForTimezone('America/New_York'))->toBeNull();
+    // Europe/London covers all four UK nations.
+    expect(Country::UnitedKingdom->regionForTimezone('Europe/London'))->toBeNull();
 });
 
 test('regionForTimezone returns null for unknown zones or zones from another country', function () {
@@ -100,4 +137,5 @@ test('regionForTimezone returns null for unknown zones or zones from another cou
     // A US-only zone is not one of Canada's regions, and vice versa.
     expect(Country::UnitedStates->regionForTimezone('America/Vancouver'))->toBeNull();
     expect(Country::Canada->regionForTimezone('America/Phoenix'))->toBeNull();
+    expect(Country::UnitedKingdom->regionForTimezone('America/Toronto'))->toBeNull();
 });

@@ -286,7 +286,7 @@ new #[Title('Customer statement')] class extends Component {
 
     public function formatDate(?CarbonImmutable $date): string
     {
-        return $date?->format('n/j/Y') ?? '—';
+        return $date?->format($this->company->jurisdiction->shortDateFormat()) ?? '—';
     }
 
     /**
@@ -478,7 +478,7 @@ new #[Title('Customer statement')] class extends Component {
                 <dd class="text-right" data-test="statement-as-of">{{ $this->formatDate($this->endDateValue()) }}</dd>
             @endif
             <dt class="font-semibold">{{ $this->totalDue() < 0 ? __('Credit balance') : ($this->isOpenInvoices() ? __('Total due') : __('Balance due')) }}</dt>
-            <dd class="text-right font-mono font-semibold" data-test="statement-total-due">${{ StatementColumns::money($this->totalDue()) }}</dd>
+            <dd class="text-right font-mono font-semibold" data-test="statement-total-due">{{ \App\Support\Currency::symbol($company->currency_code) }}{{ StatementColumns::money($this->totalDue()) }}</dd>
         </dl>
     </div>
 
@@ -500,7 +500,7 @@ new #[Title('Customer statement')] class extends Component {
                         @if ($row['kind'] === 'invoice')
                             <tr data-test="statement-row">
                                 @foreach ($statementColumns as $key)
-                                    <td class="px-4 py-2 {{ StatementColumns::isNumeric($key) ? 'text-right font-mono' : ($key === 'memo' ? 'text-muted-foreground' : 'whitespace-nowrap') }}">{{ StatementColumns::cell($key, $row) }}</td>
+                                    <td class="px-4 py-2 {{ StatementColumns::isNumeric($key) ? 'text-right font-mono' : ($key === 'memo' ? 'text-muted-foreground' : 'whitespace-nowrap') }}">{{ StatementColumns::cell($key, $row, $company->jurisdiction->shortDateFormat()) }}</td>
                                 @endforeach
                             </tr>
                         @else
@@ -524,7 +524,7 @@ new #[Title('Customer statement')] class extends Component {
                     @forelse ($this->statement['statement']['lines'] as $line)
                         <tr data-test="statement-row">
                             @foreach ($statementColumns as $key)
-                                <td class="px-4 py-2 {{ StatementColumns::isNumeric($key) ? 'text-right font-mono' : ($key === 'memo' ? 'text-muted-foreground' : 'whitespace-nowrap') }}">{{ StatementColumns::cell($key, $line) }}</td>
+                                <td class="px-4 py-2 {{ StatementColumns::isNumeric($key) ? 'text-right font-mono' : ($key === 'memo' ? 'text-muted-foreground' : 'whitespace-nowrap') }}">{{ StatementColumns::cell($key, $line, $company->jurisdiction->shortDateFormat()) }}</td>
                             @endforeach
                         </tr>
                     @empty
@@ -541,7 +541,7 @@ new #[Title('Customer statement')] class extends Component {
                     <td class="px-4 py-3 text-right font-semibold" colspan="{{ $labelSpan }}">
                         {{ $this->totalDue() < 0 ? __('Credit balance') : ($this->isOpenInvoices() ? __('Total due') : __('Balance due')) }}
                     </td>
-                    <td class="px-4 py-3 text-right font-mono font-semibold" data-test="statement-total">${{ StatementColumns::money($this->totalDue()) }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold" data-test="statement-total">{{ \App\Support\Currency::symbol($company->currency_code) }}{{ StatementColumns::money($this->totalDue()) }}</td>
                 </tr>
             </tfoot>
         </table>

@@ -45,6 +45,8 @@ final class ExpenseCategoryShiftDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         // Cheapest gate first: only look back in the first week of the month.
         if ($today->day > 7) {
             return [];

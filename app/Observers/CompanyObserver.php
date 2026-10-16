@@ -144,8 +144,10 @@ class CompanyObserver
 
     /**
      * Seed the jurisdiction's primary tax authority (CRA in Canada, the state
-     * department of revenue in the US) and its codes against the system
-     * tax-payable account (GST/HST Payable / Sales Tax Payable, code 2200).
+     * department of revenue in the US, HMRC in the UK — or Isle of Man Customs and
+     * Excise for a Manx company) and its codes against the
+     * system tax-payable account (GST/HST Payable / Sales Tax Payable / VAT
+     * Payable, code 2200).
      *
      * Keying off the *system* account — rather than the first tax-payable by code
      * — keeps the federal codes off a province-only company's PST Payable account.
@@ -171,10 +173,14 @@ class CompanyObserver
 
         $defaultAgency = null;
 
-        foreach ($agencies as $row) {
+        // A region can have its own administering authority (the Isle of Man
+        // collects UK-area VAT itself); it replaces the national default name.
+        $regionalAgencyName = $company->jurisdiction->taxAgencyNameForRegion($company->address_region);
+
+        foreach ($agencies as $index => $row) {
             $agency = TaxAgency::withoutGlobalScopes()->create([
                 'company_id' => $company->id,
-                'name' => $row['name'],
+                'name' => $index === 0 && $regionalAgencyName !== null ? $regionalAgencyName : $row['name'],
                 'payable_account_id' => $taxPayable->id,
                 'is_active' => true,
             ]);

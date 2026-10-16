@@ -45,3 +45,29 @@ test('a US company is seeded with the Sales Tax chart and no Canadian-only accou
     expect($methods)->toContain('ACH');
     expect($methods)->not->toContain('Cheque');
 });
+
+test('a UK company is seeded with the VAT chart and HMRC tax codes', function () {
+    $company = Company::factory()->forCountry(Country::UnitedKingdom)->create();
+
+    $accounts = Account::withoutGlobalScopes()->where('company_id', $company->id)->pluck('name', 'code');
+    expect($accounts['1000'])->toBe('Current Account');
+    expect($accounts['2200'])->toBe('VAT Payable');
+    expect($accounts->has('2210'))->toBeFalse();
+    expect($accounts['2700'])->toBe('Bank Loan');
+
+    $agencies = TaxAgency::withoutGlobalScopes()->where('company_id', $company->id)->pluck('name');
+    expect($agencies)->toContain('HM Revenue & Customs');
+
+    $codes = TaxCode::withoutGlobalScopes()->where('company_id', $company->id)->pluck('code');
+    expect($codes)->toContain('VAT');
+    expect($codes)->toContain('VAT-R');
+    expect($codes)->toContain('ZR');
+    expect($codes)->toContain('EX');
+    expect($codes)->not->toContain('GST');
+
+    $methods = PaymentMethod::withoutGlobalScopes()->where('company_id', $company->id)->pluck('name');
+    expect($methods)->toContain('Cheque');
+    expect($methods)->toContain('BACS');
+    expect($methods)->toContain('Faster Payments');
+    expect($methods)->toContain('Direct Debit');
+});

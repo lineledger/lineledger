@@ -102,7 +102,13 @@ new #[Title('Invoice settings')] class extends Component {
             'showTaxColumn' => ['boolean'],
             'showServiceDateColumn' => ['boolean'],
             'hideZeroQtyLines' => ['boolean'],
-            'taxNumber' => ['nullable', 'string', 'max:50'],
+            'taxNumber' => ['nullable', 'string', 'max:50', function (string $attribute, mixed $value, \Closure $fail): void {
+                $country = $this->company->jurisdiction;
+
+                if (! $country->isValidTaxNumber((string) $value)) {
+                    $fail(__('Enter a valid :label, e.g. GB123456789.', ['label' => __($country->taxNumberLabel())]));
+                }
+            }],
             'footerMessage' => ['nullable', 'string', 'max:1000'],
             'emailFromAddress' => ['nullable', 'email', 'max:255'],
             'emailFromName' => ['nullable', 'string', 'max:255'],
@@ -112,7 +118,7 @@ new #[Title('Invoice settings')] class extends Component {
 
         DB::transaction(function () use ($validated) {
             $this->company->update([
-                'tax_number' => filled($validated['taxNumber']) ? trim($validated['taxNumber']) : null,
+                'tax_number' => $this->company->jurisdiction->normalizeTaxNumber($validated['taxNumber'] ?? null),
             ]);
 
             InvoiceSetting::updateOrCreate(['company_id' => $this->company->id], [
@@ -208,7 +214,13 @@ new #[Title('Invoice settings')] class extends Component {
                     <flux:subheading>{{ __('Shown at the bottom of the invoice.') }}</flux:subheading>
                 </div>
 
-                <flux:input wire:model="taxNumber" :label="__('Tax / GST/HST registration number')" maxlength="50" :description="__('Printed as “GST/HST No.” on the invoice footer.')" data-test="invoice-tax-number" />
+                <flux:input
+                    wire:model="taxNumber"
+                    :label="__('Tax / :tax registration number', ['tax' => $company->jurisdiction->taxLabel()])"
+                    maxlength="50"
+                    :description="__('Printed as “:label” on the invoice footer.', ['label' => $company->jurisdiction->taxNumberDocumentLabel()])"
+                    data-test="invoice-tax-number"
+                />
                 <flux:switch wire:model="showTaxNumber" :label="__('Show tax number on invoices')" data-test="invoice-show-tax-number" />
 
                 <flux:textarea wire:model="footerMessage" :label="__('Footer message')" rows="3" :description="__('e.g. payment instructions or a thank-you note.')" data-test="invoice-footer-message" />

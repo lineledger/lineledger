@@ -34,6 +34,21 @@ test('creating a US company defaults the currency to USD', function () {
     expect($company->currency_code)->toBe('USD');
 });
 
+test('creating a UK company defaults the currency to GBP', function () {
+    $user = User::factory()->create();
+
+    $company = app(CreateCompany::class)->handle(
+        user: $user,
+        name: 'Britannia Co',
+        country: Country::UnitedKingdom,
+        regionCode: 'ENG',
+    );
+
+    expect($company->address_country)->toBe('GB');
+    expect($company->address_region)->toBe('ENG');
+    expect($company->currency_code)->toBe('GBP');
+});
+
 test('an explicit currency overrides the country default', function () {
     $user = User::factory()->create();
 

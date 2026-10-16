@@ -62,7 +62,7 @@ class CompanyProfilePresenter
             $lines[] = "  Legal name: {$company->legal_name}";
         }
 
-        $lines[] = '  Organization type: '.($company->organization_type?->label() ?? 'Not specified');
+        $lines[] = '  Organization type: '.($company->organization_type?->label($company->jurisdiction) ?? 'Not specified');
         $lines[] = '  Legal structure: '.($company->resolvedLegalStructure()?->label() ?? '—');
         $lines[] = '  Industry: '.($company->industry?->label() ?? '—');
 

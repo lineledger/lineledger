@@ -58,6 +58,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($invoice->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $invoice->contact?->display_name,
             $invoice->contact?->billing_line1,
@@ -97,7 +101,7 @@
                         <th>{{ __('Invoice #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $invoice->invoice_date?->format('n/j/Y') }}</td>
+                        <td>{{ $invoice->invoice_date?->format($dateFormat) }}</td>
                         <td>{{ $invoice->invoice_no }}</td>
                     </tr>
                 </table>
@@ -136,7 +140,7 @@
         </tr>
         <tr>
             <td>{{ optional($invoice->terms)->name ?? '—' }}</td>
-            <td>{{ $invoice->due_date?->format('n/j/Y') ?? '—' }}</td>
+            <td>{{ $invoice->due_date?->format($dateFormat) ?? '—' }}</td>
             <td>{{ $invoice->customer_po ?: '—' }}</td>
             <td>{{ optional($invoice->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -151,7 +155,7 @@
                 <th>{{ __('Tracking #') }}</th>
             </tr>
             <tr>
-                <td>{{ $invoice->ship_date?->format('n/j/Y') ?? '—' }}</td>
+                <td>{{ $invoice->ship_date?->format($dateFormat) ?? '—' }}</td>
                 <td>{{ $invoice->ship_via ?: '—' }}</td>
                 <td>{{ $invoice->fob ?: '—' }}</td>
                 <td>{{ $invoice->tracking_no ?: '—' }}</td>
@@ -184,7 +188,7 @@
                     <td>
                         {!! \App\Support\Text\LineDescription::toHtml($line->description) !!}
                         @if ($settings->show_service_date_column && $line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format('n/j/Y') }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format($dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_qty_column)
@@ -220,7 +224,7 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($invoice->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($invoice->total_cents / 100, 2) }}</td>
         </tr>
         @if ($invoice->amount_paid_cents > 0)
             <tr>
@@ -229,7 +233,7 @@
             </tr>
             <tr>
                 <td>{{ __('Balance Due') }}</td>
-                <td class="num">${{ number_format($invoice->balanceCents() / 100, 2) }}</td>
+                <td class="num">{{ $currencySymbol }}{{ number_format($invoice->balanceCents() / 100, 2) }}</td>
             </tr>
         @endif
     </table>
@@ -258,9 +262,7 @@
     @endif
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($invoice->customer_message))
             <div class="message">{{ $invoice->customer_message }}</div>
         @endif

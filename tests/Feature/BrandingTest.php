@@ -74,19 +74,22 @@ test('the country switcher shows on the sibling deployments', function () {
     config(['app.app_urls' => [
         'CA' => 'https://books.lineledger.ca',
         'US' => 'https://books.lineledger.com',
+        'GB' => 'https://books.lineledger.co.uk',
     ]]);
 
     $this->get('https://books.lineledger.ca/login')
         ->assertOk()
         ->assertSee('geoBanner(', false)
         // @js() escapes the slashes, so match the host rather than the URL.
-        ->assertSee('books.lineledger.com', false);
+        ->assertSee('books.lineledger.com', false)
+        ->assertSee('books.lineledger.co.uk', false);
 });
 
 test('the country switcher stays off a self-hosted domain', function () {
     config(['app.app_urls' => [
         'CA' => 'https://books.lineledger.ca',
         'US' => 'https://books.lineledger.com',
+        'GB' => 'https://books.lineledger.co.uk',
     ]]);
 
     $this->get('https://ledger.example.test/login')
@@ -100,6 +103,7 @@ test('an explicit region does not bring the country switcher back', function () 
         'app.app_urls' => [
             'CA' => 'https://books.lineledger.ca',
             'US' => 'https://books.lineledger.com',
+            'GB' => 'https://books.lineledger.co.uk',
         ],
     ]);
 

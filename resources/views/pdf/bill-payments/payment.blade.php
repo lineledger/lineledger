@@ -40,6 +40,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($payment->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $paidToLines = collect([
             $payment->contact?->display_name,
             $payment->contact?->billing_line1,
@@ -66,7 +70,7 @@
                         <th>{{ __('Payment #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $payment->payment_date?->format('n/j/Y') }}</td>
+                        <td>{{ $payment->payment_date?->format($dateFormat) }}</td>
                         <td>{{ $payment->payment_no }}</td>
                     </tr>
                 </table>
@@ -108,7 +112,7 @@
                 @foreach ($payment->applications as $app)
                     <tr>
                         <td>{{ optional($app->bill)->bill_no }}</td>
-                        <td>{{ optional(optional($app->bill)->bill_date)->format('n/j/Y') ?? '—' }}</td>
+                        <td>{{ optional(optional($app->bill)->bill_date)->format($dateFormat) ?? '—' }}</td>
                         <td class="num">{{ number_format($app->amount_cents / 100, 2) }}</td>
                     </tr>
                 @endforeach
@@ -119,14 +123,12 @@
     <table class="totals">
         <tr class="grand">
             <td>{{ __('Amount Paid') }}</td>
-            <td class="num">${{ number_format($payment->amount_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($payment->amount_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($settings->footer_message))
             <div class="message">{{ $settings->footer_message }}</div>
         @endif

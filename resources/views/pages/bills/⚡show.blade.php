@@ -87,7 +87,7 @@ new #[Title('Bill')] class extends Component {
         $this->bill->refresh();
         unset($this->reconcilableCents);
 
-        Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => '$'.number_format($closed / 100, 2)]));
+        Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => $this->company->currencySymbol().number_format($closed / 100, 2)]));
     }
 
     public function uploadAttachments(AttachmentService $service): void
@@ -179,7 +179,7 @@ new #[Title('Bill')] class extends Component {
                         <flux:menu.item
                             icon="check-circle"
                             wire:click="reconcile"
-                            wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => '$'.number_format($this->reconcilableCents / 100, 2)]) }}"
+                            wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => $this->company->currencySymbol().number_format($this->reconcilableCents / 100, 2)]) }}"
                             data-test="reconcile-bill-button"
                         >{{ __('Close settled balance') }}</flux:menu.item>
                     @endif

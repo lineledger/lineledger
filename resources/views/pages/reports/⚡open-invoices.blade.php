@@ -218,7 +218,7 @@ new #[Title('Open Invoices')] class extends Component
         Flux::toast(variant: 'success', text: trans_choice(
             'Closed :count invoice (:amount) already settled in the ledger.|Closed :count invoices (:amount) already settled in the ledger.',
             $result['invoices'],
-            ['count' => $result['invoices'], 'amount' => '$'.number_format($result['cents'] / 100, 2)],
+            ['count' => $result['invoices'], 'amount' => $this->company->currencySymbol().number_format($result['cents'] / 100, 2)],
         ));
     }
 

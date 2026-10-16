@@ -43,6 +43,8 @@ final class CashTrendDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         // Detectors run without the current_company binding — scope explicitly.
         $accounts = Account::withoutGlobalScopes()
             ->where('company_id', $company->id)

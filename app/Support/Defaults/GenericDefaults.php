@@ -9,8 +9,8 @@ use App\Enums\Country;
  * Generic, jurisdiction-neutral defaults: an American-style chart with no
  * preset tax agency or tax codes.
  *
- * Not currently wired to any {@see Country} case — the app ships
- * Canada and the United States only. Retained as the starting template for
+ * Not currently wired to any {@see Country} case — the app ships Canada, the
+ * United States, and the United Kingdom. Retained as the starting template for
  * future jurisdictions: add a Country case whose defaults() returns a class
  * like this (copy and customize the chart, tax agency, and tax codes).
  */

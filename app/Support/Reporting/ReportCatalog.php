@@ -52,6 +52,7 @@ class ReportCatalog
                 $category['reports'] = collect($category['reports'])
                     ->filter(fn (array $report): bool => match ($report['key']) {
                         'reports.form-1099' => $company->supports(JurisdictionCapability::Form1099),
+                        'reports.vat-return' => $company->supports(JurisdictionCapability::VatReturn),
                         'reports.gifi' => $company->usesGifi(),
                         'reports.t5013' => $company->filesT5013(),
                         'reports.t2125' => $company->filesT2125(),
@@ -195,6 +196,7 @@ class ReportCatalog
                 'label' => 'Sales Tax',
                 'reports' => [
                     ['key' => 'reports.sales-tax', 'label' => 'Sales Tax', 'description' => 'Tax collected and paid, summarized for your sales tax return.', 'icon' => 'receipt-percent', 'route' => 'reports.sales-tax', 'companyScoped' => true],
+                    ['key' => 'reports.vat-return', 'label' => 'VAT Return', 'description' => 'The nine boxes of your HMRC VAT return for a quarter, from your books.', 'icon' => 'calculator', 'route' => 'reports.vat-return', 'companyScoped' => true],
                     ['key' => 'tax-returns.index', 'label' => 'Tax Returns', 'description' => 'Filed and draft sales tax returns and their payments.', 'icon' => 'document-check', 'route' => 'tax-returns.index', 'companyScoped' => true],
                 ],
             ],

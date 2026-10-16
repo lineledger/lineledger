@@ -19,6 +19,10 @@
     </style>
 </head>
 <body>
+    @php
+        $currencySymbol = \App\Support\Currency::symbol($receipt->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
     @if ($receipt->status === \App\Enums\DonationReceiptStatus::Void)
         <div class="watermark">CANCELLED</div>
     @endif
@@ -48,17 +52,17 @@
     <table>
         <tr>
             <td>Amount received (fair market value of the gift)</td>
-            <td class="num">${{ number_format($receipt->amount_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($receipt->amount_cents / 100, 2) }}</td>
         </tr>
         @if ($receipt->advantage_cents > 0)
             <tr>
                 <td>Value of advantage @if ($receipt->advantage_description)({{ $receipt->advantage_description }})@endif</td>
-                <td class="num">${{ number_format($receipt->advantage_cents / 100, 2) }}</td>
+                <td class="num">{{ $currencySymbol }}{{ number_format($receipt->advantage_cents / 100, 2) }}</td>
             </tr>
         @endif
         <tr>
             <td class="eligible">Eligible amount of gift for tax purposes</td>
-            <td class="num eligible">${{ number_format($receipt->eligible_amount_cents / 100, 2) }}</td>
+            <td class="num eligible">{{ $currencySymbol }}{{ number_format($receipt->eligible_amount_cents / 100, 2) }}</td>
         </tr>
     </table>
 

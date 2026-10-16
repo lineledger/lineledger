@@ -2,6 +2,8 @@
 
 namespace App\Services\Insights\Detectors\Concerns;
 
+use App\Models\Company;
+use App\Support\Currency;
 use Carbon\CarbonImmutable;
 
 /**
@@ -11,12 +13,21 @@ use Carbon\CarbonImmutable;
  */
 trait FormatsInsightFacts
 {
-    /** Whole-dollar house format, e.g. -123456 → "-$1,235". */
+    /** The company's home-currency symbol; "$" until {@see useCurrencyOf()} runs. */
+    protected string $insightCurrencySymbol = '$';
+
+    /** Format amounts in this company's home currency (e.g. "£" for GBP). */
+    protected function useCurrencyOf(Company $company): void
+    {
+        $this->insightCurrencySymbol = Currency::symbol((string) ($company->currency_code ?: 'USD'));
+    }
+
+    /** Whole-unit house format, e.g. -123456 → "-$1,235" (or "-£1,235"). */
     protected function formatWhole(int $cents): string
     {
-        $dollars = (int) round(abs($cents) / 100);
+        $units = (int) round(abs($cents) / 100);
 
-        return ($cents < 0 ? '-$' : '$').number_format($dollars);
+        return ($cents < 0 ? '-' : '').$this->insightCurrencySymbol.number_format($units);
     }
 
     /** Human day for display values, e.g. "June 15". */

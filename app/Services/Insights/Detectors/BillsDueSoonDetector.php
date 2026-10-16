@@ -33,6 +33,8 @@ final class BillsDueSoonDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $windowStart = $today->toDateString();
         $windowEnd = $today->addDays(7)->toDateString();
 

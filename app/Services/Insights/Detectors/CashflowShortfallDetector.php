@@ -41,6 +41,8 @@ final class CashflowShortfallDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $forecast = $this->forecaster->forecast($company, 'week', 13, 0, $today);
 
         // A genuine below-zero breach is the runway detector's (Deadline) story.

@@ -304,6 +304,7 @@ class CheckStorageConfigCommand extends Command
     {
         $expected = match (strtoupper((string) config('app.region'))) {
             'CA' => 'ca-central-1',
+            'GB' => 'eu-west-2',
             default => null, // US has several equally valid regions; nothing to assert.
         };
 
@@ -319,10 +320,12 @@ class CheckStorageConfigCommand extends Command
             $region = (string) config("filesystems.disks.{$disk}.region");
 
             if ($region !== $expected) {
+                $appRegion = strtoupper((string) config('app.region'));
                 $this->warnAbout(sprintf(
-                    '%s is in %s but APP_REGION=CA — Canadian customer data should sit in %s.',
+                    '%s is in %s but APP_REGION=%s — customer data for this deployment should sit in %s.',
                     $disk,
                     $region !== '' ? $region : 'an unset region',
+                    $appRegion,
                     $expected,
                 ));
             }

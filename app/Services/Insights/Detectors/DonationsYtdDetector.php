@@ -42,6 +42,8 @@ final class DonationsYtdDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         if (! $company->tracksFundraising()) {
             return [];
         }

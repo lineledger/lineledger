@@ -47,4 +47,7 @@ enum JurisdictionCapability: string
     case CraTaxFiling = 'cra_tax_filing';             // Tax & filing settings + CRA-return framing
     case CharityDonationReceipts = 'charity_donation_receipts';
     case CanadianCapitalCostAllowance = 'canadian_cca';
+
+    // Pure-country United Kingdom features.
+    case VatReturn = 'vat_return';                    // HMRC nine-box VAT return
 }

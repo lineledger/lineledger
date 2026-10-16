@@ -43,7 +43,7 @@ new #[Title('Tax & filing')] class extends Component {
                 <dl class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-muted-foreground">{{ __('Type') }}</dt>
-                        <dd class="text-sm">{{ $company->organization_type?->label() ?? __('Not set') }}</dd>
+                        <dd class="text-sm">{{ $company->organization_type?->label($company->jurisdiction) ?? __('Not set') }}</dd>
                     </div>
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-muted-foreground">{{ __('Legal tier') }}</dt>

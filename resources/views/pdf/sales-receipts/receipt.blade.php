@@ -36,6 +36,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($receipt->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billToLines = collect([
             $receipt->contact?->display_name,
             $receipt->contact?->billing_line1,
@@ -63,7 +67,7 @@
                         <th>{{ __('Receipt #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $receipt->receipt_date?->format('n/j/Y') }}</td>
+                        <td>{{ $receipt->receipt_date?->format($dateFormat) }}</td>
                         <td>{{ $receipt->sales_receipt_no }}</td>
                     </tr>
                 </table>
@@ -129,14 +133,12 @@
         </tr>
         <tr class="grand">
             <td>{{ __('Total Paid') }}</td>
-            <td class="num">${{ number_format($receipt->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($receipt->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($receipt->memo))
             <div class="message">{{ $receipt->memo }}</div>
         @endif

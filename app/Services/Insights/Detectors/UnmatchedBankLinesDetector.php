@@ -36,6 +36,8 @@ final class UnmatchedBankLinesDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $unmatched = $this->pendingLines($company)
             ->where('match_status', StatementLineMatchStatus::Unmatched->value)
             ->count();

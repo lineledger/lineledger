@@ -41,6 +41,8 @@ final class RevenuePaceFiscalYtdDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $fyStart = $this->calculator->fiscalYearStart($company, $today);
 
         // Cheapest gate first: no GL queries until the year is old enough.

@@ -7,6 +7,10 @@ namespace App\Enums;
  * relabel a few equity/income lines when seeding the chart of accounts (e.g.
  * non-profits use "Net Assets" rather than "Retained Earnings"). Stored for
  * reference; does not affect posting behaviour.
+ *
+ * Labels and help copy can vary by jurisdiction so owners see familiar terms
+ * (e.g. UK "Sole trader" / "Limited company (Ltd)" / "Partnership / LLP") while
+ * the backing enum values stay stable across countries.
  */
 enum OrganizationType: string
 {
@@ -18,8 +22,20 @@ enum OrganizationType: string
     case Charity = 'charity';
     case Other = 'other';
 
-    public function label(): string
+    public function label(?Country $country = null): string
     {
+        if ($country === Country::UnitedKingdom) {
+            return match ($this) {
+                self::SoleProprietorship => 'Sole trader',
+                self::Partnership => 'Partnership / LLP',
+                self::Corporation => 'Limited company (Ltd)',
+                self::Club => 'Club / Association',
+                self::NonProfit => 'Non-profit',
+                self::Charity => 'Charity',
+                self::Other => 'Other / None',
+            };
+        }
+
         return match ($this) {
             self::SoleProprietorship => 'Sole proprietorship',
             self::Partnership => 'Partnership',
@@ -31,8 +47,20 @@ enum OrganizationType: string
         };
     }
 
-    public function description(): string
+    public function description(?Country $country = null): string
     {
+        if ($country === Country::UnitedKingdom) {
+            return match ($this) {
+                self::SoleProprietorship => 'An unincorporated business run by one person (a sole trader).',
+                self::Partnership => 'A general partnership or a limited liability partnership (LLP) owned by two or more members.',
+                self::Corporation => 'A limited company (Ltd or PLC) with one or more shareholders, registered at Companies House.',
+                self::Club => 'An unincorporated club or association funded mainly by member dues.',
+                self::NonProfit => 'A not-for-profit organization.',
+                self::Charity => 'A registered charity.',
+                self::Other => 'Anything else, or not sure yet.',
+            };
+        }
+
         return match ($this) {
             self::SoleProprietorship => 'An unincorporated business with one owner.',
             self::Partnership => 'An unincorporated business owned by two or more partners.',
@@ -49,8 +77,20 @@ enum OrganizationType: string
      * owner unsure of the legal terms can pick the right structure with
      * confidence. Longer and more explanatory than description().
      */
-    public function helpText(): string
+    public function helpText(?Country $country = null): string
     {
+        if ($country === Country::UnitedKingdom) {
+            return match ($this) {
+                self::SoleProprietorship => 'An unincorporated business owned and run by one person (a sole trader), with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.',
+                self::Partnership => 'Choose this for a traditional partnership or a limited liability partnership (LLP). A general partnership has no separate legal personality; an LLP is a body corporate with members, but both use partners’/members’ capital accounts rather than share capital.',
+                self::Corporation => 'A limited company registered at Companies House — usually a private company limited by shares (Ltd), sometimes a public limited company (PLC). It is separate from its shareholders and generally limits their personal liability. Pick this for Ltd, not for an LLP.',
+                self::Club => 'An unincorporated group of members organized around a shared purpose or activity, funded mainly through member dues rather than commercial sales or profit.',
+                self::NonProfit => 'An organization that operates for a purpose other than generating profit for owners. Any surplus is reinvested into its mission rather than distributed to members.',
+                self::Charity => 'A registered charity, able to issue Gift Aid receipts and subject to Charity Commission requirements.',
+                self::Other => 'Anything else, or not sure yet — you can refine this later in settings.',
+            };
+        }
+
         return match ($this) {
             self::SoleProprietorship => 'An unincorporated business owned and run by one person, with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.',
             self::Partnership => "An unincorporated business owned by two or more people who share ownership, profits, and liability. Each partner is typically personally responsible for the business's debts.",
@@ -107,11 +147,13 @@ enum OrganizationType: string
     /**
      * Whether this organization type is selectable for the given jurisdiction.
      * Charity is a Canada Revenue Agency concept (official donation receipts,
-     * CRA registration), so it is hidden for the United States.
+     * CRA registration), so it is hidden outside Canada.
      */
     public function availableIn(?Country $country): bool
     {
-        return ! ($this === self::Charity && $country === Country::UnitedStates);
+        return $this !== self::Charity
+            || $country === null
+            || $country === Country::Canada;
     }
 
     /**
@@ -125,14 +167,20 @@ enum OrganizationType: string
 
     /**
      * Wizard radio options, optionally scoped to a jurisdiction so unavailable
-     * types (e.g. Charity in the US) are filtered out.
+     * types (e.g. Charity outside Canada) are filtered out and labels use
+     * jurisdiction-appropriate wording.
      *
      * @return array<array{value: string, label: string, description: string, help: string}>
      */
     public static function options(?Country $country = null): array
     {
         return array_values(array_map(
-            fn (self $t) => ['value' => $t->value, 'label' => $t->label(), 'description' => $t->description(), 'help' => $t->helpText()],
+            fn (self $t) => [
+                'value' => $t->value,
+                'label' => $t->label($country),
+                'description' => $t->description($country),
+                'help' => $t->helpText($country),
+            ],
             array_filter(self::cases(), fn (self $t) => $t->availableIn($country)),
         ));
     }

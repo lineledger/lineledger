@@ -13,12 +13,13 @@
 ])
 
 @php
+    $inputTaxPlural = \App\Enums\Country::currentInputTaxLabel() === 'ITC' ? __('ITCs') : __(\App\Enums\Country::currentInputTaxLabel());
     $r = $reconciliation;
     $optional = fn (string $key) => (int) ($r[$key] ?? 0);
 
     $returnRows = array_values(array_filter([
         ['label' => __('Tax collected'), 'cents' => $optional('return_collected_cents'), 'always' => true, 'test' => 'return-collected'],
-        ['label' => __('ITCs'), 'cents' => $optional('return_itc_cents'), 'always' => true, 'test' => 'return-itc'],
+        ['label' => $inputTaxPlural, 'cents' => $optional('return_itc_cents'), 'always' => true, 'test' => 'return-itc'],
         ['label' => __('Other adjustments'), 'cents' => $optional('return_other_cents'), 'always' => false, 'test' => 'return-other'],
     ], fn (array $row) => $row['always'] || $row['cents'] !== 0));
 
@@ -27,7 +28,7 @@
         ['label' => __('Opening-balance entries'), 'cents' => $optional('opening_entries_cents'), 'always' => false, 'test' => 'opening-entries'],
         ['label' => __('Payments and refunds'), 'cents' => $optional('payments_cents'), 'always' => true, 'test' => 'payments'],
         ['label' => __('Tax collected'), 'cents' => $optional('collected_cents'), 'always' => true, 'test' => 'collected'],
-        ['label' => __('ITCs'), 'cents' => $optional('itc_cents'), 'always' => true, 'test' => 'itc'],
+        ['label' => $inputTaxPlural, 'cents' => $optional('itc_cents'), 'always' => true, 'test' => 'itc'],
         ['label' => __('Left off the return'), 'cents' => $optional('excluded_cents'), 'always' => false, 'test' => 'excluded'],
         ['label' => __('Earlier returns’ adjustments'), 'cents' => $optional('prior_adjustments_cents'), 'always' => false, 'test' => 'prior-adjustments'],
         ['label' => __('Other entries'), 'cents' => $optional('unclassified_cents'), 'always' => false, 'test' => 'unclassified'],
