@@ -24,6 +24,57 @@ beforeEach(function () {
     $this->actingAs($this->user);
 });
 
+test('organization type, industry, tax, and chart labels are translated in French', function () {
+    app()->setLocale('fr');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('step', 2)
+        ->assertSee('Entreprise individuelle')
+        ->assertSee('Une entreprise non constituée en société, avec un seul propriétaire.')
+        ->assertSee('Société de personnes');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('step', 3)
+        ->assertSee('Entreprise générale')
+        ->assertSee('Un plan de départ équilibré qui convient à la plupart des petites entreprises.');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('country', 'CA')
+        ->set('region', 'QC')
+        ->set('step', 5)
+        ->assertSee('TPS/TVH')
+        ->assertSee('TVQ');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('country', 'CA')
+        ->set('region', 'ON')
+        ->set('step', 7)
+        ->assertSee('Capitaux propres du propriétaire')
+        ->assertSee('Compte de chèques');
+});
+
+test('a French UI locale keeps stored seeded account and tax-code names in English', function () {
+    app()->setLocale('fr');
+
+    Livewire::test('pages::welcome.setup-wizard')
+        ->set('companyName', 'Fr Co')
+        ->set('country', 'CA')
+        ->set('region', 'QC')
+        ->call('createCompany')
+        ->assertHasNoErrors();
+
+    $company = Company::where('name', 'Fr Co')->firstOrFail();
+    $chequing = seededAccounts($company)->firstWhere('code', '1000');
+    $qstPayable = seededAccounts($company)->firstWhere('code', '2210');
+    $gst = TaxCode::withoutGlobalScopes()->where('company_id', $company->id)->where('code', 'GST')->first();
+    $qst = TaxCode::withoutGlobalScopes()->where('company_id', $company->id)->where('code', 'QST-QC')->first();
+
+    expect($chequing?->name)->toBe('Chequing')
+        ->and($qstPayable?->name)->toBe('QST Payable')
+        ->and($gst?->name)->toBe('GST (5%)')
+        ->and($qst?->name)->toBe('QST (9.975%)');
+});
+
 /**
  * @return Collection<int, Account>
  */

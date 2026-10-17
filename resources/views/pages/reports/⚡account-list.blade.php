@@ -78,7 +78,7 @@ new #[Title('Account List')] class extends Component {
             ->map(fn (Account $account) => [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'type' => $account->type->label(),
                 'subtype' => $account->subtype->label(),
                 'currency' => $account->currency_code ?? $this->company->currency_code,

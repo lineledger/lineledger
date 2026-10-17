@@ -6,6 +6,7 @@ use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Company;
 use App\Services\Posting\BillPoster;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Title;
@@ -149,9 +150,9 @@ new #[Title('Reimbursement')] class extends Component {
                         <td class="px-4 py-2 text-right">{{ rtrim(rtrim((string) $line->quantity, '0'), '.') }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
                         <td class="px-4 py-2 text-muted-foreground">
-                            {{ optional($line->taxCode)->code }}
+                            {{ optional($line->taxCode)->label() }}
                             @if ($line->secondaryTaxCode)
-                                <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->line_total_cents / 100, 2) }}</td>
@@ -159,9 +160,9 @@ new #[Title('Reimbursement')] class extends Component {
                 @endforeach
             </tbody>
             <tfoot class="bg-muted">
-                @foreach (\App\Support\Tax\LineTaxBreakdown::forLines($bill->lines) as $taxRow)
+                @foreach (LineTaxBreakdown::forLines($bill->lines) as $taxRow)
                     <tr data-test="reimbursement-tax-row">
-                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @endforeach

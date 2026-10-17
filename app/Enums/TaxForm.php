@@ -33,33 +33,45 @@ enum TaxForm: string
     public function label(): string
     {
         return match ($this) {
-            self::T2 => 'T2 Corporation Income Tax Return',
-            self::T5013 => 'T5013 Partnership Information Return',
-            self::T2125 => 'T2125 Statement of Business or Professional Activities',
-            self::T3010 => 'T3010 Registered Charity Information Return',
-            self::T1044 => 'T1044 Non-Profit Organization (NPO) Information Return',
+            self::T2 => __('T2 Corporation Income Tax Return'),
+            self::T5013 => __('T5013 Partnership Information Return'),
+            self::T2125 => __('T2125 Statement of Business or Professional Activities'),
+            self::T3010 => __('T3010 Registered Charity Information Return'),
+            self::T1044 => __('T1044 Non-Profit Organization (NPO) Information Return'),
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::T2 => 'Annual corporate return. Financial statements are filed as GIFI Schedules 100 (balance sheet) and 125 (income statement).',
-            self::T5013 => 'Partnership information return. Financial statements use the same GIFI Schedules 100/125, plus a partner income allocation.',
-            self::T2125 => 'Business/professional income reported on the partner or proprietor’s personal T1, including a capital cost allowance (CCA) schedule.',
-            self::T3010 => 'Annual return for registered charities, reporting receipted donations, revenue, expenditures, and balance-sheet totals.',
-            self::T1044 => 'Information return required of many non-profit organizations meeting CRA income or asset thresholds.',
+            self::T2 => __('Annual corporate return. Financial statements are filed as GIFI Schedules 100 (balance sheet) and 125 (income statement).'),
+            self::T5013 => __('Partnership information return. Financial statements use the same GIFI Schedules 100/125, plus a partner income allocation.'),
+            self::T2125 => __('Business/professional income reported on the partner or proprietor’s personal T1, including a capital cost allowance (CCA) schedule.'),
+            self::T3010 => __('Annual return for registered charities, reporting receipted donations, revenue, expenditures, and balance-sheet totals.'),
+            self::T1044 => __('Information return required of many non-profit organizations meeting CRA income or asset thresholds.'),
         };
     }
 
     public function craReference(): string
     {
+        $french = app()->getLocale() === 'fr';
+
         return match ($this) {
-            self::T2 => 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2.html',
-            self::T5013 => 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t5013fin.html',
-            self::T2125 => 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html',
-            self::T3010 => 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t3010.html',
-            self::T1044 => 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t1044.html',
+            self::T2 => $french
+                ? 'https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/formulaires/t2.html'
+                : 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2.html',
+            self::T5013 => $french
+                ? 'https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/formulaires/t5013fin.html'
+                : 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t5013fin.html',
+            self::T2125 => $french
+                ? 'https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/formulaires/t2125.html'
+                : 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html',
+            self::T3010 => $french
+                ? 'https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/formulaires/t3010.html'
+                : 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t3010.html',
+            self::T1044 => $french
+                ? 'https://www.canada.ca/fr/agence-revenu/services/formulaires-publications/formulaires/t1044.html'
+                : 'https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t1044.html',
         };
     }
 

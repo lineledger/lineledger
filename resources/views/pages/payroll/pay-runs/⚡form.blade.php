@@ -428,7 +428,7 @@ new #[Title('Pay run')] class extends Component {
                 </flux:select>
                 <flux:select wire:model="bank_account_id" :label="__('Pay from bank account')">
                     @foreach ($this->bankAccounts as $account)
-                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</flux:select.option>
+                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:input type="date" wire:model="period_start_date" :label="__('Period start')" />

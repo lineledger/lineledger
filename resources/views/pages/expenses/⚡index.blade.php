@@ -78,7 +78,7 @@ new #[Title('Expenses')] class extends Component {
         <flux:select wire:model.live="methodFilter" class="sm:max-w-xs" data-test="expense-method-filter">
             <flux:select.option value="">{{ __('All payment methods') }}</flux:select.option>
             @foreach ($this->paymentMethodOptions as $opt)
-                <flux:select.option :value="$opt->id">{{ $opt->name }}</flux:select.option>
+                <flux:select.option :value="$opt->id">{{ $opt->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
@@ -95,7 +95,7 @@ new #[Title('Expenses')] class extends Component {
                         @case('void') <flux:badge size="sm" color="zinc">{{ __('Void') }}</flux:badge> @break
                     @endswitch
                 </div>
-                <div class="mt-1 text-xs text-muted-foreground">{{ optional($expense->paymentAccount)->name }}@if ($expense->paymentMethod) &middot; {{ $expense->paymentMethod->name }} @endif</div>
+                <div class="mt-1 text-xs text-muted-foreground">{{ optional($expense->paymentAccount)->displayName() }}@if ($expense->paymentMethod) &middot; {{ $expense->paymentMethod->displayName() }} @endif</div>
                 <div class="mt-3 flex items-end justify-between gap-2">
                     <div class="text-xs text-muted-foreground">{{ $expense->expense_date->toDateString() }}</div>
                     <div class="text-right"><div class="font-mono font-semibold">{{ number_format($expense->amount_cents / 100, 2) }}</div></div>

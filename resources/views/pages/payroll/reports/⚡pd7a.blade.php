@@ -329,7 +329,7 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
 
             <flux:select wire:model="f_bank_account_id" :label="__('Paid from')">
                 @foreach ($this->bankAccounts as $account)
-                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

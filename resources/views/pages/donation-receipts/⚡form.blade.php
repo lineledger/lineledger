@@ -190,7 +190,7 @@ new #[Title('Donation receipt')] class extends Component {
         <flux:select wire:model="revenue_account_id" :label="__('Donation revenue account')" data-test="donation-receipt-revenue-account">
             <flux:select.option value="">{{ __('Default donation income account') }}</flux:select.option>
             @foreach ($this->incomeAccounts as $account)
-                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -201,7 +201,7 @@ new #[Title('Donation receipt')] class extends Component {
                 <flux:select wire:model="debit_account_id" :label="__('Asset / expense account to debit')" :description="__('Where the gift is recorded at fair market value.')" data-test="donation-receipt-debit-account">
                     <flux:select.option value="">{{ __('Select an account') }}</flux:select.option>
                     @foreach ($this->assetAccounts as $account)
-                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <div class="grid grid-cols-2 gap-4">

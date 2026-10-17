@@ -143,7 +143,7 @@ new #[Title('Journal entry template')] class extends Component {
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}", 'code' => (string) $a->code, 'name' => $a->name])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}", 'code' => (string) $a->code, 'name' => $a->displayName()])
             ->all();
     }
 

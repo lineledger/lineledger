@@ -793,7 +793,7 @@ new #[Title('Employee payroll setup')] class extends Component {
                 <flux:select wire:model="wage_expense_account_id" :label="__('Wage expense account')" :description="__('Defaults to Wages & Salaries Expense.')">
                     <flux:select.option value="">{{ __('— default (Wages & Salaries Expense) —') }}</flux:select.option>
                     @foreach ($this->expenseAccounts as $account)
-                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</flux:select.option>
+                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
@@ -900,7 +900,7 @@ new #[Title('Employee payroll setup')] class extends Component {
                                 <flux:select wire:model="recurring_items.{{ $i }}.expense_account_id" :label="__('Expense account')">
                                     <flux:select.option value="">{{ __('— default —') }}</flux:select.option>
                                     @foreach ($this->expenseAccounts as $account)
-                                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</flux:select.option>
+                                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->displayName() }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                             @endif
@@ -909,7 +909,7 @@ new #[Title('Employee payroll setup')] class extends Component {
                                 <flux:select wire:model="recurring_items.{{ $i }}.liability_account_id" :label="__('Liability account')">
                                     <flux:select.option value="">{{ __('— default —') }}</flux:select.option>
                                     @foreach ($this->liabilityAccounts as $account)
-                                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</flux:select.option>
+                                        <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->displayName() }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                             @endif

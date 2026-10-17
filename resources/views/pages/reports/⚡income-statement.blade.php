@@ -144,7 +144,7 @@ new #[Title('Income Statement')] class extends Component
             $buckets[$bucket][] = [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'current' => $current,
                 'prior' => $prior,
                 'section_id' => $account->report_section_id,

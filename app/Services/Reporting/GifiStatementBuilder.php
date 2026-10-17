@@ -57,7 +57,7 @@ class GifiStatementBuilder
                 $amount = $this->calc->reportingBalanceAsOf($company, $account, $end);
 
                 if ($amount !== 0) {
-                    $unassigned[] = ['id' => $account->id, 'code' => $account->code, 'name' => $account->name, 'amount' => $amount];
+                    $unassigned[] = ['id' => $account->id, 'code' => $account->code, 'name' => $account->displayName(), 'amount' => $amount];
                     $unassignedTotal += $amount;
                 }
 
@@ -77,7 +77,7 @@ class GifiStatementBuilder
             $lines[$account->gifi_code]['accounts'][] = [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'amount' => $amount,
             ];
         }
@@ -104,7 +104,7 @@ class GifiStatementBuilder
 
                 $sectionLines[] = [
                     'code' => $catalogEntry['code'],
-                    'label' => $catalogEntry['label'],
+                    'label' => __($catalogEntry['label']),
                     'amount' => $lines[$code]['amount'],
                     'accounts' => $lines[$code]['accounts'],
                 ];
@@ -115,7 +115,7 @@ class GifiStatementBuilder
                 continue;
             }
 
-            $block = ['key' => $section['key'], 'label' => $section['label'], 'lines' => $sectionLines, 'subtotal' => $subtotal];
+            $block = ['key' => $section['key'], 'label' => __($section['label']), 'lines' => $sectionLines, 'subtotal' => $subtotal];
 
             if ($section['statement'] === GifiStatement::BalanceSheet) {
                 $bsHalves[$section['half']]['sections'][] = $block;

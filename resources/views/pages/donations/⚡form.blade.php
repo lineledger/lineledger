@@ -187,14 +187,14 @@ new #[Title('Donation')] class extends Component {
         <flux:select wire:model="deposit_to_account_id" :label="__('Deposit to / record against')" :description="__('Bank or undeposited funds for cash; the asset account for an in-kind gift.')" required data-test="donation-deposit-account">
             <flux:select.option value="">{{ __('Select an account') }}</flux:select.option>
             @foreach ($this->depositAccounts as $account)
-                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
         <flux:select wire:model="revenue_account_id" :label="__('Donation revenue account')" data-test="donation-revenue-account">
             <flux:select.option value="">{{ __('Default donation income account') }}</flux:select.option>
             @foreach ($this->incomeAccounts as $account)
-                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -214,7 +214,7 @@ new #[Title('Donation')] class extends Component {
                     <flux:select wire:model="deferred_account_id" :label="__('Deferred / restricted liability')" :description="__('Where the restricted gift is held until the funds are spent.')" data-test="donation-deferred-account">
                         <flux:select.option value="">{{ __('Default deferred-grants account') }}</flux:select.option>
                         @foreach ($this->liabilityAccounts as $account)
-                            <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                            <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif

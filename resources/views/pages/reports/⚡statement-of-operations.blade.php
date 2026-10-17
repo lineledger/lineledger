@@ -235,7 +235,7 @@ new #[Title('Statement of Operations')] class extends Component
             $buckets[$bucket][] = [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'current' => $current,
                 'prior' => $prior,
                 'section_id' => $account->report_section_id,
@@ -531,13 +531,13 @@ new #[Title('Statement of Operations')] class extends Component
 
             <flux:select wire:model="recLiabilityAccountId" :label="__('Deferred liability')" required data-test="rec-liability">
                 @foreach ($this->deferralLiabilityOptions as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model="recRevenueAccountId" :label="__('Recognize into revenue')" required data-test="rec-revenue">
                 @foreach ($this->deferralRevenueOptions as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

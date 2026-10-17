@@ -211,7 +211,7 @@ new #[Title('Bank rules')] class extends Component {
             <flux:select wire:model="f_action_account_id" :label="__('Categorize to account')" required data-test="bank-rule-account">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->accountOptions as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

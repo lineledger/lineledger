@@ -302,7 +302,7 @@ new #[Title('Journal entry')] class extends Component {
             <tbody class="divide-y divide-border">
                 @foreach ($entry->lines as $line)
                     <tr data-test="entry-show-line">
-                        <td class="px-4 py-2">{{ $line->account->code }} — {{ $line->account->name }}</td>
+                        <td class="px-4 py-2">{{ $line->account->code }} — {{ $line->account->displayName() }}</td>
                         <td class="px-4 py-2 text-muted-foreground">{{ $line->memo }}</td>
                         @if ($showTaxCodes)
                             <td class="px-4 py-2 text-muted-foreground" data-test="line-tax-code">{{ $this->lineTaxCodes[$line->tax_code_id] ?? '' }}</td>

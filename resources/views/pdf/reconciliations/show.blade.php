@@ -2,7 +2,7 @@
     'title' => 'Bank Reconciliation',
     'period' => $rec->statement_date->toDateString(),
     'metaLines' => array_filter([
-        ($rec->account?->code ?? '').' — '.($rec->account?->name ?? ''),
+        ($rec->account?->code ?? '').' — '.($rec->account?->displayName() ?? ''),
         'Status: '.$rec->status->label(),
         $rec->completed_at ? 'Completed: '.$rec->completed_at->toDateTimeString().($rec->completedBy ? ' — '.$rec->completedBy->name : '') : null,
     ]),

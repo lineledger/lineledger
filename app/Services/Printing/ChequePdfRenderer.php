@@ -6,8 +6,10 @@ use App\Models\Account;
 use App\Models\BillPayment;
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\PayrollCheque;
 use App\Support\Contacts\AddressLines;
+use App\Support\Locales;
 use App\Support\Money;
 
 /**
@@ -39,11 +41,26 @@ class ChequePdfRenderer
      */
     public function dataFor(BillPayment|Cheque|PayrollCheque $source): array
     {
-        return match (true) {
+        $source->loadMissing('company');
+
+        return Locales::forContactDocument($this->contactFor($source), $source->company, fn (): array => match (true) {
             $source instanceof Cheque => $this->dataForCheque($source),
             $source instanceof PayrollCheque => $this->dataForPayrollCheque($source),
             default => $this->dataForBillPayment($source),
-        };
+        });
+    }
+
+    private function contactFor(BillPayment|Cheque|PayrollCheque $source): ?Contact
+    {
+        if ($source instanceof BillPayment) {
+            $source->loadMissing('contact');
+
+            return $source->contact;
+        }
+
+        $source->loadMissing('payee');
+
+        return $source->payee;
     }
 
     /**

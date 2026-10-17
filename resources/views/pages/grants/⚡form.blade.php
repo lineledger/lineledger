@@ -187,14 +187,14 @@ new #[Title('Grant')] class extends Component {
         <flux:select wire:model="deposit_to_account_id" :label="__('Deposit to / receivable account')" data-test="grant-deposit-account">
             <flux:select.option value="">{{ __('Select an account') }}</flux:select.option>
             @foreach ($this->assetAccounts as $account)
-                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
         <flux:select wire:model="revenue_account_id" :label="__('Grant revenue account')" data-test="grant-revenue-account">
             <flux:select.option value="">{{ __('Default grant revenue account') }}</flux:select.option>
             @foreach ($this->incomeAccounts as $account)
-                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -214,7 +214,7 @@ new #[Title('Grant')] class extends Component {
                     <flux:select wire:model="deferred_account_id" :label="__('Deferred / restricted liability')" data-test="grant-deferred-account">
                         <flux:select.option value="">{{ __('Default deferred-grants account') }}</flux:select.option>
                         @foreach ($this->liabilityAccounts as $account)
-                            <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                            <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                     <flux:select wire:model="recognition_method" :label="__('Recognition method')" data-test="grant-recognition-method">

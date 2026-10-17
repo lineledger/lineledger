@@ -243,7 +243,7 @@ new #[Title('Outstanding cheques')] class extends Component {
                             <td class="py-1.5 pr-3">{{ $cheque->cheque_no }}</td>
                             <td class="py-1.5 pr-3">{{ $cheque->cheque_date->toDateString() }}</td>
                             <td class="py-1.5 pr-3">{{ $cheque->payee_name }}</td>
-                            <td class="py-1.5 pr-3">{{ $cheque->bankAccount?->name }}</td>
+                            <td class="py-1.5 pr-3">{{ $cheque->bankAccount?->displayName() }}</td>
                             <td class="py-1.5 pr-3 text-right tabular-nums">{{ $this->money((int) $cheque->amount_cents) }}</td>
                             <td class="py-1.5 text-right">
                                 <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="openEdit({{ $cheque->id }})" :disabled="$obState->isFinalized()" data-test="ob-cheque-edit-{{ $cheque->cheque_no }}" />

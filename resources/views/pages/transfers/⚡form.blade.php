@@ -229,14 +229,14 @@ new #[Title('Transfer')] class extends Component
             <flux:select wire:model.live="from_account_id" :label="__('From account')" required data-test="transfer-from-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->bankAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}@if ($opt->currency_code) ({{ $opt->currency_code }})@endif</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}@if ($opt->currency_code) ({{ $opt->currency_code }})@endif</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model.live="to_account_id" :label="__('To account')" required data-test="transfer-to-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->bankAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}@if ($opt->currency_code) ({{ $opt->currency_code }})@endif</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}@if ($opt->currency_code) ({{ $opt->currency_code }})@endif</flux:select.option>
                 @endforeach
             </flux:select>
 

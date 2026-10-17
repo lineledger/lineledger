@@ -456,7 +456,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             ->whereNotIn('id', $excluded)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"]);
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}"]);
     }
 
     /**
@@ -656,7 +656,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             ->when($type !== null, fn ($q) => $q->where('type', $type->value))
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"]);
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}"]);
     }
 
     /**
@@ -1003,7 +1003,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                                         @if ($depth > 0)
                                             <span class="me-1 text-muted-foreground" aria-hidden="true">&rsaquo;</span>
                                         @endif
-                                        <a href="{{ $ledgerUrl }}" wire:navigate class="hover:underline" title="{{ __('View ledger') }}">{{ $account->name }}</a>
+                                        <a href="{{ $ledgerUrl }}" wire:navigate class="hover:underline" title="{{ __('View ledger') }}">{{ $account->displayName() }}</a>
                                         @if ($account->is_system)
                                             <flux:badge color="zinc" size="sm" class="ms-2">{{ __('System') }}</flux:badge>
                                         @endif
@@ -1144,7 +1144,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                 >
                     <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                     @foreach ($this->taxCodeOptions as $taxCode)
-                        <flux:select.option :value="$taxCode->id">{{ $taxCode->code }} — {{ $taxCode->name }}</flux:select.option>
+                        <flux:select.option :value="$taxCode->id">{{ $taxCode->label() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             @endif
@@ -1225,7 +1225,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             <div>
                 <flux:heading size="lg">{{ __('Merge account') }}</flux:heading>
                 @if ($mergingId && ($mergingAccount = Account::find($mergingId)))
-                    <flux:subheading>{{ $mergingAccount->code }} — {{ $mergingAccount->name }}</flux:subheading>
+                    <flux:subheading>{{ $mergingAccount->code }} — {{ $mergingAccount->displayName() }}</flux:subheading>
                 @endif
             </div>
 

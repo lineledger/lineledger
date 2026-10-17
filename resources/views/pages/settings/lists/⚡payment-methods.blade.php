@@ -104,7 +104,7 @@ new #[Title('Payment methods')] class extends Component {
                 <tbody class="divide-y divide-border">
                     @foreach ($this->methods as $m)
                         <tr data-test="method-row" class="@if(! $m->is_active) opacity-50 @endif">
-                            <td class="px-4 py-2">{{ $m->name }}</td>
+                            <td class="px-4 py-2">{{ $m->displayName() }}</td>
                             <td class="px-4 py-2 text-center">
                                 @if ($m->is_cheque)
                                     <flux:icon name="check" class="mx-auto size-4 text-emerald-600" />

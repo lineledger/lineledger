@@ -270,7 +270,7 @@ new #[Title('General Ledger')] class extends Component
         <flux:select wire:model.live="accountId" :label="__('Account')" data-test="gl-account-select">
             <flux:select.option value="all">{{ __('— All accounts —') }}</flux:select.option>
             @foreach ($this->accountOptions as $opt)
-                <flux:select.option :value="(string) $opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                <flux:select.option :value="(string) $opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
         <flux:input type="date" wire:model.live="startDate" :label="__('Start')" />

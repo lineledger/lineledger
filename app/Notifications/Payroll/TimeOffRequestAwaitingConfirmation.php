@@ -4,6 +4,7 @@ namespace App\Notifications\Payroll;
 
 use App\Models\Company;
 use App\Models\TimeOffRequest;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -34,15 +35,17 @@ class TimeOffRequestAwaitingConfirmation extends Notification implements ShouldQ
     {
         $employee = $this->request->employee->display_name;
 
-        return (new MailMessage)
-            ->subject(__('Time off for :employee awaits payroll confirmation', ['employee' => $employee]))
-            ->line(__('The absence was approved by :manager. Confirm the pay treatment to schedule it into payroll: :hours hours of :policy, :start to :end.', [
-                'manager' => $this->request->managerDecidedBy->name,
-                'hours' => rtrim(rtrim(number_format((float) $this->request->total_hours, 2), '0'), '.'),
-                'policy' => $this->request->policy->name,
-                'start' => $this->request->start_date->toDateString(),
-                'end' => $this->request->end_date->toDateString(),
-            ]))
-            ->action(__('Confirm in payroll'), route('time-off-requests.index', ['company' => $this->company]));
+        return Locales::forRecipient($notifiable, function () use ($employee): MailMessage {
+            return (new MailMessage)
+                ->subject(__('Time off for :employee awaits payroll confirmation', ['employee' => $employee]))
+                ->line(__('The absence was approved by :manager. Confirm the pay treatment to schedule it into payroll: :hours hours of :policy, :start to :end.', [
+                    'manager' => $this->request->managerDecidedBy->name,
+                    'hours' => rtrim(rtrim(number_format((float) $this->request->total_hours, 2), '0'), '.'),
+                    'policy' => $this->request->policy->name,
+                    'start' => $this->request->start_date->toDateString(),
+                    'end' => $this->request->end_date->toDateString(),
+                ]))
+                ->action(__('Confirm in payroll'), route('time-off-requests.index', ['company' => $this->company]));
+        }, $this->company);
     }
 }

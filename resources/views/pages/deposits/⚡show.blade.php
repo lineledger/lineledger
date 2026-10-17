@@ -69,7 +69,7 @@ new #[Title('Deposit')] class extends Component {
             <flux:heading size="xl" level="1">{{ __('Deposit') }} {{ $deposit->deposit_no }}</flux:heading>
             <flux:subheading>
                 {{ $deposit->deposit_date->toDateString() }} &middot;
-                {{ $deposit->bankAccount->name }}
+                {{ $deposit->bankAccount->displayName() }}
             </flux:subheading>
             <div class="mt-2 hidden items-center gap-2 lg:flex">
                 @switch($deposit->status->value)

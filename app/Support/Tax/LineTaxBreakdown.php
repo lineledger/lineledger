@@ -15,6 +15,16 @@ use App\Models\TaxCode;
 final class LineTaxBreakdown
 {
     /**
+     * Format a tax rate percentage for display. Whole and standard rates use two
+     * decimal places (e.g. 5.00%), while rates carrying fractional hundredths
+     * (such as Quebec QST at 9.975%) preserve up to four decimals without rounding.
+     */
+    public static function formatRate(float|int|string|null $rate): string
+    {
+        return TaxCode::formatRate($rate);
+    }
+
+    /**
      * Group document lines by tax code, summing the primary and secondary tax on
      * each. Lines must expose `taxCode` and `secondaryTaxCode`/`secondary_tax_cents`,
      * plus the primary tax as `line_tax_cents` (invoice, bill, … lines) or
@@ -22,7 +32,7 @@ final class LineTaxBreakdown
      * skipped, so a single-tax line yields one row.
      *
      * @param  iterable<int, object{taxCode: ?TaxCode, line_tax_cents?: ?int, tax_cents?: ?int, secondaryTaxCode: ?TaxCode, secondary_tax_cents: int}>  $lines
-     * @return array<int, array{label: string, rate: float, tax_cents: int}>
+     * @return array<int, array{label: string, rate: float, formatted_rate: string, tax_cents: int}>
      */
     public static function forLines(iterable $lines): array
     {
@@ -38,8 +48,9 @@ final class LineTaxBreakdown
                 }
 
                 $rows[$code->id] ??= [
-                    'label' => (string) $code->name,
+                    'label' => $code->displayName(),
                     'rate' => $code->ratePercent(),
+                    'formatted_rate' => $code->formattedRate(),
                     'tax_cents' => 0,
                 ];
                 $rows[$code->id]['tax_cents'] += $cents;

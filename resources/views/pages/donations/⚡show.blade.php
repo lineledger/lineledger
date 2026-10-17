@@ -105,7 +105,7 @@ new #[Title('Donation')] class extends Component {
             </div>
             <div>
                 <div class="text-muted-foreground">{{ __('Deposited to') }}</div>
-                <div>{{ $donation->depositToAccount ? $donation->depositToAccount->code.' — '.$donation->depositToAccount->name : '—' }}</div>
+                <div>{{ $donation->depositToAccount ? $donation->depositToAccount->code.' — '.$donation->depositToAccount->displayName() : '—' }}</div>
             </div>
             @if ($donation->fund)
                 <div>

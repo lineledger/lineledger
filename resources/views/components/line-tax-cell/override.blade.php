@@ -12,7 +12,7 @@
     <x-line-tax-cell /> once per selected code. Keyed by the bound path so a
     morph keeps each input (and anything typed in it) with its own code.
 --}}
-@php($label = $code?->code ?? __('Tax'))
+@php($label = $code?->label() ?? __('Tax'))
 @php($ariaLabel = __(':tax amount', ['tax' => $label]))
 <div class="mt-1 flex items-center gap-1.5" wire:key="{{ $model }}">
     <span class="w-12 shrink-0 truncate text-xs text-muted-foreground" title="{{ $code?->name ?? $label }}" data-test="{{ $test }}-label">{{ $label }}</span>

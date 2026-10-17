@@ -3,6 +3,7 @@
 namespace App\Support\Reporting;
 
 use App\Enums\CustomerStatementType;
+use App\Support\Locales;
 use Carbon\CarbonImmutable;
 
 /**
@@ -249,7 +250,7 @@ final class StatementColumns
         $value = $row[$definition['field']] ?? null;
 
         return match ($definition['format']) {
-            'date' => is_string($value) && $value !== '' ? CarbonImmutable::parse($value)->format('n/j/Y') : '—',
+            'date' => is_string($value) && $value !== '' ? Locales::formatDate(CarbonImmutable::parse($value)) : '—',
             'money' => self::money((int) $value),
             'money_or_blank' => (int) $value !== 0 ? self::money((int) $value) : '',
             'days' => (int) $value > 0 ? (string) (int) $value : '',

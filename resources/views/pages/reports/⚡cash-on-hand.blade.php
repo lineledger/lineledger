@@ -70,7 +70,7 @@ new #[Title('Cash on Hand')] class extends Component {
             ->map(fn (Account $account) => [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'subtype' => $account->subtype->label(),
                 'balance' => $calculator->balanceAsOf($account, $asOf),
                 'active' => (bool) $account->is_active,

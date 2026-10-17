@@ -37,12 +37,12 @@
 @php($selectedTaxIds = $line['tax_code_ids'] ?? [])
 <flux:dropdown>
     <flux:button variant="outline" size="sm" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="{{ $pickerTest }}">
-        <span class="truncate">{{ $options->whereIn('id', $selectedTaxIds)->pluck('code')->implode(', ') ?: __('Select tax') }}</span>
+        <span class="truncate">{{ $options->whereIn('id', $selectedTaxIds)->map->label()->implode(', ') ?: __('Select tax') }}</span>
     </flux:button>
     <flux:menu>
         <flux:menu.checkbox.group wire:model.live="{{ $prefix }}.{{ $index }}.tax_code_ids">
             @foreach ($options as $opt)
-                <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->code }}</flux:menu.checkbox>
+                <flux:menu.checkbox value="{{ $opt->id }}" :disabled="count($selectedTaxIds) === 2 && ! in_array($opt->id, $selectedTaxIds)" keep-open>{{ $opt->label() }}</flux:menu.checkbox>
             @endforeach
         </flux:menu.checkbox.group>
     </flux:menu>

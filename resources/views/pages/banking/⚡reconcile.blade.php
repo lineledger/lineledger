@@ -327,7 +327,7 @@ new #[Title('Reconcile')] class extends Component {
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}"])
             ->all();
     }
 
@@ -342,7 +342,7 @@ new #[Title('Reconcile')] class extends Component {
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}"])
             ->all();
     }
 
@@ -782,7 +782,7 @@ new #[Title('Reconcile')] class extends Component {
             $methodByBillPayment = BillPayment::with('paymentMethod')
                 ->whereIn('id', array_unique($sourceIdsByType[BillPayment::class]))
                 ->get()
-                ->mapWithKeys(fn ($p) => [$p->id => $p->paymentMethod?->name])
+                ->mapWithKeys(fn ($p) => [$p->id => $p->paymentMethod?->displayName()])
                 ->all();
         }
 
@@ -791,7 +791,7 @@ new #[Title('Reconcile')] class extends Component {
             $methodByReceipt = CustomerReceipt::with('paymentMethod')
                 ->whereIn('id', array_unique($sourceIdsByType[CustomerReceipt::class]))
                 ->get()
-                ->mapWithKeys(fn ($r) => [$r->id => $r->paymentMethod?->name])
+                ->mapWithKeys(fn ($r) => [$r->id => $r->paymentMethod?->displayName()])
                 ->all();
         }
 
@@ -927,7 +927,7 @@ new #[Title('Reconcile')] class extends Component {
 
         <flux:select wire:model.live="account_id" :label="__('Account')" class="min-w-[280px]">
             @foreach ($this->bankAccounts as $opt)
-                <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
@@ -1071,7 +1071,7 @@ new #[Title('Reconcile')] class extends Component {
 
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted p-3">
             <div class="text-sm">
-                <span class="font-semibold">{{ $rec->account?->code }} — {{ $rec->account?->name }}</span>
+                <span class="font-semibold">{{ $rec->account?->code }} — {{ $rec->account?->displayName() }}</span>
                 <span class="ml-3 text-muted-foreground">{{ __('Statement') }} {{ $rec->statement_date->toDateString() }}</span>
                 <span class="ml-3 text-muted-foreground">{{ __('Ending') }} <span class="font-mono">{{ number_format($rec->ending_balance_cents / 100, 2) }}</span></span>
             </div>

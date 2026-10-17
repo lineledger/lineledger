@@ -60,6 +60,9 @@ pint.json
 docker/*
 !docker/php.ini
 !docker/entrypoint.sh
+# Dev image (docker/Dockerfile.dev, root docker-compose.yml).
+!docker/php.dev.ini
+!docker/dev-entrypoint.sh
 
 *.md
 !README.md

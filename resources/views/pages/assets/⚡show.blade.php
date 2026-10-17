@@ -238,9 +238,9 @@ new #[Title('Asset')] class extends Component {
                 <dt class="text-muted-foreground">{{ __('Asset') }}</dt>
                 <dd>{{ optional($asset->assetAccount)->code }} — {{ optional($asset->assetAccount)->name }}</dd>
                 <dt class="text-muted-foreground">{{ __('Accumulated depreciation') }}</dt>
-                <dd>{{ optional($asset->accumulatedDepreciationAccount)->code }} {{ optional($asset->accumulatedDepreciationAccount)->name ? '— '.$asset->accumulatedDepreciationAccount->name : '—' }}</dd>
+                <dd>{{ optional($asset->accumulatedDepreciationAccount)->code }} {{ optional($asset->accumulatedDepreciationAccount)->displayName() ? '— '.$asset->accumulatedDepreciationAccount->displayName() : '—' }}</dd>
                 <dt class="text-muted-foreground">{{ __('Depreciation expense') }}</dt>
-                <dd>{{ optional($asset->depreciationExpenseAccount)->code }} {{ optional($asset->depreciationExpenseAccount)->name ? '— '.$asset->depreciationExpenseAccount->name : '—' }}</dd>
+                <dd>{{ optional($asset->depreciationExpenseAccount)->code }} {{ optional($asset->depreciationExpenseAccount)->displayName() ? '— '.$asset->depreciationExpenseAccount->displayName() : '—' }}</dd>
             </dl>
         </div>
 

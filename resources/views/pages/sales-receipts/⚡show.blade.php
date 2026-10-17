@@ -7,6 +7,7 @@ use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesReceipt;
 use App\Services\Posting\SalesReceiptPoster;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Title;
@@ -70,7 +71,7 @@ new #[Title('Sales receipt')] class extends Component {
             <flux:subheading>
                 {{ $receipt->contact?->display_name ?? __('Cash sale') }} &middot;
                 {{ $receipt->receipt_date->toDateString() }} &middot;
-                {{ __('Deposited to') }} {{ $receipt->depositToAccount->name }}
+                {{ __('Deposited to') }} {{ $receipt->depositToAccount->displayName() }}
             </flux:subheading>
             <div class="mt-2 flex items-center gap-2">
                 @switch($receipt->status->value)
@@ -124,7 +125,7 @@ new #[Title('Sales receipt')] class extends Component {
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Method') }}</flux:text>
-            <div>{{ $receipt->paymentMethod?->name ?? '—' }}</div>
+            <div>{{ $receipt->paymentMethod?->displayName() ?? '—' }}</div>
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Reference') }}</flux:text>
@@ -148,13 +149,13 @@ new #[Title('Sales receipt')] class extends Component {
                 @foreach ($receipt->lines as $line)
                     <tr data-test="sales-receipt-show-line">
                         <td class="px-4 py-2">{{ $line->description }}</td>
-                        <td class="px-4 py-2 text-muted-foreground">{{ $line->account?->code }} — {{ $line->account?->name }}</td>
+                        <td class="px-4 py-2 text-muted-foreground">{{ $line->account?->code }} — {{ $line->account?->displayName() }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ rtrim(rtrim((string) $line->quantity, '0'), '.') }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->unit_price_cents / 100, 2) }}</td>
                         <td class="px-4 py-2 text-muted-foreground">
-                            {{ $line->taxCode?->code ?? '—' }}
+                            {{ $line->taxCode?->label() ?? '—' }}
                             @if ($line->secondaryTaxCode)
-                                <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->line_total_cents / 100, 2) }}</td>
@@ -167,11 +168,11 @@ new #[Title('Sales receipt')] class extends Component {
                     <td class="px-4 py-2 text-right font-mono">{{ number_format($receipt->subtotal_cents / 100, 2) }}</td>
                 </tr>
                 @php
-                    $taxRows = \App\Support\Tax\LineTaxBreakdown::forLines($receipt->lines);
+                    $taxRows = LineTaxBreakdown::forLines($receipt->lines);
                 @endphp
                 @forelse ($taxRows as $taxRow)
                     <tr data-test="sales-receipt-tax-row">
-                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty

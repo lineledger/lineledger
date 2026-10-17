@@ -459,7 +459,7 @@ new #[Title('Items')] class extends Component {
             <flux:select wire:model="f_income_account_id" :label="__('Income / sales account')" required>
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->accountOptions as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
@@ -473,7 +473,7 @@ new #[Title('Items')] class extends Component {
                             class="w-full justify-between font-normal"
                             data-test="item-default-tax"
                         >
-                            <span class="truncate">{{ $this->taxCodes->whereIn('id', $f_default_tax_code_ids)->pluck('code')->implode(', ') ?: __('— None —') }}</span>
+                            <span class="truncate">{{ $this->taxCodes->whereIn('id', $f_default_tax_code_ids)->map->label()->implode(', ') ?: __('— None —') }}</span>
                         </flux:button>
                         <flux:menu>
                             <flux:menu.checkbox.group wire:model.live="f_default_tax_code_ids">
@@ -494,7 +494,7 @@ new #[Title('Items')] class extends Component {
                 <flux:select wire:model="f_expense_account_id" :label="__('Purchase / expense account')" :description="__('Used for this item on bills, purchase orders & vendor credits. Falls back to the income account.')" data-test="item-expense-account">
                     <flux:select.option value="">{{ __('— Same as income account —') }}</flux:select.option>
                     @foreach ($this->accountOptions as $a)
-                        <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                        <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
@@ -506,13 +506,13 @@ new #[Title('Items')] class extends Component {
                         <flux:select wire:model="f_inventory_asset_account_id" :label="__('Inventory asset account')" required>
                             <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                             @foreach ($this->inventoryAssetAccounts as $a)
-                                <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                                <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                             @endforeach
                         </flux:select>
                         <flux:select wire:model="f_cogs_account_id" :label="__('COGS account')" required>
                             <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                             @foreach ($this->cogsAccounts as $a)
-                                <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                                <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                             @endforeach
                         </flux:select>
                     </div>

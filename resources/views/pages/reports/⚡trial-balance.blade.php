@@ -87,7 +87,7 @@ new #[Title('Trial Balance')] class extends Component {
             $rows[] = [
                 'id' => $account->id,
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'type' => $account->type->label(),
                 'debit' => $debit,
                 'credit' => $credit,

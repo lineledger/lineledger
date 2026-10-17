@@ -285,7 +285,7 @@ new #[Title('Tax return')] class extends Component {
                         @foreach ($taxReturn->adjustments as $adjustment)
                             <tr>
                                 <td class="px-4 py-2">{{ __($adjustment->kind->label()) }}</td>
-                                <td class="px-4 py-2">{{ $adjustment->account ? $adjustment->account->code.' — '.$adjustment->account->name : '—' }}</td>
+                                <td class="px-4 py-2">{{ $adjustment->account ? $adjustment->account->code.' — '.$adjustment->account->displayName() : '—' }}</td>
                                 <td class="px-4 py-2">{{ $adjustment->memo }}</td>
                                 <td class="px-4 py-2 text-muted-foreground">
                                     {{ (int) $adjustment->account_id === (int) $taxReturn->taxAgency->payable_account_id ? __('No ledger entry') : __('Posted on filing') }}

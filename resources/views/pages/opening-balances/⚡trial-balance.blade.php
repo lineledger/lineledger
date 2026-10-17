@@ -246,7 +246,7 @@ new #[Title('Opening trial balance')] class extends Component {
                     @foreach ($this->rows as $row)
                         <tr class="border-t border-zinc-100 dark:border-zinc-800" wire:key="ob-row-{{ $row->account_id }}" data-test="ob-tb-row">
                             <td class="py-1.5 pr-3">
-                                {{ $row->account?->code }} — {{ $row->account?->name }}
+                                {{ $row->account?->code }} — {{ $row->account?->displayName() }}
                                 @if ($row->account && in_array($row->account->subtype->value, ['accounts_receivable', 'accounts_payable', 'inventory'], true))
                                     <flux:badge size="sm" color="amber" class="ms-1">{{ __('sub-ledger target') }}</flux:badge>
                                 @endif
@@ -294,7 +294,7 @@ new #[Title('Opening trial balance')] class extends Component {
             <flux:select wire:model="newAccountId" :label="__('Add account')" class="min-w-64" data-test="ob-tb-new-account">
                 <flux:select.option value="">{{ __('Choose an account…') }}</flux:select.option>
                 @foreach ($this->availableAccounts as $account)
-                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <x-amount-input model="newDebit" modifiers="" :label="__('Debit')" class="w-36 text-right" data-test="ob-tb-new-debit" />

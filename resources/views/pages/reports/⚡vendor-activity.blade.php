@@ -120,7 +120,7 @@ new #[Title('Vendor Activity')] class extends Component {
     /** @return list<string> */
     private function exportMetaLines(): array
     {
-        return array_values(array_filter([$this->vendor?->display_name, $this->startDate.' to '.$this->endDate]));
+        return array_values(array_filter([$this->vendor?->display_name, $this->startDate.' '.__('to').' '.$this->endDate]));
     }
 
     /** @param array<string, mixed> $row */
@@ -135,14 +135,14 @@ new #[Title('Vendor Activity')] class extends Component {
             foreach ($this->exportRows() as $row) {
                 yield [
                     $row['vendor'], $row['date'], $row['type'], $row['doc_no'], $row['memo'],
-                    $row['account'], self::splitText($row), CsvExporter::cents($row['amount']), $row['is_void'] ? 'Void' : '',
+                    $row['account'], self::splitText($row), CsvExporter::cents($row['amount']), $row['is_void'] ? __('Void') : '',
                 ];
             }
         })();
 
         return app(CsvExporter::class)->stream(
             $this->exportFilename('csv'),
-            ['Vendor', 'Date', 'Type', 'No.', 'Memo', 'Account', 'Split', 'Amount', 'Status'],
+            [__('Vendor'), __('Date'), __('Type'), __('No.'), __('Memo'), __('Account'), __('Split'), __('Amount'), __('Status')],
             $rows,
         );
     }
@@ -153,18 +153,18 @@ new #[Title('Vendor Activity')] class extends Component {
             foreach ($this->exportRows() as $row) {
                 yield [
                     $row['vendor'], $row['date'], $row['type'], $row['doc_no'], $row['memo'],
-                    $row['account'], self::splitText($row), $row['amount'], $row['is_void'] ? 'Void' : '',
+                    $row['account'], self::splitText($row), $row['amount'], $row['is_void'] ? __('Void') : '',
                 ];
             }
         })();
 
         return app(XlsxExporter::class)->listTable(
             $this->exportFilename('xlsx'),
-            'Vendor Activity',
-            $this->effectiveTitle('Vendor Activity'),
+            __('Vendor Activity'),
+            $this->effectiveTitle(__('Vendor Activity')),
             $this->company,
             $this->exportMetaLines(),
-            ['Vendor', 'Date', 'Type', 'No.', 'Memo', 'Account', 'Split', 'Amount', 'Status'],
+            [__('Vendor'), __('Date'), __('Type'), __('No.'), __('Memo'), __('Account'), __('Split'), __('Amount'), __('Status')],
             $rows,
             moneyColumns: [8],
             columnWidths: [1 => 28, 2 => 12, 3 => 14, 4 => 14, 5 => 36, 6 => 30, 7 => 36, 8 => 14, 9 => 8],
@@ -179,7 +179,7 @@ new #[Title('Vendor Activity')] class extends Component {
             $rows[] = [
                 ['value' => $row['vendor']],
                 ['value' => $row['date']],
-                ['value' => $row['type'].($row['is_void'] ? ' (void)' : '')],
+                ['value' => $row['type'].($row['is_void'] ? ' ('.__('void').')' : '')],
                 ['value' => $row['doc_no']],
                 ['value' => $row['memo']],
                 ['value' => $row['account']],
@@ -190,14 +190,14 @@ new #[Title('Vendor Activity')] class extends Component {
 
         return app(PdfExporter::class)->download('pdf.reports.list-table', [
             'company' => $this->company,
-            'title' => $this->effectiveTitle('Vendor Activity'),
+            'title' => $this->effectiveTitle(__('Vendor Activity')),
             'period' => implode(' · ', $this->exportMetaLines()),
             'headers' => [
-                ['label' => 'Vendor'], ['label' => 'Date'], ['label' => 'Type'], ['label' => 'No.'],
-                ['label' => 'Memo'], ['label' => 'Account'], ['label' => 'Split'], ['label' => 'Amount', 'num' => true],
+                ['label' => __('Vendor')], ['label' => __('Date')], ['label' => __('Type')], ['label' => __('No.')],
+                ['label' => __('Memo')], ['label' => __('Account')], ['label' => __('Split')], ['label' => __('Amount'), 'num' => true],
             ],
             'rows' => $rows,
-            'emptyMessage' => 'No vendor transactions in this period.',
+            'emptyMessage' => __('No vendor transactions in this period.'),
         ], $this->exportFilename('pdf'));
     }
 }; ?>

@@ -188,7 +188,7 @@ new #[Title('Pay bills')] class extends Component
             <flux:select wire:model="paid_from_account_id" :label="__('Pay from')" required data-test="batch-account-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->bankAccountOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
@@ -197,7 +197,7 @@ new #[Title('Pay bills')] class extends Component
             <flux:select wire:model="payment_method_id" :label="__('Payment method')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->paymentMethodOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
         </div>

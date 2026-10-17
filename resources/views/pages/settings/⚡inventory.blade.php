@@ -120,14 +120,14 @@ new #[Title('Inventory settings')] class extends Component {
             <flux:select wire:model="f_default_inventory_asset_account_id" :label="__('Default inventory asset account')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->inventoryAssetAccounts as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model="f_default_cogs_account_id" :label="__('Default COGS account')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->cogsAccounts as $a)
-                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                    <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

@@ -256,7 +256,7 @@ new #[Title('Record tax payment')] class extends Component {
         <flux:select wire:model="bank_account_id" :label="__('Bank account')" data-test="bank-account-select">
             <flux:select.option value="">{{ __('Choose…') }}</flux:select.option>
             @foreach ($this->bankAccounts as $account)
-                <flux:select.option :value="$account->id">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                <flux:select.option :value="$account->id">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -290,7 +290,7 @@ new #[Title('Record tax payment')] class extends Component {
                     <flux:select wire:model="penalty_account_id" :label="__('Penalty account')" data-test="penalty-account-select">
                         <flux:select.option value="">{{ __('Choose expense account…') }}</flux:select.option>
                         @foreach ($this->expenseAccounts as $a)
-                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif
@@ -300,7 +300,7 @@ new #[Title('Record tax payment')] class extends Component {
                     <flux:select wire:model="interest_account_id" :label="__('Interest account')" data-test="interest-account-select">
                         <flux:select.option value="">{{ __('Choose expense account…') }}</flux:select.option>
                         @foreach ($this->expenseAccounts as $a)
-                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif
@@ -310,7 +310,7 @@ new #[Title('Record tax payment')] class extends Component {
                     <flux:select wire:model="commission_account_id" :label="__('Commission account')" data-test="commission-account-select">
                         <flux:select.option value="">{{ __('Choose expense account…') }}</flux:select.option>
                         @foreach ($this->expenseAccounts as $a)
-                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif
@@ -320,7 +320,7 @@ new #[Title('Record tax payment')] class extends Component {
                     <flux:select wire:model="interest_account_id" :label="__('Interest income account')" data-test="interest-account-select">
                         <flux:select.option value="">{{ __('Choose income account…') }}</flux:select.option>
                         @foreach ($this->incomeAccounts as $a)
-                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->name }}</flux:select.option>
+                            <flux:select.option :value="$a->id">{{ $a->code }} — {{ $a->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif

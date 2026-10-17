@@ -5,6 +5,7 @@ namespace App\Services\Reporting;
 use App\Enums\CustomerStatementType;
 use App\Models\Company;
 use App\Models\Contact;
+use App\Support\Locales;
 use App\Support\Reporting\StatementColumns;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Response;
@@ -44,11 +45,11 @@ class CustomerStatementPdfRenderer
      */
     public function inline(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, ?array $columns = null): Response
     {
-        return $this->pdf->inline(
+        return Locales::forContactDocument($contact, $company, fn (): Response => $this->pdf->inline(
             'pdf.statements.customer-statement',
             $this->data($company, $contact, $type, $start, $end, $columns),
             $this->filename($contact, $type, $end),
-        );
+        ));
     }
 
     /**
@@ -56,11 +57,11 @@ class CustomerStatementPdfRenderer
      */
     public function download(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, ?array $columns = null): BinaryFileResponse
     {
-        return $this->pdf->download(
+        return Locales::forContactDocument($contact, $company, fn (): BinaryFileResponse => $this->pdf->download(
             'pdf.statements.customer-statement',
             $this->data($company, $contact, $type, $start, $end, $columns),
             $this->filename($contact, $type, $end),
-        );
+        ));
     }
 
     /**
@@ -70,10 +71,10 @@ class CustomerStatementPdfRenderer
      */
     public function raw(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, ?array $columns = null): string
     {
-        return $this->pdf->raw(
+        return Locales::forContactDocument($contact, $company, fn (): string => $this->pdf->raw(
             'pdf.statements.customer-statement',
             $this->data($company, $contact, $type, $start, $end, $columns),
-        );
+        ));
     }
 
     /**

@@ -112,7 +112,18 @@ return [
 
     'locale' => env('APP_LOCALE', 'en'),
 
+    // The configured default, kept apart from 'locale' because App::setLocale()
+    // rewrites that one per request. Documents fall back to this.
+    'default_locale' => env('APP_LOCALE', 'en'),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+
+    /*
+    | UI and document language codes this deployment ships catalogs for.
+    | English is the source language (the __() key). Add a lang/{code}.json
+    | file when introducing a new code.
+    */
+    'supported_locales' => ['en', 'fr'],
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 

@@ -24,32 +24,32 @@ enum Industry: string
     public function label(): string
     {
         return match ($this) {
-            self::General => 'General business',
-            self::Contractor => 'Contractor / Construction',
-            self::NonProfit => 'Non-profit',
-            self::Manufacturing => 'Manufacturing',
-            self::Retail => 'Retail',
-            self::ProfessionalServices => 'Professional services',
-            self::HealthWellness => 'Health & Wellness',
-            self::Restaurant => 'Restaurant / Food & Beverage',
-            self::RealEstate => 'Real estate / Property management',
-            self::Freelancer => 'Freelancer / Creative',
+            self::General => __('General business'),
+            self::Contractor => __('Contractor / Construction'),
+            self::NonProfit => __('Non-profit'),
+            self::Manufacturing => __('Manufacturing'),
+            self::Retail => __('Retail'),
+            self::ProfessionalServices => __('Professional services'),
+            self::HealthWellness => __('Health & Wellness'),
+            self::Restaurant => __('Restaurant / Food & Beverage'),
+            self::RealEstate => __('Real estate / Property management'),
+            self::Freelancer => __('Freelancer / Creative'),
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::General => 'A balanced starter chart that fits most small businesses.',
-            self::Contractor => 'Job costing with materials, subcontractors, labour, and holdbacks.',
-            self::NonProfit => 'Donations, grants, program and fundraising tracking with net assets.',
-            self::Manufacturing => 'Raw materials, work in process, finished goods, and overhead.',
-            self::Retail => 'Merchandise sales, cost of goods, shrinkage, and card fees.',
-            self::ProfessionalServices => 'Service fees, retainers, and reimbursable project costs.',
-            self::HealthWellness => 'Appointment fees, retail product, prepaid packages, gift cards, and tips.',
-            self::Restaurant => 'Food and beverage sales, tips, food cost, and kitchen supplies.',
-            self::RealEstate => 'Commissions, rental income, security deposits, and trust funds held.',
-            self::Freelancer => 'Service income, client deposits, software, and equipment for solo creatives.',
+            self::General => __('A balanced starter chart that fits most small businesses.'),
+            self::Contractor => __('Job costing with materials, subcontractors, labour, and holdbacks.'),
+            self::NonProfit => __('Donations, grants, program and fundraising tracking with net assets.'),
+            self::Manufacturing => __('Raw materials, work in process, finished goods, and overhead.'),
+            self::Retail => __('Merchandise sales, cost of goods, shrinkage, and card fees.'),
+            self::ProfessionalServices => __('Service fees, retainers, and reimbursable project costs.'),
+            self::HealthWellness => __('Appointment fees, retail product, prepaid packages, gift cards, and tips.'),
+            self::Restaurant => __('Food and beverage sales, tips, food cost, and kitchen supplies.'),
+            self::RealEstate => __('Commissions, rental income, security deposits, and trust funds held.'),
+            self::Freelancer => __('Service income, client deposits, software, and equipment for solo creatives.'),
         };
     }
 

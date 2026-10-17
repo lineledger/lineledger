@@ -394,7 +394,7 @@ new #[Title('Pay run')] class extends Component {
             <flux:text class="text-sm text-muted-foreground">{{ __('One cheque is written per employee with positive net pay, numbered sequentially.') }}</flux:text>
             <flux:select wire:model="bankAccountId" :label="__('Bank account')">
                 @foreach ($this->bankAccounts as $account)
-                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->name }}</flux:select.option>
+                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} · {{ $account->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:input type="number" wire:model="startingChequeNumber" :label="__('Starting cheque number')" min="1" required />

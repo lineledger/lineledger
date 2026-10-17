@@ -45,7 +45,7 @@ new #[Title('Cheques')] class extends Component {
                 'cheque_date' => $c->cheque_date->toDateString(),
                 'payee_name' => $c->payee_name,
                 'payee_url' => $c->payee ? $resolver->urlForViewer($c->payee, $this->company, $viewer) : null,
-                'bank_name' => $c->bankAccount?->name,
+                'bank_name' => $c->bankAccount?->displayName(),
                 'amount_cents' => $c->amount_cents,
                 'status' => $c->status->value,
                 'href' => route('cheques.show', ['company' => $this->company->slug, 'cheque' => $c->id]),
@@ -72,7 +72,7 @@ new #[Title('Cheques')] class extends Component {
                     'payee_name' => $c->payee_name,
                     // Payroll cheques link to their pay run, not the employee.
                     'payee_url' => null,
-                    'bank_name' => $c->bankAccount?->name,
+                    'bank_name' => $c->bankAccount?->displayName(),
                     'amount_cents' => $c->amount_cents,
                     'status' => $c->status->value,
                     'href' => route('pay-runs.show', ['company' => $this->company->slug, 'payRun' => $c->pay_run_id]),

@@ -95,7 +95,7 @@ new #[Title('Tax payment')] class extends Component {
             <div class="text-xs uppercase text-muted-foreground">{{ __('Bank account') }}</div>
             <div class="mt-1">{{ optional($payment->bankAccount)->code }} — {{ optional($payment->bankAccount)->name }}</div>
             @if ($payment->paymentMethod)
-                <div class="mt-1 text-sm text-muted-foreground">{{ __('Method') }}: {{ $payment->paymentMethod->name }}</div>
+                <div class="mt-1 text-sm text-muted-foreground">{{ __('Method') }}: {{ $payment->paymentMethod->displayName() }}</div>
             @endif
         </div>
 

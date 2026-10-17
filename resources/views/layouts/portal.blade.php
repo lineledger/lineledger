@@ -19,15 +19,16 @@
                     @endif
                 </div>
 
-                @if ($portalCustomer)
-                    <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3">
+                    <x-language-switcher />
+                    @if ($portalCustomer)
                         <span class="hidden text-sm text-muted-foreground sm:inline">{{ $portalCustomer->display_name }}</span>
                         <form method="POST" action="{{ route('portal.logout', ['company' => $company->slug]) }}">
                             @csrf
                             <flux:button type="submit" size="sm" variant="ghost" icon="arrow-right-start-on-rectangle">{{ __('Sign out') }}</flux:button>
                         </form>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
         </header>
 

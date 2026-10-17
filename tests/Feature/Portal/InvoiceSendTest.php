@@ -112,7 +112,8 @@ it('emails from a no-reply address and drops the platform branding', function ()
     $mail = $notification->toMail(new AnonymousNotifiable);
 
     expect($mail->from[0])->toStartWith('no-reply@')
-        ->and($mail->replyTo[0][0])->toBe('billing@acme.test');
+        ->and($mail->replyTo[0][0])->toBe('billing@acme.test')
+        ->and($mail->viewData['actionUrl'])->toBe('https://books.test/pay/'.$this->company->slug.'/login/tok');
 
     $companyName = $this->company->brand_name ?: $this->company->name;
     $html = (string) app(Markdown::class)->render($mail->markdown, $mail->viewData);

@@ -68,7 +68,31 @@ enum AccountSubtype: string
 
     public function label(): string
     {
-        return ucwords(str_replace('_', ' ', $this->value));
+        return match ($this) {
+            self::Bank => __('Bank'),
+            self::AccountsReceivable => __('Accounts Receivable'),
+            self::UndepositedFunds => __('Undeposited Funds'),
+            self::Inventory => __('Inventory'),
+            self::CurrentAsset => __('Current Asset'),
+            self::FixedAsset => __('Fixed Asset'),
+            self::OtherAsset => __('Other Asset'),
+            self::AccountsPayable => __('Accounts Payable'),
+            self::CreditCard => __('Credit Card'),
+            self::TaxPayable => __('Tax Payable'),
+            self::CurrentLiability => __('Current Liability'),
+            self::LongTermLiability => __('Long Term Liability'),
+            self::OtherLiability => __('Other Liability'),
+            self::Equity => __('Equity'),
+            self::RetainedEarnings => __('Retained Earnings'),
+            self::UnrestrictedNetAssets => __('Unrestricted Net Assets'),
+            self::RestrictedNetAssets => __('Restricted Net Assets'),
+            self::EndowmentNetAssets => __('Endowment Net Assets'),
+            self::Income => __('Income'),
+            self::OtherIncome => __('Other Income'),
+            self::CostOfGoodsSold => __('Cost of Goods Sold'),
+            self::Expense => __('Expense'),
+            self::OtherExpense => __('Other Expense'),
+        };
     }
 
     /**

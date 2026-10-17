@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\PayRunPoster;
 use App\Services\Reporting\PayStatementYtdCalculator;
+use App\Support\Locales;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -147,4 +148,15 @@ it('reports a taxable benefit in the employer-paid section, not in cash earnings
     expect($html)->toContain('Employer-paid benefits &amp; accruals')
         ->and($html)->toContain('Group life (taxable)')
         ->and($html)->toContain('Employer-paid amounts are not deducted from your pay.');
+});
+
+it('prints pay-stub dates as on main in English and as ISO in French', function () {
+    expect(psrRender('ON'))->toContain('Jun 20, 2025')
+        ->and(psrRender('ON'))->toContain('Jun 1 – Jun 14, 2025');
+
+    $french = Locales::using('fr', fn (): string => psrRender('ON'));
+
+    expect($french)->toContain('2025-06-20')
+        ->and($french)->toContain('2025-06-01 – 2025-06-14')
+        ->and($french)->not->toContain('Jun 20');
 });

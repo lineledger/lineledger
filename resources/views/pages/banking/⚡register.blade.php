@@ -113,7 +113,7 @@ new #[Title('Bank register')] class extends Component {
         <div class="flex items-end gap-3">
             <flux:select wire:model.live="account_id" :label="__('Account')" class="min-w-[260px]">
                 @foreach ($this->bankAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

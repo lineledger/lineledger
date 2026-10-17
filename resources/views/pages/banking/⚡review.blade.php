@@ -556,7 +556,7 @@ new #[Title('For Review')] class extends Component {
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}", 'code' => (string) $a->code, 'name' => $a->name])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}", 'code' => (string) $a->code, 'name' => $a->displayName()])
             ->all();
     }
 
@@ -715,7 +715,7 @@ new #[Title('For Review')] class extends Component {
             <flux:select wire:model.live="accountFilter" :label="__('Account')" class="max-w-[240px]" data-test="review-account-filter">
                 <flux:select.option value="">{{ __('All accounts') }}</flux:select.option>
                 @foreach ($this->bankAccounts as $acct)
-                    <flux:select.option :value="$acct->id">{{ $acct->code }} — {{ $acct->name }}</flux:select.option>
+                    <flux:select.option :value="$acct->id">{{ $acct->code }} — {{ $acct->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:switch wire:model.live="showExcluded" :label="__('Excluded')" data-test="review-show-excluded" />
@@ -731,7 +731,7 @@ new #[Title('For Review')] class extends Component {
                     @foreach ($this->transferCandidates as $pair)
                         <tr data-test="transfer-pair" wire:key="xfer-{{ $pair['out']->id }}-{{ $pair['in']->id }}">
                             <td class="px-4 py-2">
-                                {{ $pair['out']->account?->name }} → {{ $pair['in']->account?->name }}
+                                {{ $pair['out']->account?->displayName() }} → {{ $pair['in']->account?->displayName() }}
                                 <span class="text-muted-foreground">· {{ $pair['out']->txn_date?->toDateString() }}</span>
                             </td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format(abs($pair['out']->amount_cents) / 100, 2) }}</td>
@@ -798,7 +798,7 @@ new #[Title('For Review')] class extends Component {
                         $coveringRule = $this->ruleCoveredLines[$line->id] ?? null;
                         $categoryChosen = ($categories[$line->id] ?? null) ?: $line->suggested_account_id;
                         $categoryPlaceholder = $line->suggested_account_id && $line->suggestedAccount
-                            ? $line->suggestedAccount->code.' — '.$line->suggestedAccount->name
+                            ? $line->suggestedAccount->code.' — '.$line->suggestedAccount->displayName()
                             : __('— pick —');
                         $sourceIcon = match ($line->suggestion_source) {
                             \App\Enums\StatementSuggestionSource::Rule => 'bolt',
@@ -828,7 +828,7 @@ new #[Title('For Review')] class extends Component {
                                     <flux:menu>
                                         <flux:menu.checkbox.group wire:model.live="lineTax.{{ $line->id }}">
                                             @foreach ($this->purchaseTaxCodes as $code)
-                                                <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                                <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                             @endforeach
                                         </flux:menu.checkbox.group>
                                     </flux:menu>
@@ -938,12 +938,12 @@ new #[Title('For Review')] class extends Component {
                     @if ($splitIsOutflow)
                         <flux:dropdown class="col-span-3">
                             <flux:button variant="outline" icon:trailing="chevron-down" class="w-full justify-between font-normal" data-test="split-tax">
-                                <span class="truncate">{{ $this->purchaseTaxCodes->whereIn('id', $splitTaxIds)->pluck('code')->implode(', ') ?: __('No tax') }}</span>
+                                <span class="truncate">{{ $this->purchaseTaxCodes->whereIn('id', $splitTaxIds)->map->label()->implode(', ') ?: __('No tax') }}</span>
                             </flux:button>
                             <flux:menu>
                                 <flux:menu.checkbox.group wire:model.live="splits.{{ $i }}.tax_code_ids">
                                     @foreach ($this->purchaseTaxCodes as $code)
-                                        <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($splitTaxIds) === 2 && ! in_array($code->id, $splitTaxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                        <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($splitTaxIds) === 2 && ! in_array($code->id, $splitTaxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                     @endforeach
                                 </flux:menu.checkbox.group>
                             </flux:menu>

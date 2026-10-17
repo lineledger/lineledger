@@ -108,7 +108,7 @@ new #[Title('Budget')] class extends Component {
             })
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a): array => ['id' => (int) $a->id, 'code' => (string) $a->code, 'name' => $a->name])
+            ->map(fn (Account $a): array => ['id' => (int) $a->id, 'code' => (string) $a->code, 'name' => $a->displayName()])
             ->values()
             ->all();
     }

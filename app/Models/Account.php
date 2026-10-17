@@ -69,6 +69,15 @@ class Account extends Model
     }
 
     /**
+     * The stored name for display. Seeded names are stored in English so
+     * lookups stay stable; the UI translates them (a renamed one passes through).
+     */
+    public function displayName(): string
+    {
+        return __((string) $this->name);
+    }
+
+    /**
      * @return BelongsTo<Account, $this>
      */
     public function parent(): BelongsTo

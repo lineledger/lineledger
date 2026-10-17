@@ -139,7 +139,7 @@ new #[Title('Budget vs. Actual by Month')] class extends Component {
 
             $groups[$bucket]['rows'][] = [
                 'code' => $account->code,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'cells' => $cells,
                 'total' => $rowTotal,
             ];

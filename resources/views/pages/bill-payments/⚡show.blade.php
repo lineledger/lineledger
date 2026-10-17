@@ -56,7 +56,7 @@ new #[Title('Payment')] class extends Component {
             <flux:subheading>
                 {{ $payment->contact->display_name }} &middot;
                 {{ $payment->payment_date->toDateString() }} &middot;
-                {{ __('From') }} {{ $payment->paidFromAccount->name }}
+                {{ __('From') }} {{ $payment->paidFromAccount->displayName() }}
             </flux:subheading>
             <div class="mt-2 hidden items-center gap-2 lg:flex">
                 @switch($payment->status->value)
@@ -111,7 +111,7 @@ new #[Title('Payment')] class extends Component {
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Method') }}</flux:text>
-            <div>{{ $payment->paymentMethod?->name ?? '—' }}</div>
+            <div>{{ $payment->paymentMethod?->displayName() ?? '—' }}</div>
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Reference') }}</flux:text>

@@ -20,6 +20,7 @@ use App\Models\InvoiceSetting;
 use App\Models\ReceiptApplication;
 use App\Services\Sales\PaymentRequestScheduleStatus;
 use App\Support\Money;
+use App\Support\Tax\LineTaxBreakdown;
 use App\Services\AttachmentService;
 use App\Services\Posting\ChequePoster;
 use App\Services\Posting\InvoicePoster;
@@ -404,7 +405,7 @@ new #[Title('Invoice')] class extends Component {
             ->mapWithKeys(fn (CustomerReceipt $payment) => [(int) $payment->id => __(':no · :date · :method — :amount credit', [
                 'no' => $payment->receipt_no,
                 'date' => $payment->receipt_date->toDateString(),
-                'method' => $payment->paymentMethod?->name ?? __('Payment'),
+                'method' => $payment->paymentMethod?->displayName() ?? __('Payment'),
                 'amount' => number_format($payment->remainingRefundableCents() / 100, 2),
             ])])
             ->all();
@@ -662,9 +663,9 @@ new #[Title('Invoice')] class extends Component {
                         @endif
                         @if ($fieldVisibility['tax_column'])
                             <td class="px-4 py-2 text-muted-foreground">
-                                {{ optional($line->taxCode)->code }}
+                                {{ optional($line->taxCode)->label() }}
                                 @if ($line->secondaryTaxCode)
-                                    <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                    <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                                 @endif
                             </td>
                         @endif
@@ -685,11 +686,11 @@ new #[Title('Invoice')] class extends Component {
                     <td class="px-4 py-2 text-right font-mono">{{ number_format($invoice->subtotal_cents / 100, 2) }}</td>
                 </tr>
                 @php
-                    $taxRows = \App\Support\Tax\LineTaxBreakdown::forLines($invoice->lines);
+                    $taxRows = LineTaxBreakdown::forLines($invoice->lines);
                 @endphp
                 @forelse ($taxRows as $taxRow)
                     <tr data-test="invoice-tax-row">
-                        <td colspan="{{ $this->lineLeadingColspan }}" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="{{ $this->lineLeadingColspan }}" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty
@@ -738,7 +739,7 @@ new #[Title('Invoice')] class extends Component {
                                 <span>{{ $application->receipt->receipt_no }}</span>
                                 <span class="text-muted-foreground">{{ $application->receipt->receipt_date->toDateString() }}</span>
                                 @if ($application->receipt->paymentMethod)
-                                    <span class="text-muted-foreground">· {{ $application->receipt->paymentMethod->name }}</span>
+                                    <span class="text-muted-foreground">· {{ $application->receipt->paymentMethod->displayName() }}</span>
                                 @endif
                                 @if ($application->receipt->reference)
                                     <span class="text-muted-foreground">· {{ $application->receipt->reference }}</span>
@@ -768,7 +769,7 @@ new #[Title('Invoice')] class extends Component {
                                     <span>{{ $payment->receipt_no }}</span>
                                     <span class="text-muted-foreground">{{ $payment->receipt_date->toDateString() }}</span>
                                     @if ($payment->paymentMethod)
-                                        <span class="text-muted-foreground">· {{ $payment->paymentMethod->name }}</span>
+                                        <span class="text-muted-foreground">· {{ $payment->paymentMethod->displayName() }}</span>
                                     @endif
                                     @if ($payment->reference)
                                         <span class="text-muted-foreground">· {{ $payment->reference }}</span>
@@ -861,7 +862,7 @@ new #[Title('Invoice')] class extends Component {
     @if ($taxRegistrations->isNotEmpty())
         <div class="mt-4 space-y-1 text-sm text-muted-foreground" data-test="invoice-tax-registrations">
             @foreach ($taxRegistrations as $agency)
-                <div>{{ $agency->name }}: <span class="font-mono">{{ $agency->registration_number }}</span></div>
+                <div>{{ $agency->label() }}: <span class="font-mono">{{ $agency->registration_number }}</span></div>
             @endforeach
         </div>
     @endif

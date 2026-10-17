@@ -360,7 +360,7 @@ class SalesPurchaseReportBuilder
             $mapped[] = new RepSalesRow(
                 accountId: $row['account_id'],
                 accountCode: (string) ($account->code ?? ''),
-                accountName: (string) ($account->name ?? __('Unassigned')),
+                accountName: isset($account->name) ? __((string) $account->name) : __('Unassigned'),
                 docType: $row['doc_type'],
                 docId: $row['doc_id'],
                 docNo: $row['doc_no'],

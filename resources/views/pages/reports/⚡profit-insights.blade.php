@@ -103,7 +103,7 @@ new #[Title('Profit Insights')] class extends Component {
             $expensePri += $pri;
 
             if ($cur !== 0 || $pri !== 0) {
-                $expenseMovers[] = ['label' => $account->name, 'current' => $cur, 'prior' => $pri, 'change' => $cur - $pri];
+                $expenseMovers[] = ['label' => $account->displayName(), 'current' => $cur, 'prior' => $pri, 'change' => $cur - $pri];
             }
         }
 

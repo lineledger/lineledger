@@ -39,7 +39,7 @@ class SystemAccountMapper
             new SystemAccountRole('accounts_payable', 'Accounts Payable', 'Where unpaid vendor bills land.', AccountSubtype::AccountsPayable, 'is_system'),
             new SystemAccountRole('undeposited_funds', 'Undeposited Funds', 'Holds received payments before they are deposited.', AccountSubtype::UndepositedFunds, 'is_system'),
             new SystemAccountRole('tax_payable', 'Sales Tax Payable', 'Where sales tax collected accumulates.', AccountSubtype::TaxPayable, 'is_system'),
-            new SystemAccountRole('employee_reimbursements', 'Employee Reimbursements Payable', 'Owed to employees for out-of-pocket expenses.', AccountSubtype::CurrentLiability, 'is_system+name', 'Employee Reimbursements Payable'),
+            new SystemAccountRole('employee_reimbursements', 'Employee Reimbursements Payable', 'Owed to employees for out-of-pocket expenses.', AccountSubtype::CurrentLiability, 'is_system+name', 'Employee Reimbursements Payable', acceptedNames: ['Employee Reimbursements Payable']),
             new SystemAccountRole('inventory', 'Inventory Asset', 'Value of stock on hand.', AccountSubtype::Inventory, 'is_system', companyColumn: 'default_inventory_asset_account_id'),
             new SystemAccountRole('cogs', 'Cost of Goods Sold', 'Cost of inventory sold.', AccountSubtype::CostOfGoodsSold, 'is_system', companyColumn: 'default_cogs_account_id'),
             new SystemAccountRole('retained_earnings', 'Retained Earnings', 'Accumulated prior-year earnings.', AccountSubtype::RetainedEarnings, 'is_system'),

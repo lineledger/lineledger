@@ -453,7 +453,7 @@ class CombinedReportCalculator
 
                 $rows[] = [
                     'code' => $account->code,
-                    'name' => $account->name,
+                    'name' => $account->displayName(),
                     'type' => $account->type->label(),
                     'debit' => $debit,
                     'credit' => $credit,

@@ -3,8 +3,10 @@
 namespace App\Notifications\Sales;
 
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\Invoice;
 use App\Services\Reporting\InvoicePdfRenderer;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -46,6 +48,14 @@ class InvoiceSharedNotification extends Notification implements ShouldQueue
     }
 
     public function toMail(object $notifiable): MailMessage
+    {
+        $contact = $notifiable instanceof Contact ? $notifiable : $this->invoice->contact;
+        $locale = Locales::forDocument($contact, $this->company);
+
+        return Locales::using($locale, fn (): MailMessage => $this->buildMail());
+    }
+
+    private function buildMail(): MailMessage
     {
         $companyName = $this->company->brand_name ?: $this->company->name;
         $senderName = $this->senderName ?: $companyName;

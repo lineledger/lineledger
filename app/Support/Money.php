@@ -124,7 +124,14 @@ final readonly class Money implements Stringable
      */
     public function format(?string $locale = null): string
     {
-        $formatter = new NumberFormatter($locale ?? app()->getLocale(), NumberFormatter::CURRENCY);
+        $resolved = $locale ?? (app()->getLocale() === 'fr' ? 'fr_CA' : 'en_US');
+        $icu = match ($resolved) {
+            'fr' => 'fr_CA',
+            'en' => 'en_US',
+            default => $resolved,
+        };
+
+        $formatter = new NumberFormatter($icu, NumberFormatter::CURRENCY);
 
         return $formatter->formatCurrency($this->cents / 100, $this->currency);
     }
@@ -141,10 +148,19 @@ final readonly class Money implements Stringable
         $whole = intdiv($abs, 100);
         $fraction = $abs % 100;
 
-        $formatter = new NumberFormatter($locale ?? app()->getLocale(), NumberFormatter::SPELLOUT);
-        $words = ucwords((string) $formatter->format($whole), ' -');
+        $resolved = $locale ?? app()->getLocale();
+        $icu = match ($resolved) {
+            'fr' => 'fr_CA',
+            'en' => 'en_US',
+            default => $resolved,
+        };
+        $isFrench = str_starts_with(strtolower($icu), 'fr');
 
-        return $words.' and '.str_pad((string) $fraction, 2, '0', STR_PAD_LEFT).'/100';
+        $formatter = new NumberFormatter($icu, NumberFormatter::SPELLOUT);
+        $words = ucwords((string) $formatter->format($whole), ' -');
+        $connector = $isFrench ? ' et ' : ' and ';
+
+        return $words.$connector.str_pad((string) $fraction, 2, '0', STR_PAD_LEFT).'/100';
     }
 
     public function __toString(): string

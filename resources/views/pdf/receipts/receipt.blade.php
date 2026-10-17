@@ -61,7 +61,7 @@
                         <th>{{ __('Receipt #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $receipt->receipt_date?->format('n/j/Y') }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($receipt->receipt_date) }}</td>
                         <td>{{ $receipt->receipt_no }}</td>
                     </tr>
                 </table>
@@ -83,7 +83,7 @@
             <td style="width: 48%;">
                 <div class="box">
                     <div class="box-label">{{ __('Payment Details') }}</div>
-                    <div>{{ __('Method') }}: {{ $receipt->paymentMethod?->name ?? '—' }}</div>
+                    <div>{{ __('Method') }}: {{ $receipt->paymentMethod?->displayName() ?? '—' }}</div>
                     <div>{{ __('Reference') }}: {{ $receipt->reference ?? '—' }}</div>
                 </div>
             </td>
@@ -103,7 +103,7 @@
                 @foreach ($receipt->applications as $app)
                     <tr>
                         <td>{{ optional($app->invoice)->invoice_no }}</td>
-                        <td>{{ optional(optional($app->invoice)->invoice_date)->format('n/j/Y') ?? '—' }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($app->invoice?->invoice_date) }}</td>
                         <td class="num">{{ number_format($app->amount_cents / 100, 2) }}</td>
                     </tr>
                 @endforeach
@@ -121,6 +121,13 @@
     <div class="footer">
         @if ($settings->show_tax_number && filled($company->tax_number))
             <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
+        @endif
+        @php
+            $provincialTaxNumber = $company->provincialTaxNumber();
+            $provincialTaxLabel = $company->provincialTaxLabel();
+        @endphp
+        @if ($settings->show_tax_number && filled($provincialTaxNumber))
+            <div class="taxno">{{ __(':tax No.', ['tax' => $provincialTaxLabel]) }} {{ $provincialTaxNumber }}</div>
         @endif
         @if (filled($settings->footer_message))
             <div class="message">{{ $settings->footer_message }}</div>

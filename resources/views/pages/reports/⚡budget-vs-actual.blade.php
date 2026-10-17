@@ -100,7 +100,7 @@ new #[Title('Budget vs. Actual')] class extends Component {
                 continue;
             }
 
-            $groups[$bucket]['rows'][] = $this->row($account->code, $account->name, $actual, $budgetCents, $bucket);
+            $groups[$bucket]['rows'][] = $this->row($account->code, $account->displayName(), $actual, $budgetCents, $bucket);
             $groups[$bucket]['actual'] += $actual;
             $groups[$bucket]['budget'] += $budgetCents;
         }

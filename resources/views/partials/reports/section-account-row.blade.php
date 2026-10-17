@@ -10,7 +10,7 @@
 @php($activities = $activities ?? null)
 @php($currentActivity = $activities ? \App\Support\Reporting\CashFlowBucket::for($account) : null)
 <div wire:key="rs-acct-{{ $account->id }}" class="flex items-center justify-between gap-2 px-4 py-2 text-sm" data-test="account-row" data-account="{{ $account->id }}">
-    <span class="truncate">{{ $account->code }} — {{ $account->name }}</span>
+    <span class="truncate">{{ $account->code }} — {{ $account->displayName() }}</span>
     <div class="flex items-center gap-2">
         @isset($activities)
             <select

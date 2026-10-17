@@ -44,6 +44,16 @@ it('shows audit logs only to an owner', function () {
     expect(catalogKeys($this->company, $member))->not->toContain('reports.audit-log');
 });
 
+it('translates report hub sections, titles, and descriptions in French', function () {
+    app()->setLocale('fr');
+
+    Livewire::actingAs($this->user)
+        ->test('pages::reports.index', ['company' => $this->company])
+        ->assertSee('Entreprise et finances')
+        ->assertSee('Prévision des flux de trésorerie')
+        ->assertSee('Où va votre encaisse au prochain trimestre');
+});
+
 it('renders the hub with report cards but not gated ones', function () {
     Livewire::actingAs($this->user)
         ->test('pages::reports.index', ['company' => $this->company])

@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    @php use App\Support\Tax\LineTaxBreakdown; @endphp
     <title>{{ __('Estimate') }} {{ $estimate->estimate_no }} — {{ $company->name }}</title>
     <style>
         @page { margin: 36px 40px; }
@@ -67,7 +68,7 @@
                         <th>{{ __('Estimate #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $estimate->estimate_date?->format('n/j/Y') }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($estimate->estimate_date) }}</td>
                         <td>{{ $estimate->estimate_no }}</td>
                     </tr>
                 </table>
@@ -106,7 +107,7 @@
         </tr>
         <tr>
             <td>{{ optional($estimate->terms)->name ?? '—' }}</td>
-            <td>{{ $estimate->expires_on?->format('n/j/Y') ?? '—' }}</td>
+            <td>{{ \App\Support\Locales::formatDate($estimate->expires_on) }}</td>
             <td>{{ $estimate->customer_po ?: '—' }}</td>
             <td>{{ optional($estimate->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -135,11 +136,11 @@
                     <td>
                         {{ $line->description }}
                         @if ($line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ $line->service_date->format('n/j/Y') }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
-                        <td>{{ optional($line->taxCode)->code }}</td>
+                        <td>{{ optional($line->taxCode)->label() }}</td>
                     @endif
                     <td class="num">
                         {{ number_format($line->unit_price_cents / 100, 2) }}
@@ -160,7 +161,7 @@
         </tr>
         @foreach ($taxSummary as $tax)
             <tr>
-                <td>{{ $tax['label'] }} {{ number_format($tax['rate'], 2) }}%</td>
+                <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>
                 <td class="num">{{ number_format($tax['tax_cents'] / 100, 2) }}</td>
             </tr>
         @endforeach
@@ -173,6 +174,24 @@
     <div class="footer">
         @if ($settings->show_tax_number && filled($company->tax_number))
             <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
+        @endif
+        @php
+            $provincialTaxNumber = $company->provincialTaxNumber();
+            $provincialTaxLabel = $company->provincialTaxLabel();
+            if (! filled($provincialTaxNumber) && isset($estimate)) {
+                foreach ($estimate->lines as $estLine) {
+                    foreach ([$estLine->taxCode, $estLine->secondaryTaxCode] as $taxCode) {
+                        if ($taxCode && $taxCode->agency && filled($taxCode->agency->registration_number) && $taxCode->agency->name !== 'Canada Revenue Agency') {
+                            $provincialTaxNumber = $taxCode->agency->registration_number;
+                            $provincialTaxLabel = str_contains($taxCode->agency->name, 'Québec') || str_contains($taxCode->agency->name, 'Quebec') ? __('QST') : (str_contains($taxCode->agency->name, 'Manitoba') ? __('RST') : __('PST'));
+                            break 2;
+                        }
+                    }
+                }
+            }
+        @endphp
+        @if ($settings->show_tax_number && filled($provincialTaxNumber))
+            <div class="taxno">{{ __(':tax No.', ['tax' => $provincialTaxLabel]) }} {{ $provincialTaxNumber }}</div>
         @endif
         @if (filled($estimate->customer_message))
             <div class="message">{{ $estimate->customer_message }}</div>

@@ -1,7 +1,7 @@
 @extends('pdf.reports._layout', [
     'title' => 'General Ledger',
     'period' => $startDate.' to '.$endDate,
-    'metaLines' => [$account->code.' — '.$account->name],
+    'metaLines' => [$account->code.' — '.$account->displayName()],
 ])
 
 @section('content')

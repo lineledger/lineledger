@@ -4,6 +4,7 @@ namespace App\Notifications\Companies;
 
 use App\Actions\Portal\FlagBrokenStripeConnection;
 use App\Models\Company;
+use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -30,13 +31,15 @@ class StripeConnectionBrokenNotification extends Notification implements ShouldQ
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
-            ->subject(__('Action needed: reconnect Stripe to keep accepting card payments'))
-            ->greeting(__('Card payments are paused'))
-            ->line(__(':company can no longer accept card payments in the customer portal — its Stripe connection stopped working. This usually means the account was disconnected or its access to LineLedger was revoked in Stripe.', [
-                'company' => $this->company->name,
-            ]))
-            ->line(__('Reconnect your Stripe account to start accepting payments again. Existing receipts and payouts are unaffected.'))
-            ->action(__('Reconnect Stripe'), route('companies.edit', ['company' => $this->company->slug]));
+        return Locales::forRecipient($notifiable, function (): MailMessage {
+            return (new MailMessage)
+                ->subject(__('Action needed: reconnect Stripe to keep accepting card payments'))
+                ->greeting(__('Card payments are paused'))
+                ->line(__(':company can no longer accept card payments in the customer portal — its Stripe connection stopped working. This usually means the account was disconnected or its access to LineLedger was revoked in Stripe.', [
+                    'company' => $this->company->name,
+                ]))
+                ->line(__('Reconnect your Stripe account to start accepting payments again. Existing receipts and payouts are unaffected.'))
+                ->action(__('Reconnect Stripe'), route('companies.edit', ['company' => $this->company->slug]));
+        }, $this->company);
     }
 }

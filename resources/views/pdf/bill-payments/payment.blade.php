@@ -66,7 +66,7 @@
                         <th>{{ __('Payment #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $payment->payment_date?->format('n/j/Y') }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($payment->payment_date) }}</td>
                         <td>{{ $payment->payment_no }}</td>
                     </tr>
                 </table>
@@ -88,7 +88,7 @@
             <td style="width: 48%;">
                 <div class="box">
                     <div class="box-label">{{ __('Payment Details') }}</div>
-                    <div>{{ __('Method') }}: {{ $payment->paymentMethod?->name ?? '—' }}</div>
+                    <div>{{ __('Method') }}: {{ $payment->paymentMethod?->displayName() ?? '—' }}</div>
                     <div>{{ __('Reference') }}: {{ $payment->reference ?? '—' }}</div>
                 </div>
             </td>
@@ -108,7 +108,7 @@
                 @foreach ($payment->applications as $app)
                     <tr>
                         <td>{{ optional($app->bill)->bill_no }}</td>
-                        <td>{{ optional(optional($app->bill)->bill_date)->format('n/j/Y') ?? '—' }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($app->bill?->bill_date) }}</td>
                         <td class="num">{{ number_format($app->amount_cents / 100, 2) }}</td>
                     </tr>
                 @endforeach

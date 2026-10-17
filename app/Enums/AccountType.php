@@ -13,11 +13,11 @@ enum AccountType: string
     public function label(): string
     {
         return match ($this) {
-            self::Asset => 'Asset',
-            self::Liability => 'Liability',
-            self::Equity => 'Equity',
-            self::Income => 'Income',
-            self::Expense => 'Expense',
+            self::Asset => __('Asset'),
+            self::Liability => __('Liability'),
+            self::Equity => __('Equity'),
+            self::Income => __('Income'),
+            self::Expense => __('Expense'),
         };
     }
 

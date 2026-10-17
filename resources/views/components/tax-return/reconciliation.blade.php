@@ -35,7 +35,7 @@
 
     $difference = $optional('difference_cents');
     $accepted = $r['accepted_difference_cents'] ?? null;
-    $accountLabel = $account ? "{$account->code} — {$account->name}" : __('Tax payable account');
+    $accountLabel = $account ? "{$account->code} — {$account->displayName()}" : __('Tax payable account');
 @endphp
 
 <div {{ $attributes->class('rounded-lg border border-border') }} data-test="tax-return-reconciliation">

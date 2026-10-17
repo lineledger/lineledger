@@ -173,7 +173,7 @@ new #[Title('Statement of Financial Position')] class extends Component {
             $groups[$bucket][$subtypeKey] ??= ['label' => $account->subtype->label(), 'rows' => []];
             $groups[$bucket][$subtypeKey]['rows'][] = [
                 'id' => $account->id,
-                'name' => $account->name,
+                'name' => $account->displayName(),
                 'code' => $account->code,
                 'balance' => $balance,
                 'prior' => $prior,

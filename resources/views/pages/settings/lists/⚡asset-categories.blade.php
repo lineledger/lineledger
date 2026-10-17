@@ -171,7 +171,7 @@ new #[Title('Asset categories')] class extends Component {
                             <td class="px-4 py-2">{{ $c->name }}</td>
                             <td class="px-4 py-2 text-muted-foreground">
                                 @if ($c->defaultAssetAccount)
-                                    {{ $c->defaultAssetAccount->code }} — {{ $c->defaultAssetAccount->name }}
+                                    {{ $c->defaultAssetAccount->code }} — {{ $c->defaultAssetAccount->displayName() }}
                                 @else
                                     —
                                 @endif
@@ -203,21 +203,21 @@ new #[Title('Asset categories')] class extends Component {
             <flux:select wire:model="f_default_asset_account_id" :label="__('Default asset account')" data-test="asset-category-asset-account">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->fixedAssetAccountOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model="f_default_accumulated_depreciation_account_id" :label="__('Default accumulated depreciation account')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->fixedAssetAccountOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model="f_default_depreciation_expense_account_id" :label="__('Default depreciation expense account')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($this->expenseAccountOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

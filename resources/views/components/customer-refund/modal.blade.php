@@ -43,20 +43,20 @@
         @if ($method === 'cheque')
             <flux:select wire:model="refundBankAccountId" :label="__('Bank account')" data-test="refund-bank-select">
                 @foreach ($bankAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:text class="text-sm text-muted-foreground">{{ __('A draft cheque is created (debits Accounts Receivable, credits the bank). Review and post it to print.') }}</flux:text>
         @else
             <flux:select wire:model="refundDepositToAccountId" :label="__('Refund from')" data-test="refund-deposit-select">
                 @foreach ($depositAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:select wire:model="refundPaymentMethodId" :label="__('Payment method')">
                 <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                 @foreach ($paymentMethods as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:input wire:model="refundReference" :label="__('Reference (optional)')" />

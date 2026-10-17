@@ -9,6 +9,7 @@ use App\Models\CcaPool;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\User;
+use App\Support\Locales;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -76,4 +77,15 @@ it('is gated to Canadian sole proprietors', function () {
     $this->actingAs($this->user)
         ->get(route('reports.t2125', ['company' => $corp->slug]))
         ->assertNotFound();
+});
+
+it('translates GIFI sections and codes in French locale', function () {
+    t2125Entry($this->bank, $this->income, 100000, '2026-03-15');
+
+    Locales::using('fr', function () {
+        Livewire::test('pages::reports.t2125', ['company' => $this->company])
+            ->assertOk()
+            ->assertSee('Actif à court terme')
+            ->assertSee('Encaisse et dépôts');
+    });
 });

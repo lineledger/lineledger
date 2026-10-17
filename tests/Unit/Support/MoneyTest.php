@@ -60,3 +60,16 @@ it('round trips fromString to toDecimalString', function () {
     expect(Money::fromString('99.99')->toDecimalString())->toBe('99.99');
     expect(Money::fromString('0.01')->toDecimalString())->toBe('0.01');
 });
+
+it('formats English currency as main does and honors an explicit locale argument', function () {
+    expect(Money::fromCents(123456, 'USD')->format('en'))->toBe('$1,234.56')
+        ->and(Money::fromCents(123456, 'CAD')->format('en'))->toBe('CA$1,234.56')
+        ->and(Money::fromCents(123456, 'CAD')->format('en_CA'))->toBe('$1,234.56');
+});
+
+it('localizes the cheque words connector in English and French', function () {
+    expect(Money::fromCents(123456, 'CAD')->toWords('en'))
+        ->toBe('One Thousand Two Hundred Thirty-Four and 56/100')
+        ->and(Money::fromCents(123456, 'CAD')->toWords('fr'))
+        ->toBe('Mille Deux Cent Trente-Quatre et 56/100');
+});

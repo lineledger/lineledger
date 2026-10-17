@@ -58,8 +58,8 @@
                 @endif
             </td>
             <td class="amt">
-                {{ __('Pay date') }}: {{ $line->payRun->pay_date->format('M j, Y') }}<br>
-                <span class="muted small">{{ __('Period') }}: {{ $line->payRun->period_start_date->format('M j') }} – {{ $line->payRun->period_end_date->format('M j, Y') }}</span><br>
+                {{ __('Pay date') }}: {{ \App\Support\Locales::formatDate($line->payRun->pay_date, 'M j, Y') }}<br>
+                <span class="muted small">{{ __('Period') }}: {{ \App\Support\Locales::formatDate($line->payRun->period_start_date, 'M j') }} – {{ \App\Support\Locales::formatDate($line->payRun->period_end_date, 'M j, Y') }}</span><br>
                 <span class="muted small">{{ __('Run') }} {{ $line->payRun->run_no }}</span>
                 @if (($show['hours'] && (float) $line->hours_worked > 0) || ($show['rate'] && (int) $line->hourly_rate_cents > 0))
                     <br><span class="muted small">

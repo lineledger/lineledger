@@ -110,21 +110,21 @@ new #[Title('T2125 Business Activities')] class extends Component {
         foreach ($r['is']['halves'] as $half) {
             foreach ($half['sections'] as $section) {
                 foreach ($section['lines'] as $line) {
-                    $rows[] = ['Income & expenses', $line['code'], $line['label'], $line['amount']];
+                    $rows[] = [__('Income & expenses'), $line['code'], __($line['label']), $line['amount']];
                 }
             }
         }
-        $rows[] = ['Income & expenses', '', 'Net income before CCA', $r['is']['net_income']];
+        $rows[] = [__('Income & expenses'), '', __('Net income before CCA'), $r['is']['net_income']];
 
         foreach ($this->cca['rows'] as $row) {
-            $rows[] = ['CCA', $row['class'], $row['label'], $row['cca_cents']];
+            $rows[] = [__('CCA'), $row['class'], $row['label'], $row['cca_cents']];
         }
-        $rows[] = ['CCA', '', 'Total CCA', $this->cca['total_cca_cents']];
+        $rows[] = [__('CCA'), '', __('Total CCA'), $this->cca['total_cca_cents']];
 
         foreach ($r['bs']['halves'] as $half) {
             foreach ($half['sections'] as $section) {
                 foreach ($section['lines'] as $line) {
-                    $rows[] = ['Balance sheet', $line['code'], $line['label'], $line['amount']];
+                    $rows[] = [__('Balance Sheet'), $line['code'], __($line['label']), $line['amount']];
                 }
             }
         }

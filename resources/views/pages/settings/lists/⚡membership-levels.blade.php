@@ -156,7 +156,7 @@ new #[Title('Membership levels')] class extends Component {
                             <td class="px-4 py-2">{{ $level->name }}</td>
                             <td class="px-4 py-2 text-right font-mono">{{ Money::fromCents($level->default_dues_cents, $company->currency_code) }}</td>
                             <td class="px-4 py-2">{{ $level->billing_frequency->label() }}</td>
-                            <td class="px-4 py-2 text-muted-foreground">{{ $level->revenueAccount ? $level->revenueAccount->code.' — '.$level->revenueAccount->name : __('—') }}</td>
+                            <td class="px-4 py-2 text-muted-foreground">{{ $level->revenueAccount ? $level->revenueAccount->code.' — '.$level->revenueAccount->displayName() : __('—') }}</td>
                             <td class="px-4 py-2 text-right">
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $level->id }})" />
                             </td>
@@ -189,7 +189,7 @@ new #[Title('Membership levels')] class extends Component {
             <flux:select wire:model="f_revenue_account_id" :label="__('Revenue account')" data-test="membership-level-revenue-account">
                 <flux:select.option value="">{{ __('Select an account') }}</flux:select.option>
                 @foreach ($this->incomeAccounts as $account)
-                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                    <flux:select.option value="{{ $account->id }}">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <div class="grid grid-cols-2 gap-4">
@@ -202,7 +202,7 @@ new #[Title('Membership levels')] class extends Component {
                 <flux:select wire:model="f_default_tax_code_id" :label="__('Default tax code')">
                     <flux:select.option value="">{{ __('None') }}</flux:select.option>
                     @foreach ($this->taxCodes as $code)
-                        <flux:select.option value="{{ $code->id }}">{{ $code->name }}</flux:select.option>
+                        <flux:select.option value="{{ $code->id }}">{{ $code->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>

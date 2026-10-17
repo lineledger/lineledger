@@ -147,7 +147,7 @@ new #[Title('Import statement')] class extends Component {
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->name}"])
+            ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}"])
             ->all();
     }
 
@@ -955,7 +955,7 @@ new #[Title('Import statement')] class extends Component {
 
         <flux:select wire:model.live="account_id" :label="__('Account')" class="min-w-[280px]">
             @foreach ($this->bankAccounts as $opt)
-                <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
@@ -1184,7 +1184,7 @@ new #[Title('Import statement')] class extends Component {
                                     <div class="flex flex-wrap items-center gap-2">
                                         <span class="text-xs" data-test="line-summary-{{ $line->id }}">
                                             @if ($line->suggestedAccount)
-                                                {{ $line->suggestedAccount->code }} — {{ $line->suggestedAccount->name }}
+                                                {{ $line->suggestedAccount->code }} — {{ $line->suggestedAccount->displayName() }}
                                             @endif
                                             @if ($contactName)
                                                 · {{ $contactName }}
@@ -1221,7 +1221,7 @@ new #[Title('Import statement')] class extends Component {
                                                 <flux:menu>
                                                     <flux:menu.checkbox.group wire:model.live="lineTax.{{ $line->id }}">
                                                         @foreach ($this->purchaseTaxCodes as $code)
-                                                            <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->code }}</flux:menu.checkbox>
+                                                            <flux:menu.checkbox value="{{ $code->id }}" :disabled="count($taxIds) === 2 && ! in_array($code->id, $taxIds)" keep-open>{{ $code->label() }}</flux:menu.checkbox>
                                                         @endforeach
                                                     </flux:menu.checkbox.group>
                                                 </flux:menu>

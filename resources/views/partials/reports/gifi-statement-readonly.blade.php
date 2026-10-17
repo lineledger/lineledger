@@ -22,13 +22,13 @@
             <tbody class="divide-y divide-border">
                 @foreach ($report['bs']['halves'] as $halfKey => $half)
                     @if ($half['sections'] !== [] || ($halfKey === 'equity' && $half['net_income'] !== 0))
-                        <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ $half['label'] }}</td></tr>
+                        <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ __($half['label']) }}</td></tr>
                         @foreach ($half['sections'] as $section)
-                            <tr><td colspan="3" class="px-4 pt-2 text-xs font-medium text-muted-foreground">{{ $section['label'] }}</td></tr>
+                            <tr><td colspan="3" class="px-4 pt-2 text-xs font-medium text-muted-foreground">{{ __($section['label']) }}</td></tr>
                             @foreach ($section['lines'] as $line)
                                 <tr>
                                     <td class="px-4 py-2 font-mono">{{ $line['code'] }}</td>
-                                    <td class="px-4 py-2">{{ $line['label'] }}</td>
+                                    <td class="px-4 py-2">{{ __($line['label']) }}</td>
                                     <td class="px-4 py-2 text-right font-mono">{{ number_format($line['amount'] / 100, 2) }}</td>
                                 </tr>
                             @endforeach
@@ -42,7 +42,7 @@
                         @endif
                         <tr class="bg-muted/40 font-semibold">
                             <td class="px-4 py-2"></td>
-                            <td class="px-4 py-2 text-right">{{ __('Total') }} {{ $half['label'] }}</td>
+                            <td class="px-4 py-2 text-right">{{ __('Total') }} {{ __($half['label']) }}</td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($half['total'] / 100, 2) }}</td>
                         </tr>
                     @endif
@@ -80,19 +80,19 @@
                 @foreach ($report['is']['halves'] as $half)
                     @if ($half['sections'] !== [])
                         @php $anyIs = true; @endphp
-                        <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ $half['label'] }}</td></tr>
+                        <tr class="bg-muted/50"><td colspan="3" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ __($half['label']) }}</td></tr>
                         @foreach ($half['sections'] as $section)
                             @foreach ($section['lines'] as $line)
                                 <tr>
                                     <td class="px-4 py-2 font-mono">{{ $line['code'] }}</td>
-                                    <td class="px-4 py-2">{{ $line['label'] }}</td>
+                                    <td class="px-4 py-2">{{ __($line['label']) }}</td>
                                     <td class="px-4 py-2 text-right font-mono">{{ number_format($line['amount'] / 100, 2) }}</td>
                                 </tr>
                             @endforeach
                         @endforeach
                         <tr class="bg-muted/40 font-semibold">
                             <td class="px-4 py-2"></td>
-                            <td class="px-4 py-2 text-right">{{ __('Total') }} {{ $half['label'] }}</td>
+                            <td class="px-4 py-2 text-right">{{ __('Total') }} {{ __($half['label']) }}</td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($half['total'] / 100, 2) }}</td>
                         </tr>
                     @endif

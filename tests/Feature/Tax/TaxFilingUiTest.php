@@ -73,6 +73,18 @@ it('renders the Tax & filing page listing the applicable return', function () {
         ->assertDontSee('T2125');
 });
 
+it('translates CRA form titles and descriptions in French', function () {
+    $p = makeCompany($this->user, OrganizationType::Corporation);
+
+    $this->actingAs($this->user);
+    app()->setLocale('fr');
+
+    Livewire::test('pages::settings.tax-and-filing', ['company' => $p])
+        ->assertOk()
+        ->assertSee('T2 Déclaration de revenus des sociétés')
+        ->assertSee('Déclaration annuelle des sociétés. Les états financiers sont produits selon les annexes 100 (bilan) et 125 (état des résultats) de l’IGRF.');
+});
+
 it('404s the Tax & filing page for a non-Canadian company', function () {
     $us = makeCompany($this->user, OrganizationType::Corporation, extra: ['address_country' => 'US']);
 

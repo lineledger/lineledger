@@ -3,6 +3,7 @@
 use App\Concerns\ProfileValidationRules;
 use App\Enums\SecurityEvent;
 use App\Models\User;
+use App\Support\Locales;
 use App\Services\Audit\SecurityLogRecorder;
 use App\Services\Security\AccessRevoker;
 use Flux\Flux;
@@ -40,6 +41,8 @@ new #[Title('Site Admin — Users')] class extends Component {
     public string $name = '';
 
     public string $email = '';
+
+    public string $locale = '';
 
     public string $disableReason = '';
 
@@ -87,6 +90,7 @@ new #[Title('Site Admin — Users')] class extends Component {
         $this->editingId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
+        $this->locale = $user->locale ?? '';
 
         Flux::modal('user-form')->show();
     }
@@ -102,6 +106,7 @@ new #[Title('Site Admin — Users')] class extends Component {
         $user = User::findOrFail($this->editingId);
 
         $validated = $this->validate($this->profileRules($user->id));
+        $validated['locale'] = filled($validated['locale'] ?? null) ? $validated['locale'] : null;
 
         $user->fill($validated);
 
@@ -448,6 +453,17 @@ new #[Title('Site Admin — Users')] class extends Component {
 
             <flux:input wire:model="name" :label="__('Name')" required data-test="user-name" />
             <flux:input wire:model="email" type="email" :label="__('Email')" required data-test="user-email" />
+            <flux:select
+                wire:model="locale"
+                :label="__('Interface language')"
+                :description="__('The language of the staff app. Invoices sent to customers use each customer\'s document language.')"
+                data-test="user-locale-select"
+            >
+                <flux:select.option value="">{{ __('Default (:locale)', ['locale' => Locales::label(config('app.locale'))]) }}</flux:select.option>
+                @foreach (Locales::options() as $code => $label)
+                    <flux:select.option :value="$code">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
             {{-- @chisel-email-verification --}}
             <flux:text class="text-sm text-muted-foreground">

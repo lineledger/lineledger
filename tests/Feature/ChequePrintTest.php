@@ -5,9 +5,11 @@ use App\Enums\CompanyRole;
 use App\Models\Account;
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\User;
 use App\Services\Posting\ChequePoster;
 use App\Services\Printing\ChequePdfRenderer;
+use App\Support\Locales;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -23,6 +25,7 @@ beforeEach(function () {
 
 afterEach(function () {
     app()->forgetInstance('current_company');
+    Locales::apply('en');
 });
 
 function postedCheque(): Cheque
@@ -81,4 +84,39 @@ it('prepares cheque draw data from the Cheque model', function () {
         'description' => 'Rent',
         'amount' => '5.00',
     ]);
+});
+
+it('formats the cheque amount in words in the payee document locale', function () {
+    $this->company->update(['locale' => 'en']);
+    $vendor = Contact::create([
+        'display_name' => 'Fournisseur Québec',
+        'is_vendor' => true,
+        'locale' => 'fr',
+    ]);
+
+    $cheque = Cheque::create([
+        'bank_account_id' => $this->bank->id,
+        'payee_contact_id' => $vendor->id,
+        'cheque_no' => '1002',
+        'cheque_date' => '2026-05-20',
+        'payee_name' => $vendor->display_name,
+        'memo' => 'Loyer',
+    ]);
+
+    $cheque->lines()->create([
+        'account_id' => $this->expense->id,
+        'description' => 'Loyer',
+        'amount_cents' => 123456,
+        'tax_cents' => 0,
+        'line_order' => 0,
+    ]);
+
+    app(ChequePoster::class)->post($cheque);
+
+    Locales::apply('en');
+
+    $data = app(ChequePdfRenderer::class)->dataFor($cheque->fresh(['bankAccount', 'payee', 'lines.account']));
+
+    expect($data['amount_words'])->toBe('*****Mille Deux Cent Trente-Quatre et 56/100')
+        ->and(app()->getLocale())->toBe('en');
 });

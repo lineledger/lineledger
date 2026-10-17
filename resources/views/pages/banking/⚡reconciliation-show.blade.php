@@ -118,7 +118,7 @@ new #[Title('Reconciliation detail')] class extends Component {
 
         $rows = collect();
 
-        $rows->push(['Account', $rec->account->code.' — '.$rec->account->name]);
+        $rows->push(['Account', $rec->account->code.' — '.$rec->account->displayName()]);
         $rows->push(['Statement date', $rec->statement_date->toDateString()]);
         $rows->push(['Status', $rec->status->label()]);
         $rows->push(['Completed at', $rec->completed_at?->toDateTimeString() ?? '']);
@@ -221,7 +221,7 @@ new #[Title('Reconciliation detail')] class extends Component {
             </div>
             <flux:heading size="xl" level="1" class="mt-1">{{ __('Reconciliation') }} #{{ $rec->id }}</flux:heading>
             <flux:subheading>
-                {{ $rec->account?->code }} — {{ $rec->account?->name }}
+                {{ $rec->account?->code }} — {{ $rec->account?->displayName() }}
                 · {{ __('Statement') }} {{ $rec->statement_date->toFormattedDateString() }}
             </flux:subheading>
         </div>

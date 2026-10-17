@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    @php use App\Support\Tax\LineTaxBreakdown; @endphp
     <title>{{ __('Purchase Order') }} {{ $purchaseOrder->po_no }} — {{ $company->name }}</title>
     <style>
         @page { margin: 36px 40px; }
@@ -67,7 +68,7 @@
                         <th>{{ __('PO #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ $purchaseOrder->po_date?->format('n/j/Y') }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($purchaseOrder->po_date) }}</td>
                         <td>{{ $purchaseOrder->po_no }}</td>
                     </tr>
                 </table>
@@ -104,7 +105,7 @@
         </tr>
         <tr>
             <td>{{ optional($purchaseOrder->terms)->name ?? '—' }}</td>
-            <td>{{ $purchaseOrder->expected_date?->format('n/j/Y') ?? '—' }}</td>
+            <td>{{ \App\Support\Locales::formatDate($purchaseOrder->expected_date) }}</td>
         </tr>
     </table>
 
@@ -130,7 +131,7 @@
                     @endif
                     <td>{{ $line->description }}</td>
                     @if ($settings->show_tax_column)
-                        <td>{{ optional($line->taxCode)->code }}</td>
+                        <td>{{ optional($line->taxCode)->label() }}</td>
                     @endif
                     <td class="num">
                         {{ number_format($line->unit_price_cents / 100, 2) }}
@@ -151,7 +152,7 @@
         </tr>
         @foreach ($taxSummary as $tax)
             <tr>
-                <td>{{ $tax['label'] }} {{ number_format($tax['rate'], 2) }}%</td>
+                <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>
                 <td class="num">{{ number_format($tax['tax_cents'] / 100, 2) }}</td>
             </tr>
         @endforeach

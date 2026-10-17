@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Services\AttachmentService;
 use App\Services\Posting\ExpensePoster;
 use App\Support\Contacts\ContactLinkResolver;
+use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -112,7 +113,7 @@ new #[Title('Expense')] class extends Component {
                 @endif
                 &middot;
                 {{ $expense->expense_date->toDateString() }} &middot;
-                {{ $expense->paymentAccount->name }}@if ($expense->paymentMethod) &middot; {{ $expense->paymentMethod->name }} @endif
+                {{ $expense->paymentAccount->displayName() }}@if ($expense->paymentMethod) &middot; {{ $expense->paymentMethod->displayName() }} @endif
             </flux:subheading>
             <div class="mt-2 hidden items-center gap-2 lg:flex">
                 @switch($expense->status->value)
@@ -173,9 +174,9 @@ new #[Title('Expense')] class extends Component {
                         <td class="px-4 py-2">{{ optional($line->account)->code }} — {{ optional($line->account)->name }}</td>
                         <td class="px-4 py-2 text-muted-foreground">{{ $line->description }}</td>
                         <td class="px-4 py-2 text-muted-foreground">
-                            {{ optional($line->taxCode)->code }}
+                            {{ optional($line->taxCode)->label() }}
                             @if ($line->secondaryTaxCode)
-                                <span class="block">{{ $line->secondaryTaxCode->code }}</span>
+                                <span class="block">{{ $line->secondaryTaxCode->label() }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($line->amount_cents / 100, 2) }}</td>
@@ -189,9 +190,9 @@ new #[Title('Expense')] class extends Component {
                 @endforeach
             </tbody>
             <tfoot class="bg-muted">
-                @foreach (\App\Support\Tax\LineTaxBreakdown::forLines($expense->lines) as $taxRow)
+                @foreach (LineTaxBreakdown::forLines($expense->lines) as $taxRow)
                     <tr data-test="expense-tax-row">
-                        <td colspan="3" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                        <td colspan="3" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                         <td colspan="2" class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @endforeach

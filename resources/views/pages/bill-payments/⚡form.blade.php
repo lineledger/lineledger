@@ -396,14 +396,14 @@ new #[Title('Pay bills')] class extends Component {
             <flux:select wire:model="paid_from_account_id" :label="__('Pay from')" required data-test="payment-from-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->bankAccountOptions as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}@if ($opt->subtype === AccountSubtype::CreditCard) ({{ __('Credit card') }})@endif</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}@if ($opt->subtype === AccountSubtype::CreditCard) ({{ __('Credit card') }})@endif</flux:select.option>
                 @endforeach
             </flux:select>
 
             <flux:select wire:model.live="payment_method_id" :label="__('Method')" data-test="payment-method-select">
                 <flux:select.option value="">{{ __('— Select —') }}</flux:select.option>
                 @foreach ($this->paymentMethodOptions as $m)
-                    <flux:select.option :value="$m->id">{{ $m->name }}</flux:select.option>
+                    <flux:select.option :value="$m->id">{{ $m->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:input wire:model="reference" :label="$this->isChequeMethod() ? __('Cheque #') : __('Reference')" :required="$this->isChequeMethod()" :placeholder="$this->isChequeMethod() ? __('e.g. 1023') : ''" data-test="payment-reference-input" />

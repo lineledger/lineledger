@@ -11,6 +11,7 @@ use App\Models\InboxItem;
 use App\Rules\MoneyString;
 use App\Services\Classification\CategorySuggester;
 use App\Support\Money;
+use App\Support\Tax\LineTaxBreakdown;
 use App\Support\Tax\LineTaxOverrides;
 use Flux\Flux;
 use Illuminate\Validation\Rule;
@@ -463,7 +464,7 @@ new #[Title('Review document')] class extends Component {
 
                 $code = $codes[$id] ?? null;
                 $rows[$id] ??= [
-                    'label' => $code ? (string) $code->name : '',
+                    'label' => $code?->label() ?? '',
                     'rate' => $code ? $code->ratePercent() : 0.0,
                     'tax_cents' => 0,
                 ];
@@ -571,7 +572,7 @@ new #[Title('Review document')] class extends Component {
                     <flux:select wire:model="paymentAccountId" :label="__('Paid from')" required data-test="inbox-payment-account">
                         <flux:select.option value="">{{ __('Select an account') }}</flux:select.option>
                         @foreach ($this->paymentAccountOptions as $account)
-                            <flux:select.option :value="$account->id">{{ $account->code }} — {{ $account->name }}</flux:select.option>
+                            <flux:select.option :value="$account->id">{{ $account->code }} — {{ $account->displayName() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif
@@ -584,7 +585,7 @@ new #[Title('Review document')] class extends Component {
                                 {{ $bankLine->txn_date->toDateString() }} ·
                                 {{ \App\Support\Money::fromCents(abs((int) $bankLine->amount_cents))->format() }} ·
                                 {{ \Illuminate\Support\Str::limit($bankLine->description, 40) }}
-                                @if ($bankLine->account)({{ $bankLine->account->name }})@endif
+                                @if ($bankLine->account)({{ $bankLine->account->displayName() }})@endif
                             </flux:select.option>
                         @endforeach
                     </flux:select>
@@ -666,7 +667,7 @@ new #[Title('Review document')] class extends Component {
                 <tfoot class="hidden bg-muted lg:table-footer-group">
                     @foreach ($this->taxBreakdown as $taxRow)
                         <tr data-test="inbox-tax-row">
-                            <td colspan="4" class="px-2 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</td>
+                            <td colspan="4" class="px-2 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
                             <td class="px-2 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                             <td></td>
                         </tr>
@@ -682,7 +683,7 @@ new #[Title('Review document')] class extends Component {
             {{-- Mobile totals (tfoot is desktop-only) --}}
             <div class="space-y-1 border-t border-border bg-muted px-3 py-3 text-sm lg:hidden">
                 @foreach ($this->taxBreakdown as $taxRow)
-                    <div class="flex justify-between"><span class="font-medium">{{ $taxRow['label'] }} {{ number_format($taxRow['rate'], 2) }}%</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
+                    <div class="flex justify-between"><span class="font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
                 @endforeach
                 <div class="flex justify-between text-base"><span class="font-semibold">{{ __('Total') }}</span><span class="font-mono font-semibold">{{ number_format($this->totalCents() / 100, 2) }}</span></div>
             </div>

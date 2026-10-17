@@ -297,19 +297,19 @@ new #[Title('Asset')] class extends Component {
                 <flux:select wire:model="asset_account_id" :label="__('Asset account')" required data-test="asset-account-select">
                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
                     @foreach ($this->fixedAssetAccountOptions as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:select wire:model.live="accumulated_depreciation_account_id" :label="__('Accumulated depreciation account')" data-test="asset-accum-dep-select">
                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
                     @foreach ($this->fixedAssetAccountOptions as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:select wire:model.live="depreciation_expense_account_id" :label="__('Depreciation expense account')" data-test="asset-dep-exp-select">
                     <flux:select.option value="">{{ __('—') }}</flux:select.option>
                     @foreach ($this->expenseAccountOptions as $opt)
-                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                        <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>

@@ -95,7 +95,7 @@ new #[Title('Budget Overview')] class extends Component {
 
             $rows[] = [
                 'code' => $line->account?->code ?? '',
-                'name' => $line->account?->name ?? '',
+                'name' => $line->account?->displayName() ?? '',
                 'months' => $months,
                 'total' => $rowTotal,
             ];

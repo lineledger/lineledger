@@ -23,16 +23,16 @@ enum ContributionMethod: string
     public function label(): string
     {
         return match ($this) {
-            self::Deferral => 'Deferral method',
-            self::RestrictedFund => 'Restricted fund method',
+            self::Deferral => __('Deferral method'),
+            self::RestrictedFund => __('Restricted fund method'),
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::Deferral => 'Restricted contributions are deferred and recognized as the related expense occurs. No per-transaction fund tag.',
-            self::RestrictedFund => 'Fund accounting: tag transactions to a fund (General, Restricted, Endowment) with per-fund statements.',
+            self::Deferral => __('Restricted contributions are deferred and recognized as the related expense occurs. No per-transaction fund tag.'),
+            self::RestrictedFund => __('Fund accounting: tag transactions to a fund (General, Restricted, Endowment) with per-fund statements.'),
         };
     }
 

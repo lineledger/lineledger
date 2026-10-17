@@ -21,4 +21,13 @@ class PaymentMethod extends Model
             'is_active' => 'boolean',
         ];
     }
+
+    /**
+     * The stored name for display. Seeded names are stored in English so
+     * lookups stay stable; the UI translates them (a renamed one passes through).
+     */
+    public function displayName(): string
+    {
+        return __((string) $this->name);
+    }
 }

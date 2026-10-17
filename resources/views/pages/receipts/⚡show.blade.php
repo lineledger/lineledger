@@ -119,7 +119,7 @@ new #[Title('Receipt')] class extends Component {
             <flux:subheading>
                 {{ $receipt->contact->display_name }} &middot;
                 {{ $receipt->receipt_date->toDateString() }} &middot;
-                {{ __('Deposited to') }} {{ $receipt->depositToAccount->name }}
+                {{ __('Deposited to') }} {{ $receipt->depositToAccount->displayName() }}
             </flux:subheading>
             <div class="mt-2 hidden items-center gap-2 lg:flex">
                 @switch($receipt->status->value)
@@ -180,7 +180,7 @@ new #[Title('Receipt')] class extends Component {
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Method') }}</flux:text>
-            <div>{{ $receipt->paymentMethod?->name ?? '—' }}</div>
+            <div>{{ $receipt->paymentMethod?->displayName() ?? '—' }}</div>
         </div>
         <div>
             <flux:text class="text-muted-foreground">{{ __('Reference') }}</flux:text>

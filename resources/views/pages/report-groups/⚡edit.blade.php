@@ -162,7 +162,7 @@ new #[Title('Edit combined report group')] class extends Component {
             $account = $map->account;
 
             $passthrough = $this->reportGroup->lines()->create([
-                'name' => $account?->name ?? __('Account'),
+                'name' => $account?->displayName() ?? __('Account'),
                 'type' => $account?->type ?? $line->type,
                 'subtype' => $account?->subtype,
                 // A passthrough line stands in for one account, so it keeps that
@@ -339,7 +339,7 @@ new #[Title('Edit combined report group')] class extends Component {
                                 <div class="flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                     <span class="truncate">
                                         <span class="text-muted-foreground">{{ $map->company?->name }}</span>
-                                        &middot; {{ $map->account?->code }} — {{ $map->account?->name }}
+                                        &middot; {{ $map->account?->code }} — {{ $map->account?->displayName() }}
                                     </span>
                                     <select
                                         class="rounded-md border border-border bg-card px-2 py-1 text-xs"

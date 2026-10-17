@@ -206,7 +206,7 @@ new #[Title('Make deposit')] class extends Component
                 'date' => $r->receipt_date->toDateString(),
                 'receipt_no' => $r->receipt_no,
                 'contact' => $r->contact?->display_name ?? '—',
-                'payment_method' => $r->paymentMethod?->name,
+                'payment_method' => $r->paymentMethod?->displayName(),
                 'reference' => $r->reference,
                 'amount' => (int) $r->amount_cents,
                 'included' => $this->deposit !== null && in_array($r->id, $currentCustomerIds, true),
@@ -230,7 +230,7 @@ new #[Title('Make deposit')] class extends Component
                 'date' => $r->receipt_date->toDateString(),
                 'receipt_no' => $r->sales_receipt_no,
                 'contact' => $r->contact?->display_name ?? __('Cash sale'),
-                'payment_method' => $r->paymentMethod?->name,
+                'payment_method' => $r->paymentMethod?->displayName(),
                 'reference' => $r->reference,
                 'amount' => (int) $r->total_cents,
                 'included' => $this->deposit !== null && in_array($r->id, $currentSalesIds, true),
@@ -706,7 +706,7 @@ new #[Title('Make deposit')] class extends Component
             <flux:select wire:model="bank_account_id" :label="__('Deposit to')" required data-test="deposit-bank-select">
                 <flux:select.option value="">{{ __('— Select bank —') }}</flux:select.option>
                 @foreach ($this->bankAccounts as $opt)
-                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->name }}</flux:select.option>
+                    <flux:select.option :value="$opt->id">{{ $opt->code }} — {{ $opt->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

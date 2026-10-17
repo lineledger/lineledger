@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\VendorCredit;
 use App\Services\Reporting\PdfExporter;
+use App\Support\Locales;
 use App\Support\Tax\LineTaxBreakdown;
 use Illuminate\Http\Response;
 
@@ -19,12 +20,12 @@ class PrintVendorCreditController extends Controller
 
         $filename = 'vendor-credit-'.preg_replace('/[^A-Za-z0-9_-]/', '', (string) $vendor_credit->vendor_credit_no).'.pdf';
 
-        return $pdf->inline('pdf.vendor-credits.vendor-credit', [
+        return Locales::forContactDocument($vendor_credit->contact, $company, fn (): Response => $pdf->inline('pdf.vendor-credits.vendor-credit', [
             'company' => $company,
             'vendorCredit' => $vendor_credit,
             'settings' => $company->invoiceSettingsOrNew(),
             'taxSummary' => $this->taxSummary($vendor_credit),
-        ], $filename);
+        ], $filename));
     }
 
     /**
