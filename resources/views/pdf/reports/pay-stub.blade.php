@@ -6,7 +6,7 @@
     // Employer address (shown where the jurisdiction requires it / the employer opts in).
     $employerAddress = collect([
         $company->address_line1, $company->address_line2,
-        collect([$company->address_city, $company->address_region, $company->address_postal_code])->filter()->join(' '),
+        \App\Support\Contacts\AddressLines::locality($company->address_city, $company->address_region, $company->address_postal_code, $company->address_country, $company, ' '),
     ])->filter()->join(', ');
 @endphp
 <!DOCTYPE html>

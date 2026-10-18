@@ -52,7 +52,8 @@ see `UPGRADING.md`.
   you VAT-registered?"), check VAT numbers for the GB format and store them
   `GB`-prefixed, and record a Companies House number that prints beside the
   "VAT No." on invoices and other forms. Printed forms use the document's own
-  currency symbol and, for UK organizations, day-first dates (04/03/2026).
+  currency symbol and, for UK organizations, day-first dates (04/03/2026) and
+  addresses without the nation code ("Reading, RG1 2EQ").
   Deploy it at a `.co.uk` / `.uk` host or with `APP_REGION=GB`; `APP_URL_GB` and
   `MARKETING_URL_GB` join the country switcher once set — both default to empty,
   so existing deployments show no UK link until the UK twin is live.

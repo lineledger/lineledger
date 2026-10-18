@@ -44,13 +44,13 @@
             $salesOrder->contact?->display_name,
             $salesOrder->contact?->billing_line1,
             $salesOrder->contact?->billing_line2,
-            collect([$salesOrder->contact?->billing_city, $salesOrder->contact?->billing_region, $salesOrder->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($salesOrder->contact?->billing_city, $salesOrder->contact?->billing_region, $salesOrder->contact?->billing_postal_code, $salesOrder->contact?->billing_country, $company),
         ])->filter()->values();
 
         $shipLines = collect([
             $salesOrder->contact?->shipping_line1,
             $salesOrder->contact?->shipping_line2,
-            collect([$salesOrder->contact?->shipping_city, $salesOrder->contact?->shipping_region, $salesOrder->contact?->shipping_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($salesOrder->contact?->shipping_city, $salesOrder->contact?->shipping_region, $salesOrder->contact?->shipping_postal_code, $salesOrder->contact?->shipping_country, $company),
         ])->filter()->values();
     @endphp
 

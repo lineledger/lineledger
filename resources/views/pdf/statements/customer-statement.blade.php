@@ -48,7 +48,7 @@
             $contact->qualifiedName(),
             $contact->billing_line1,
             $contact->billing_line2,
-            collect([$contact->billing_city, $contact->billing_region, $contact->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($contact->billing_city, $contact->billing_region, $contact->billing_postal_code, $contact->billing_country, $company),
         ])->filter()->values();
 
         $isOpenInvoices = $type === \App\Enums\CustomerStatementType::OpenInvoices;

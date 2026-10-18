@@ -43,7 +43,7 @@
             $receipt->contact?->display_name,
             $receipt->contact?->billing_line1,
             $receipt->contact?->billing_line2,
-            collect([$receipt->contact?->billing_city, $receipt->contact?->billing_region, $receipt->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($receipt->contact?->billing_city, $receipt->contact?->billing_region, $receipt->contact?->billing_postal_code, $receipt->contact?->billing_country, $company),
         ])->filter()->values();
     @endphp
 

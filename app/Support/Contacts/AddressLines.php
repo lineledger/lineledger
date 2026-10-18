@@ -15,6 +15,9 @@ use App\Models\Contact;
  *   City, Region  PostalCode
  *   Country              ← only when it differs from the company's own
  *
+ * A UK address leaves its region out: the stored region there is the nation
+ * (ENG, SCT, …), which British addresses never print.
+ *
  * Blank parts collapse, so a contact with only a street gets one line and a
  * contact with nothing gets none.
  *
@@ -33,7 +36,7 @@ final class AddressLines
     {
         $value = static fn (string $key): string => trim((string) ($parts[$key] ?? ''));
 
-        $cityLine = collect([$value('city'), $value('region')])
+        $cityLine = collect([$value('city'), self::region($value('region'), $value('country'), $company)])
             ->filter()
             ->implode(', ');
 
@@ -65,10 +68,40 @@ final class AddressLines
             $value('line1'),
             $value('line2'),
             $value('city'),
-            $value('region'),
+            self::region($value('region'), $value('country'), $company),
             $value('postal_code'),
             self::countryLine($value('country'), $company),
         ])->reject(static fn (string $part): bool => $part === '')->implode(', ');
+    }
+
+    /**
+     * The locality line a document prints under the street — "Toronto, ON, M5V 2T6",
+     * or "Reading, RG1 2EQ" for a UK address — with blank parts dropped.
+     */
+    public static function locality(?string $city, ?string $region, ?string $postalCode, ?string $country, ?Company $company, string $glue = ', '): string
+    {
+        return collect([
+            trim((string) $city),
+            self::region(trim((string) $region), trim((string) $country), $company),
+            trim((string) $postalCode),
+        ])->reject(static fn (string $part): bool => $part === '')->implode($glue);
+    }
+
+    /**
+     * The region as it prints in an address: blank for a UK address, whose
+     * stored region is its nation. An address with no country of its own takes
+     * the company's.
+     */
+    public static function region(?string $region, ?string $country, ?Company $company): string
+    {
+        $region = trim((string) $region);
+        $code = mb_strtoupper(trim((string) $country));
+
+        if ($code === '' && $company !== null) {
+            $code = $company->jurisdiction->value;
+        }
+
+        return $code === Country::UnitedKingdom->value ? '' : $region;
     }
 
     /**

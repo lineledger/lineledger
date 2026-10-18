@@ -44,7 +44,7 @@
             $vendorCredit->contact?->display_name,
             $vendorCredit->contact?->billing_line1,
             $vendorCredit->contact?->billing_line2,
-            collect([$vendorCredit->contact?->billing_city, $vendorCredit->contact?->billing_region, $vendorCredit->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($vendorCredit->contact?->billing_city, $vendorCredit->contact?->billing_region, $vendorCredit->contact?->billing_postal_code, $vendorCredit->contact?->billing_country, $company),
         ])->filter()->values();
     @endphp
 

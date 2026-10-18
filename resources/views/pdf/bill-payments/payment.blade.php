@@ -48,7 +48,7 @@
             $payment->contact?->display_name,
             $payment->contact?->billing_line1,
             $payment->contact?->billing_line2,
-            collect([$payment->contact?->billing_city, $payment->contact?->billing_region, $payment->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($payment->contact?->billing_city, $payment->contact?->billing_region, $payment->contact?->billing_postal_code, $payment->contact?->billing_country, $company),
         ])->filter()->values();
     @endphp
 

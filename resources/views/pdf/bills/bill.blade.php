@@ -50,7 +50,7 @@
             $bill->contact?->display_name,
             $bill->contact?->billing_line1,
             $bill->contact?->billing_line2,
-            collect([$bill->contact?->billing_city, $bill->contact?->billing_region, $bill->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($bill->contact?->billing_city, $bill->contact?->billing_region, $bill->contact?->billing_postal_code, $bill->contact?->billing_country, $company),
         ])->filter()->values();
 
         $columns = 3

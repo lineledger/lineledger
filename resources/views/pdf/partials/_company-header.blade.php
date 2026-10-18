@@ -13,7 +13,7 @@
     $companyAddress = collect([
         $company->address_line1,
         $company->address_line2,
-        collect([$company->address_city, $company->address_region, $company->address_postal_code])->filter()->implode(', '),
+        \App\Support\Contacts\AddressLines::locality($company->address_city, $company->address_region, $company->address_postal_code, $company->address_country, $company),
     ])->filter()->values();
 @endphp
 @if ($documentLogo)

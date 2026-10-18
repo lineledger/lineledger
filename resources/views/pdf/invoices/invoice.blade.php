@@ -67,13 +67,13 @@
             $invoice->contact?->display_name,
             $invoice->contact?->billing_line1,
             $invoice->contact?->billing_line2,
-            collect([$invoice->contact?->billing_city, $invoice->contact?->billing_region, $invoice->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($invoice->contact?->billing_city, $invoice->contact?->billing_region, $invoice->contact?->billing_postal_code, $invoice->contact?->billing_country, $company),
         ])->filter()->values();
 
         $shipLines = collect([
             $invoice->contact?->shipping_line1,
             $invoice->contact?->shipping_line2,
-            collect([$invoice->contact?->shipping_city, $invoice->contact?->shipping_region, $invoice->contact?->shipping_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($invoice->contact?->shipping_city, $invoice->contact?->shipping_region, $invoice->contact?->shipping_postal_code, $invoice->contact?->shipping_country, $company),
         ])->filter()->values();
 
         // Description + Amount always show; the rest are toggleable.

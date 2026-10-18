@@ -44,13 +44,13 @@
             $creditMemo->contact?->display_name,
             $creditMemo->contact?->billing_line1,
             $creditMemo->contact?->billing_line2,
-            collect([$creditMemo->contact?->billing_city, $creditMemo->contact?->billing_region, $creditMemo->contact?->billing_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($creditMemo->contact?->billing_city, $creditMemo->contact?->billing_region, $creditMemo->contact?->billing_postal_code, $creditMemo->contact?->billing_country, $company),
         ])->filter()->values();
 
         $shipLines = collect([
             $creditMemo->contact?->shipping_line1,
             $creditMemo->contact?->shipping_line2,
-            collect([$creditMemo->contact?->shipping_city, $creditMemo->contact?->shipping_region, $creditMemo->contact?->shipping_postal_code])->filter()->implode(', '),
+            \App\Support\Contacts\AddressLines::locality($creditMemo->contact?->shipping_city, $creditMemo->contact?->shipping_region, $creditMemo->contact?->shipping_postal_code, $creditMemo->contact?->shipping_country, $company),
         ])->filter()->values();
 
         // Description + Price Each + Amount always show; the rest are toggleable.
