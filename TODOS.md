@@ -84,9 +84,10 @@ land on S3.
 
 ## Documentation
 
-### Sync the marketing-site docs mirror to 1.1.0
+### Sync the marketing-site docs mirror to 1.2.0
 
-**What:** Bring `~/Code/lineledger-site` up to date with the in-app docs: the 29 pages under
+**What:** Bring `~/Code/lineledger-site` up to date with the in-app docs (36 pages as of
+1.2.0, including the new Languages and United Kingdom & VAT pages): the pages under
 `src/content/docs`, the `public/images/docs` screenshots, the three tutorials, and the
 `src/config/docs-nav.ts` grouping, now that the in-app docs nav mirrors the app sidebar.
 
@@ -134,7 +135,8 @@ cross-origin link meaningfully. The banner and its Alpine block are
 
 **What:** The marketing site's docs-nav test enforces slug pairing between its nav and its
 content pages, so each new in-app docs page — `opening-balances`, `insights`,
-`employee-portal`, `site-administration`, `self-hosting` — must be added there (nav entry +
+`employee-portal`, `site-administration`, `self-hosting`, and in 1.2.0 `languages` and
+`united-kingdom` — must be added there (nav entry +
 content page) or that suite fails once the mirror is synced.
 
 **Why:** Without the pairing, the site build passes while the new pages are silently
@@ -142,9 +144,63 @@ unreachable from its nav.
 
 **Effort:** S
 **Priority:** P2
-**Depends on:** Sync the marketing-site docs mirror to 1.1.0
+**Depends on:** Sync the marketing-site docs mirror to 1.2.0
 
 ## Completed
+
+## Known limitations in 1.2.0
+
+Documented in the in-app docs (Languages, United Kingdom & VAT) and the CHANGELOG; listed
+here so they are picked up deliberately rather than rediscovered.
+
+### Report PDFs are English-only
+
+**What:** 33 of the 39 templates in `resources/views/pdf/reports/` (cash flow, general
+ledger, trial balance, sales tax, T4, PD7A, the Revenu Québec remittance, …) hard-code
+English, as do `pdf/reconciliations/show.blade.php` and `pdf/donations/receipt.blade.php`.
+The on-screen reports are translated; their PDF exports are not.
+
+**Why:** A French-speaking organization prints mixed-language reports.
+
+**Context:** Wrap the strings in `__()` and add `lang/fr.json` entries; `ReportCopy` already
+registers report names. Date formats should go through `Locales::formatDate()`.
+
+**Effort:** M · **Priority:** P2 · **Depends on:** None
+
+### Amounts are not localized in French
+
+**What:** Most amounts on screen and on printed documents go through `number_format()` and
+keep the `1,234.56` / `$` prefix style in French; only the ~24 views that call
+`Money::format()` print the `fr_CA` form (`1 234,56 $`). A French tax line also mixes styles
+("TPS (5 %) 5.00%").
+
+**Context:** Route display amounts through `Money::format()` (or a Blade helper around it),
+starting with the customer-facing PDFs in `resources/views/pdf/`.
+
+**Effort:** M · **Priority:** P3 · **Depends on:** None
+
+### Vendors have no document language
+
+**What:** The customer form has a Language field; the vendor form doesn't, so purchase
+orders, cheques and other vendor documents always use the organization's language.
+
+**Effort:** S · **Priority:** P3 · **Depends on:** None
+
+### UK payroll, Making Tax Digital and Gift Aid
+
+**What:** Payroll is Canada-only (`JurisdictionProfile`), the VAT Return is worked out but
+not submitted to HMRC (copy the boxes into MTD software), and Charity is not offered
+outside Canada, so there are no Gift Aid receipts.
+
+**Effort:** L each · **Priority:** P3 · **Depends on:** Demand from UK users
+
+### ICU locale is pinned to Canada
+
+**What:** `Locales::icu()` maps `en` → `en_CA` and `fr` → `fr_CA` for every organization, so
+a UK organization's number formatting follows Canadian conventions where the two differ.
+Currency symbols and day-first document dates are already per-country.
+
+**Effort:** S · **Priority:** P3 · **Depends on:** None
 
 ## Known issues found during the 1.1.0 docs audit
 

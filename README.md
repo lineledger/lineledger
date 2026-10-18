@@ -14,8 +14,9 @@ the GL.
 
 ## Status
 
-LineLedger is at **1.1.0**, released September 18, 2026; 1.0.0 shipped August 15, 2026
-(see [`CHANGELOG.md`](CHANGELOG.md)). Running an existing install? Read
+LineLedger is at **1.2.0**, released October 18, 2026, which adds French and United
+Kingdom organizations; 1.1.0 shipped September 18 and 1.0.0 August 15, 2026 (see
+[`CHANGELOG.md`](CHANGELOG.md)). Running an existing install? Read
 [`UPGRADING.md`](UPGRADING.md) before you pull — it covers the backup-first,
 `php artisan app:upgrade` path for both Docker and Forge, and the same material is in
 the in-app docs under **Self-hosting & upgrades** (`/docs/self-hosting`, once signed
@@ -29,6 +30,17 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
 
 ## What's in here
 
+- **English and French** — the staff app, customer and vendor documents, emails, and
+  both portals. Each user picks their own language; an organization has a document
+  language and a customer can have their own, which their documents, emails and portal
+  follow. A new Québec organization starts in French. Most report PDFs are still
+  English-only.
+- **Canada, the United States and the United Kingdom** — each organization picks its
+  country at setup and gets a starter chart, tax codes, tax agencies, currency, time
+  zone and fiscal year to match: GST/HST/PST/QST and the CRA in Canada, a sales-tax
+  placeholder to fill with your state's rates in the US, and VAT with HM Revenue & Customs (or Isle of Man Customs and Excise) in
+  the UK, where documents print in pounds with day-first dates and the Companies House
+  number.
 - **General ledger** — chart of accounts (with drill-through to each account's
   ledger), manual journal entries and journal-entry templates, recurring journal
   entries, trial balance, and class/location dimensions tracked on every
@@ -45,8 +57,10 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
   statements**: open invoices as of a date, or account activity over a period,
   rendered in the invoice's customer-facing PDF style with an aging strip and a memo
   column — view, download, or email with the PDF attached and a portal link, from the
-  customers list or the AR statement report. Sales reps on invoices and credit memos
-  (also via the API).
+  customers list or the AR statement report, previewed on their own page with a date
+  range and a choice of columns. A customer's overpayment can be refunded straight
+  from the invoice, by card or cheque. Sales reps on invoices and credit memos (also
+  via the API).
 - **Accounts payable** — vendors, purchase orders, bills, bill payments, vendor
   credits, AP aging, 1099 tracking (US), and a **Vendor Activity** report listing
   every posted transaction with a vendor — bills, payments, credits, cheques, expenses
@@ -108,7 +122,10 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
   nightly, with a browsable history and a profit-insights report.
 - **Payment reminders** — per-customer opt-in dunning that emails overdue invoices
   every morning.
-- **Tax** — sales-tax codes, sales-tax returns, and GIFI Schedule 100/125
+- **Tax** — sales-tax codes; sales-tax returns that take adjustments (a commission, a
+  fee, a balance carried forward) and reconcile to the tax payable account before they
+  file; a **VAT Return** *(UK)* that works out HMRC's nine boxes from the books (copy
+  them into Making Tax Digital software to submit); and GIFI Schedule 100/125
   statements *(Canada)*.
 - **Documents** — a per-organization document repository (folders + private-by-default
   sharing) plus a unified transaction-attachment index.
@@ -135,9 +152,11 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
   Navigation, backed by the `nav_preferences` table); **Escape goes back** to the
   previous page (per-user switch in Settings → Appearance; open modals, dropdowns and
   pickers still close first); a click anywhere in a date field opens the calendar; an
-  in-cell amount calculator that understands `+ − × ÷`; the company switcher opens the
-  chosen organization in a new tab; and the banking screens remember the last account
-  you worked in.
+  in-cell amount calculator that understands `+ − × ÷`; line-item columns you can drag
+  wider; an account picker you type a GL number or name into; ⌘K search that opens an
+  account's General Ledger; the company switcher opens the chosen organization's
+  Dashboard in a new tab; and the banking screens remember the last account you
+  worked in.
 - **Auth** — Laravel Fortify with passkeys (WebAuthn) and two-factor, with an
   optional organization-wide 2FA requirement (`require_two_factor`) that makes
   owners/admins enrol before they can use the app, an optional Cloudflare Turnstile
@@ -145,9 +164,9 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
   member or downgrading their role immediately tears down their sessions, company API
   keys, and OAuth tokens (`AccessRevoker`).
 - **REST API v1** — versioned `/api/v1` endpoints with API-key abilities/scopes
-  and full audit logging (see [`docs/api-v1.md`](docs/api-v1.md)). 1.1.0 adds invoice
-  `balance_cents`, receipt `unapplied_cents`, negative invoice lines, `sales_rep_id`,
-  and the `423` edit-lock response.
+  and full audit logging (see [`docs/api-v1.md`](docs/api-v1.md)). 1.2.0 adds overpayment
+  refunds (`POST /invoices/{id}/refund`), tax-return adjustments, and a `422` when
+  filing a return that doesn't reconcile.
 - **Business Q&A (MCP)** — a read-only [Model Context Protocol](https://modelcontextprotocol.io)
   server (20 reporting tools, 7 resources, 4 prompts) that answers plain-language
   finance questions from any MCP-capable AI assistant over an API key or one-click
@@ -176,8 +195,8 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
 
 | Layer | Choice |
 | --- | --- |
-| Runtime | PHP 8.5+ |
-| Framework | Laravel 13 (`laravel/framework` 13.32 as of 1.1.0) |
+| Runtime | PHP 8.5+ with `intl` |
+| Framework | Laravel 13 (`laravel/framework` 13.35 as of 1.2.0) |
 | UI | Livewire 4 + Flux UI Free + Tailwind CSS 4 (Vite) |
 | Charts | Chart.js 4 (`chart.js`) for the dashboard and report chart panels (`resources/js/charts.js`) |
 | Auth | Laravel Fortify + passkeys (WebAuthn, configured in `config/fortify.php`); OAuth2 via Laravel Passport (MCP); optional Cloudflare Turnstile on the auth forms (`config/turnstile.php`) |
@@ -198,7 +217,7 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
 
 ## Develop
 
-You need PHP 8.5, Node 22+ (the JS tests use Node's built-in runner), and MySQL 8.
+You need PHP 8.5 (with the `intl` extension), Node 22+ (the JS tests use Node's built-in runner), and MySQL 8.
 
 ```bash
 composer install
@@ -223,7 +242,10 @@ and Vite. The app is then at <http://localhost:8000>.
 > and **Demo Community Society** (a registered charity, for the non-profit flows) —
 > comes from a standalone, idempotent seeder:
 > `php artisan db:seed --class=DemoCompanySeeder`. Re-running it wipes and rebuilds
-> both organizations, so screenshots can be regenerated at will.
+> both organizations, so screenshots can be regenerated at will. For the United
+> Kingdom, `php artisan db:seed --class=UkDemoCompanySeeder` adds **Thames Valley
+> Trading Ltd** (two VAT quarters, one filed) and **Laxey Craft Brewery Ltd** (Isle of
+> Man) to the same login.
 
 > **Heads-up:** the queue worker matters in dev too — backups, restores,
 > recurring-document generation, document-inbox processing, and emails are queued
@@ -350,7 +372,11 @@ A standard Laravel layout; the accounting-specific logic lives in a few places:
   `settings.php`, `console.php` (the scheduler).
 - **`database/migrations/`** — schema (290+ migrations); `database/seeders/`
   has `DemoCompanySeeder`, which builds two sample organizations: a for-profit demo and
-  **Demo Community Society**, a registered charity for the non-profit / fundraising docs.
+  **Demo Community Society**, a registered charity for the non-profit / fundraising docs,
+  and `UkDemoCompanySeeder`, which builds a UK and an Isle of Man organization.
+- **`lang/fr.json`** — the French catalog. English strings are the keys (`__()`), so
+  there is no `en.json`; `tests/Feature/I18n/TranslationCatalogTest.php` flags missing
+  and unused keys.
 - **`tests/`** — Pest feature + unit tests, plus `tests/js/` for the JS modules. CI
   runs the PHP suite against SQLite.
 
@@ -366,6 +392,7 @@ unlock specific subsystems. Set the same keys in production via Forge → Site �
 | `APP_NAME` | App name shown in UI & emails | `LineLedger` | `LineLedger` |
 | `APP_URL` | Absolute base URL (links, passkey RP ID, Stripe redirects) | `http://localhost:8000` | `https://books.lineledger.ca` |
 | `APP_KEY` | Encryption key | `php artisan key:generate` | generated once, kept secret |
+| `APP_LOCALE` | Language (`en` / `fr`) of signed-out pages, and of documents when neither the customer nor the organization has one. Each user, organization and customer can choose their own in the app | `en` | `en` |
 | `APP_REGION` | Country this deployment serves (`CA` / `US` / `GB`). Picks which marketing site the footer's legal links point at. Leave **unset in production** to derive it from the request host (`.ca` → CA, `.uk` → GB, anything else → US); set it explicitly on host-agnostic environments like local dev | `CA` (`.env.example` ships it blank) | unset (derived from host) |
 | `APP_URL_CA` / `APP_URL_US` / `APP_URL_GB` | The project's sibling app deployments. The guest country-switcher banner offers a visitor the other ones, and **renders only on these hosts** — so a self-hosted instance on its own domain never shows it, whatever `APP_REGION` says. An empty URL leaves that twin out of the banner | `https://books.lineledger.ca` / `https://books.lineledger.com` / empty | your sibling app hosts |
 | `MARKETING_URL_CA` / `MARKETING_URL_US` / `MARKETING_URL_GB` | Marketing sites hosting the legal documents linked from the footer, chosen by region. A region left empty links to the US site | `https://lineledger.ca` / `https://lineledger.com` / empty | your marketing sites |
@@ -637,7 +664,7 @@ No clone needed — fetch the compose bundle for the release, configure, and sta
 
 ```bash
 mkdir lineledger && cd lineledger
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.1.0/docker
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.2.0/docker
 curl -fsSLO "$base/docker-compose.yml"
 curl -fsSL  "$base/.env.example" -o .env
 curl -fsSLO "$base/backup.sh"
@@ -652,7 +679,7 @@ docker compose run --rm --no-deps app php artisan key:generate --show
 docker compose up -d
 ```
 
-Fetch from the tag you are deploying (`v1.1.0` above), not `main` — the compose
+Fetch from the tag you are deploying (`v1.2.0` above), not `main` — the compose
 file, entrypoint and scripts on `main` may already describe the next release.
 
 **Mail has to work before anyone can get in.** Email verification is enforced: a
@@ -688,21 +715,21 @@ Release notes and anything a specific version needs are in
 
 ```bash
 ./backup.sh                                # 1. DB dump + storage volume + .env into ./backups
-# 2. in .env, pin the release:  LINELEDGER_VERSION=1.1.0
+# 2. in .env, pin the release:  LINELEDGER_VERSION=1.2.0
 docker compose pull && docker compose up -d   # 3. new image; app:upgrade runs on boot
 docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and prove the books
 ```
 
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
-pending migrations, then the post-upgrade data steps the release ships (for 1.1.0,
-the two `banking:backfill-*` commands) — and the workers wait for it to become
+pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
+the two `banking:backfill-*` commands; 1.2.0 adds none) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
 migrate it just runs `integrity:check` and exits non-zero if the ledger doesn't
 reconcile, which is the moment to reach for `restore.sh`.
 
-Image tags: `1.1.0` (exact release), `1.1` (moves with patch releases on the 1.1
+Image tags: `1.2.0` (exact release), `1.2` (moves with patch releases on the 1.2
 line — the pin most self-hosters want), `latest` (newest tagged release, never
 `main`), and `edge` (`main`, amd64-only, if you want to live dangerously). Release
 tags are multi-arch, so a Raspberry Pi or Graviton host pulls the arm64 image with
@@ -832,7 +859,7 @@ survive deploys — see [Object storage](#object-storage) below.
 ### One-time setup
 
 **1. Create the server (Forge → Servers → Create Server).**
-DigitalOcean, any size, **PHP 8.5** (Composer pins `^8.5`), **MySQL 8**, Redis optional.
+DigitalOcean, any size, **PHP 8.5** (Composer pins `^8.5` and requires `ext-intl`), **MySQL 8**, Redis optional.
 
 > **System packages.** For **PDF** bank-statement import, install poppler on the
 > server: `sudo apt-get install -y poppler-utils` (provides `pdftotext`). It is a
@@ -1046,7 +1073,7 @@ things around it — take a backup before you click, and read
 [`UPGRADING.md`](UPGRADING.md) for anything the release needs beyond what
 `app:upgrade` does on its own. To upgrade by tag rather than by whatever is on
 `main`, swap the `git pull` line for
-`git fetch --tags origin && git checkout v1.1.0` (or point the Forge site at a
+`git fetch --tags origin && git checkout v1.2.0` (or point the Forge site at a
 release branch), so a deploy always lands on a version you chose. After the deploy,
 `php artisan app:upgrade --verify` proves the ledger still reconciles, and
 `proof:generate` refreshes `/verification` if you publish it.

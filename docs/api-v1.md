@@ -6,10 +6,46 @@ drive documents through the general ledger.
 
 > **Two documents, one API.** This guide is the narrative — auth, conventions,
 > lifecycle, and worked examples. The complete per-endpoint reference is the
-> machine-readable OpenAPI 3.1 spec (version `1.1.0`), served **unauthenticated** at
+> machine-readable OpenAPI 3.1 spec (version `1.2.0`), served **unauthenticated** at
 > **`GET /api/v1/openapi.json`** (source: `resources/api/openapi.yaml`). It covers
 > every resource in [§3](#3-the-resource-map). Point your client generator at that;
 > read this to understand how the API behaves.
+
+## What's new in 1.2.0 for integrators
+
+No endpoint or field was removed or renamed. Two responses change meaning and one action
+can now refuse a request it used to accept; everything else is additive.
+
+- **Filing a tax return checks it against the ledger.** `POST /tax-returns/{id}/file`
+  answers `422` when the return's net differs from the agency's tax payable account,
+  unless the body's `accepted_difference_cents` names that exact difference in cents
+  (the `422` doesn't carry the figure; work it out from the return and the payable
+  account, and send it only once a person has accepted it). `POST /tax-returns/{id}/void`
+  also reverses the journal entry filing posted for the return's adjustments.
+- **Tax returns take `adjustments`** on create and update: each has a `kind`
+  (`collected`, `paid` or `other`), an `account_id`, a non-zero `amount_cents` and an
+  optional `memo`. Coded to the agency's tax payable account, an adjustment only changes
+  the return; coded to any other account, filing posts it against the payable account.
+  Responses add `adjustments`, `other_adjustments_cents`,
+  `adjustment_journal_entry_id` and `reconciliation`. On a `PATCH`, leaving out
+  `adjustments` or `excluded_journal_line_ids` keeps the saved values (1.1.0 cleared
+  the excluded lines).
+- **`unapplied_cents` on a receipt nets out refunds**, and a refund receipt reports 0
+  rather than its negative amount. Receipts add `refunded_cents`, `credit_memo_id`,
+  `refunded_receipt_id` and `from_invoice_id`; cheques add `refunded_receipt_id` and
+  `from_invoice_id`.
+- **`POST /invoices/{id}/refund`** refunds a customer's overpayment by card. See
+  [§5.3](#53-invoice--payment-end-to-end).
+- **Deposit lines accept a negative `amount_cents`** (a card refund or a fee); only 0 is
+  refused. A deposit whose refunds outweigh its receipts posts with a negative total.
+- **Journal entries.** `DELETE` refuses a draft that another document created (`422`).
+  Updating a posted entry checks both its old and new date against the lock date and
+  refuses one with a line a completed reconciliation ticked.
+- **Paid and refunded documents.** Editing an invoice below what its receipts applied,
+  editing a credit memo below its refunds, and voiding a refunded credit memo or
+  payment all answer `422`.
+- **The OpenAPI spec is version `1.2.0`.** The MCP servers report 1.2.0 and speak
+  protocol revision 2026-07-28, with no `Mcp-Session-Id` header.
 
 ## What's new in 1.1.0 for integrators
 
