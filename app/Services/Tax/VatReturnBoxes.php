@@ -89,15 +89,15 @@ final readonly class VatReturnBoxes
     public function rows(): array
     {
         return [
-            ['box' => 1, 'label' => 'VAT due on sales and other outputs', 'cents' => $this->box1, 'whole_pounds' => false],
-            ['box' => 2, 'label' => 'VAT due on acquisitions of goods from the EU (Northern Ireland)', 'cents' => $this->box2, 'whole_pounds' => false],
-            ['box' => 3, 'label' => 'Total VAT due (Box 1 + Box 2)', 'cents' => $this->box3, 'whole_pounds' => false],
-            ['box' => 4, 'label' => 'VAT reclaimed on purchases and other inputs', 'cents' => $this->box4, 'whole_pounds' => false],
-            ['box' => 5, 'label' => $this->isRepayment() ? 'Net VAT to be reclaimed from HMRC (Box 4 − Box 3)' : 'Net VAT to pay to HMRC (Box 3 − Box 4)', 'cents' => $this->box5Absolute(), 'whole_pounds' => false],
-            ['box' => 6, 'label' => 'Total value of sales and all other outputs, excluding VAT', 'cents' => $this->box6, 'whole_pounds' => true],
-            ['box' => 7, 'label' => 'Total value of purchases and all other inputs, excluding VAT', 'cents' => $this->box7, 'whole_pounds' => true],
-            ['box' => 8, 'label' => 'Total value of goods supplied to the EU, excluding VAT (Northern Ireland)', 'cents' => $this->box8, 'whole_pounds' => true],
-            ['box' => 9, 'label' => 'Total value of goods acquired from the EU, excluding VAT (Northern Ireland)', 'cents' => $this->box9, 'whole_pounds' => true],
+            ['box' => 1, 'label' => __('VAT due on sales and other outputs'), 'cents' => $this->box1, 'whole_pounds' => false],
+            ['box' => 2, 'label' => __('VAT due on acquisitions of goods from the EU (Northern Ireland)'), 'cents' => $this->box2, 'whole_pounds' => false],
+            ['box' => 3, 'label' => __('Total VAT due (Box 1 + Box 2)'), 'cents' => $this->box3, 'whole_pounds' => false],
+            ['box' => 4, 'label' => __('VAT reclaimed on purchases and other inputs'), 'cents' => $this->box4, 'whole_pounds' => false],
+            ['box' => 5, 'label' => $this->isRepayment() ? __('Net VAT to be reclaimed from HMRC (Box 4 − Box 3)') : __('Net VAT to pay to HMRC (Box 3 − Box 4)'), 'cents' => $this->box5Absolute(), 'whole_pounds' => false],
+            ['box' => 6, 'label' => __('Total value of sales and all other outputs, excluding VAT'), 'cents' => $this->box6, 'whole_pounds' => true],
+            ['box' => 7, 'label' => __('Total value of purchases and all other inputs, excluding VAT'), 'cents' => $this->box7, 'whole_pounds' => true],
+            ['box' => 8, 'label' => __('Total value of goods supplied to the EU, excluding VAT (Northern Ireland)'), 'cents' => $this->box8, 'whole_pounds' => true],
+            ['box' => 9, 'label' => __('Total value of goods acquired from the EU, excluding VAT (Northern Ireland)'), 'cents' => $this->box9, 'whole_pounds' => true],
         ];
     }
 

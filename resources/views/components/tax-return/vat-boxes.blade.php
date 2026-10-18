@@ -15,7 +15,7 @@
                 'contents',
             ])>
                 <dt class="px-4 py-2 font-mono text-muted-foreground sm:border-t sm:border-border">{{ __('Box :n', ['n' => $row['box']]) }}</dt>
-                <dd class="px-4 py-2 sm:border-t sm:border-border @if (in_array($row['box'], [3, 5], true)) font-semibold @endif">{{ __($row['label']) }}</dd>
+                <dd class="px-4 py-2 sm:border-t sm:border-border @if (in_array($row['box'], [3, 5], true)) font-semibold @endif">{{ $row['label'] }}</dd>
                 <dd class="px-4 py-2 text-right font-mono sm:border-t sm:border-border @if (in_array($row['box'], [3, 5], true)) font-semibold @endif" data-test="vat-box-{{ $row['box'] }}-amount">
                     {{ $symbol }}{{ $row['whole_pounds'] ? number_format(intdiv($row['cents'], 100)) : number_format($row['cents'] / 100, 2) }}
                 </dd>

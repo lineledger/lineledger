@@ -171,7 +171,7 @@ new #[Title('VAT Return')] class extends Component {
                     @foreach ($boxes->rows() as $row)
                         <tr @class(['bg-muted/40 font-semibold' => in_array($row['box'], [3, 5], true)]) data-test="vat-box-{{ $row['box'] }}">
                             <td class="px-4 py-2 font-mono">{{ $row['box'] }}</td>
-                            <td class="px-4 py-2">{{ __($row['label']) }}</td>
+                            <td class="px-4 py-2">{{ $row['label'] }}</td>
                             <td class="px-4 py-2 text-right font-mono" data-test="vat-box-{{ $row['box'] }}-amount">
                                 {{ $symbol }}{{ $row['whole_pounds'] ? number_format(intdiv($row['cents'], 100)) : number_format($row['cents'] / 100, 2) }}
                             </td>

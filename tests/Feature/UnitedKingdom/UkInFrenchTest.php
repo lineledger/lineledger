@@ -10,6 +10,7 @@ use App\Models\PaymentMethod;
 use App\Models\TaxAgency;
 use App\Models\TaxCode;
 use App\Services\Reporting\InvoicePdfRenderer;
+use App\Services\Tax\VatReturnBoxes;
 use App\Support\Locales;
 use Carbon\CarbonImmutable;
 
@@ -82,4 +83,14 @@ it('still prints ISO dates on a French invoice from a Canadian organization', fu
         ->toBe('2026-03-04')
         ->and(Locales::using('fr', fn () => Locales::formatDate(CarbonImmutable::parse('2026-03-04'), Country::UnitedKingdom->shortDateFormat())))
         ->toBe('04/03/2026');
+});
+
+it('describes the nine VAT return boxes in French', function () {
+    $boxes = new VatReturnBoxes(2000, 0, 2000, 500, 1500, 10000, 2500, 0, 0);
+
+    $labels = Locales::using('fr', fn () => array_column($boxes->rows(), 'label', 'box'));
+
+    expect($labels[1])->toBe('TVA due sur les ventes et autres opérations taxables')
+        ->and($labels[5])->toBe('TVA nette à payer au HMRC (case 3 − case 4)')
+        ->and(array_column($boxes->rows(), 'label', 'box')[1])->toBe('VAT due on sales and other outputs');
 });
