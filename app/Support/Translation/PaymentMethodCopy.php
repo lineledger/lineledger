@@ -16,13 +16,16 @@ final class PaymentMethodCopy
     {
         return [
             __('ACH'),
+            __('BACS'),
             __('Bank Transfer'),
             __('Cash'),
             __('Check'),
             __('Cheque'),
             __('Credit card'),
+            __('Direct Debit'),
             __('E-transfer'),
             __('EFT'),
+            __('Faster Payments'),
             __('Wire'),
         ];
     }

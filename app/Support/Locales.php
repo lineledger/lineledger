@@ -164,7 +164,9 @@ final class Locales
 
     /**
      * A document date. English keeps each template's own format;
-     * every other locale prints ISO 8601 so dates match across documents.
+     * every other locale prints ISO 8601 so dates match across documents,
+     * except a day-first format (the UK's 04/03/2026), which a French
+     * reader takes the same way and so keeps.
      */
     public static function formatDate(?CarbonInterface $date, string $english = 'n/j/Y'): string
     {
@@ -174,7 +176,11 @@ final class Locales
 
         $immutable = CarbonImmutable::parse($date);
 
-        return App::getLocale() === 'en' ? $immutable->format($english) : $immutable->format('Y-m-d');
+        if (App::getLocale() === 'en' || str_starts_with($english, 'd') || str_starts_with($english, 'j')) {
+            return $immutable->format($english);
+        }
+
+        return $immutable->format('Y-m-d');
     }
 
     /**

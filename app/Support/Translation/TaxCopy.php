@@ -37,6 +37,11 @@ final class TaxCopy
             __('BC Ministry of Finance'),
             __('Saskatchewan Ministry of Finance'),
             __('Manitoba Finance'),
+            __('VAT-R'),
+            __('Standard VAT (20%)'),
+            __('Reduced VAT (5%)'),
+            __('HM Revenue & Customs'),
+            __('Isle of Man Customs and Excise'),
         ];
     }
 }

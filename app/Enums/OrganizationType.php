@@ -26,13 +26,13 @@ enum OrganizationType: string
     {
         if ($country === Country::UnitedKingdom) {
             return match ($this) {
-                self::SoleProprietorship => 'Sole trader',
-                self::Partnership => 'Partnership / LLP',
-                self::Corporation => 'Limited company (Ltd)',
-                self::Club => 'Club / Association',
-                self::NonProfit => 'Non-profit',
-                self::Charity => 'Charity',
-                self::Other => 'Other / None',
+                self::SoleProprietorship => __('Sole trader'),
+                self::Partnership => __('Partnership / LLP'),
+                self::Corporation => __('Limited company (Ltd)'),
+                self::Club => __('Club / Association'),
+                self::NonProfit => __('Non-profit'),
+                self::Charity => __('Charity'),
+                self::Other => __('Other / None'),
             };
         }
 
@@ -51,13 +51,13 @@ enum OrganizationType: string
     {
         if ($country === Country::UnitedKingdom) {
             return match ($this) {
-                self::SoleProprietorship => 'An unincorporated business run by one person (a sole trader).',
-                self::Partnership => 'A general partnership or a limited liability partnership (LLP) owned by two or more members.',
-                self::Corporation => 'A limited company (Ltd or PLC) with one or more shareholders, registered at Companies House.',
-                self::Club => 'An unincorporated club or association funded mainly by member dues.',
-                self::NonProfit => 'A not-for-profit organization.',
-                self::Charity => 'A registered charity.',
-                self::Other => 'Anything else, or not sure yet.',
+                self::SoleProprietorship => __('An unincorporated business run by one person (a sole trader).'),
+                self::Partnership => __('A general partnership or a limited liability partnership (LLP) owned by two or more members.'),
+                self::Corporation => __('A limited company (Ltd or PLC) with one or more shareholders, registered at Companies House.'),
+                self::Club => __('An unincorporated club or association funded mainly by member dues.'),
+                self::NonProfit => __('A not-for-profit organization.'),
+                self::Charity => __('A registered charity.'),
+                self::Other => __('Anything else, or not sure yet.'),
             };
         }
 
@@ -81,13 +81,13 @@ enum OrganizationType: string
     {
         if ($country === Country::UnitedKingdom) {
             return match ($this) {
-                self::SoleProprietorship => 'An unincorporated business owned and run by one person (a sole trader), with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.',
-                self::Partnership => 'Choose this for a traditional partnership or a limited liability partnership (LLP). A general partnership has no separate legal personality; an LLP is a body corporate with members, but both use partners’/members’ capital accounts rather than share capital.',
-                self::Corporation => 'A limited company registered at Companies House — usually a private company limited by shares (Ltd), sometimes a public limited company (PLC). It is separate from its shareholders and generally limits their personal liability. Pick this for Ltd, not for an LLP.',
-                self::Club => 'An unincorporated group of members organized around a shared purpose or activity, funded mainly through member dues rather than commercial sales or profit.',
-                self::NonProfit => 'An organization that operates for a purpose other than generating profit for owners. Any surplus is reinvested into its mission rather than distributed to members.',
-                self::Charity => 'A registered charity, able to issue Gift Aid receipts and subject to Charity Commission requirements.',
-                self::Other => 'Anything else, or not sure yet — you can refine this later in settings.',
+                self::SoleProprietorship => __('An unincorporated business owned and run by one person (a sole trader), with no legal separation between the owner and the business. The owner keeps all profits and is personally responsible for all debts and liabilities.'),
+                self::Partnership => __('Choose this for a traditional partnership or a limited liability partnership (LLP). A general partnership has no separate legal personality; an LLP is a body corporate with members, but both use partners’/members’ capital accounts rather than share capital.'),
+                self::Corporation => __('A limited company registered at Companies House — usually a private company limited by shares (Ltd), sometimes a public limited company (PLC). It is separate from its shareholders and generally limits their personal liability. Pick this for Ltd, not for an LLP.'),
+                self::Club => __('An unincorporated group of members organized around a shared purpose or activity, funded mainly through member dues rather than commercial sales or profit.'),
+                self::NonProfit => __('An organization that operates for a purpose other than generating profit for owners. Any surplus is reinvested into its mission rather than distributed to members.'),
+                self::Charity => __('A charity registered with the Charity Commission or a devolved regulator.'),
+                self::Other => __('Anything else, or not sure yet — you can refine this later in settings.'),
             };
         }
 
