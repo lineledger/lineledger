@@ -22,6 +22,7 @@ use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\Company;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -108,6 +109,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
             EnsureCompanyMembership::class,
+        );
+
+        // Same reason on the customer and employee portals: ResolvePortalCompany
+        // binds `current_company` from the {company} slug, so it must run before
+        // the customer guard (auth:customer) loads the session's Contact and
+        // before route-model binding. Otherwise both resolve with CompanyScope
+        // inactive and a portal session from one organization is accepted on
+        // another's portal. AuthenticatesRequests sorts ahead of
+        // SubstituteBindings, so this places it before both.
+        $middleware->prependToPriorityList(
+            AuthenticatesRequests::class,
+            ResolvePortalCompany::class,
         );
 
         $middleware->encryptCookies(except: [

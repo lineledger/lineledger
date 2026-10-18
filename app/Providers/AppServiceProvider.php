@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\ResolvePortalCompany;
 use App\Listeners\Security\NotifyNewDeviceLogin;
 use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
@@ -29,6 +30,7 @@ use Illuminate\Validation\Rules\Password;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Passport\Passport;
 use Livewire\ComponentHookRegistry;
+use Livewire\Livewire;
 use Stripe\StripeClient;
 
 class AppServiceProvider extends ServiceProvider
@@ -67,6 +69,12 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureRouteBindings();
         $this->configurePassport();
+
+        // Livewire re-runs only "persistent" route middleware on /livewire/update.
+        // The customer guard (Authenticate) is persistent by default, so the
+        // portal company must be too, or a portal component's updates resolve the
+        // session's Contact before the company is bound (see bootstrap/app.php).
+        Livewire::addPersistentMiddleware([ResolvePortalCompany::class]);
 
         Company::observe(CompanyObserver::class);
 
