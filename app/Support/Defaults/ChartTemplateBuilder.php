@@ -270,7 +270,8 @@ class ChartTemplateBuilder
      * proprietor). Rename-in-place only: we never inject equity accounts here, so a
      * minimal chart — which carries no 3100/3200 — stays limited to Opening Balance
      * Equity + Retained Earnings. Corporation terminology follows the jurisdiction
-     * (US "stock", Canada "shares"). "Other" maps to the proprietor model.
+     * (US "stock", Canada "shares", UK "ordinary shares"). "Other" maps to the
+     * proprietor model.
      *
      * @param  list<array{code: string, name: string, subtype: AccountSubtype, is_system: bool, description?: string, locked: bool, default_selected: bool}>  $rows
      * @return list<array{code: string, name: string, subtype: AccountSubtype, is_system: bool, description?: string, locked: bool, default_selected: bool}>
@@ -283,7 +284,11 @@ class ChartTemplateBuilder
                 '3200' => ['Partner Draws', AccountSubtype::Equity],
             ],
             'corporation' => [
-                '3100' => [$jurisdiction === Country::Canada ? 'Common Shares' : 'Common Stock', AccountSubtype::Equity],
+                '3100' => [match ($jurisdiction) {
+                    Country::Canada => 'Common Shares',
+                    Country::UnitedKingdom => 'Ordinary Shares',
+                    Country::UnitedStates => 'Common Stock',
+                }, AccountSubtype::Equity],
                 '3200' => ['Shareholder Distributions', AccountSubtype::Equity],
             ],
             // 'proprietor' — and 'Other', which maps to it.

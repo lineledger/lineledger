@@ -13,7 +13,7 @@ use Livewire\Livewire;
 | Jurisdiction capability matrix — anti-drift lock
 |--------------------------------------------------------------------------
 |
-| This test pins the Canada/US capability classification so it cannot silently
+| This test pins the Canada/US/GB capability classification so it cannot silently
 | drift. The two arrays below are the canonical lists the suite asserts against;
 | the anti-drift case (C) fails if a new JurisdictionCapability is added without
 | being classified here.
@@ -46,6 +46,11 @@ const US_ONLY = [
     JurisdictionCapability::Vendor1099Tracking,
 ];
 
+/** Capabilities that must be false for any CA or US company (UK-locked). */
+const GB_ONLY = [
+    JurisdictionCapability::VatReturn,
+];
+
 /*
 |--------------------------------------------------------------------------
 | A) Resolver matrix — data-driven
@@ -74,6 +79,74 @@ it('blocks every US-only capability for a CA company', function (JurisdictionCap
 
     expect($company->supports($capability))->toBeFalse();
 })->with(US_ONLY);
+
+it('blocks every UK-only capability for CA and US companies', function (JurisdictionCapability $capability, string $country) {
+    $company = Company::factory()->make([
+        'address_country' => $country,
+        'organization_type' => OrganizationType::Corporation->value,
+        'features_payroll' => true,
+    ]);
+
+    expect($company->supports($capability))->toBeFalse();
+})->with(GB_ONLY)->with(['CA', 'US']);
+
+it('grants every UK-only capability to a UK company of any type', function (JurisdictionCapability $capability, OrganizationType $type) {
+    $company = Company::factory()->make([
+        'address_country' => 'GB',
+        'currency_code' => 'GBP',
+        'organization_type' => $type->value,
+    ]);
+
+    expect($company->supports($capability))->toBeTrue();
+})->with(GB_ONLY)->with([OrganizationType::SoleProprietorship, OrganizationType::Partnership, OrganizationType::Corporation, OrganizationType::Other]);
+
+it('blocks every CA-only and US-only capability for a UK company', function (JurisdictionCapability $capability) {
+    // GB mirrors the shared books stack only — no payroll, CRA forms, or 1099.
+    $company = Company::factory()->make([
+        'address_country' => 'GB',
+        'organization_type' => OrganizationType::Corporation->value,
+        'features_payroll' => true,
+    ]);
+
+    expect($company->supports($capability))->toBeFalse();
+})->with([...CA_ONLY, ...US_ONLY]);
+
+it('404s the payroll index for a UK company even with payroll enabled', function () {
+    $gb = Company::factory()->create([
+        'address_country' => 'GB',
+        'currency_code' => 'GBP',
+        'features_payroll' => true,
+    ]);
+    $user = User::factory()->create();
+    $gb->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user)
+        ->get(route('payroll.index', ['company' => $gb->slug]))
+        ->assertNotFound();
+});
+
+it('forbids the VAT return report for Canadian and US companies', function (string $country) {
+    $company = Company::factory()->create(['address_country' => $country]);
+    $user = User::factory()->create();
+    $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user)
+        ->get(route('reports.vat-return', ['company' => $company->slug]))
+        ->assertForbidden();
+})->with(['CA', 'US']);
+
+it('forbids the 1099 report for a UK company', function () {
+    $gb = Company::factory()->create([
+        'address_country' => 'GB',
+        'currency_code' => 'GBP',
+    ]);
+    $user = User::factory()->create();
+    $gb->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user)
+        ->get(route('reports.form-1099', ['company' => $gb->slug]))
+        ->assertForbidden();
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -108,12 +181,12 @@ it('keeps CRA returns entity-specific, not just country-gated', function () {
 |--------------------------------------------------------------------------
 */
 
-it('classifies every capability as CA-only or US-only', function () {
+it('classifies every capability as CA-only, US-only or UK-only', function () {
     // If someone adds a new JurisdictionCapability without listing it in
-    // CA_ONLY or US_ONLY above, this diff is non-empty and the test fails —
+    // CA_ONLY, US_ONLY or GB_ONLY above, this diff is non-empty and the test fails —
     // forcing a deliberate classification decision. Compare on the backing
     // value (enum objects are not string-castable for Collection::diff).
-    $classified = collect([...CA_ONLY, ...US_ONLY])->map->value;
+    $classified = collect([...CA_ONLY, ...US_ONLY, ...GB_ONLY])->map->value;
 
     $unclassified = collect(JurisdictionCapability::cases())
         ->map->value

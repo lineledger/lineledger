@@ -315,7 +315,7 @@ new #[Title('Invoice')] class extends Component {
         $this->invoice->refresh();
         unset($this->reconcilableCents);
 
-        Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => '$'.number_format($closed / 100, 2)]));
+        Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => $this->company->currencySymbol($this->invoice->currency_code).number_format($closed / 100, 2)]));
     }
 
     /**
@@ -595,7 +595,7 @@ new #[Title('Invoice')] class extends Component {
                         <flux:menu.item
                             icon="check-circle"
                             wire:click="reconcile"
-                            wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => '$'.number_format($this->reconcilableCents / 100, 2)]) }}"
+                            wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => $this->company->currencySymbol($this->invoice->currency_code).number_format($this->reconcilableCents / 100, 2)]) }}"
                             data-test="reconcile-invoice-button"
                         >{{ __('Close settled balance') }}</flux:menu.item>
                     @endif

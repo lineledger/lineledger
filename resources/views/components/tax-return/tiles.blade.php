@@ -9,7 +9,7 @@
         <div class="text-2xl font-mono font-semibold" data-test="{{ $testPrefix }}-collected">{{ number_format($collected / 100, 2) }}</div>
     </div>
     <div class="rounded-lg border border-border p-4">
-        <div class="text-xs uppercase text-muted-foreground">{{ __('Paid (ITCs)') }}</div>
+        <div class="text-xs uppercase text-muted-foreground">{{ \App\Enums\Country::current()->paidInputTaxTotalLabel() }}</div>
         <div class="text-2xl font-mono font-semibold" data-test="{{ $testPrefix }}-paid">{{ number_format($paid / 100, 2) }}</div>
     </div>
     <div class="rounded-lg border border-border p-4">

@@ -42,6 +42,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($bill->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $partyLines = collect([
             $bill->contact?->display_name,
             $bill->contact?->billing_line1,
@@ -73,7 +77,7 @@
                         <th>{{ $numberLabel }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($bill->bill_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($bill->bill_date, $dateFormat) }}</td>
                         <td>{{ $bill->bill_no }}</td>
                     </tr>
                 </table>
@@ -101,7 +105,7 @@
                         </tr>
                         <tr>
                             <td>{{ optional($bill->terms)->name ?? '—' }}</td>
-                            <td>{{ \App\Support\Locales::formatDate($bill->due_date) }}</td>
+                            <td>{{ \App\Support\Locales::formatDate($bill->due_date, $dateFormat) }}</td>
                         </tr>
                     </table>
                     @if (filled($bill->vendor_reference))
@@ -159,7 +163,7 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($bill->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($bill->total_cents / 100, 2) }}</td>
         </tr>
         @if ($bill->amount_paid_cents > 0)
             <tr>
@@ -168,15 +172,13 @@
             </tr>
             <tr>
                 <td>{{ __('Balance Due') }}</td>
-                <td class="num">${{ number_format($bill->balanceCents() / 100, 2) }}</td>
+                <td class="num">{{ $currencySymbol }}{{ number_format($bill->balanceCents() / 100, 2) }}</td>
             </tr>
         @endif
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($settings->footer_message))
             <div class="message">{{ $settings->footer_message }}</div>
         @endif

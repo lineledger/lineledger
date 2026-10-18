@@ -152,6 +152,34 @@ it('accepts copy whose dollar amounts match the offered display values', functio
         ->toBe(InsightSource::Ai);
 });
 
+it('rejects copy that invents a pound amount for a sterling company', function () {
+    $candidate = new InsightCandidate(
+        key: 'cash-trend-30d',
+        category: InsightCategory::Fact,
+        score: 50,
+        facts: ['current_cents' => 4820000, 'current_display' => '£48,200', 'pct_change' => 12],
+        headline: 'Cash is up 12% over the last 30 days',
+        body: 'Your bank balances total £48,200.',
+    );
+
+    Http::fake([
+        'api.anthropic.com/*' => Http::sequence()
+            ->push(fakeClaudeToolResponse([
+                'chosen_key' => 'cash-trend-30d',
+                'headline' => 'You are basically rich',
+                'body' => 'Bank balances now total £999,999.',
+            ]))
+            ->push(fakeClaudeToolResponse([
+                'chosen_key' => 'cash-trend-30d',
+                'headline' => 'Cash on hand reached £48,200',
+                'body' => 'That is 12% higher than a month ago.',
+            ])),
+    ]);
+
+    expect(makeClaudeNarrator()->narrate([$candidate], makeNarratorContext())->source)->toBe(InsightSource::Template)
+        ->and(makeClaudeNarrator()->narrate([$candidate], makeNarratorContext())->source)->toBe(InsightSource::Ai);
+});
+
 it('binds the Claude narrator only when the operator enabled and keyed it', function () {
     config(['insights.ai.enabled' => true, 'services.anthropic.key' => 'test-key']);
     expect(app(InsightNarrator::class))->toBeInstanceOf(ClaudeInsightNarrator::class);

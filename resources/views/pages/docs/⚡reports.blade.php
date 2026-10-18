@@ -347,6 +347,11 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
             <a class="underline" href="{{ route('docs.tax-returns') }}" wire:navigate>{{ __('Tax returns') }}</a>{{ __(' for how to file a period, record remittances, and reopen a filing.') }}
         </x-docs.callout>
 
+        <flux:heading size="md" class="mt-6">{{ __('VAT Return (UK only)') }}</flux:heading>
+        <flux:text>
+            {{ __('For UK organizations, the VAT Return report works out the nine boxes of your HMRC VAT return for a quarter — VAT due on sales (Box 1), VAT reclaimed on purchases (Box 4), the net to pay or reclaim (Box 5), and the ex-VAT value of your sales and purchases (Boxes 6 and 7, in whole pounds). Boxes 6 and 7 count every line coded to a VAT rate, including zero-rated and exempt ones; lines with no tax code are treated as outside the scope of VAT. Boxes 2, 8 and 9 only apply to Northern Ireland trade in goods with the EU and show as zero. It opens on your last complete quarter and exports to CSV. A UK tax return shows the same nine boxes and freezes them when you file. The report does not appear for Canadian or US organizations.') }}
+        </flux:text>
+
         <flux:heading size="md" class="mt-6">{{ __('1099 Summary (US only)') }}</flux:heading>
         <flux:text>
             {{ __('For US organizations, the 1099 Summary totals what you paid each vendor you flagged for 1099 tracking over a calendar year — counting posted bill payments, cheques, and pay-now expenses, but not refunds. Vendors under the $600 reporting threshold are hidden by default, with a toggle to show everyone. Amounts report as nonemployee compensation (1099-NEC Box 1). Export to CSV, Excel, or PDF. To use it, flag the vendor and record their Tax ID on the vendor record. The report does not appear for Canadian organizations.') }}

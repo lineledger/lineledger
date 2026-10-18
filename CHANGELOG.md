@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **United Kingdom** — a third jurisdiction (`GB`) beside Canada and the United
+  States. A UK organization starts on pounds sterling, London time and an April
+  fiscal year, with a British chart (Current Account, VAT Payable, Ordinary
+  Shares), HM Revenue & Customs as its VAT agency — Isle of Man Customs and Excise
+  for a Manx company — and Standard 20%, Reduced 5%, Zero-rated and Exempt codes.
+  The wizard and settings speak UK (sole trader, Ltd, LLP; nation; postcode; "Are
+  you VAT-registered?"), check VAT numbers for the GB format and store them
+  `GB`-prefixed, and record a Companies House number that prints beside the
+  "VAT No." on invoices and other forms. Printed forms use the document's own
+  currency symbol and, for UK organizations, day-first dates (04/03/2026).
+  Deploy it at a `.co.uk` / `.uk` host or with `APP_REGION=GB`; `APP_URL_GB` and
+  `MARKETING_URL_GB` join the country switcher once set — both default to empty,
+  so existing deployments show no UK link until the UK twin is live.
+- **VAT Return (UK)** — a report that works out the nine boxes of an HMRC VAT
+  return for a quarter from the books: VAT on sales and purchases (agreeing to the
+  penny with the tax return for the same period, exclusions and adjustments
+  included) and the ex-VAT value of sales and purchases coded to a VAT rate, in
+  whole pounds; a void lands in the quarter of its reversing entry, as it does in
+  the ledger. A UK tax return shows the same boxes and freezes them when filed.
+  LineLedger does not submit the return — copy the boxes into Making Tax
+  Digital software to file.
+- **Insights** — the check that keeps AI-written insight copy to the amounts it
+  was given now covers every currency symbol (£, €, …), not only `$`.
 - **Branding from the environment** — a self-hosted instance replaces the mark on
   the sign-in, registration and onboarding screens with `BRAND_LOGO` (and, for a
   separate dark-theme variant, `BRAND_LOGO_DARK`), and names its own operating

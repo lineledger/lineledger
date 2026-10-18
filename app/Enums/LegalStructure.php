@@ -83,11 +83,13 @@ enum LegalStructure: string
     /**
      * Whether this tier is selectable for the given jurisdiction. A registered
      * charity is a Canada Revenue Agency concept (official donation receipts, the
-     * T3010), so it is hidden for the United States.
+     * T3010), so it is hidden outside Canada.
      */
     public function availableIn(?Country $country): bool
     {
-        return ! ($this === self::RegisteredCharity && $country === Country::UnitedStates);
+        return $this !== self::RegisteredCharity
+            || $country === null
+            || $country === Country::Canada;
     }
 
     /**

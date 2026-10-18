@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\Legal\LegalDocuments;
 
 test('the logo falls back to the project mark, in one theme-agnostic image', function () {
     $response = $this->get(route('login'));
@@ -74,19 +75,22 @@ test('the country switcher shows on the sibling deployments', function () {
     config(['app.app_urls' => [
         'CA' => 'https://books.lineledger.ca',
         'US' => 'https://books.lineledger.com',
+        'GB' => 'https://books.lineledger.co.uk',
     ]]);
 
     $this->get('https://books.lineledger.ca/login')
         ->assertOk()
         ->assertSee('geoBanner(', false)
         // @js() escapes the slashes, so match the host rather than the URL.
-        ->assertSee('books.lineledger.com', false);
+        ->assertSee('books.lineledger.com', false)
+        ->assertSee('books.lineledger.co.uk', false);
 });
 
 test('the country switcher stays off a self-hosted domain', function () {
     config(['app.app_urls' => [
         'CA' => 'https://books.lineledger.ca',
         'US' => 'https://books.lineledger.com',
+        'GB' => 'https://books.lineledger.co.uk',
     ]]);
 
     $this->get('https://ledger.example.test/login')
@@ -100,10 +104,37 @@ test('an explicit region does not bring the country switcher back', function () 
         'app.app_urls' => [
             'CA' => 'https://books.lineledger.ca',
             'US' => 'https://books.lineledger.com',
+            'GB' => 'https://books.lineledger.co.uk',
         ],
     ]);
 
     $this->get('https://ledger.example.test/login')
         ->assertOk()
         ->assertDontSee('geoBanner(', false);
+});
+
+test('the country switcher leaves out a twin that is not live yet', function () {
+    config(['app.app_urls' => [
+        'CA' => 'https://books.lineledger.ca',
+        'US' => 'https://books.lineledger.com',
+        'GB' => '',
+    ]]);
+
+    $this->get('https://books.lineledger.ca/login')
+        ->assertOk()
+        ->assertSee('United States', false)
+        ->assertDontSee('United Kingdom', false);
+});
+
+test('a region without a live marketing site links its legal pages to the US site', function () {
+    config([
+        'app.region' => 'GB',
+        'app.marketing_urls' => [
+            'CA' => 'https://lineledger.ca',
+            'US' => 'https://lineledger.com',
+            'GB' => '',
+        ],
+    ]);
+
+    expect(app(LegalDocuments::class)->marketingBaseUrl())->toBe('https://lineledger.com');
 });

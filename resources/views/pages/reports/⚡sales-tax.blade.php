@@ -148,7 +148,7 @@ new #[Title('Sales Tax')] class extends Component {
 
         return app(CsvExporter::class)->stream(
             "sales-tax-{$this->startDate}-{$this->endDate}.csv",
-            ['Agency', 'Payable account', 'Collected on sales', 'Paid (ITC)', 'Net owing'],
+            ['Agency', 'Payable account', 'Collected on sales', 'Paid ('.$this->company->jurisdiction->inputTaxLabel().')', 'Net owing'],
             $rows,
         );
     }
@@ -225,7 +225,7 @@ new #[Title('Sales Tax')] class extends Component {
         }
 
         $bucketSlug = $drill['bucket'];
-        $bucketLabel = $bucketSlug === 'paid' ? 'Paid (ITC)' : 'Collected on sales';
+        $bucketLabel = $bucketSlug === 'paid' ? 'Paid ('.$this->company->jurisdiction->inputTaxLabel().')' : 'Collected on sales';
 
         return app(PdfExporter::class)->download('pdf.reports.sales-tax-detail', [
             'company' => $this->company,
@@ -242,7 +242,7 @@ new #[Title('Sales Tax')] class extends Component {
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
             <flux:heading size="xl" level="1">{{ __('Sales Tax') }}</flux:heading>
-            <flux:subheading>{{ __('Per-agency tax collected on sales vs. input tax credits claimed on purchases.') }}</flux:subheading>
+            <flux:subheading>{{ $company->jurisdiction === \App\Enums\Country::UnitedKingdom ? __('Per-agency VAT charged on sales vs. input VAT reclaimed on purchases.') : __('Per-agency tax collected on sales vs. input tax credits claimed on purchases.') }}</flux:subheading>
         </div>
         <div class="flex flex-wrap items-end gap-2">
             <flux:input type="date" wire:model.live="startDate" :label="__('Start')" class="max-w-[180px]" />
@@ -265,7 +265,7 @@ new #[Title('Sales Tax')] class extends Component {
                     <th class="px-4 py-2 text-left">{{ __('Agency') }}</th>
                     <th class="px-4 py-2 text-left">{{ __('Payable account') }}</th>
                     <th class="px-4 py-2 text-right">{{ __('Collected on sales') }}</th>
-                    <th class="px-4 py-2 text-right">{{ __('Paid (ITC)') }}</th>
+                    <th class="px-4 py-2 text-right">{{ $company->jurisdiction->paidInputTaxLabel() }}</th>
                     <th class="px-4 py-2 text-right">{{ __('Net owing') }}</th>
                 </tr>
             </thead>
@@ -326,7 +326,7 @@ new #[Title('Sales Tax')] class extends Component {
             <div>
                 <flux:heading size="lg">
                     @if ($drill['bucket'] === 'paid')
-                        {{ __('Paid (ITC) breakdown') }}
+                        {{ $company->jurisdiction->paidInputTaxBreakdownLabel() }}
                     @else
                         {{ __('Collected on sales breakdown') }}
                     @endif

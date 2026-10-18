@@ -37,6 +37,8 @@ final class OverdueReceivablesDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         // Cheap gate first: one indexed count over open invoices decides
         // whether the (heavier) aging build is worth running at all.
         $invoiceCount = $this->overdueInvoices($company, $today)->count();

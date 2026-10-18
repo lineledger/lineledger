@@ -69,6 +69,9 @@ final class JurisdictionProfile
             JurisdictionCapability::VendorT4ATracking,
             JurisdictionCapability::CraTaxFiling,
             JurisdictionCapability::CanadianCapitalCostAllowance => $this->company->jurisdiction === Country::Canada,
+
+            // pure country — United Kingdom
+            JurisdictionCapability::VatReturn => $this->company->jurisdiction === Country::UnitedKingdom,
         };
     }
 }

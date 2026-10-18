@@ -529,10 +529,15 @@ test('the country and base currency prefill from the Cloudflare country header',
         ->test('pages::welcome.setup-wizard')
         ->assertSet('country', 'US')
         ->assertSet('currency', 'USD');
+
+    Livewire::withHeaders(['CF-IPCountry' => 'GB'])
+        ->test('pages::welcome.setup-wizard')
+        ->assertSet('country', 'GB')
+        ->assertSet('currency', 'GBP');
 });
 
 test('an unsupported or missing country header leaves country and currency blank', function () {
-    Livewire::withHeaders(['CF-IPCountry' => 'GB'])
+    Livewire::withHeaders(['CF-IPCountry' => 'AU'])
         ->test('pages::welcome.setup-wizard')
         ->assertSet('country', '')
         ->assertSet('currency', '');

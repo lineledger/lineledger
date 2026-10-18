@@ -235,11 +235,12 @@ final class StatementColumns
 
     /**
      * One formatted cell of a statement row — the single formatter the preview
-     * and the PDF share. Dates print n/j/Y, money as a plain 2-decimal amount.
+     * and the PDF share. Dates print in the given short format (n/j/Y unless the
+     * company's jurisdiction writes day first), money as a plain 2-decimal amount.
      *
      * @param  array<string, mixed>  $row
      */
-    public static function cell(string $key, array $row): string
+    public static function cell(string $key, array $row, string $dateFormat = 'n/j/Y'): string
     {
         $definition = self::definition($key);
 
@@ -250,7 +251,7 @@ final class StatementColumns
         $value = $row[$definition['field']] ?? null;
 
         return match ($definition['format']) {
-            'date' => is_string($value) && $value !== '' ? Locales::formatDate(CarbonImmutable::parse($value)) : '—',
+            'date' => is_string($value) && $value !== '' ? Locales::formatDate(CarbonImmutable::parse($value), $dateFormat) : '—',
             'money' => self::money((int) $value),
             'money_or_blank' => (int) $value !== 0 ? self::money((int) $value) : '',
             'days' => (int) $value > 0 ? (string) (int) $value : '',

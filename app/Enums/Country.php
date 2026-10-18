@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use App\Models\Company;
 use App\Support\Defaults\AmericanDefaults;
+use App\Support\Defaults\BritishDefaults;
 use App\Support\Defaults\CanadianDefaults;
 use App\Support\Defaults\CompanyDefaults;
 
@@ -20,12 +21,14 @@ enum Country: string
 {
     case Canada = 'CA';
     case UnitedStates = 'US';
+    case UnitedKingdom = 'GB';
 
     public function label(): string
     {
         return match ($this) {
             self::Canada => 'Canada',
             self::UnitedStates => 'United States',
+            self::UnitedKingdom => 'United Kingdom',
         };
     }
 
@@ -37,19 +40,28 @@ enum Country: string
         return match ($this) {
             self::Canada => '🇨🇦',
             self::UnitedStates => '🇺🇸',
+            self::UnitedKingdom => '🇬🇧',
         };
     }
 
     /**
      * Resolve the deployment's country from its request host: a `.ca` apex maps
-     * to Canada, anything else (`.com`, `localhost`, …) to the United States.
-     * Used to tailor the guest country-switcher banner to the site being viewed.
+     * to Canada, a `.uk` apex (including `.co.uk`) to the United Kingdom, and
+     * anything else (`.com`, `localhost`, …) to the United States.
      */
     public static function fromHost(?string $host): self
     {
         $host = mb_strtolower(trim((string) $host));
 
-        return str_ends_with($host, '.ca') ? self::Canada : self::UnitedStates;
+        if (str_ends_with($host, '.ca')) {
+            return self::Canada;
+        }
+
+        if (str_ends_with($host, '.uk')) {
+            return self::UnitedKingdom;
+        }
+
+        return self::UnitedStates;
     }
 
     public function defaultCurrencyCode(): string
@@ -57,6 +69,7 @@ enum Country: string
         return match ($this) {
             self::Canada => 'CAD',
             self::UnitedStates => 'USD',
+            self::UnitedKingdom => 'GBP',
         };
     }
 
@@ -96,6 +109,7 @@ enum Country: string
                 'HI' => 'Pacific/Honolulu',
                 default => 'America/New_York',
             },
+            self::UnitedKingdom => 'Europe/London',
         };
     }
 
@@ -138,6 +152,13 @@ enum Country: string
                 'America/Boise' => 'ID',
                 default => null,
             },
+            // Europe/London covers all four nations — do not guess. The Isle of
+            // Man has its own zone id, and some systems still report Belfast's.
+            self::UnitedKingdom => match ($tz) {
+                'Europe/Isle_of_Man' => 'IM',
+                'Europe/Belfast' => 'NIR',
+                default => null,
+            },
         };
 
         // Never return a code we don't actually offer as a selectable option.
@@ -149,6 +170,7 @@ enum Country: string
         return match ($this) {
             self::Canada => __('Province'),
             self::UnitedStates => __('State'),
+            self::UnitedKingdom => __('Nation'),
         };
     }
 
@@ -157,6 +179,7 @@ enum Country: string
         return match ($this) {
             self::Canada => __('Postal Code'),
             self::UnitedStates => __('ZIP Code'),
+            self::UnitedKingdom => __('Postcode'),
         };
     }
 
@@ -165,6 +188,245 @@ enum Country: string
         return match ($this) {
             self::Canada => __('GST/HST'),
             self::UnitedStates => __('Sales Tax'),
+            self::UnitedKingdom => __('VAT'),
+        };
+    }
+
+    /**
+     * Form label for the company's own sales-tax registration number — the
+     * number stored on {@see Company::$tax_number} and on the default agency.
+     */
+    public function taxNumberLabel(): string
+    {
+        return match ($this) {
+            self::Canada => __('GST/HST account number'),
+            self::UnitedStates => __('Sales tax account number'),
+            self::UnitedKingdom => __('VAT registration number'),
+        };
+    }
+
+    /**
+     * Short name for tax paid on purchases that a return claims back: an
+     * input tax credit (ITC) in Canada — the term the app has always used, so
+     * the US keeps it too — and input VAT in the UK. Untranslated: it heads
+     * CSV/XLSX exports and report PDFs, which stay English. On screen, use the
+     * translated labels below.
+     */
+    public function inputTaxLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 'ITC',
+            self::UnitedKingdom => 'Input VAT',
+        };
+    }
+
+    /**
+     * Column heading for the tax paid on purchases ("Paid (ITC)").
+     */
+    public function paidInputTaxLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => __('Paid (ITC)'),
+            self::UnitedKingdom => __('Paid (Input VAT)'),
+        };
+    }
+
+    /**
+     * Heading for the line-by-line breakdown behind {@see paidInputTaxLabel()}.
+     */
+    public function paidInputTaxBreakdownLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => __('Paid (ITC) breakdown'),
+            self::UnitedKingdom => __('Paid (Input VAT) breakdown'),
+        };
+    }
+
+    /**
+     * Tile heading for the tax paid on purchases on a tax return ("Paid (ITCs)").
+     */
+    public function paidInputTaxTotalLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => __('Paid (ITCs)'),
+            self::UnitedKingdom => __('Paid (Input VAT)'),
+        };
+    }
+
+    /**
+     * Row label for the claimed input tax in a return's reconciliation.
+     */
+    public function inputTaxTotalLabel(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => __('ITCs'),
+            self::UnitedKingdom => __('Input VAT'),
+        };
+    }
+
+    /**
+     * The jurisdiction of the company bound to the current request, or Canada
+     * outside one (console, queued jobs) — the app's historical wording.
+     */
+    public static function current(): self
+    {
+        $company = app()->bound('current_company') ? app('current_company') : null;
+
+        return $company instanceof Company ? $company->jurisdiction : self::Canada;
+    }
+
+    /**
+     * Normalize a sales-tax registration number as typed (spaces, dashes and
+     * case) into the stored form. UK VAT numbers are kept with their "GB"
+     * prefix; other jurisdictions are only trimmed, so existing data is
+     * untouched.
+     */
+    public function normalizeTaxNumber(?string $number): ?string
+    {
+        $number = trim((string) $number);
+
+        if ($number === '') {
+            return null;
+        }
+
+        if ($this !== self::UnitedKingdom) {
+            return $number;
+        }
+
+        $compact = mb_strtoupper((string) preg_replace('/[\s.\-]+/', '', $number));
+
+        // A bare 9- or 12-digit number gets the GB prefix it is always quoted with.
+        return preg_match('/^\d{9}(\d{3})?$/', $compact) === 1 ? 'GB'.$compact : $compact;
+    }
+
+    /**
+     * Whether a (normalized) registration number has a valid shape for this
+     * jurisdiction. Only the United Kingdom is checked: a VAT number is "GB"
+     * plus 9 digits (or 12 for a branch/group member), or "GBGD"/"GBHA" plus
+     * 3 digits for government departments and health authorities. Isle of Man
+     * businesses are on the same register and use the same GB format.
+     * Northern Ireland traders quoting an "XI" number are accepted too.
+     */
+    public function isValidTaxNumber(?string $number): bool
+    {
+        if ($this !== self::UnitedKingdom) {
+            return true;
+        }
+
+        $number = $this->normalizeTaxNumber($number);
+
+        if ($number === null) {
+            return true;
+        }
+
+        return preg_match('/^(GB|XI)(\d{9}|\d{12}|GD\d{3}|HA\d{3})$/', $number) === 1;
+    }
+
+    /**
+     * Short numeric date format printed on customer and vendor documents
+     * (invoices, bills, statements). North America writes month first; the
+     * UK writes day first, so 03/04/2026 is 3 April there.
+     */
+    public function shortDateFormat(): string
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 'n/j/Y',
+            self::UnitedKingdom => 'd/m/Y',
+        };
+    }
+
+    /**
+     * The fiscal-year start month a new company is given unless the owner
+     * picks one. Canadian and US businesses mostly run calendar years; UK
+     * sole traders and partnerships are taxed on the 6 April tax year, which
+     * HMRC lets them align to an April–March year.
+     */
+    public function defaultFiscalYearStartMonth(): int
+    {
+        return match ($this) {
+            self::Canada, self::UnitedStates => 1,
+            self::UnitedKingdom => 4,
+        };
+    }
+
+    /**
+     * Name of the authority that administers sales tax for a region of this
+     * country, when it differs from the national default the jurisdiction's
+     * {@see CompanyDefaults::taxAgencies()} seeds. The Isle of Man is inside
+     * the UK VAT area but its VAT is administered by its own Customs and
+     * Excise Division rather than HMRC.
+     */
+    public function taxAgencyNameForRegion(?string $regionCode): ?string
+    {
+        return match (true) {
+            $this === self::UnitedKingdom && mb_strtoupper((string) $regionCode) === 'IM' => 'Isle of Man Customs and Excise',
+            default => null,
+        };
+    }
+
+    /**
+     * Label for the corporate registry number field (e.g. Companies House), or
+     * null when this jurisdiction does not collect one on company setup.
+     */
+    public function companyRegistrationNumberLabel(): ?string
+    {
+        return match ($this) {
+            self::UnitedKingdom => __('Company number'),
+            default => null,
+        };
+    }
+
+    /**
+     * Whether a company of this organization type typically has a corporate
+     * registry number in this jurisdiction (UK Ltd/PLC and LLP do; sole traders
+     * do not).
+     */
+    public function usesCompanyRegistrationNumber(?OrganizationType $organizationType): bool
+    {
+        if ($this->companyRegistrationNumberLabel() === null || $organizationType === null) {
+            return false;
+        }
+
+        return match ($this) {
+            self::UnitedKingdom => in_array($organizationType, [
+                OrganizationType::Corporation,
+                OrganizationType::Partnership,
+            ], true),
+            default => false,
+        };
+    }
+
+    /**
+     * Normalize a corporate registry number as typed: spaces removed and
+     * upper-cased. A purely numeric UK number is left-padded to the eight
+     * digits Companies House always shows (1234567 → 01234567); prefixed ones
+     * (SC…, NI…, OC… for LLPs) and Isle of Man numbers (e.g. 123456C) are
+     * kept as entered.
+     */
+    public function normalizeCompanyRegistrationNumber(?string $number): ?string
+    {
+        $compact = mb_strtoupper((string) preg_replace('/\s+/', '', (string) $number));
+
+        if ($compact === '') {
+            return null;
+        }
+
+        if ($this === self::UnitedKingdom && preg_match('/^\d{1,7}$/', $compact) === 1) {
+            return str_pad($compact, 8, '0', STR_PAD_LEFT);
+        }
+
+        return $compact;
+    }
+
+    /**
+     * Short label printed on invoices/PDFs next to {@see Company::$tax_number}.
+     */
+    public function taxNumberDocumentLabel(): string
+    {
+        return match ($this) {
+            self::Canada => __('GST/HST No.'),
+            self::UnitedStates => __('Tax No.'),
+            self::UnitedKingdom => __('VAT No.'),
         };
     }
 
@@ -204,6 +466,13 @@ enum Country: string
                 'UT' => 'Utah', 'VT' => 'Vermont', 'VA' => 'Virginia', 'WA' => 'Washington',
                 'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming',
             ],
+            self::UnitedKingdom => [
+                'ENG' => 'England',
+                'SCT' => 'Scotland',
+                'WLS' => 'Wales',
+                'NIR' => 'Northern Ireland',
+                'IM' => 'Isle of Man',
+            ],
         };
     }
 
@@ -214,7 +483,7 @@ enum Country: string
     public function cheque(string $form = 'singular'): string
     {
         $singular = match ($this) {
-            self::Canada => 'Cheque',
+            self::Canada, self::UnitedKingdom => 'Cheque',
             self::UnitedStates => 'Check',
         };
 
@@ -238,7 +507,6 @@ enum Country: string
         $singular = $this->cheque('singular');
         $plural = $this->cheque('plural');
         $lower = mb_strtolower($singular);
-        $lowerPlural = mb_strtolower($plural);
 
         return match ($key) {
             'number' => $singular.' #',
@@ -249,7 +517,7 @@ enum Country: string
             'ref' => $singular.' # or txn ref',
             'section' => $plural.' and Payments',
             'checkbook' => match ($this) {
-                self::Canada => 'Chequebook view',
+                self::Canada, self::UnitedKingdom => 'Chequebook view',
                 self::UnitedStates => 'Checkbook view',
             },
             'method' => $singular.' method',
@@ -264,12 +532,13 @@ enum Country: string
         return match ($this) {
             self::Canada => new CanadianDefaults,
             self::UnitedStates => new AmericanDefaults,
+            self::UnitedKingdom => new BritishDefaults,
         };
     }
 
     /**
      * Country cases offered as form options, in declaration order
-     * (Canada, United States).
+     * (Canada, United States, United Kingdom).
      *
      * @return array<array{value: string, label: string}>
      */

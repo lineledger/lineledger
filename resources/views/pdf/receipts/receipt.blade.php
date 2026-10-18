@@ -35,6 +35,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($receipt->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $receivedFromLines = collect([
             $receipt->contact?->display_name,
             $receipt->contact?->billing_line1,
@@ -61,7 +65,7 @@
                         <th>{{ __('Receipt #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($receipt->receipt_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($receipt->receipt_date, $dateFormat) }}</td>
                         <td>{{ $receipt->receipt_no }}</td>
                     </tr>
                 </table>
@@ -103,7 +107,7 @@
                 @foreach ($receipt->applications as $app)
                     <tr>
                         <td>{{ optional($app->invoice)->invoice_no }}</td>
-                        <td>{{ \App\Support\Locales::formatDate($app->invoice?->invoice_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($app->invoice?->invoice_date, $dateFormat) }}</td>
                         <td class="num">{{ number_format($app->amount_cents / 100, 2) }}</td>
                     </tr>
                 @endforeach
@@ -114,14 +118,12 @@
     <table class="totals">
         <tr class="grand">
             <td>{{ __('Amount Received') }}</td>
-            <td class="num">${{ number_format($receipt->amount_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($receipt->amount_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @php
             $provincialTaxNumber = $company->provincialTaxNumber();
             $provincialTaxLabel = $company->provincialTaxLabel();

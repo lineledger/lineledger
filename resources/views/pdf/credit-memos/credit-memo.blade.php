@@ -36,6 +36,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($creditMemo->currency_code ?: $company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $creditMemo->contact?->display_name,
             $creditMemo->contact?->billing_line1,
@@ -74,7 +78,7 @@
                         <th>{{ __('Credit Memo #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($creditMemo->credit_memo_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($creditMemo->credit_memo_date, $dateFormat) }}</td>
                         <td>{{ $creditMemo->credit_memo_no }}</td>
                     </tr>
                 </table>
@@ -138,7 +142,7 @@
                     <td>
                         {{ $line->description }}
                         @if ($settings->show_service_date_column && $line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date) }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date, $dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
@@ -169,14 +173,12 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total Credit') }}</td>
-            <td class="num">${{ number_format($creditMemo->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($creditMemo->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @php
             $provincialTaxNumber = $company->provincialTaxNumber();
             $provincialTaxLabel = $company->provincialTaxLabel();

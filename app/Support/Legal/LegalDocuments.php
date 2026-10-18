@@ -137,8 +137,10 @@ class LegalDocuments
         $region = Country::tryFrom(mb_strtoupper((string) config('app.region')))
             ?? Country::fromHost(request()->getHost());
 
-        $urls = config('app.marketing_urls', []);
+        // A region whose marketing site isn't live yet (an empty URL) borrows
+        // the US one — what its hosts resolved to before it had a region.
+        $urls = array_filter(config('app.marketing_urls', []), fn ($url): bool => filled($url));
 
-        return $urls[$region->value] ?? $urls[Country::Canada->value] ?? 'https://lineledger.ca';
+        return $urls[$region->value] ?? $urls[Country::UnitedStates->value] ?? $urls[Country::Canada->value] ?? 'https://lineledger.ca';
     }
 }

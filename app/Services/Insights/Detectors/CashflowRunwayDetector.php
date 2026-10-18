@@ -38,6 +38,8 @@ final class CashflowRunwayDetector implements InsightDetector
      */
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $forecast = $this->forecaster->forecast($company, 'week', 13, 0, $today);
 
         if (! $forecast['breaches_floor'] || $forecast['first_breach_date'] === null) {

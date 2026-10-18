@@ -729,7 +729,7 @@ new #[Title('Receive payment')] class extends Component {
 
                 @if ($this->unappliedCents() > 0)
                     <flux:text class="mt-2 text-sm text-amber-700 dark:text-amber-400" data-test="receipt-unapplied-note">
-                        {{ __(':amount of this payment isn\'t applied to an invoice and will sit as an on-account credit for the customer. Increase an Apply amount, or lower the receipt Amount, to clear it.', ['amount' => '$'.number_format($this->unappliedCents() / 100, 2)]) }}
+                        {{ __(':amount of this payment isn\'t applied to an invoice and will sit as an on-account credit for the customer. Increase an Apply amount, or lower the receipt Amount, to clear it.', ['amount' => $this->company->currencySymbol().number_format($this->unappliedCents() / 100, 2)]) }}
                     </flux:text>
                 @endif
 

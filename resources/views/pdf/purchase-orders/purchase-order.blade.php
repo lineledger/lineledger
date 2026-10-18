@@ -36,6 +36,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $vendorLines = collect([
             $purchaseOrder->contact?->display_name,
             $purchaseOrder->contact?->billing_line1,
@@ -68,7 +72,7 @@
                         <th>{{ __('PO #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($purchaseOrder->po_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($purchaseOrder->po_date, $dateFormat) }}</td>
                         <td>{{ $purchaseOrder->po_no }}</td>
                     </tr>
                 </table>
@@ -105,7 +109,7 @@
         </tr>
         <tr>
             <td>{{ optional($purchaseOrder->terms)->name ?? '—' }}</td>
-            <td>{{ \App\Support\Locales::formatDate($purchaseOrder->expected_date) }}</td>
+            <td>{{ \App\Support\Locales::formatDate($purchaseOrder->expected_date, $dateFormat) }}</td>
         </tr>
     </table>
 
@@ -158,14 +162,12 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($purchaseOrder->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($purchaseOrder->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('Tax No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @if (filled($purchaseOrder->vendor_message))
             <div class="message">{{ $purchaseOrder->vendor_message }}</div>
         @endif

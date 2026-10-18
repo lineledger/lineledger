@@ -107,7 +107,13 @@ new #[Title('Invoice settings')] class extends Component {
             'showTaxColumn' => ['boolean'],
             'showServiceDateColumn' => ['boolean'],
             'hideZeroQtyLines' => ['boolean'],
-            'taxNumber' => ['nullable', 'string', 'max:50'],
+            'taxNumber' => ['nullable', 'string', 'max:50', function (string $attribute, mixed $value, \Closure $fail): void {
+                $country = $this->company->jurisdiction;
+
+                if (! $country->isValidTaxNumber((string) $value)) {
+                    $fail(__('Enter a valid :label, e.g. GB123456789.', ['label' => $country->taxNumberLabel()]));
+                }
+            }],
             'provincialTaxNumber' => ['nullable', 'string', 'max:50'],
             'footerMessage' => ['nullable', 'string', 'max:1000'],
             'emailFromAddress' => ['nullable', 'email', 'max:255'],
@@ -117,7 +123,7 @@ new #[Title('Invoice settings')] class extends Component {
         ]);
 
         DB::transaction(function () use ($validated) {
-            $federalNumber = filled($validated['taxNumber']) ? trim($validated['taxNumber']) : null;
+            $federalNumber = $this->company->jurisdiction->normalizeTaxNumber($validated['taxNumber'] ?? null);
 
             // The CRA agency's registration number is edited under Lists → Tax codes;
             // this screen only owns the number printed on the invoice footer.
@@ -249,7 +255,13 @@ new #[Title('Invoice settings')] class extends Component {
                     <flux:subheading>{{ __('Shown at the bottom of the invoice.') }}</flux:subheading>
                 </div>
 
-                <flux:input wire:model="taxNumber" :label="__('Tax / GST/HST registration number')" maxlength="50" :description="__('Printed as “GST/HST No.” on the invoice footer.')" data-test="invoice-tax-number" />
+                <flux:input
+                    wire:model="taxNumber"
+                    :label="__('Tax / :tax registration number', ['tax' => $company->jurisdiction->taxLabel()])"
+                    maxlength="50"
+                    :description="__('Printed as “:label” on the invoice footer.', ['label' => $company->jurisdiction->taxNumberDocumentLabel()])"
+                    data-test="invoice-tax-number"
+                />
                 @if ($pst = $this->company->provincialSalesTax())
                     <flux:input
                         wire:model="provincialTaxNumber"

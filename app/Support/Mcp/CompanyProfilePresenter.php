@@ -2,6 +2,7 @@
 
 namespace App\Support\Mcp;
 
+use App\Enums\JurisdictionCapability;
 use App\Mcp\Resources\CompanyProfileResource;
 use App\Mcp\Tools\CompanyProfileTool;
 use App\Models\Company;
@@ -62,7 +63,7 @@ class CompanyProfilePresenter
             $lines[] = "  Legal name: {$company->legal_name}";
         }
 
-        $lines[] = '  Organization type: '.($company->organization_type?->label() ?? 'Not specified');
+        $lines[] = '  Organization type: '.($company->organization_type?->label($company->jurisdiction) ?? 'Not specified');
         $lines[] = '  Legal structure: '.($company->resolvedLegalStructure()?->label() ?? '—');
         $lines[] = '  Industry: '.($company->industry?->label() ?? '—');
 
@@ -98,6 +99,9 @@ class CompanyProfilePresenter
         $lines[] = '';
         $lines[] = 'Tax & filing';
         $lines[] = '  Tax/registration number: '.($company->tax_number ?: '—');
+        if (filled($company->company_registration_number) && ($label = $company->jurisdiction->companyRegistrationNumberLabel()) !== null) {
+            $lines[] = "  {$label}: {$company->company_registration_number}";
+        }
         if (filled($company->charity_registration_number)) {
             $lines[] = "  Charity registration number: {$company->charity_registration_number}";
         }
@@ -123,7 +127,13 @@ class CompanyProfilePresenter
         $forms = $profile->forms();
 
         if ($forms === []) {
-            return ['  CRA filing: none (non-Canadian, or an organization type with no CRA return).'];
+            $lines = ['  CRA filing: none (non-Canadian, or an organization type with no CRA return).'];
+
+            if ($company->supports(JurisdictionCapability::VatReturn)) {
+                $lines[] = '  VAT: quarterly nine-box VAT return (VAT Return report); filed outside LineLedger through Making Tax Digital software.';
+            }
+
+            return $lines;
         }
 
         $lines = ['  CRA filing profile:'];

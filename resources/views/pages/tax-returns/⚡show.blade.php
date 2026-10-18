@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\JurisdictionCapability;
 use App\Enums\TaxReturnPaymentStatus;
 use App\Enums\TaxReturnStatus;
 use App\Livewire\Attributes\GuardsEditLock;
@@ -12,6 +13,9 @@ use App\Models\TaxReturn;
 use App\Services\Tax\TaxReturnCalculator;
 use App\Services\Tax\TaxReturnFigures;
 use App\Services\Tax\TaxReturnFiler;
+use App\Services\Tax\VatReturnBoxes;
+use App\Services\Tax\VatReturnCalculator;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
@@ -51,6 +55,29 @@ new #[Title('Tax return')] class extends Component {
         return $this->taxReturn->status === TaxReturnStatus::Draft
             ? app(TaxReturnCalculator::class)->forReturn($this->taxReturn)
             : null;
+    }
+
+    /**
+     * The HMRC nine boxes for a UK company's return — live for a draft, as
+     * frozen at filing otherwise. Null outside the UK.
+     */
+    #[Computed]
+    public function vatBoxes(): ?VatReturnBoxes
+    {
+        if (! $this->company->supports(JurisdictionCapability::VatReturn)) {
+            return null;
+        }
+
+        $calculator = app(VatReturnCalculator::class);
+
+        return $this->draftFigures
+            ? $calculator->fromFigures(
+                $this->draftFigures,
+                $this->taxReturn->taxAgency,
+                CarbonImmutable::parse($this->taxReturn->period_start),
+                CarbonImmutable::parse($this->taxReturn->period_end),
+            )
+            : $calculator->forReturn($this->taxReturn);
     }
 
     /**
@@ -96,7 +123,7 @@ new #[Title('Tax return')] class extends Component {
 
         Flux::toast(variant: 'success', text: __('Tax return filed.'));
         $this->taxReturn = $filed->load(self::RELATIONS);
-        unset($this->draftFigures);
+        unset($this->draftFigures, $this->vatBoxes);
     }
 
     #[GuardsEditLock]
@@ -221,6 +248,14 @@ new #[Title('Tax return')] class extends Component {
         :net="$draft?->netCents ?? $taxReturn->net_cents"
         test-prefix="tax-return"
     />
+
+    @if ($this->vatBoxes)
+        <x-tax-return.vat-boxes
+            :boxes="$this->vatBoxes"
+            :symbol="$company->currencySymbol()"
+            :filed="$taxReturn->status !== TaxReturnStatus::Draft"
+        />
+    @endif
 
     @if ($taxReturn->status === TaxReturnStatus::Void)
         <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950">

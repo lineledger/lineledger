@@ -36,6 +36,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $estimate->contact?->display_name,
             $estimate->contact?->billing_line1,
@@ -68,7 +72,7 @@
                         <th>{{ __('Estimate #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($estimate->estimate_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($estimate->estimate_date, $dateFormat) }}</td>
                         <td>{{ $estimate->estimate_no }}</td>
                     </tr>
                 </table>
@@ -107,7 +111,7 @@
         </tr>
         <tr>
             <td>{{ optional($estimate->terms)->name ?? '—' }}</td>
-            <td>{{ \App\Support\Locales::formatDate($estimate->expires_on) }}</td>
+            <td>{{ \App\Support\Locales::formatDate($estimate->expires_on, $dateFormat) }}</td>
             <td>{{ $estimate->customer_po ?: '—' }}</td>
             <td>{{ optional($estimate->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -136,7 +140,7 @@
                     <td>
                         {{ $line->description }}
                         @if ($line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date) }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date, $dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
@@ -167,14 +171,12 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($estimate->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($estimate->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @php
             $provincialTaxNumber = $company->provincialTaxNumber();
             $provincialTaxLabel = $company->provincialTaxLabel();

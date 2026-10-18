@@ -34,6 +34,8 @@ final class StaleDraftInvoicesDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $cutoff = $today->subDays(self::STALE_AFTER_DAYS)->toDateString();
 
         // Draft sets are small, so loading the rows for per-row FX conversion

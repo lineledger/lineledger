@@ -34,6 +34,8 @@ final class RecurringTemplatePausedDetector implements InsightDetector
 
     public function detect(Company $company, CarbonImmutable $today): array
     {
+        $this->useCurrencyOf($company);
+
         $paused = RecurringDocument::query()
             ->withoutGlobalScopes()
             ->where('company_id', $company->id)

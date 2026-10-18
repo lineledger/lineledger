@@ -47,11 +47,11 @@ new #[Title('Documentation — Create an organization')] class extends Component
         <p><strong>{{ __('To enter your organization info:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Type the Organization name — the legal or trading name your customers will recognize. It appears on invoices, statements, and emails.') }}</li>
-            <li>{{ __('Choose your Country — Canada or the United States. This sets jurisdiction-specific accounts and tax wording.') }}</li>
-            <li>{{ __('Pick your Province (Canada) or State (United States) from the list.') }}</li>
-            <li>{{ __('Select your Base currency — Canadian or US dollars. It is pre-filled to match the country.') }}</li>
+            <li>{{ __('Choose your Country — Canada, the United States, or the United Kingdom. This sets jurisdiction-specific accounts and tax wording.') }}</li>
+            <li>{{ __('Pick your Province (Canada), State (United States), or Nation (United Kingdom) from the list.') }}</li>
+            <li>{{ __('Select your Base currency — Canadian dollars, US dollars, or pounds sterling. It is pre-filled to match the country.') }}</li>
             <li>{{ __('Set your Timezone. The wizard takes it from your browser; transaction dates default to today in this zone.') }}</li>
-            <li>{{ __('Choose your Fiscal year start month. The wizard shows the matching year-end date as you pick.') }}</li>
+            <li>{{ __('Choose your Fiscal year start month. The wizard shows the matching year-end date as you pick. It starts at January in Canada and the United States and at April in the United Kingdom, to match the UK tax year — change it to your company’s accounting reference date if that differs.') }}</li>
         </ol>
 
         <x-docs.figure
@@ -61,7 +61,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
         />
 
         <x-docs.callout type="warning" heading="{{ __('Country is permanent') }}">
-            {{ __('Choose your country carefully — it cannot be changed after the organization is created. It determines the core chart of accounts, the sales-tax model (GST/HST in Canada, Sales Tax in the United States), and which features are offered. Everything else on this step can be adjusted later in settings, but the country is fixed for the life of the organization.') }}
+            {{ __('Choose your country carefully — it cannot be changed after the organization is created. It determines the core chart of accounts, the sales-tax model (GST/HST in Canada, Sales Tax in the United States, VAT in the United Kingdom), and which features are offered. Everything else on this step can be adjusted later in settings, but the country is fixed for the life of the organization.') }}
         </x-docs.callout>
 
         {{-- ─────────── Step 2 — How your organization is organized ─────────── --}}
@@ -85,7 +85,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
         />
 
         <x-docs.callout type="note">
-            {{ __('The hover help (the question-mark icons) explains each option in plain language if you are unsure of the legal terms. In the United States the choice is simply “Non-profit”, and the Registered charity tier and the CRA wording are hidden, since they are Canada Revenue Agency concepts.') }}
+            {{ __('The hover help (the question-mark icons) explains each option in plain language if you are unsure of the legal terms. Outside Canada the choice is simply “Non-profit”, and the Registered charity tier and the CRA wording are hidden, since they are Canada Revenue Agency concepts.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('A new non-profit starts with a leaner sidebar') }}">
@@ -179,14 +179,15 @@ new #[Title('Documentation — Create an organization')] class extends Component
         {{-- ─────────────────── Step 5 — Sales tax ─────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Step 5 — Sales tax') }}</flux:heading>
         <flux:text>
-            {{ __('Tell the wizard whether you charge sales tax so it can set up the right tax codes and payable accounts. The wording follows your country: Canada asks about GST/HST, while the United States asks about Sales Tax.') }}
+            {{ __('Tell the wizard whether you charge sales tax so it can set up the right tax codes and payable accounts. The wording follows your country: Canada asks about GST/HST, the United States asks about Sales Tax, and the United Kingdom asks about VAT.') }}
         </flux:text>
 
         <p><strong>{{ __('To set up sales tax:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Turn the I charge GST/HST switch on if you charge federal sales tax, or off if you do not.') }}</li>
             <li>{{ __('If your province also levies its own provincial sales tax — PST in British Columbia and Saskatchewan, RST in Manitoba, or QST in Quebec — a second switch appears. Turn it on to add a provincial tax-payable account and tax code for that province.') }}</li>
-            <li>{{ __('When a tax is switched on, you can enter its account number: GST/HST account number (Sales Tax account number in the United States), plus a separate field for the provincial tax when that switch is on. Both are optional. The GST/HST number becomes your organization’s tax number, which prints in the footer of your invoices and other printed forms. The provincial number is kept on the provincial tax agency for your records and does not print on the forms you send.') }}</li>
+            <li>{{ __('In the United Kingdom the step asks whether you are VAT-registered. Switched on, it adds a VAT Payable account, HM Revenue & Customs as your VAT agency (Isle of Man Customs and Excise for a company on the Isle of Man), and Standard 20%, Reduced 5%, Zero-rated and Exempt tax codes. Your VAT registration number is checked for the GB format (for example GB123456789) and printed as “VAT No.” on your invoices.') }}</li>
+            <li>{{ __('When a tax is switched on, you can enter its account number: GST/HST account number (Sales Tax in the United States, VAT in the United Kingdom), plus a separate field for the provincial tax when that switch is on. Both are optional. The GST/HST number becomes your organization’s tax number, which prints in the footer of your invoices and other printed forms. The provincial number is kept on the provincial tax agency for your records and does not print on the forms you send.') }}</li>
         </ol>
 
         <x-docs.figure
@@ -196,7 +197,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
         />
 
         <x-docs.callout type="note">
-            {{ __('The provincial switch only appears for provinces that actually levy a separate tax. HST provinces (such as Ontario) and GST-only provinces (such as Alberta) collect everything through the single GST/HST line, so no second switch is shown. In the United States the step asks a single Sales Tax question.') }}
+            {{ __('The provincial switch only appears for provinces that actually levy a separate tax. HST provinces (such as Ontario) and GST-only provinces (such as Alberta) collect everything through the single GST/HST line, so no second switch is shown. In the United States and the United Kingdom the step asks a single Sales Tax or VAT question.') }}
         </x-docs.callout>
 
         {{-- ─────────────────── Step 6 — How do you want to start ─────────────────── --}}
@@ -252,7 +253,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
         </ol>
 
         <flux:text>
-            {{ __('Creating the organization seeds more than the chart. You also get a starter set of payment methods: Cash, Cheque, E-transfer, EFT, Wire, and Credit card in Canada, or Cash, Check, ACH, Wire, and Credit card in the United States. If you turned on I charge GST/HST (I charge Sales Tax in the United States), you get your main tax agency — the Canada Revenue Agency, or a State Department of Revenue agency in the United States — and its starter tax codes; with that switch off, no main tax agency or tax codes are created. Turning on the provincial tax adds the provincial agency and its tax code. Those two switches work this way on a standardized or minimal chart, but a copied chart ignores them: you get the main agency and its codes whenever the copy includes the source’s system tax-payable account (GST/HST Payable, or Sales Tax Payable in the United States), which is locked on, and a provincial agency whenever it includes a tax-payable account coded 2210 (such as PST Payable) and your province levies its own sales tax — the agency and code are your province’s, whatever the copied account was for. The QuickBooks import path always starts with the main agency and its codes and no provincial agency, whatever the switches say. The account numbers you typed are saved on the matching agencies, so a provincial number is kept only when a provincial agency was created. The dashboard opens with a getting-started tips box that points you to the next things worth setting up, such as customizing your sidebar and the bank register; close it when you are done, or bring it back later with Show tips under Settings → Organizations.') }}
+            {{ __('Creating the organization seeds more than the chart. You also get a starter set of payment methods: Cash, Cheque, E-transfer, EFT, Wire, and Credit card in Canada; Cash, Check, ACH, Wire, and Credit card in the United States; or Cash, Cheque, BACS, Faster Payments, Direct Debit, Wire, and Credit card in the United Kingdom. If you turned on I charge GST/HST (I charge Sales Tax in the United States, I charge VAT in the United Kingdom), you get your main tax agency — the Canada Revenue Agency, a State Department of Revenue agency in the United States, or HM Revenue & Customs in the United Kingdom — and its starter tax codes; with that switch off, no main tax agency or tax codes are created. Turning on the provincial tax adds the provincial agency and its tax code. Those two switches work this way on a standardized or minimal chart, but a copied chart ignores them: you get the main agency and its codes whenever the copy includes the source’s system tax-payable account (GST/HST Payable, Sales Tax Payable, or VAT Payable), which is locked on, and a provincial agency whenever it includes a tax-payable account coded 2210 (such as PST Payable) and your province levies its own sales tax — the agency and code are your province’s, whatever the copied account was for. The QuickBooks import path always starts with the main agency and its codes and no provincial agency, whatever the switches say. The account numbers you typed are saved on the matching agencies, so a provincial number is kept only when a provincial agency was created. The dashboard opens with a getting-started tips box that points you to the next things worth setting up, such as customizing your sidebar and the bank register; close it when you are done, or bring it back later with Show tips under Settings → Organizations.') }}
         </flux:text>
 
         {{-- ─────────────────── After the wizard — opening balances ─────────────────── --}}
@@ -314,7 +315,7 @@ new #[Title('Documentation — Create an organization')] class extends Component
             {{ __('Choose Corporation in Step 2. The equity section uses share-capital terminology that follows your country:') }}
         </flux:text>
         <ul class="list-disc ps-6 space-y-1">
-            <li>{{ __('3100 Common Shares (Canada) or Common Stock (United States)') }}</li>
+            <li>{{ __('3100 Common Shares (Canada), Common Stock (United States), or Ordinary Shares (United Kingdom)') }}</li>
             <li>{{ __('3200 Shareholder Distributions') }}</li>
         </ul>
         <flux:text>

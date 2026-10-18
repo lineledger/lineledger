@@ -859,7 +859,7 @@ new #[Title('Make deposit')] class extends Component
 
         @if ($this->totalCents() < 0)
             <flux:text class="text-sm text-amber-700 dark:text-amber-400" data-test="deposit-negative-note">
-                {{ __('Refunds outweigh the receipts, so this deposit takes :amount out of the bank — as the card processor will on your statement.', ['amount' => '$'.number_format(abs($this->totalCents()) / 100, 2)]) }}
+                {{ __('Refunds outweigh the receipts, so this deposit takes :amount out of the bank — as the card processor will on your statement.', ['amount' => $this->company->currencySymbol().number_format(abs($this->totalCents()) / 100, 2)]) }}
             </flux:text>
         @endif
 

@@ -36,6 +36,10 @@
 </head>
 <body>
     @php
+        $currencySymbol = \App\Support\Currency::symbol($company->currency_code);
+        $dateFormat = $company->jurisdiction->shortDateFormat();
+    @endphp
+    @php
         $billLines = collect([
             $salesOrder->contact?->display_name,
             $salesOrder->contact?->billing_line1,
@@ -68,7 +72,7 @@
                         <th>{{ __('Order #') }}</th>
                     </tr>
                     <tr>
-                        <td>{{ \App\Support\Locales::formatDate($salesOrder->order_date) }}</td>
+                        <td>{{ \App\Support\Locales::formatDate($salesOrder->order_date, $dateFormat) }}</td>
                         <td>{{ $salesOrder->order_no }}</td>
                     </tr>
                 </table>
@@ -107,7 +111,7 @@
         </tr>
         <tr>
             <td>{{ optional($salesOrder->terms)->name ?? '—' }}</td>
-            <td>{{ \App\Support\Locales::formatDate($salesOrder->expected_date) }}</td>
+            <td>{{ \App\Support\Locales::formatDate($salesOrder->expected_date, $dateFormat) }}</td>
             <td>{{ $salesOrder->customer_po ?: '—' }}</td>
             <td>{{ optional($salesOrder->salesRep)->display_name ?? '—' }}</td>
         </tr>
@@ -122,7 +126,7 @@
                 <th>{{ __('Tracking #') }}</th>
             </tr>
             <tr>
-                <td>{{ \App\Support\Locales::formatDate($salesOrder->ship_date) }}</td>
+                <td>{{ \App\Support\Locales::formatDate($salesOrder->ship_date, $dateFormat) }}</td>
                 <td>{{ $salesOrder->ship_via ?: '—' }}</td>
                 <td>{{ $salesOrder->fob ?: '—' }}</td>
                 <td>{{ $salesOrder->tracking_no ?: '—' }}</td>
@@ -153,7 +157,7 @@
                     <td>
                         {{ $line->description }}
                         @if ($line->service_date)
-                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date) }}</div>
+                            <div class="muted" style="font-size: 9px;">{{ __('Service date') }}: {{ \App\Support\Locales::formatDate($line->service_date, $dateFormat) }}</div>
                         @endif
                     </td>
                     @if ($settings->show_tax_column)
@@ -184,14 +188,12 @@
         @endforeach
         <tr class="grand">
             <td>{{ __('Total') }}</td>
-            <td class="num">${{ number_format($salesOrder->total_cents / 100, 2) }}</td>
+            <td class="num">{{ $currencySymbol }}{{ number_format($salesOrder->total_cents / 100, 2) }}</td>
         </tr>
     </table>
 
     <div class="footer">
-        @if ($settings->show_tax_number && filled($company->tax_number))
-            <div class="taxno">{{ __('GST/HST No.') }} {{ $company->tax_number }}</div>
-        @endif
+        @include('pdf.partials.registration-numbers')
         @php
             $provincialTaxNumber = $company->provincialTaxNumber();
             $provincialTaxLabel = $company->provincialTaxLabel();

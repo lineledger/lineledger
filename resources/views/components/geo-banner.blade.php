@@ -17,18 +17,31 @@
 
     $region = array_search(mb_strtolower(request()->getHost()), $hosts, true);
     $current = is_string($region) ? Country::tryFrom($region) : null;
-    $other = match ($current) {
-        Country::Canada => Country::UnitedStates,
-        Country::UnitedStates => Country::Canada,
-        default => null,
-    };
-    $otherUrl = $other === null ? '' : (string) ($appUrls[$other->value] ?? '');
+
+    $siblings = [];
+    if ($current !== null) {
+        foreach ($appUrls as $code => $url) {
+            if ($code === $current->value || $url === '') {
+                continue;
+            }
+            $sibling = Country::tryFrom((string) $code);
+            if ($sibling === null) {
+                continue;
+            }
+            $siblings[] = [
+                'code' => mb_strtolower($sibling->value),
+                'label' => $sibling->label(),
+                'flag' => $sibling->flag(),
+                'url' => (string) $url,
+            ];
+        }
+    }
 @endphp
 
-@if ($current !== null && $other !== null && $otherUrl !== '')
+@if ($current !== null && $siblings !== [])
 @persist('geo-banner')
     <div
-        x-data="geoBanner({ current: @js(mb_strtolower($current->value)), other: @js(mb_strtolower($other->value)), otherUrl: @js($otherUrl) })"
+        x-data="geoBanner({ current: @js(mb_strtolower($current->value)), siblings: @js($siblings) })"
         x-show="show"
         x-cloak
         x-transition.opacity
@@ -38,18 +51,18 @@
             <p class="text-sm text-foreground">
                 You&rsquo;re viewing the
                 <strong class="font-semibold">{{ $current->flag() }} {{ $current->label() }}</strong>
-                site. Want the
-                <strong class="font-semibold">{{ $other->flag() }} {{ $other->label() }}</strong>
-                version instead?
+                site. Prefer a different country version?
             </p>
-            <div class="flex flex-none items-center gap-2">
-                <a
-                    :href="switchHref()"
-                    @click.prevent="go()"
-                    class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-                >
-                    Go to {{ $other->label() }}
-                </a>
+            <div class="flex flex-none flex-wrap items-center justify-center gap-2">
+                <template x-for="sibling in siblings" :key="sibling.code">
+                    <a
+                        :href="switchHref(sibling)"
+                        @click.prevent="go(sibling)"
+                        class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                    >
+                        <span x-text="sibling.flag + ' ' + sibling.label"></span>
+                    </a>
+                </template>
                 <button
                     type="button"
                     @click="stay()"

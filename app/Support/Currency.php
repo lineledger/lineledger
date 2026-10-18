@@ -61,6 +61,20 @@ final class Currency
         return self::CURRENCIES[mb_strtoupper($code)]['symbol'] ?? mb_strtoupper($code);
     }
 
+    /**
+     * Every distinct symbol in the common set, longest first (so "R$" is tried
+     * before "R" and "$").
+     *
+     * @return list<string>
+     */
+    public static function symbols(): array
+    {
+        $symbols = array_values(array_unique(array_column(self::CURRENCIES, 'symbol')));
+        usort($symbols, fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+
+        return $symbols;
+    }
+
     public static function decimals(string $code): int
     {
         return self::CURRENCIES[mb_strtoupper($code)]['decimals'] ?? 2;
