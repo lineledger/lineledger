@@ -35,13 +35,18 @@ new #[Title('Documentation — Customer portal')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/customer-portal/login.png') }}"
-            alt="{{ __('The customer portal sign-in screen, headed “View & pay your invoices”, with an Email address field and a Send sign-in link button under the organization’s name') }}"
+            alt="{{ __('The customer portal sign-in screen, headed “View & pay your invoices”, with an Email address field and a Send sign-in link button, the organization’s name at the top left and the English · Français switcher at the top right') }}"
             caption="{{ __('The portal sign-in screen. The customer enters their email and receives a one-time sign-in link.') }}"
         />
 
         <x-docs.callout type="note">
             {{ __('The screen always answers “If an account exists for that address, we just sent a sign-in link” — whether or not the email matched — so nobody can use the form to find out who your customers are. Requests are rate-limited too: after five for the same address, the form asks the customer to wait before trying again. Customer sessions are entirely separate from your staff logins, and a customer you mark inactive can no longer request a sign-in link.') }}
         </x-docs.callout>
+
+        <flux:text>
+            {{ __('The portal opens in the customer’s document language, and an English · Français switcher on every portal page lets them change it — see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
 
         <flux:heading size="md" class="mt-6">{{ __('The links customers receive') }}</flux:heading>
         <flux:text>
@@ -71,7 +76,7 @@ new #[Title('Documentation — Customer portal')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/customer-portal/dashboard.png') }}"
-            alt="{{ __('The customer portal dashboard headed “Hello, Northwind Traders”, showing the Total due card with a Pay now button, a View statement button, and a table of open invoices with a PDF button on each row') }}"
+            alt="{{ __('The customer portal dashboard headed “Hello, Northwind Traders”, showing the Total due card with a Pay now button, a View statement button, a table of open invoices with a PDF button on each row, and the English · Français switcher in the header') }}"
             caption="{{ __('The portal dashboard. Total due sums every open invoice; Pay now appears whenever there is a balance, and View statement opens the account statement.') }}"
         />
 

@@ -287,8 +287,8 @@ new #[Title('Documentation — Banking')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/banking/cheque-create.png') }}"
-            alt="{{ __('The Write cheque form with Bank account, Cheque #, Date, the Pay to the order of payee picker, the Address block, a Memo, and expense lines with Account, Description, Amount, and Tax cells') }}"
-            caption="{{ __('The Write cheque form. The Address block under the payee prints on the cheque; add as many expense lines as the cheque needs — the Total at the bottom is what gets paid.') }}"
+            alt="{{ __('The Write cheque form with Bank account, Cheque #, Date, the Pay to the order of payee picker, the payee’s address folded to a one-line summary with a Show button, a Memo, and expense lines with Account, Description, Amount, and Tax cells') }}"
+            caption="{{ __('The Write cheque form. The address under the payee prints on the cheque; it is folded to one line until you select Show. Add as many expense lines as the cheque needs — the Total at the bottom is what gets paid.') }}"
         />
 
         <x-docs.figure

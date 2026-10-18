@@ -67,7 +67,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/tax-returns/return-form.png') }}"
-            alt="{{ __('The File a tax return form showing the Tax agency, Return #, Period start, and Period end fields, the Filing reference and Notes fields, and the Preview with its Collected, Paid (ITCs), and Net owing tiles above the line-by-line table with Include checkboxes, plus the Save draft and File return buttons') }}"
+            alt="{{ __('The File a tax return form showing the Tax agency, Return #, Period start, and Period end fields, the Filing reference and Notes fields, the Preview with its Collected, Paid (ITCs), Adjustments, and Net owing tiles above the line-by-line table with Include checkboxes, the Adjustments section with an Add adjustment button, the Reconciliation to the tax payable account with its Difference, and the Save draft and File return buttons') }}"
             caption="{{ __('The File a tax return form. The Preview recalculates as you change the agency or dates; uncheck a line to leave it out of the totals and the filed snapshot.') }}"
         />
 
@@ -119,9 +119,14 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/tax-returns/return-detail.png') }}"
-            alt="{{ __('A filed tax return’s page showing the Filed and Ref badges, the Filed-by stamp, the Record payment button and Actions menu, the Collected, Paid (ITCs), and Net owing tiles, and the snapshot table with underlined Entry # links') }}"
+            alt="{{ __('A filed tax return’s page showing the Filed and Ref badges, the Filed-by stamp, the Record payment button and Actions menu, the Collected, Paid (ITCs), Adjustments, and Net owing tiles, the snapshot table with underlined Entry # links, and the Reconciliation to the tax payable account frozen at filing') }}"
             caption="{{ __('A filed return. Record payment is offered until a payment is posted; Actions holds Void. Each Entry # opens the document behind the line.') }}"
         />
+
+        <x-docs.callout type="note" heading="{{ __('UK VAT returns') }}">
+            {{ __('A UK organization’s return page also shows the nine boxes of the HMRC VAT return, worked out live on a draft and frozen when you file, and its tiles read Paid (Input VAT) rather than Paid (ITCs). See') }}
+            <a class="underline" href="{{ route('docs.united-kingdom') }}" wire:navigate>{{ __('United Kingdom & VAT') }}</a>{{ __('.') }}
+        </x-docs.callout>
 
         {{-- ──────────────────────────── Record a payment ─────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Record a payment') }}</flux:heading>

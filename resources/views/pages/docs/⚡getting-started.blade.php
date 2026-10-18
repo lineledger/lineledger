@@ -104,6 +104,8 @@ new #[Title('Documentation — Getting started')] class extends Component {}; ?>
             <li>{{ __('Click anywhere in a date field to open the calendar — not just the small icon at its edge. Tabbing into a date field does not pop the calendar, so typing a date stays the fast path.') }}</li>
             <li>{{ __('Every dollar cell is a calculator — type an expression such as 1050+52.50, 100*1.13, or 250/4 and a tape drops down showing each step. Press Enter to commit the result into the cell. Plus, minus, multiply (* or ×) and divide (/ or ÷) all work with normal precedence; dividing by zero shows Error on the tape and leaves the cell alone.') }}</li>
             <li>{{ __('The sidebar Calculator — the button beside the search box opens a tape calculator you can type into or click. Its Place in field button drops the result into whichever field you were last typing in, so you can work out a figure and land it without retyping.') }}</li>
+            <li>{{ __('Type to pick an account — every Account box on a line is a search box. Type the start of a GL number (24 lists 2400, 2410… first) or any words from the name, in any order (bmo usd); case, accents, and punctuation are ignored. Arrow keys and Enter pick, Tab takes the highlighted match, Escape backs out, and emptying the box clears the account.') }}</li>
+            <li>{{ __('Resize line columns — on a wide screen, drag the edge of a column heading in an invoice, bill, cheque, or other line-item table to make it wider or narrower; Description takes up the difference. Your browser remembers the widths for each form, and double-clicking the edge puts that column back to its default.') }}</li>
         </ul>
 
         <x-docs.figure
@@ -180,6 +182,10 @@ new #[Title('Documentation — Getting started')] class extends Component {}; ?>
             <li>{{ __('Settings → Appearance — pick a Theme (Light, Dark, or System, which follows your operating system), choose a Calculator mode for the sidebar calculator (Standard, or Adding machine, which works like an accountant\'s 10-key with a running total and a Total key), and switch Escape goes back on or off.') }}</li>
             <li>{{ __('Settings → Sidebar — a switch for every group below Dashboard and Insights, and for every link in those groups. Dashboard and Insights have no switch and always show; starred reports have no switch either — un-star a report to take it off the sidebar. Turn off a whole group and all of its links go with it; select Save to apply, or Reset to defaults to bring everything back.') }}</li>
         </ul>
+        <flux:text>
+            {{ __('Prefer to work in French? Choose Français as your Interface language under Settings → Profile — see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
         <flux:text>
             {{ __('Once you have hidden something, a Show all sections button appears at the bottom of the sidebar. It reveals everything temporarily — handy when you need a page you tucked away — and turns into Show fewer to put your tidy sidebar back, without touching your saved choices. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>

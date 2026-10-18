@@ -90,7 +90,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
         <flux:heading size="lg" class="mt-8">{{ __('Base URL & spec') }}</flux:heading>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>{{ url('/api/v1') }}</code></pre>
         <flux:text>
-            {{ __('The full machine-readable OpenAPI spec (version 1.1.0, covering every resource including /transfers) is available without a key at') }}
+            {{ __('The full machine-readable OpenAPI spec (version 1.2.0, covering every resource) is available without a key at') }}
             <a href="{{ url('/api/v1/openapi.json') }}" class="underline" target="_blank" rel="noopener">{{ url('/api/v1/openapi.json') }}</a>{{ __('.') }}
             {{ __('Import it into Postman, Insomnia, or your code generator. The interactive reference at the bottom of this page is generated from it.') }}
         </flux:text>
@@ -130,6 +130,20 @@ X-Api-Key: YOUR_API_KEY</code></pre>
             <li>{{ __('Handle 423 by waiting for Retry-After and retrying a few times — not in a tight loop. If the record is still being edited, queue the change and try again later.') }}</li>
             <li>{{ __('Idempotency: posting the same invoice twice creates two invoices. Supply your own document number on create — a retried request that would duplicate it gets a 422 instead of a second document.') }}</li>
             <li>{{ __('Read balance_cents off an invoice and unapplied_cents off a receipt instead of doing the arithmetic yourself; the server\'s figures already account for credits and reconciled balances.') }}</li>
+        </ul>
+
+        {{-- ─────────────── What's new in 1.2.0 for integrators ─────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('What\'s new in 1.2.0 for integrators') }}</flux:heading>
+        <flux:text>
+            {{ __('Nothing was removed or renamed, so a 1.1.0 client keeps working. One request can now be refused where it used to succeed — filing a tax return that does not agree with the ledger. What changed:') }}
+        </flux:text>
+        <ul class="list-disc ps-6 space-y-1">
+            <li><code>POST /invoices/{invoice}/refund</code> — {{ __('pays back a customer’s overpayment — the unapplied credit on one of their payments — as a negative receipt from a bank or Undeposited Funds account. It takes refunded_receipt_id, refund_date, amount_cents (no more than the payment’s unapplied_cents), and deposit_to_account_id.') }}</li>
+            <li><code>unapplied_cents</code> — {{ __('a receipt’s unapplied credit now also nets out what has been refunded from it, and a new refunded_cents shows that amount. A refund receipt carries refunded_receipt_id and from_invoice_id, and so does a refund cheque.') }}</li>
+            <li>{{ __('Negative deposit lines') }} — {{ __('an account line on a deposit may have a negative amount_cents; only 0 is refused.') }}</li>
+            <li>{{ __('Tax return adjustments') }} — {{ __('a tax return takes adjustments (kind, account_id, amount_cents, memo) and excluded_journal_line_ids; leave either out on an update to keep what is saved. Returns report other_adjustments_cents, adjustment_journal_entry_id, and the reconciliation against the tax payable account.') }}</li>
+            <li><code>POST /tax-returns/{taxReturn}/file</code> — {{ __('answers 422 when the return does not agree with the tax payable account, unless accepted_difference_cents names the current difference. Filing posts the adjustments coded to other accounts, and voiding the return reverses that entry.') }}</li>
+            <li>{{ __('OpenAPI 1.2.0') }} — {{ __('the spec documents all of the above.') }}</li>
         </ul>
 
         {{-- ─────────────── What's new in 1.1.0 for integrators ─────────────── --}}

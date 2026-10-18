@@ -72,6 +72,11 @@ new #[Title('Documentation — Employee portal')] class extends Component {}; ?>
             {{ __('The screen always says a link was sent if an account exists, whether or not the email matched, so the form cannot be used to discover who works for you; a wrong password gets the same generic “These credentials do not match our records.” Each link works once and dies after 15 minutes — a used or expired one bounces back to the sign-in screen with “That sign-in link is invalid or has expired. Please request a new one.” After five attempts for the same address in a short span, the form asks the employee to wait. Employee sessions are entirely separate from your staff logins. The portal never asks an employee for a SIN or banking details, but it does show the SIN on their own documents: a T4 printed on the official CRA form shows the full SIN, while pay statements, RL-1 slips, and a T4 printed as a labelled facsimile show only its last four digits.') }}
         </x-docs.callout>
 
+        <flux:text>
+            {{ __('The portal appears in the organization’s document language unless a language has already been chosen in that browser — see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
+
         <flux:heading size="md" class="mt-6">{{ __('Ending someone’s access') }}</flux:heading>
         <flux:text>
             {{ __('There is no separate “revoke portal access” switch, because access follows the employee’s status. Switch off Active in the employee’s edit dialog under Employees, switch off Active for payroll on their payroll profile, or run Terminate & issue ROE (which deactivates the profile for you), and from that moment no new sign-in link can be requested for them and their password no longer signs them in. A sign-in link already in their inbox is different: only switching off Active under Employees stops it, so if you deactivate just the payroll profile, a link sent in the previous 15 minutes still signs them in. To close every door, switch off Active under Employees as well. None of these ends a session that is already open — it lasts until they select Sign out or it times out on its own.') }}

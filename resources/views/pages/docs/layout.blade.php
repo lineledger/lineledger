@@ -3,6 +3,8 @@
         <flux:navlist aria-label="{{ __('Documentation') }}">
             <flux:navlist.item :href="route('docs.getting-started')" :current="request()->routeIs('docs.getting-started')" wire:navigate>{{ __('Getting started') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.creating-a-company')" :current="request()->routeIs('docs.creating-a-company')" wire:navigate>{{ __('Create an organization') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('docs.languages')" :current="request()->routeIs('docs.languages')" wire:navigate>{{ __('Languages') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('docs.united-kingdom')" :current="request()->routeIs('docs.united-kingdom')" wire:navigate>{{ __('United Kingdom & VAT') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.dashboard')" :current="request()->routeIs('docs.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.insights')" :current="request()->routeIs('docs.insights')" wire:navigate>{{ __('Insights') }}</flux:navlist.item>
 

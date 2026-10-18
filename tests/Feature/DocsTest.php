@@ -28,6 +28,8 @@ test('authenticated users can visit each documentation page', function (string $
 })->with([
     'docs.getting-started',
     'docs.creating-a-company',
+    'docs.languages',
+    'docs.united-kingdom',
     'docs.dashboard',
     'docs.insights',
     'docs.banking',
@@ -71,7 +73,7 @@ test('the docs nav lists every topic on a page', function () {
 
     $response->assertOk();
 
-    foreach (['Getting started', 'Create an organization', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
+    foreach (['Getting started', 'Create an organization', 'Languages', 'United Kingdom & VAT', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
         $response->assertSeeText($label);
     }
 });
@@ -143,4 +145,30 @@ test('every screenshot referenced by a docs page exists on disk', function () {
                 ->toBeTrue("Missing screenshot referenced in {$page}: public/{$relativePath}");
         }
     }
+});
+
+test('the languages page covers the interface, document, and customer languages', function () {
+    $user = User::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('docs.languages'));
+
+    $response->assertOk();
+    $response->assertSeeText('To change your interface language:');
+    $response->assertSeeText('Document language');
+    $response->assertSee('docs/screenshots/languages/', false);
+});
+
+test('the united kingdom page covers VAT numbers and the nine-box return', function () {
+    $user = User::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('docs.united-kingdom'));
+
+    $response->assertOk();
+    $response->assertSeeText('The VAT Return report');
+    $response->assertSeeText('Making Tax Digital');
+    $response->assertSee('docs/screenshots/united-kingdom/', false);
 });

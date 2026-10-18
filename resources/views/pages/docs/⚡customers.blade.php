@@ -41,6 +41,11 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
             <li>{{ __('Select Save.') }}</li>
         </ol>
 
+        <flux:text>
+            {{ __('The Payment & billing tab also has a Document language. Leave it on Organization default, or pick English or Français to send this customer invoices, statements, emails, and portal pages in that language — see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
+
         <x-docs.figure
             src="{{ asset('docs/screenshots/customers/customer-form.png') }}"
             alt="{{ __('The New customer dialog on its Profile tab, with the Profile, Address, Payment & billing, Tax info, Notes, and Attachments tabs across the top') }}"
@@ -148,7 +153,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/customers/invoice-posted.png') }}"
-            alt="{{ __('A posted invoice showing its Posted status, GL entry link, line items, Balance due, and the Actions menu open with Print, Send to client, Edit, Credit Memo, and Void') }}"
+            alt="{{ __('A partly paid invoice showing its Partial status, GL entry link, line items, its Payments list with Paid and Balance due, and the Actions menu open with Print, Send to client, Edit, Credit Memo, and Void') }}"
             caption="{{ __('A posted invoice. The “Receive payment” button records money against it; the GL entry link opens the journal entry it created; Actions holds Print, Send to client, Edit, Credit Memo, and Void.') }}"
         />
 

@@ -32,9 +32,14 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <li>{{ __('Select Save.') }}</li>
         </ol>
 
+        <flux:text>
+            {{ __('Profile also holds your Interface language — English, Français, or Default, the server’s default language. It changes the app for you alone; what your customers receive follows the organization’s and each customer’s document language. See') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
+
         <x-docs.figure
             src="{{ asset('docs/screenshots/settings/profile.png') }}"
-            alt="{{ __('The Profile settings page with Name and Email fields, a Save button, and the Delete account section below') }}"
+            alt="{{ __('The Profile settings page with Name and Email fields, the Interface language list, a Save button, and the Delete account section below') }}"
             caption="{{ __('The Profile page. The Delete account section at the bottom permanently removes your account and everything it owns.') }}"
         />
 
@@ -104,6 +109,11 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         </flux:text>
         <flux:text>
             {{ __('The top of the edit page holds the details that print on documents and drive the books: Company name, Legal name (printed when “Show legal name” is on in invoice settings, and used on donation tax receipts), Address, City, province or state, Country (set at creation and cannot be changed), Telephone number, Website, Email address, Currency (your home currency — leave it as it was set when the organization was created; see Currencies below), Fiscal year start month, and Timezone — transaction dates default to today in this timezone, so a late-evening entry posts on the correct local day. The Save button at the bottom of the form saves this block along with the preferences, features, and branding described below.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The same block holds the Document language: the language of the organization’s invoices, invoice emails, and customer payment portal for every customer who has no language of their own (see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('). A UK organization also has a Company number field for its Companies House number, which prints on invoices and other forms beneath the VAT number (see') }}
+            <a class="underline" href="{{ route('docs.united-kingdom') }}" wire:navigate>{{ __('United Kingdom & VAT') }}</a>{{ __(').') }}
         </flux:text>
 
         <flux:heading size="md" class="mt-6">{{ __('Switching organizations') }}</flux:heading>

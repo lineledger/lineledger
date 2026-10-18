@@ -25,6 +25,7 @@ new #[Title('Documentation — Multi-currency')] class extends Component {}; ?>
 
         <x-docs.callout type="note" heading="{{ __('Three things that lock') }}">
             {{ __('Your home currency is set when you create the organization, and Settings → Currencies treats it as fixed. The Currency box on Settings → Organizations still lets you pick another two-decimal currency (the Japanese yen and other currencies without cents aren’t offered), but changing it converts nothing — every posted amount keeps the value it was booked at — so leave it alone once the books have any activity. A customer’s or vendor’s currency locks once they have an invoice, bill, receipt, or payment on the books. And a bank or credit-card account’s currency is fixed once the account has activity. Set all three up correctly from the start.') }}
+            {{ __('An organization that already kept its books in a currency without cents, such as the yen, before that rule keeps it and can still save its other settings, but it cannot enable foreign currencies or take card payments, and an organization backup from it cannot be restored.') }}
         </x-docs.callout>
 
         {{-- ──────────────────────── Enable a currency ──────────────────────── --}}

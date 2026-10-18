@@ -7,6 +7,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('docs/getting-started', 'pages::docs.getting-started')->name('docs.getting-started');
     Route::livewire('docs/creating-a-company', 'pages::docs.creating-a-company')->name('docs.creating-a-company');
+    Route::livewire('docs/languages', 'pages::docs.languages')->name('docs.languages');
+    Route::livewire('docs/united-kingdom', 'pages::docs.united-kingdom')->name('docs.united-kingdom');
     Route::livewire('docs/dashboard', 'pages::docs.dashboard')->name('docs.dashboard');
     Route::livewire('docs/insights', 'pages::docs.insights')->name('docs.insights');
     Route::livewire('docs/banking', 'pages::docs.banking')->name('docs.banking');

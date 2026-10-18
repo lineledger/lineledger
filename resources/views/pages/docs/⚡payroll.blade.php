@@ -28,7 +28,7 @@ new #[Title('Documentation — Payroll')] class extends Component {}; ?>
         </ol>
 
         <x-docs.callout type="note">
-            {{ __('The Payroll toggle only appears on Canadian organizations — the calculations, remittances, and slips are built around the CRA’s rules. United States payroll is not part of the app today.') }}
+            {{ __('The Payroll toggle only appears on Canadian organizations — the calculations, remittances, and slips are built around the CRA’s rules. United States and United Kingdom payroll are not part of the app today.') }}
         </x-docs.callout>
 
         <x-docs.figure

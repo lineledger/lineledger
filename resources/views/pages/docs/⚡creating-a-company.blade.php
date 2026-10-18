@@ -200,6 +200,11 @@ new #[Title('Documentation — Create an organization')] class extends Component
             {{ __('The provincial switch only appears for provinces that actually levy a separate tax. HST provinces (such as Ontario) and GST-only provinces (such as Alberta) collect everything through the single GST/HST line, so no second switch is shown. In the United States and the United Kingdom the step asks a single Sales Tax or VAT question.') }}
         </x-docs.callout>
 
+        <flux:text>
+            {{ __('Setting up in the United Kingdom or on the Isle of Man? The UK organization types, the Companies House number, VAT numbers, and the VAT Return are covered on') }}
+            <a class="underline" href="{{ route('docs.united-kingdom') }}" wire:navigate>{{ __('United Kingdom & VAT') }}</a>{{ __('.') }}
+        </flux:text>
+
         {{-- ─────────────────── Step 6 — How do you want to start ─────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Step 6 — How do you want to start') }}</flux:heading>
         <flux:text>

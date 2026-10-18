@@ -100,18 +100,18 @@ cp .env ~/lineledger-env-$(date +%Y%m%d) &amp;&amp; chmod 600 ~/lineledger-env-$
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Read the release’s notes (see Where to read what changed below) and fetch the release’s docker-compose.yml, backup.sh, and restore.sh if the notes say they changed.') }}</li>
             <li>{{ __('Run ./backup.sh and confirm the three files landed.') }}</li>
-            <li>{{ __('In .env, pin the release: set LINELEDGER_VERSION to the exact version, for example LINELEDGER_VERSION=1.1.0. The line ships commented out, so uncomment it the first time.') }}</li>
+            <li>{{ __('In .env, pin the release: set LINELEDGER_VERSION to the exact version, for example LINELEDGER_VERSION=1.2.0. The line ships commented out, so uncomment it the first time.') }}</li>
             <li>{{ __('Pull the new image and recreate the containers. The app container runs app:upgrade on boot, and the queue and scheduler containers wait until the app is healthy, so the workers never run new code against the old database.') }}</li>
             <li>{{ __('Confirm and prove the books.') }}</li>
         </ol>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>./backup.sh
-# in .env:  LINELEDGER_VERSION=1.1.0
+# in .env:  LINELEDGER_VERSION=1.2.0
 docker compose pull &amp;&amp; docker compose up -d
 docker compose logs -f app        # wait for "LineLedger ready (role: app)"
 docker compose exec app php artisan app:upgrade --verify</code></pre>
 
         <flux:text>
-            {{ __('Pinning matters. The image tag 1.1.0 is one exact release; 1.1 follows the newest patch on that line; latest follows the newest tagged release; and edge follows the development branch. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
+            {{ __('Pinning matters. The image tag 1.2.0 is one exact release; 1.2 follows the newest patch on that line; latest follows the newest tagged release; and edge follows the development branch. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
         </flux:text>
 
         <x-docs.callout type="tip" heading="{{ __('Run the upgrade step yourself') }}">
@@ -133,6 +133,10 @@ docker compose exec app php artisan app:upgrade --verify</code></pre>
             {{ __('app:upgrade ends with a summary table, one row per step — Migrations, each backfill, and Integrity check when you asked for it — with an outcome such as “Up to date.”, “Done; see the per-company lines above.”, or “Passed.”. It exits non-zero if any step fails, so you can put it at the end of a deploy script as a gate. A failed integrity check right after an upgrade is the moment to restore the backup you just took, not to keep going.') }}
         </x-docs.callout>
 
+        <x-docs.callout type="warning" heading="{{ __('Upgrading from 1.1.0 to 1.2.0') }}">
+            {{ __('Take the backup first — it is the only way back. One of 1.2.0’s migrations moves Canadian organizations in British Columbia and Yukon that were left on US Pacific time onto America/Vancouver and America/Whitehorse, and it cannot be reversed. Another sets every existing organization’s document language to English. The release adds no new backfills, so app:upgrade runs the migrations and the same two backfills as 1.1.0; finish with app:upgrade --verify as usual. On a bare-metal host, check that PHP has the intl extension, which 1.2.0 requires, and that the server’s time-zone data is current enough to keep British Columbia on UTC−7 all year. UPGRADING.md lists the behaviour changes that are on by default.') }}
+        </x-docs.callout>
+
         <flux:text>
             {{ __('Two housekeeping items are not part of app:upgrade. php artisan storage:check proves each file-storage role (attachments, logos, backups) can be written and read back, which is worth a run after any change to disks or S3 settings. And php artisan proof:generate rebuilds the public /verification page from the current code; nothing runs it for you, so add it to your deploy script or run it after each upgrade if you publish that page.') }}
         </flux:text>
@@ -151,7 +155,7 @@ docker compose exec app php artisan app:upgrade --verify</code></pre>
             <li>{{ __('Prove the books: run integrity:check (or app:upgrade --verify on a release that has it) and fix nothing until it passes.') }}</li>
         </ol>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>docker compose stop app queue scheduler
-# in .env:  LINELEDGER_VERSION=1.0.0
+# in .env:  LINELEDGER_VERSION=1.1.0
 ./restore.sh backups/lineledger-db-&lt;ts&gt;.sql.gz backups/lineledger-storage-&lt;ts&gt;.tar.gz</code></pre>
 
         <flux:text>
@@ -214,15 +218,34 @@ chmod 700 ~/lineledger-backup.sh
             {{ __('Every backup you cannot restore is a guess. Restore one onto a scratch machine or a second Docker project now and then, run php artisan integrity:check on the result, and you will know the day you need it that the routine works. Set OPS_ALERT_EMAIL in .env to your own inbox, too: the scheduler emails that address within the hour whenever a queued job fails, which is the usual reason an organization backup never reaches Ready.') }}
         </flux:text>
 
+        {{-- ─────────────────── Branding, region, and language ────────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('Branding, region, and language') }}</flux:heading>
+        <flux:text>
+            {{ __('A handful of optional .env settings make an installation your own. All of them have safe defaults, and a change takes effect once the configuration is reloaded — recreate the containers on Docker, or redeploy on Forge.') }}
+        </flux:text>
+        <ul class="list-disc ps-6 space-y-1">
+            <li>{{ __('BRAND_LOGO replaces the mark on the sign-in, registration, and onboarding screens, and in the sidebar until an organization uploads its own logo. Any address the browser can fetch works: a file under public/, a /storage/… path (which survives a deploy), or a full URL. BRAND_LOGO_DARK is an optional variant for the dark theme. The name beside the logo, in the browser tab, and in outgoing email is APP_NAME.') }}</li>
+            <li>{{ __('BRAND_FOOTER_OWNER is the name in the footer’s copyright line — whoever operates this installation.') }}</li>
+            <li>{{ __('BRAND_SHOW_PROJECT_LINKS=false drops the version link and the AGPL-3.0, Source, and Legal links from the footer, leaving the copyright line and a plain version number. Read the note in config/brand.php first: the Source link is how the app offers its source code to the people using it, which section 13 of the AGPL-3.0 requires of anyone running a modified version as a network service. Hiding the link does not remove that obligation.') }}</li>
+            <li>{{ __('SUPPORT_ENABLED=false removes Support from the account menus and turns off /support, for an installation whose support runs somewhere else. Tickets already raised are kept and stay readable under Site administration.') }}</li>
+            <li>{{ __('APP_LOCALE sets the default language — en or fr — for anyone who has not picked one, and for documents of an organization or customer with no language set. It ships as en.') }}</li>
+            <li>{{ __('APP_REGION (CA, US, or GB) picks which LineLedger marketing site the footer’s Legal link points to and, when files are on S3, which bucket region storage:check expects (ca-central-1 for CA, eu-west-2 for GB). Left blank it follows the host name: .ca is Canada, .uk is the United Kingdom, anything else the United States. It has nothing to do with the country of the organizations you host — any installation can hold Canadian, US, and UK organizations side by side.') }}</li>
+            <li>{{ __('APP_URL_CA, APP_URL_US, APP_URL_GB, and the matching MARKETING_URL_ settings name the project’s own hosted sites. The country switcher shown to signed-out visitors only appears on those hosts, so on your own domain you never need to change them.') }}</li>
+        </ul>
+        <flux:text>
+            {{ __('Languages for people and organizations are set inside the app; see') }}
+            <a class="underline" href="{{ route('docs.languages') }}" wire:navigate>{{ __('Languages') }}</a>{{ __('.') }}
+        </flux:text>
+
         {{-- ──────────────────── Which version am I running ────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Which version am I running') }}</flux:heading>
         <flux:text>
-            {{ __('The footer answers this from inside the app. At the bottom of the dashboard — and of every documentation page, the sign-in page, and the new-organization wizard — the footer reads the copyright line, then the version as v1.1.0, then AGPL-3.0, Source, and Legal. The version is a link: select it to open that release’s page on GitHub in a new tab. The number comes from the VERSION file shipped with the release itself, so it cannot drift from the code you deployed, and the same number is stamped into every organization backup — the Restore from backup screen shows it as the Bundle app version and warns of an App version mismatch when the ZIP came from a different release.') }}
+            {{ __('The footer answers this from inside the app. At the bottom of the dashboard — and of every documentation page, the sign-in page, and the new-organization wizard — the footer reads the copyright line, then the version as v1.2.0, then AGPL-3.0, Source, and Legal. The version is a link: select it to open that release’s page on GitHub in a new tab. The number comes from the VERSION file shipped with the release itself, so it cannot drift from the code you deployed, and the same number is stamped into every organization backup — the Restore from backup screen shows it as the Bundle app version and warns of an App version mismatch when the ZIP came from a different release.') }}
         </flux:text>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/self-hosting/footer-version.png') }}"
-            alt="{{ __('The footer at the bottom of the dashboard showing the copyright line, the v1.1.0 version link, and the AGPL-3.0, Source, and Legal links') }}"
+            alt="{{ __('The footer at the bottom of the dashboard showing the copyright line, the version link, and the AGPL-3.0, Source, and Legal links') }}"
             caption="{{ __('The footer at the bottom of the dashboard. The version number links to that release’s page on GitHub.') }}"
         />
 
