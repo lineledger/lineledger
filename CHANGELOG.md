@@ -342,6 +342,14 @@ see `UPGRADING.md`.
   of a credit memo's draft refund cheque in the cheque form saved, so posting it
   refunded more than the memo granted. Saving, posting and reposting a refund
   cheque now refuse an amount above the credit left.
+- **Picking a tax code on a bank line no longer fails with a server error.** On
+  the For Review feed and the statement import, choosing a row's tax code (and on
+  the import, its category or Record as) could answer with a TypeError instead of
+  saving. Once it had, every later action on the page failed the same way,
+  including each keystroke in the Split dialog. The browser sometimes sends the
+  whole set of rows rather than the one that changed; those updates are now
+  handled, applying only the rows that actually changed.
+  ([discussion #107](https://github.com/lineledger/lineledger/discussions/107))
 - **Opening a search result no longer logs calculator errors** in the browser
   console. ([#83](https://github.com/lineledger/lineledger/pull/83))
 - **Saving Settings → Invoices no longer blanks the CRA registration number.**

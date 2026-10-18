@@ -16,6 +16,8 @@ use Livewire\Attributes\Computed;
  */
 trait ManagesStatementLineTax
 {
+    use TracksKeyedArrayUpdates;
+
     /** @var array<int, array<int, int|string>> lineId => chosen tax code ids, first = primary, max two */
     public array $lineTax = [];
 
@@ -62,9 +64,22 @@ trait ManagesStatementLineTax
         return $this->purchaseTaxCodes->whereIn('id', $ids)->pluck('code')->implode(', ');
     }
 
-    public function updatedLineTax(mixed $value, int|string $key): void
+    public function updatingLineTax(mixed $value, int|string|null $key = null): void
     {
-        $lineId = (int) explode('.', (string) $key)[0];
+        if ($key === null) {
+            $this->rememberChangedKeys('lineTax', $value);
+        }
+    }
+
+    public function updatedLineTax(mixed $value, int|string|null $key = null): void
+    {
+        foreach ($this->updatedKeys('lineTax', $key) as $lineId) {
+            $this->applyLineTax((int) $lineId);
+        }
+    }
+
+    private function applyLineTax(int $lineId): void
+    {
         $ids = $this->normaliseTaxIds((array) ($this->lineTax[$lineId] ?? []));
         $this->lineTax[$lineId] = $ids;
 

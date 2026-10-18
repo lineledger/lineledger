@@ -409,3 +409,22 @@ it('the Pay bills picker on the wizard persists the allocation and commit record
         ->and($b->fresh()->balanceCents())->toBe(0)
         ->and($line->fresh()->match_status)->toBe(StatementLineMatchStatus::Created);
 });
+
+it('applies only the rows that changed when the browser sends the whole category map', function () {
+    // Livewire sends the whole lineCategory array (and the updated hook gets a
+    // null key) when the array changes shape in the browser. That used to throw
+    // a TypeError; it must also leave rows the person didn't touch alone.
+    wizardSeedHistory('PRE-AUTHORIZED PAYMENT, L SOCIO DIGITAL FEE/FRA REF 8812', $this->expense->id);
+
+    $component = importWizardWith(WIZARD_SOCIO_CSV."2026-02-04,STAPLES STORE 123,-45.20\n");
+    $lines = BankStatementImport::query()->latest('id')->firstOrFail()->lines()->orderBy('id')->get();
+    [$suggested, $other] = [$lines->firstWhere('amount_cents', -252000), $lines->firstWhere('amount_cents', -4520)];
+
+    $component->assertSet("lineCategory.{$suggested->id}", $this->expense->id)
+        ->set('lineCategory', [$suggested->id => $this->expense->id, $other->id => (string) $this->expenseB->id])
+        ->assertHasNoErrors();
+
+    expect($other->fresh()->suggested_account_id)->toBe($this->expenseB->id)
+        ->and($other->fresh()->match_status)->toBe(StatementLineMatchStatus::Created)
+        ->and($suggested->fresh()->match_status)->not->toBe(StatementLineMatchStatus::Created);
+});

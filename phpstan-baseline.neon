@@ -841,6 +841,12 @@ parameters:
 			path: app/Livewire/Concerns/ShowsEditLock.php
 
 		-
+			message: '#^Trait App\\Livewire\\Concerns\\TracksKeyedArrayUpdates is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/TracksKeyedArrayUpdates.php
+
+		-
 			message: '#^Cannot call method label\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 2

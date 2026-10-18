@@ -398,9 +398,23 @@ new #[Title('Import statement')] class extends Component {
         );
     }
 
-    public function updatedLineCategory(mixed $value, int|string $key): void
+    public function updatingLineCategory(mixed $value, int|string|null $key = null): void
     {
-        $line = $this->lineFor((int) $key);
+        if ($key === null) {
+            $this->rememberChangedKeys('lineCategory', $value);
+        }
+    }
+
+    public function updatedLineCategory(mixed $value, int|string|null $key = null): void
+    {
+        foreach ($this->updatedKeys('lineCategory', $key) as $lineId) {
+            $this->applyLineCategory((int) $lineId, $this->lineCategory[$lineId] ?? null);
+        }
+    }
+
+    private function applyLineCategory(int $lineId, mixed $value): void
+    {
+        $line = $this->lineFor($lineId);
 
         if (! $line) {
             return;
@@ -425,9 +439,23 @@ new #[Title('Import statement')] class extends Component {
         unset($this->import, $this->ruleCoveredLines);
     }
 
-    public function updatedLineBill(mixed $value, int|string $key): void
+    public function updatingLineBill(mixed $value, int|string|null $key = null): void
     {
-        $line = $this->lineFor((int) $key);
+        if ($key === null) {
+            $this->rememberChangedKeys('lineBill', $value);
+        }
+    }
+
+    public function updatedLineBill(mixed $value, int|string|null $key = null): void
+    {
+        foreach ($this->updatedKeys('lineBill', $key) as $lineId) {
+            $this->applyLineBill((int) $lineId, $this->lineBill[$lineId] ?? null);
+        }
+    }
+
+    private function applyLineBill(int $lineId, mixed $value): void
+    {
+        $line = $this->lineFor($lineId);
 
         if (! $line) {
             return;

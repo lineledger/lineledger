@@ -126,9 +126,23 @@ new #[Title('For Review')] class extends Component {
         );
     }
 
-    public function updatedLineBill(mixed $value, int|string $key): void
+    public function updatingLineBill(mixed $value, int|string|null $key = null): void
     {
-        $line = $this->lineForReview((int) $key);
+        if ($key === null) {
+            $this->rememberChangedKeys('lineBill', $value);
+        }
+    }
+
+    public function updatedLineBill(mixed $value, int|string|null $key = null): void
+    {
+        foreach ($this->updatedKeys('lineBill', $key) as $lineId) {
+            $this->applyLineBill((int) $lineId, $this->lineBill[$lineId] ?? null);
+        }
+    }
+
+    private function applyLineBill(int $lineId, mixed $value): void
+    {
+        $line = $this->lineForReview($lineId);
 
         if ($line === null) {
             return;

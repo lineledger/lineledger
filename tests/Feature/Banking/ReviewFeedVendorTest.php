@@ -344,3 +344,39 @@ it('ranks employees after vendors with a role chip, and Accept pays a reimbursem
     expect($payment->payment_type)->toBe(BillType::Reimbursement)
         ->and($claim->fresh()->balanceCents())->toBe(0);
 });
+
+it('saves a tax pick when the browser sends the whole tax map, then still splits', function () {
+    // Livewire sends the whole lineTax array (and the updated hook gets a null
+    // key) when the array changes shape in the browser — the first pick on an
+    // empty map, or ids arriving in another order. That threw a TypeError, and
+    // the unsent change then failed every later request, including each
+    // keystroke in the split dialog (discussion #107).
+    $gst = TaxCode::query()->where('code', 'GST')->firstOrFail();
+    $line = reviewVendorLine(-25200);
+    $other = reviewVendorLine(-1500, description: 'COFFEE SHOP 44');
+
+    $component = Livewire::test('pages::banking.review', ['company' => $this->company])
+        ->set('lineTax', [0 => null, $line->id => [(string) $gst->id], $other->id => []])
+        ->assertHasNoErrors()
+        ->assertSet("lineTax.{$line->id}", [$gst->id]);
+
+    expect($line->fresh()->suggested_tax_code_id)->toBe($gst->id)
+        ->and($other->fresh()->suggested_tax_code_id)->toBeNull();
+
+    $component->call('openSplit', $line->id)
+        ->set('splits.0.amount', '200.5')
+        ->set('splits.0.amount', '200.50')
+        ->assertHasNoErrors();
+});
+
+it('saves a Record as pick when the browser sends the whole map', function () {
+    $vendor = Contact::factory()->vendor()->create();
+    $bill = reviewVendorBill($vendor, 25200);
+    $line = reviewVendorLine(-25200, contactId: $vendor->id);
+
+    Livewire::test('pages::banking.review', ['company' => $this->company])
+        ->set('lineBill', [$line->id => (string) $bill->id])
+        ->assertHasNoErrors();
+
+    expect($line->fresh()->suggested_bill_id)->toBe($bill->id);
+});
