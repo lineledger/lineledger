@@ -202,6 +202,32 @@ Currency symbols and day-first document dates are already per-country.
 
 **Effort:** S · **Priority:** P3 · **Depends on:** None
 
+## Known issues found during the 1.2.0 docs capture
+
+### Filed and completed timestamps print in UTC
+
+**What:** A filed tax return's "Filed 2026-10-18 05:48:26 by …" stamp and a completed bank
+reconciliation's Completed time show the raw UTC timestamp, not the organization's timezone
+(a BC club saw 05:59 for a reconciliation finished at 22:59 the evening before).
+
+**Effort:** S · **Priority:** P2 · **Depends on:** None
+
+### Narrow inputs clip their values on line-item forms
+
+**What:** The per-tax amount field on cheque and expense lines shows "26.0(" for 26.00; the
+Service date on estimate and sales-order lines shows only "yyyy-mm"; and on purchase orders
+and vendor credits the wider Account column squeezes Class and Location to two letters.
+Dragging a column wider works around it.
+
+**Effort:** S · **Priority:** P3 · **Depends on:** None
+
+### UK demo invoices print no terms
+
+**What:** `UkDemoCompanySeeder` creates invoices without payment terms, so TERMS prints "—" even
+when the due date is 30 days out. Seed the UK payment terms on its invoices.
+
+**Effort:** S · **Priority:** P3 · **Depends on:** None
+
 ## Known issues found during the 1.1.0 docs audit
 
 ### Template-based import steps can't read a Windows-1252 CSV
