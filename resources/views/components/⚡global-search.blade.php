@@ -95,7 +95,7 @@ new class extends Component {
                             @if ($rows->isNotEmpty())
                                 <div class="mb-4">
                                     <flux:subheading class="px-2 text-xs uppercase tracking-wide">
-                                        {{ __(ucwords(str_replace('_', ' ', $group))) }}
+                                        {{ \App\Services\GlobalSearch::groupLabel($group) }}
                                     </flux:subheading>
 
                                     <ul class="mt-1 divide-y divide-border">

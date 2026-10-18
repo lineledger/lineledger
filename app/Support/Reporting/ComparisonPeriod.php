@@ -44,8 +44,8 @@ class ComparisonPeriod
     public static function label(string $basis): string
     {
         return match ($basis) {
-            self::PriorPeriod => 'prior period',
-            self::PriorYear => 'prior year',
+            self::PriorPeriod => __('prior period'),
+            self::PriorYear => __('prior year'),
             default => '',
         };
     }

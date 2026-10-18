@@ -10,7 +10,7 @@
     <tbody>
         @foreach ($report['is']['halves'] as $half)
             @if ($half['sections'] !== [])
-                <tr><td colspan="3" style="font-weight:bold; background:#f3f4f6;">{{ strtoupper(__($half['label'])) }}</td></tr>
+                <tr><td colspan="3" style="font-weight:bold; background:#f3f4f6;">{{ mb_strtoupper(__($half['label'])) }}</td></tr>
                 @foreach ($half['sections'] as $section)
                     @foreach ($section['lines'] as $line)
                         <tr><td>{{ $line['code'] }}</td><td>{{ __($line['label']) }}</td><td class="num">{{ number_format($line['amount'] / 100, 2) }}</td></tr>
@@ -53,7 +53,7 @@
     <tbody>
         @foreach ($report['bs']['halves'] as $halfKey => $half)
             @if ($half['sections'] !== [] || ($halfKey === 'equity' && $half['net_income'] !== 0))
-                <tr><td colspan="3" style="font-weight:bold; background:#f3f4f6;">{{ strtoupper(__($half['label'])) }}</td></tr>
+                <tr><td colspan="3" style="font-weight:bold; background:#f3f4f6;">{{ mb_strtoupper(__($half['label'])) }}</td></tr>
                 @foreach ($half['sections'] as $section)
                     @foreach ($section['lines'] as $line)
                         <tr><td>{{ $line['code'] }}</td><td>{{ __($line['label']) }}</td><td class="num">{{ number_format($line['amount'] / 100, 2) }}</td></tr>

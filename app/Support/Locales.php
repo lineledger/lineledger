@@ -97,9 +97,13 @@ final class Locales
     {
         $locale = self::canonicalize($locale);
 
+        // Carbon's en_CA overrides relative-time wording ("in 2 days" instead of
+        // "2 days from now"), so English keeps Carbon's plain `en` like main does.
+        $carbon = $locale === 'en' ? 'en' : self::icu($locale);
+
         App::setLocale($locale);
-        Carbon::setLocale(self::icu($locale));
-        CarbonImmutable::setLocale(self::icu($locale));
+        Carbon::setLocale($carbon);
+        CarbonImmutable::setLocale($carbon);
     }
 
     /**
@@ -171,6 +175,19 @@ final class Locales
         $immutable = CarbonImmutable::parse($date);
 
         return App::getLocale() === 'en' ? $immutable->format($english) : $immutable->format('Y-m-d');
+    }
+
+    /**
+     * Translate a stored name for display, passing it through unchanged when the
+     * catalog has no string for it. A name such as "validation" or "auth" matches
+     * one of Laravel's grouped translation files, where __() returns an array.
+     */
+    public static function name(?string $value): string
+    {
+        $value = (string) $value;
+        $translated = __($value);
+
+        return is_string($translated) ? $translated : $value;
     }
 
     public static function formatMoney(int $cents, string $currency): string

@@ -459,7 +459,7 @@ new #[Title('Site Admin — Users')] class extends Component {
                 :description="__('The language of the staff app. Invoices sent to customers use each customer\'s document language.')"
                 data-test="user-locale-select"
             >
-                <flux:select.option value="">{{ __('Default (:locale)', ['locale' => Locales::label(config('app.locale'))]) }}</flux:select.option>
+                <flux:select.option value="">{{ __('Default (:locale)', ['locale' => Locales::label(config('app.default_locale'))]) }}</flux:select.option>
                 @foreach (Locales::options() as $code => $label)
                     <flux:select.option :value="$code">{{ $label }}</flux:select.option>
                 @endforeach

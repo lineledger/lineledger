@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\CompanyCurrency;
 use App\Support\Currency;
+use App\Support\Locales;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -131,7 +132,10 @@ class EnableCompanyCurrency
             ->first();
 
         $baseCode = $home?->code ?? ($subtype === AccountSubtype::AccountsReceivable ? '1100' : '2000');
-        $baseName = $home?->name ?? $subtype->label();
+        // Stored names stay English (they're translated on display), whatever the
+        // language of the user who switched the currency on.
+        $englishLabel = Locales::using('en', fn (): string => $subtype->label());
+        $baseName = $home?->name ?? $englishLabel;
 
         return $this->makeAccount($company, [
             'code' => $this->uniqueCode($company, $baseCode.'-'.$currencyCode),
@@ -139,7 +143,7 @@ class EnableCompanyCurrency
             'subtype' => $subtype,
             'currency_code' => $currencyCode,
             'is_system' => true,
-            'description' => "Foreign {$subtype->label()} control account for {$currencyCode}.",
+            'description' => "Foreign {$englishLabel} control account for {$currencyCode}.",
         ]);
     }
 

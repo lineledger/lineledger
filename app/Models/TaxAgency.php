@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
 use App\Enums\TaxReturnStatus;
+use App\Support\Locales;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -29,7 +30,7 @@ class TaxAgency extends Model
      */
     public function label(): string
     {
-        return __($this->name);
+        return Locales::name($this->name);
     }
 
     /**

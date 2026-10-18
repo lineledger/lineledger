@@ -765,35 +765,41 @@ class Company extends Model
     {
         $pst = $this->provincialSalesTax();
 
-        if ($pst !== null) {
+        // HST provinces, GST-only territories, and non-Canadian companies have no
+        // separate provincial registration to print.
+        if ($pst === null) {
+            return null;
+        }
+
+        $agency = TaxAgency::withoutGlobalScopes()
+            ->where('company_id', $this->id)
+            ->where('name', $pst->agencyName())
+            ->first();
+
+        if ($agency) {
+            return $agency;
+        }
+
+        $account = Account::withoutGlobalScopes()
+            ->where('company_id', $this->id)
+            ->where('code', '2210')
+            ->first();
+
+        if ($account) {
             $agency = TaxAgency::withoutGlobalScopes()
                 ->where('company_id', $this->id)
-                ->where('name', $pst->agencyName())
+                ->where('payable_account_id', $account->id)
                 ->first();
 
             if ($agency) {
                 return $agency;
             }
-
-            $account = Account::withoutGlobalScopes()
-                ->where('company_id', $this->id)
-                ->where('code', '2210')
-                ->first();
-
-            if ($account) {
-                $agency = TaxAgency::withoutGlobalScopes()
-                    ->where('company_id', $this->id)
-                    ->where('payable_account_id', $account->id)
-                    ->first();
-
-                if ($agency) {
-                    return $agency;
-                }
-            }
         }
 
-        // Fallback: any active tax agency for this company with a registration
-        // number that is not CRA / federal (account 2200).
+        // Fallback: any active agency with a registration number other than the
+        // federal one. The federal agency is identified by its payable account
+        // (2200) so a renamed CRA agency is still excluded; the name check covers
+        // a chart whose 2200 account was renumbered.
         $craAccount = Account::withoutGlobalScopes()
             ->where('company_id', $this->id)
             ->where('code', '2200')

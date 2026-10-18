@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
 use App\Enums\TaxAppliesTo;
+use App\Support\Locales;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -75,7 +76,7 @@ class TaxCode extends Model
      */
     public function label(): string
     {
-        return __($this->code);
+        return Locales::name($this->code);
     }
 
     /**
@@ -84,7 +85,7 @@ class TaxCode extends Model
      */
     public function displayName(): string
     {
-        return __((string) $this->name);
+        return Locales::name($this->name);
     }
 
     /**

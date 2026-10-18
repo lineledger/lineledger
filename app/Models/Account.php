@@ -8,6 +8,7 @@ use App\Enums\AccountType;
 use App\Enums\CashFlowActivity;
 use App\Enums\NormalBalance;
 use App\Observers\AccountObserver;
+use App\Support\Locales;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -74,7 +75,7 @@ class Account extends Model
      */
     public function displayName(): string
     {
-        return __((string) $this->name);
+        return Locales::name($this->name);
     }
 
     /**

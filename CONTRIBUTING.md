@@ -30,7 +30,8 @@ LineLedger is a **Laravel** application (PHP 8.5+, Livewire, Tailwind).
 **Docker-only (no host PHP / Node / MySQL / poppler):** clone, then
 `docker compose up --build`. The app is at <http://localhost:8000>, Mailpit at
 <http://localhost:8025>. Commands such as Pest become
-`docker compose exec app ./vendor/bin/pest`. See README → Develop with Docker.
+`docker compose exec app sh docker/pest.sh` (never plain `./vendor/bin/pest` in the container: compose's
+environment would point it at the dev database). See README → Develop with Docker.
 The rest of this section is the host-native loop.
 
 1. **Fork** the repository (the "Fork" button, top right), then **clone** your fork:

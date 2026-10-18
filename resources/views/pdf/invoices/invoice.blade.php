@@ -267,17 +267,6 @@
         @php
             $provincialTaxNumber = $company->provincialTaxNumber();
             $provincialTaxLabel = $company->provincialTaxLabel();
-            if (! filled($provincialTaxNumber) && isset($invoice)) {
-                foreach ($invoice->lines as $invLine) {
-                    foreach ([$invLine->taxCode, $invLine->secondaryTaxCode] as $taxCode) {
-                        if ($taxCode && $taxCode->agency && filled($taxCode->agency->registration_number) && $taxCode->agency->name !== 'Canada Revenue Agency') {
-                            $provincialTaxNumber = $taxCode->agency->registration_number;
-                            $provincialTaxLabel = str_contains($taxCode->agency->name, 'Québec') || str_contains($taxCode->agency->name, 'Quebec') ? __('QST') : (str_contains($taxCode->agency->name, 'Manitoba') ? __('RST') : __('PST'));
-                            break 2;
-                        }
-                    }
-                }
-            }
         @endphp
         @if ($settings->show_tax_number && filled($provincialTaxNumber))
             <div class="taxno">{{ __(':tax No.', ['tax' => $provincialTaxLabel]) }} {{ $provincialTaxNumber }}</div>

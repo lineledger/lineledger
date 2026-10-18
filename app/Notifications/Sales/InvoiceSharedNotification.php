@@ -3,7 +3,6 @@
 namespace App\Notifications\Sales;
 
 use App\Models\Company;
-use App\Models\Contact;
 use App\Models\Invoice;
 use App\Services\Reporting\InvoicePdfRenderer;
 use App\Support\Locales;
@@ -37,7 +36,11 @@ class InvoiceSharedNotification extends Notification implements ShouldQueue
         public ?string $senderName = null,
         public array $cc = [],
         public array $bcc = [],
-    ) {}
+    ) {
+        // Route-notified (a bare address), so there's no notifiable preference:
+        // pin the document language here so Laravel renders the whole message in it.
+        $this->locale = Locales::forDocument($invoice->contact, $company);
+    }
 
     /**
      * @return array<int, string>
@@ -49,10 +52,7 @@ class InvoiceSharedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $contact = $notifiable instanceof Contact ? $notifiable : $this->invoice->contact;
-        $locale = Locales::forDocument($contact, $this->company);
-
-        return Locales::using($locale, fn (): MailMessage => $this->buildMail());
+        return $this->buildMail();
     }
 
     private function buildMail(): MailMessage

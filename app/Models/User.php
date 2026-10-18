@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Concerns\HasCompanies;
 use App\Enums\CalculatorMode;
+use App\Support\Locales;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,7 +28,7 @@ use Laravel\Passport\HasApiTokens;
 // escalate a user, move them between tenants, or unlock a disabled account.
 #[Fillable(['name', 'email', 'password', 'calculator_mode', 'locale', 'show_daily_insights', 'escape_goes_back'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable, PasskeyUser
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail, OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasCompanies, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -136,5 +138,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
             ->take(2)
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    /**
+     * The language Laravel renders this user's notifications in: their interface
+     * language, or the app default when they haven't picked one.
+     */
+    public function preferredLocale(): string
+    {
+        return Locales::isSupported($this->locale)
+            ? $this->locale
+            : Locales::canonicalize((string) config('app.default_locale', 'en'));
     }
 }

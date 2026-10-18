@@ -274,8 +274,8 @@ docker compose exec app php artisan db:seed --class=DemoCompanySeeder
 
 | Command | Action |
 | --- | --- |
-| `docker compose exec app ./vendor/bin/pest` | Pest against MySQL `lineledger_test` |
-| `docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=':memory:' app ./vendor/bin/pest` | CI-exact SQLite suite |
+| `docker compose exec app sh docker/pest.sh` | Pest against MySQL `lineledger_test` |
+| `docker compose exec app sh docker/pest.sh --sqlite` | CI-exact SQLite suite |
 | `docker compose exec app vendor/bin/pint --dirty` | Format changed PHP |
 | `docker compose exec app vendor/bin/phpstan analyse --memory-limit=1G` | Larastan |
 | `docker compose exec app npm test` | JS unit tests |

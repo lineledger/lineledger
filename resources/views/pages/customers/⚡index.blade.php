@@ -856,7 +856,7 @@ new #[Title('Customers')] class extends Component {
                         <flux:select wire:model="f_default_tax_code_id" :label="__('Default tax code')">
                             <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
                             @foreach ($this->taxCodeOptions as $code)
-                                <flux:select.option :value="$code->id">{{ $code->label() }}</flux:select.option>
+                                <flux:select.option :value="$code->id">{{ $code->label() }} — {{ $code->displayName() }}</flux:select.option>
                             @endforeach
                         </flux:select>
 
@@ -882,7 +882,7 @@ new #[Title('Customers')] class extends Component {
                             :description="__('Language used on this customer\'s invoices, invoice emails, and payment portal. Leave as organization default unless they need a different language.')"
                             data-test="customer-locale-select"
                         >
-                            <flux:select.option value="">{{ __('Organization default (:locale)', ['locale' => \App\Support\Locales::label($company->locale ?: config('app.locale'))]) }}</flux:select.option>
+                            <flux:select.option value="">{{ __('Organization default (:locale)', ['locale' => \App\Support\Locales::label($company->locale ?: config('app.default_locale'))]) }}</flux:select.option>
                             @foreach (\App\Support\Locales::options() as $code => $label)
                                 <flux:select.option :value="$code">{{ $label }}</flux:select.option>
                             @endforeach

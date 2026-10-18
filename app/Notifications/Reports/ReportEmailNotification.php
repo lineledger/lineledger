@@ -40,7 +40,11 @@ class ReportEmailNotification extends Notification implements ShouldQueue
         public bool $resolvePresets = false,
         public ?string $replyToAddress = null,
         public ?string $senderName = null,
-    ) {}
+    ) {
+        // Route-notified (a bare address), so there's no notifiable preference:
+        // pin the document language here so Laravel renders the whole message in it.
+        $this->locale = Locales::forDocument(null, $company);
+    }
 
     /**
      * @return array<int, string>
@@ -52,7 +56,7 @@ class ReportEmailNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        return Locales::forRecipient($notifiable, fn (): MailMessage => $this->buildMail(), $this->company);
+        return $this->buildMail();
     }
 
     private function buildMail(): MailMessage

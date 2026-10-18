@@ -402,4 +402,26 @@ class GlobalSearch
     {
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
     }
+
+    /**
+     * Heading for a results group (the keys returned by search()).
+     */
+    public static function groupLabel(string $group): string
+    {
+        return match ($group) {
+            'invoices' => __('Invoices'),
+            'credit_memos' => __('Credit Memos'),
+            'bills' => __('Bills'),
+            'bill_payments' => __('Bill Payments'),
+            'receipts' => __('Receipts'),
+            'cheques' => __('Cheques'),
+            'deposits' => __('Deposits'),
+            'journal_entries' => __('Journal Entries'),
+            'contacts' => __('Contacts'),
+            'accounts' => __('Accounts'),
+            'items' => __('Items'),
+            'tax_returns' => __('Tax Returns'),
+            default => ucwords(str_replace('_', ' ', $group)),
+        };
+    }
 }

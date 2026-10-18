@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
 use App\Enums\AccountSubtype;
+use App\Support\Locales;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,7 +32,7 @@ use Illuminate\Support\Facades\DB;
     'locale',
     'notes', 'is_active', 'invoice_emails_enabled', 'reminder_emails_enabled',
 ])]
-class Contact extends Model implements AuthenticatableContract
+class Contact extends Model implements AuthenticatableContract, HasLocalePreference
 {
     use AuthenticatableTrait, BelongsToCompany, HasFactory, Notifiable, SoftDeletes;
 
@@ -365,5 +367,14 @@ class Contact extends Model implements AuthenticatableContract
             'ap_balance_cents' => 'integer',
             'credit_limit_cents' => 'integer',
         ];
+    }
+
+    /**
+     * The language Laravel renders this contact's notifications in (portal links,
+     * receipts, time-off decisions): their document language, else the company's.
+     */
+    public function preferredLocale(): string
+    {
+        return Locales::forDocument($this, $this->company);
     }
 }

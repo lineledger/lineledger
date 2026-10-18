@@ -13,6 +13,7 @@ use App\Notifications\Sales\InvoiceSharedNotification;
 use App\Services\Reporting\InvoicePdfRenderer;
 use App\Support\Locales;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -150,10 +151,15 @@ it('writes the invoice email in the customer document language', function () {
     $invoice = makeLocaleInvoice($this, $customer);
     $companyName = $this->company->brand_name ?: $this->company->name;
 
-    $mail = (new InvoiceSharedNotification($invoice, $this->company, 'http://pay.test/x', 'Please pay.'))
-        ->toMail($customer);
+    config(['mail.default' => 'array']);
 
-    expect($mail->subject)->toBe('Facture INV-I18N-1 de '.$companyName);
+    Notification::route('mail', 'buyer@acme.test')
+        ->notifyNow(new InvoiceSharedNotification($invoice, $this->company, 'http://pay.test/x', 'Please pay.'));
+
+    $mail = app('mail.manager')->mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+
+    expect($mail->getSubject())->toBe('Facture INV-I18N-1 de '.$companyName)
+        ->and((string) $mail->getHtmlBody())->toContain(e(__('Hello!', [], 'fr')));
 });
 
 it('restores the previous locale after rendering a document', function () {
@@ -270,7 +276,13 @@ it('writes a company invitation in the invitee locale', function () {
     $invitation->setRelation('company', $this->company);
     $invitation->setRelation('inviter', $this->user);
 
-    $mail = (new App\Notifications\Companies\CompanyInvitation($invitation))->toMail($invitee);
+    config(['mail.default' => 'array']);
 
-    expect($mail->subject)->toContain('invité');
+    Notification::route('mail', $invitee->email)
+        ->notifyNow(new App\Notifications\Companies\CompanyInvitation($invitation));
+
+    $mail = app('mail.manager')->mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+
+    expect($mail->getSubject())->toContain('invité')
+        ->and((string) $mail->getHtmlBody())->toContain('Cordialement,');
 });

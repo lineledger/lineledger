@@ -5,6 +5,7 @@ use App\Enums\CompanyRole;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\InvoiceSetting;
+use App\Models\TaxAgency;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -179,4 +180,19 @@ it('does not show provincial tax number for a company in a region without provin
 
     Livewire::test('pages::settings.invoices', ['company' => $onCompany])
         ->assertDontSeeHtml('data-test="invoice-provincial-tax-number"');
+});
+
+it('leaves the CRA agency registration number alone when saving invoice settings', function () {
+    $craAccount = Account::query()->where('code', '2200')->firstOrFail();
+    $agency = TaxAgency::query()->where('payable_account_id', $craAccount->id)->firstOrFail();
+    $agency->update(['registration_number' => '123456789RT0001']);
+    $this->company->forceFill(['tax_number' => null])->saveQuietly();
+
+    // Saving the page with a blank tax-number field (e.g. just toggling the logo).
+    Livewire::test('pages::settings.invoices', ['company' => $this->company])
+        ->set('showLogo', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($agency->fresh()->registration_number)->toBe('123456789RT0001');
 });

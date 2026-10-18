@@ -60,6 +60,9 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
         ?array $columns = null,
     ) {
         $this->columns = $columns;
+        // Route-notified (a bare address), so there's no notifiable preference:
+        // pin the document language here so Laravel renders the whole message in it.
+        $this->locale = Locales::forDocument($contact, $company);
     }
 
     /**
@@ -72,7 +75,7 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        return Locales::forContactDocument($this->contact, $this->company, fn (): MailMessage => $this->buildMail());
+        return $this->buildMail();
     }
 
     private function buildMail(): MailMessage

@@ -19,9 +19,9 @@ enum TaxReturnAdjustmentKind: string
     public function label(): string
     {
         return match ($this) {
-            self::Collected => 'Collected',
-            self::Paid => 'ITC',
-            self::Other => 'Other',
+            self::Collected => __('Collected'),
+            self::Paid => __('ITC'),
+            self::Other => __('Other'),
         };
     }
 

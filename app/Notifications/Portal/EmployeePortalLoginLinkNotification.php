@@ -3,8 +3,6 @@
 namespace App\Notifications\Portal;
 
 use App\Models\Company;
-use App\Models\Contact;
-use App\Support\Locales;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -39,17 +37,14 @@ class EmployeePortalLoginLinkNotification extends Notification implements Should
     {
         $name = $this->company->brand_name ?: $this->company->name;
         $fromAddress = 'no-reply@'.Str::after(config('mail.from.address'), '@');
-        $contact = $notifiable instanceof Contact ? $notifiable : null;
 
-        return Locales::forContactDocument($contact, $this->company, function () use ($name, $fromAddress): MailMessage {
-            return (new MailMessage)
-                ->subject(__('Sign in to your :company pay portal', ['company' => $name]))
-                ->from($fromAddress, $name)
-                ->markdown('emails.portal-login-link', [
-                    'companyName' => $name,
-                    'actionUrl' => $this->url,
-                    'ttlMinutes' => $this->ttlMinutes,
-                ]);
-        });
+        return (new MailMessage)
+            ->subject(__('Sign in to your :company pay portal', ['company' => $name]))
+            ->from($fromAddress, $name)
+            ->markdown('emails.portal-login-link', [
+                'companyName' => $name,
+                'actionUrl' => $this->url,
+                'ttlMinutes' => $this->ttlMinutes,
+            ]);
     }
 }

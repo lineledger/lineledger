@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Support\Locales;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,6 +29,6 @@ class PaymentMethod extends Model
      */
     public function displayName(): string
     {
-        return __((string) $this->name);
+        return Locales::name($this->name);
     }
 }

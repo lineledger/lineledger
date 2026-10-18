@@ -119,22 +119,11 @@ new #[Title('Invoice settings')] class extends Component {
         DB::transaction(function () use ($validated) {
             $federalNumber = filled($validated['taxNumber']) ? trim($validated['taxNumber']) : null;
 
+            // The CRA agency's registration number is edited under Lists → Tax codes;
+            // this screen only owns the number printed on the invoice footer.
             $this->company->update([
                 'tax_number' => $federalNumber,
             ]);
-
-            $craAccount = Account::withoutGlobalScopes()
-                ->where('company_id', $this->company->id)
-                ->where('code', '2200')
-                ->first();
-
-            if ($craAccount) {
-                TaxAgency::withoutGlobalScopes()
-                    ->where('company_id', $this->company->id)
-                    ->where('payable_account_id', $craAccount->id)
-                    ->first()
-                    ?->update(['registration_number' => $federalNumber]);
-            }
 
             if ($pst = $this->company->provincialSalesTax()) {
                 $provNumber = filled($validated['provincialTaxNumber']) ? trim($validated['provincialTaxNumber']) : null;
