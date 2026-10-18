@@ -2,9 +2,12 @@
 
 PDF user manuals built from live LineLedger sessions: real organization, real postings, unretouched screenshots.
 
-> **Captures, prose and the PDF were regenerated 2026-09-19 for LineLedger 1.1.0.** Recapture
-> per *Regenerating* below whenever you next revise a manual, so the images keep pace with the
-> prose.
+> **Captures, prose and the PDF were regenerated 2026-10-18 for LineLedger 1.2.0.** Every figure
+> was compared against a fresh run of the scenario. Thirteen had changed (the v1.2.0 footer,
+> the English · Français switcher, the timezone label, the line-item account picker, the
+> invoice's Payments section, the reconciliation's completed stamp) and were recaptured, along
+> with figures 20 and 21, retaken with the invoice flow. The other 19 were identical and kept. Recapture per *Regenerating* below whenever you next revise a manual, so the images keep
+> pace with the prose.
 
 ## getting-started/
 
@@ -17,7 +20,8 @@ PDF user manuals built from live LineLedger sessions: real organization, real po
    `php artisan config:clear && DB_DATABASE=lineledger_manual php artisan migrate`
    (No `--seed` — zero users keeps `/register` open and the walkthrough authentic.) A throwaway
    SQLite file works too — `DB_CONNECTION=sqlite DB_DATABASE=/abs/path/manual.sqlite` on every
-   command below; the 1.1.0 captures used one.
+   command below; the 1.1.0 and 1.2.0 captures used one. Export the same `DB_*` variables in the
+   shell you run `artisan`/`tinker` from, or those commands hit your dev database instead.
 2. **Serve built assets**: `npm run build && DB_DATABASE=lineledger_manual php artisan serve --port=8080`
    No queue worker needed — every flow in the manual posts synchronously.
 3. **Re-capture** with a headless browser at 1440×900 @2x, light mode, following the scenario
@@ -25,13 +29,15 @@ PDF user manuals built from live LineLedger sessions: real organization, real po
    charge $2.00 → 6010 Bank Charges). Number screenshots `01-…` to `34-…` as in `images/`.
    File numbers follow capture order, not figure numbers: `34-reports-hub.png` is Figure 29,
    and `29-…` through `33-…` are Figures 30–34. Figures 6, 9, 11, 12 and 17 are full-page
-   captures, 18 is a clip of the member page header, and everything else is viewport-only.
+   captures, scaled to fit 2000 px on the long side (1440 px wide CSS, so 1991×2000, 1567×2000,
+   2000×1579, 1428×2000, 2000×1871); 18 is a clip of the member page header (1660×380); every
+   other figure is the 1440×900 viewport at 2x, so 2880×1800 with no downscaling.
 4. **Render** with the gstack make-pdf binary (it is not on `PATH`), from
    `docs/manuals/getting-started/`:
 
    ```bash
    ~/.claude/skills/gstack/make-pdf/dist/pdf generate --cover --toc --no-confidential \
-     --title "LineLedger: Your First Month" --author "LineLedger" --date "September 2026" \
+     --title "LineLedger: Your First Month" --author "LineLedger" --date "October 2026" --strict \
      getting-started.md lineledger-getting-started.pdf
    ```
 
@@ -46,15 +52,28 @@ Gotchas learned the hard way:
 
 - **Email verification comes before the wizard.** After *Create account* the app stops at
   `/email/verify`. With `MAIL_MAILER=log` the signed link lands in `storage/logs/laravel.log`
-  — open it in the capture browser — or mark the user verified, as the 1.1.0 capture did:
+  — open it in the capture browser — or mark the user verified:
   `DB_DATABASE=lineledger_manual php artisan tinker --execute='App\Models\User::first()->markEmailAsVerified();'`.
   Then open `/`, not `/dashboard` (there is no such route — the dashboard is
   `{company}/dashboard`), to land in the wizard. The manual's *Verify your email address*
   section has no figure.
-- **Country banner on the auth pages.** A direct visit shows a banner along the bottom offering
-  the other country's site ("Go to Canada / Stay here"; a local host counts as the US site
-  unless `APP_REGION` is set). Click **Stay here** before capturing figure 1 — the choice is
-  kept in that browser's localStorage (`ll_region`), so it won't return.
+- **Never type a password into a figure.** Figure 1 shows the registration form with Name,
+  Email and the terms box filled in and both password fields left blank. The 1.2.0 capture
+  never submitted it: it shot the form while the database had zero users, then created
+  Riley Park (riley.park@example.com, random password, `site_admin`, email verified, terms
+  recorded via `App\Support\Legal\LegalDocuments::record()`) with `tinker`, and signed the
+  capture browser in through a **scratch-only** `php -S` router. That router, kept outside
+  the repo and never part of the app, serves the checkout like `artisan serve` and adds a
+  `/__autologin?to=/path` route that logs that user in with `Auth::login()`. Use it only
+  against a throwaway database on 127.0.0.1.
+- **No country banner on your own server.** The guest country-switcher banner ("Go to
+  Canada / Stay here") renders only when the request host is one of the project's own hosted
+  sites (`config('app.app_urls')`), so a local or self-hosted capture never shows it, and
+  there is nothing to dismiss before figure 1. The auth pages do now carry an
+  **English · Français** switcher above the footer; leave it on English.
+- **Timezone label.** America/Vancouver is listed in the wizard (and settings) as
+  *British Columbia (no DST)*; the browser's zone pre-selects it. Pick it explicitly if the
+  capture browser runs in another zone.
 - **Wizard defaults to undo.** Step 2 pre-selects *Non-profit corporation* (and shows the
   restricted-contributions question) — pick *Unincorporated association*. Step 4 pre-selects
   Employees, Fixed assets, Membership and Donations & grants — leave only Membership on.
@@ -74,6 +93,9 @@ Gotchas learned the hard way:
 - **Expires must be typed.** The new-member form doesn't derive *Expires* from an annual level
   (Joined and Term start default to today; Expires stays blank) — type 2027-01-04. The contact
   "Country" field wants a 2-letter code (`CA`) — the field now says so itself.
+- **Save & post on a receipt lands on the receipt**, not the invoice. Figure 22 is the
+  invoice page reached from the receipt's INV-000001 link; it now has a *Payments* section
+  listing REC-000001.
 - A new deposit's receipt picker starts **unticked**. Tick REC-000001 before capturing figure 23,
   or the deposit total reads $0.00. The picker sorts and has an Export menu; leave the default
   sort for the capture.
@@ -88,5 +110,13 @@ Gotchas learned the hard way:
   chart's months in figure 11, shows the real capture date; the manual says so rather than
   pretending otherwise.
 - Screenshot modals viewport-only (full-page makes them tiny).
-- The gstack browse session can drop its viewport and login after a long pause; re-set
+- **Full-page captures of the app shell repeat.** With a fixed sidebar, a Chrome
+  `captureBeyondViewport` screenshot tiles the viewport down the page. Resize the viewport to
+  the page's `scrollHeight` (1440 wide, deviceScaleFactor 2), capture, then put it back to
+  1440×900.
+- **Convert to sRGB before committing.** Aside's Chrome tags captures with the display's
+  colour profile, so the teal accent looks washed out next to the older figures. Run
+  `sips --matchTo "/System/Library/ColorSync/Profiles/sRGB Profile.icc"` on each PNG (then
+  `sips -Z 2000` for the full-page and clip figures).
+- The capture browser can drop its viewport and login after a long pause; re-set
   1440×900 @2x and log in again before carrying on.

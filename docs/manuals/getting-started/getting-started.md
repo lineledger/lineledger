@@ -2,7 +2,7 @@
 
 This guide walks you through your first month of bookkeeping in LineLedger, from a brand-new account to a reconciled bank statement and a clean set of month-end reports.
 
-*Written for LineLedger 1.1.0 (September 2026).*
+*Written for LineLedger 1.2.0 (October 2026).*
 
 We follow a small, real-world story: the **Edgemont Photo Club**, an unincorporated association in North Vancouver, British Columbia. Riley Park, the club's volunteer treasurer, sets the club up in LineLedger on January 1, 2026. During January the club:
 
@@ -19,7 +19,7 @@ Nothing in this guide requires an accounting background. Where a bookkeeping ide
 
 > **Note.** LineLedger's interface says **organization** for what accountants might call the company, entity, or society — though a few screens, such as the last step of the setup wizard, still say *company*. They are the same thing. This guide says organization throughout.
 
-> **Tip.** Every number, name, and date in this guide comes from a real LineLedger session — the screenshots are unretouched. Follow along with your own club's details and your screens will match. The only dates that won't are the ones LineLedger takes from the real calendar: the months on the dashboard's cash-flow chart and the moment a reconciliation is completed follow the day you do the work — September 2026, for these screenshots.
+> **Tip.** Every number, name, and date in this guide comes from a real LineLedger session — the screenshots are unretouched. Follow along with your own club's details and your screens will match. The only dates that won't are the ones LineLedger takes from the real calendar: the months on the dashboard's cash-flow chart and the moment a reconciliation is completed follow the day you do the work — October 2026, for these screenshots.
 
 # Create Your Account and Organization
 
@@ -29,7 +29,9 @@ Everything starts at the registration page. If your club is self-hosting LineLed
 
 On the login page, click **Sign up** next to *Don't have an account?* (or browse to `/register`). On *Create an account*, fill in your name, email address, and a password (twice, to confirm it). Tick the box agreeing to the Terms of Service and Privacy Policy and click **Create account**.
 
-A banner along the bottom of the page may offer to take you to the other country's LineLedger site (*Go to Canada* / *Stay here*, or the reverse). The hosted service runs one site for Canada and one for the United States, and a Canadian club belongs on the Canada site — so accept the offer only if it's pointing you there. On your club's own server, simply click **Stay here**, as we did before taking the screenshot below. The small print at the foot of the page — *© 2026 Local Foundry Inc. · v1.1.0 · AGPL-3.0 · Source · Legal* — tells you which LineLedger version you're running.
+Under the form, **English · Français** switches these pages between English and French. The small print at the foot of the page — *© 2026 Local Foundry Inc. · v1.2.0 · AGPL-3.0 · Source · Legal* — tells you which LineLedger version you're running.
+
+> **Note.** On the hosted LineLedger service, which runs a separate site for each country, a banner along the bottom of the sign-in pages may offer to take you to another country's site. A Canadian club belongs on the Canada site, so accept the offer only if it's pointing you there. A self-hosted server, like the one in these screenshots, never shows the banner.
 
 ![The registration page](images/01-register.png)
 *Figure 1 — Registering the treasurer's account.*
@@ -51,7 +53,7 @@ Once your email is verified, a new account with no organizations lands directly 
 
 ## Step 1 — Organization info
 
-Enter the organization name and where it operates. Choose the country with care: as the line under it says, *Your country can't be changed after creation*. For the Edgemont Photo Club:
+Enter the organization name and where it operates. The country list offers Canada, the United States, and the United Kingdom; choose with care: as the line under it says, *Your country can't be changed after creation*. For the Edgemont Photo Club:
 
 | Field | Value |
 |---|---|
@@ -59,7 +61,7 @@ Enter the organization name and where it operates. Choose the country with care:
 | Country | Canada |
 | Province | British Columbia *(the field is labelled Region until you pick Canada)* |
 | Base currency | CAD — Canadian Dollar |
-| Timezone | America/Vancouver *(detected from your browser)* |
+| Timezone | British Columbia (no DST) *(America/Vancouver, detected from your browser)* |
 | Fiscal year start month | January |
 
 ![Step 1 filled in](images/03-wizard-org-info.png)
@@ -267,6 +269,8 @@ Two things to set, because the club is backdating to the day Alex actually joine
 ![Draft dues invoice](images/19-invoice-draft.png)
 *Figure 19 — The drafted invoice: one line, "Membership dues: Founding Member", $10.00 to account 4200. The totals read Tax 0.00 — the club charges no GST or PST.*
 
+> **Tip.** The **Account** box on each line is a search box. Type a GL number — `42` lists 4200 Membership Dues first — or a word from the name, such as `dues`; the arrow keys and Enter pick from the list, and Tab takes the highlighted match. You won't need it here, because the membership level filled in 4200 for you, but it is how you pick an account on any line you add yourself. To widen a column, drag the divider between two column headings; double-clicking a divider puts that column back, and your browser remembers the widths for each form.
+
 The invoice is still a **draft** — it hasn't touched the books. When it looks right, click **Post invoice**.
 
 ![Posted invoice](images/20-invoice-posted.png)
@@ -297,10 +301,10 @@ Open invoice INV-000001 and click **Receive payment**. The receipt form opens wi
 
 > **Why this matters.** **Undeposited Funds** is the envelope in the treasurer's desk drawer: money the club has received but hasn't taken to the bank yet. Recording cash there (instead of straight into Chequing) means your books can match the bank statement *exactly* — the bank sees one deposit on the day you visit the credit union, not a trickle of individual receipts.
 
-Click **Save & post**. The invoice flips to **Paid**:
+Click **Save & post**. LineLedger opens the new receipt, REC-000001, showing it applied to INV-000001. Click **INV-000001** to go back to the invoice. It has flipped to **Paid**, and a new **Payments** section lists the receipt that settled it:
 
 ![Invoice paid](images/22-invoice-paid.png)
-*Figure 22 — Paid in full. Balance due $0.00.*
+*Figure 22 — Paid in full. Balance due $0.00, and Payments lists REC-000001 (2026-01-12, Cash, 10.00).*
 
 The ledger entry behind REC-000001 — the $10 moves from "owed to us" to "in the drawer":
 
@@ -326,7 +330,9 @@ becomes $10.00. With more members you'd tick several receipts into one deposit �
 the bank statement, one deposit in the books. The checkbox in the header row ticks them all
 (and clears them all again), any column header sorts the list (click it again to flip the
 direction), and the receipt number is a link that opens that receipt in a new tab, so the
-half-built deposit survives the detour.
+half-built deposit survives the detour. *Other deposits*, below the list, is for money that didn't
+come in through a receipt; its lines pick an account the same way an invoice line does, by
+typing the number or name.
 
 > **Tip.** The **Export** menu beside the *Undeposited receipts* heading downloads the list as
 > PDF, CSV or Excel, in the order shown and with the ticks as they stand; the PDF and Excel
@@ -483,6 +489,11 @@ January is closed: invoiced, collected, deposited, reconciled, and reported. A f
   has open and LineLedger shows who is editing it instead of the form, until they're done (an
   Owner or Admin can take over if they've walked away) — so two treasurers can never overwrite
   each other's work.
+- **Close the month.** Once January is reconciled, the owner can lock it: open the organization
+  under *Settings → Organizations* and click **Close the books**. Set the lock date to
+  January 31 and choose a mode. **Block** refuses any new, edited or voided transaction dated on
+  or before it, though an Owner or Admin can override a single transaction with their password.
+  **Warn** lets the person entering it go ahead after confirming.
 - **Import the bank statement.** *Actions → Import statement* on the bank register accepts
   CSV, Excel, OFX/QFX/QBO and PDF statement files, matches each line against the books, and
   learns your payees, vendors, bills and tax codes as you confirm them, so reconciliation gets
@@ -560,4 +571,4 @@ Four documents touched the books in January. Here is each one's journal entry �
 
 Every entry above is also visible inside LineLedger — each posted document links to its GL entry (you saw *JE-000001* on the invoice page), and every posting is recorded in a tamper-evident audit log. The books don't just balance; they can prove it.
 
-*This guide was produced against LineLedger 1.1.0 in September 2026 using a live organization; all figures are real output. To regenerate it, see `docs/manuals/README.md` in the LineLedger repository.*
+*This guide was produced against LineLedger 1.2.0 in October 2026 using a live organization; all figures are real output. To regenerate it, see `docs/manuals/README.md` in the LineLedger repository.*
