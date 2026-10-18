@@ -12,17 +12,18 @@ newest first.
 - **Back up first, every time.** A release can carry a migration that cannot be undone,
   and restoring a backup is the only supported way back. How to take one is under each
   release's *Before you start*.
-- **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0, running each release's steps in
-  turn. Skipping a release skips its backfills and its behaviour notes.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.1.0` is one exact
-  release; `1.1` follows the newest 1.1.x patch; `latest` follows the newest tagged
+- **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0, running each release's
+  steps in turn. Skipping a release skips its backfills and its behaviour notes.
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.2.0` is one exact
+  release; `1.2` follows the newest 1.2.x patch; `latest` follows the newest tagged
   release; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
   `LINELEDGER_VERSION` in `.env` to the exact release, so an upgrade happens when you
   change that line and not whenever a `docker compose pull` happens to run.
 - **`php artisan app:upgrade` is the post-deploy step, everywhere.** It runs the pending
-  migrations, then every backfill the release needs (for 1.1.0:
-  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`). Each
+  migrations, then every backfill the release needs (since 1.1.0:
+  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0
+  adds none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -33,6 +34,230 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.1.0 → 1.2.0
+
+Released 2026-10-18. 31 commits since 1.1.0; PHP `^8.5` and Laravel 13 are unchanged
+(`laravel/framework` moves to 13.35 with a dependency refresh), and `ext-intl` is now a
+declared requirement. 10 migrations, one of which rewrites data and cannot be undone; no
+new backfills; no config file rewritten. No env var was renamed, removed or made
+required. The headline changes — French, United Kingdom organizations, tax-return
+adjustments and reconciliation, overpayment refunds, and the warn-or-block lock date —
+are in `CHANGELOG.md`.
+
+### Before you start
+
+Take a full backup exactly as for 1.1.0 (below): a database dump **with triggers**, the
+storage volume or directory, and `.env`. Docker: `./backup.sh`. Forge / bare metal:
+
+```bash
+mysqldump --single-transaction --triggers --routines -u root -p lineledger \
+    | gzip > ~/lineledger-pre-1.2.0.sql.gz
+tar czf ~/lineledger-storage-pre-1.2.0.tar.gz storage/
+cp .env ~/lineledger-env-pre-1.2.0 && chmod 600 ~/lineledger-env-pre-1.2.0
+```
+
+This release insists on it because `move_bc_and_yukon_companies_off_us_pacific_time`
+changes existing organizations' time zones and its `down()` does nothing: the dump is
+the only route back to 1.1.0.
+
+Two checks on the host, bare metal only (the Docker image already passes both):
+
+- **Time zone data.** British Columbia stays on UTC−7 from November 1, 2026. This must
+  print `-07:00`; if it prints `-08:00`, update the system's tzdata package (and restart
+  PHP-FPM) before upgrading, or BC organizations' "today" runs an hour behind all winter.
+
+  ```bash
+  php -r 'echo (new DateTime("2026-12-01", new DateTimeZone("America/Vancouver")))->format("P"), PHP_EOL;'
+  ```
+
+- **`ext-intl`.** `php -m | grep intl` must print `intl`. 1.1.0 already used it to format
+  money; `composer install` now refuses to run without it.
+
+### Docker
+
+```bash
+cd lineledger                   # the directory holding docker-compose.yml and .env
+./backup.sh                     # dump + storage volume + .env into ./backups
+
+# In .env, set LINELEDGER_VERSION=1.2.0.
+docker compose pull && docker compose up -d
+docker compose logs -f app      # app:upgrade runs on boot; wait for "LineLedger ready (role: app)"
+docker compose exec app php artisan app:upgrade --verify
+```
+
+`docker-compose.yml`, `backup.sh` and `restore.sh` are unchanged from 1.1.0, so there is
+nothing to download. `docker/.env.example` gains commented-out `APP_LOCALE`, `BRAND_*` and
+`SUPPORT_ENABLED` lines; copy any you want into your `.env` (see *New settings*). With
+`MIGRATE_ON_BOOT=false`, run `app:upgrade --dry-run` and then `app:upgrade --verify`
+yourself, straight away, as for 1.1.0.
+
+### Forge / bare metal
+
+1. **Back up** and run the two host checks (above).
+2. **Optional, large installs: maintenance mode.** Two migrations add two indexes each,
+   to `customer_receipts` and `cheques`. On MySQL each index build holds a metadata lock;
+   with hundreds of thousands of rows, writes can stall for a minute or more.
+   `php artisan down --render=errors::503`, then `php artisan up` after step 4.
+3. **Deploy Now.** The 1.1.0 deploy script is unchanged and every line still matters:
+   `npm ci && npm run build` (the line-item column resizing is a new JavaScript module),
+   `config:cache` (`config/brand.php` and `config/support.php` are new), and
+   `queue:restart` (queued mail now renders in each recipient's language).
+4. **Verify**, from the site directory:
+
+   ```bash
+   php artisan up                    # if you took it down
+   php artisan app:upgrade --verify  # nothing left to migrate; runs the integrity check
+   ```
+
+### What the migrations do
+
+**Slow** marks the index builds that hold locks on large tables; **irreversible** is why
+the backup is not optional.
+
+| Migration | Change |
+| --- | --- |
+| `2026_09_07_120000_add_locale_to_users_companies_contacts` | Nullable `locale` on `users`, `companies` and `contacts`. **Sets every existing organization's document language to `en`**; users stay unset (the staff app uses `APP_LOCALE` until they pick a language) and so do contacts (their documents use the organization's language) |
+| `2026_09_21_000001_add_company_registration_number_to_companies_table` | Nullable `companies.company_registration_number` (the UK Companies House number) |
+| `2026_09_22_000001_add_use_for_expenses_to_accounts_table` | `accounts.use_for_expenses`, default off ("Use to pay expenses" on a liability) |
+| `2026_09_23_000001_create_tax_return_adjustments_table` | New table for a return's adjustments; `tax_returns` gains `other_adjustments_cents`, `adjustment_journal_entry_id` (FK) and a JSON `reconciliation` snapshot |
+| `2026_10_05_000001_add_statement_columns_to_invoice_settings` | Nullable JSON `invoice_settings.statement_columns`; unset keeps the default statement columns |
+| `2026_10_05_000002_move_bc_and_yukon_companies_off_us_pacific_time` | **Irreversible, rewrites data.** Canadian organizations in BC on `America/Los_Angeles` move to `America/Vancouver`, and Yukon ones to `America/Whitehorse`. A zone an owner picked themselves is left alone |
+| `2026_10_14_000001_add_refund_links_to_customer_receipts_table` | **Slow.** `refunded_receipt_id` and `from_invoice_id` + two indexes on `customer_receipts` |
+| `2026_10_14_000002_add_refund_links_to_cheques_table` | **Slow.** The same two columns + two indexes on `cheques` |
+| `2026_10_15_000001_add_lock_mode_to_companies_table` | `companies.lock_mode`, default `block`, so the lock date behaves as before |
+| `2026_10_16_000001_add_vat_boxes_to_tax_returns_table` | Nullable JSON `tax_returns.vat_boxes`: a UK return's nine boxes, frozen at filing |
+
+### The backfills
+
+None new. `app:upgrade` still runs the two 1.1.0 backfills, which find nothing left to do
+on an install that has already run them. The two data changes in this release (document
+language, BC and Yukon time) happen inside their migrations. A draft tax return saved
+under 1.1.0 stores its figures for the list the next time it is saved; its own page works
+them out live meanwhile.
+
+### Behaviour changes that are on by default
+
+**Time zones in BC and Yukon.** Organizations moved by the migration keep UTC−7 through
+the winter instead of falling back with US Pacific time, so between November and March
+"today", report stamps, payment reminders and scheduled report emails line up with local
+time.
+
+**Lock date: Block, with a password override.** Every organization keeps the Block mode it
+effectively had, but an Owner or Admin who posts into a locked period is now offered a
+one-transaction override after re-entering their password, written to the audit log as
+`period.lock_overridden`. Close the books also offers **Warn and confirm**, which any
+member can pass. The API, MCP and scheduled jobs are never offered an override.
+
+**Reconciliation locks protect lines, not dates.** A new entry dated inside a reconciled
+period now posts (it shows as uncleared on the next reconciliation); changing or voiding
+anything a completed reconciliation ticked is refused, including through invoice, bill,
+receipt and other document edits that 1.1.0 let through. The journal form warns before
+posting into a reconciled period or a prior fiscal year.
+
+**Paid and refunded documents are guarded.** An invoice can't be edited below what its
+receipts applied, a credit memo can't be voided or edited below its refunds, and a
+refunded payment can't be voided or moved to another customer until its refund is
+removed.
+
+**Home currency must have two decimals.** An organization already on JPY or another zero-
+or three-decimal currency keeps it and can still save its other settings, but card
+payments and multi-currency are off for it, and a backup holding one is refused on
+restore. Nothing in its books is changed.
+
+**Language.** Nothing changes for anyone until they pick French: existing organizations
+are set to English, and the staff app follows each user's own setting (default
+`APP_LOCALE`). A **new** Québec organization starts with French documents, and a new
+organization elsewhere takes the language of the person creating it. Customer emails,
+PDFs and the portal follow the customer's language, then the organization's.
+
+**Smaller ones.** The organization switcher opens the chosen organization's Dashboard;
+the browser tab title follows `APP_NAME` (set `APP_NAME="Line Ledger"` for the spaced
+form); the Sales Tax report no longer counts a remittance as an input tax credit, so a
+period containing one shows a lower Paid and a higher, correct Net.
+
+### New settings
+
+All optional; leaving them out keeps 1.1.0's behaviour. Run `php artisan config:cache`
+(Forge) or `docker compose up -d` (Docker) after changing any.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `APP_LOCALE` | `en` | Language of signed-out pages, and of documents when neither the customer nor the organization has one |
+| `APP_REGION` | derived from the host | Now also accepts `GB`; a `.uk` host derives it. Picks the marketing site the legal links point at |
+| `APP_URL_GB`, `MARKETING_URL_GB` | empty | The UK twin, for the project's own deployments; empty keeps it out of the country switcher |
+| `BRAND_LOGO`, `BRAND_LOGO_DARK` | the LineLedger mark | Your logo on the sign-in, registration and onboarding screens; any path the browser can fetch |
+| `BRAND_FOOTER_OWNER` | `Local Foundry Inc.` | The company named in the footer's copyright line |
+| `BRAND_SHOW_PROJECT_LINKS` | `true` | `false` drops the upstream version, licence, source and legal links. Read the AGPL-3.0 §13 note in `config/brand.php` first |
+| `SUPPORT_ENABLED` | `true` | `false` removes the Support entry and `/support`; existing tickets stay readable in the admin portal |
+
+### Scheduler
+
+Nothing to configure; no scheduled command was added or moved. The nightly
+`integrity:check` (04:00) gains one check, **over-refunded receipts**: a payment with
+more refunded than it left unapplied. Each finding names the receipt; remove a refund
+or an application to clear it.
+
+### API changes for integrators
+
+Send integrators the updated `docs/api-v1.md` and `resources/api/openapi.yaml` (spec
+`version: 1.2.0`). In order of how likely each is to break a client:
+
+- **Filing an unreconciled tax return is refused.** `POST /tax-returns/{id}/file` answers
+  422 when the return differs from its tax payable account, unless
+  `accepted_difference_cents` names that exact difference. `POST /tax-returns/{id}/void`
+  also reverses the adjustment entry filing posted.
+- **`unapplied_cents` on receipts nets out refunds**, and a refund receipt reports 0
+  rather than its negative amount. New on receipts: `refunded_cents`, `credit_memo_id`,
+  `refunded_receipt_id`, `from_invoice_id`; on cheques: `refunded_receipt_id`,
+  `from_invoice_id`.
+- **New: `POST /invoices/{id}/refund`** pays a customer's overpayment back by card
+  (a negative receipt) or as a draft refund cheque.
+- **Tax returns take `adjustments`** on create and update. Omitting `adjustments` or
+  `excluded_journal_line_ids` on a `PATCH` now keeps the saved values; 1.1.0 cleared the
+  excluded lines.
+- **Deposit lines accept a negative `amount_cents`** (a card refund or a fee); only 0 is
+  refused.
+- **Journal entries.** `DELETE` refuses a draft created by another document (422).
+  `PATCH` on a posted entry checks both its old and new date against the lock date, and
+  refuses one with a reconciled line.
+- **Paid and refunded documents.** Edits that drop an invoice below its applied receipts,
+  or a credit memo below its refunds, and voids of a refunded credit memo or payment,
+  answer 422.
+- **MCP connectors** now speak protocol revision 2026-07-28. Clients that `initialize`
+  keep working; there is no `Mcp-Session-Id` header any more, and an unexpected error in
+  a tool comes back as a tool error. Both servers report version 1.2.0.
+
+The UK VAT boxes, the document language and the Companies House number are not exposed
+in the API.
+
+### Rolling back
+
+As for 1.1.0: restore the pre-upgrade backup onto 1.1.0 code, and **never
+`migrate:rollback` a live ledger**. Here it would not even get you back: the BC and Yukon
+time zone move has no `down()`. Anything entered after the backup is lost.
+
+**Docker:**
+
+```bash
+docker compose stop app queue scheduler
+# In .env: LINELEDGER_VERSION=1.1.0
+./restore.sh backups/lineledger-db-<ts>.sql.gz backups/lineledger-storage-<ts>.tar.gz
+```
+
+**Forge / bare metal:** the 1.1.0 steps below, with `git checkout v1.1.0` and the
+`pre-1.2.0` files.
+
+### After the upgrade
+
+- **The footer shows 1.2.0.** If it still reads 1.1.0, the deploy did not take.
+- **Check the time zone** under Settings → Organizations for any BC or Yukon
+  organization: it should read America/Vancouver or America/Whitehorse.
+- **Tell your users about French** if they need it: each person sets their language
+  under Settings → Profile; an organization's document language is on its settings page,
+  and a customer's on their record.
+- **Self-hosts that rebrand** can now do it without a fork: see *New settings*.
+- **Integrators** should be told about the 422 on filing before they meet it.
 
 ## 1.0.0 → 1.1.0
 

@@ -7,8 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-18
+
+**Highlights.** LineLedger now speaks **French**: the staff app, customer and
+vendor documents, emails, and both portals, with a language for each user, each
+organization's documents and each customer. **United Kingdom** organizations
+join Canada and the United States, with pounds sterling, an HMRC VAT chart and
+codes, and a **VAT Return** that works out the nine boxes from the books. Tax
+returns can be **adjusted and reconciled** to the ledger before filing, a
+customer's **overpayment can be refunded** straight from the invoice, and the
+lock date can **warn instead of block**, so year-end adjustments can be posted
+after the bank is reconciled. Upgrading from 1.1.0 has no new backfills, but one
+migration (BC and Yukon time zones) can't be rolled back, so take a backup first;
+see `UPGRADING.md`.
+
 ### Added
 
+- **French.** The staff app, customer and vendor documents (invoices, estimates,
+  sales orders, credit memos, receipts, statements, bills, purchase orders,
+  cheques), emails, and the customer and employee portals are available in
+  French. Pick your own language under Settings → Profile; an organization has a
+  document language, and a customer can have their own, which their documents,
+  emails and portal use. Emails go out in the recipient's language. Signed-out
+  pages (sign-in, onboarding, the portals) have a language switcher, and
+  `?lang=fr` picks it from a link. A new Québec organization starts in French;
+  existing organizations stay in English. Seeded account, tax and payment-method
+  names are stored in English and shown in French, so renaming nothing changes
+  how they post. French documents print ISO dates (`2026-03-04`) — a UK
+  organization's keep day-first — and most amounts keep the `1,234.56` style. QST shows as
+  9.975%, not 9.98%. Most report PDFs, the reconciliation and donation-receipt
+  PDFs, and the in-app help's screenshots are still English.
+  ([#51](https://github.com/lineledger/lineledger/pull/51),
+  [#109](https://github.com/lineledger/lineledger/pull/109))
+- **Provincial sales tax numbers on documents.** Settings → Invoices takes the
+  QST, PST or RST registration number where the province requires one, and
+  invoices, estimates and the other sales documents print it beside the GST/HST
+  number. ([#51](https://github.com/lineledger/lineledger/pull/51))
 - **United Kingdom** — a third jurisdiction (`GB`) beside Canada and the United
   States. A UK organization starts on pounds sterling, London time and an April
   fiscal year, with a British chart (Current Account, VAT Payable, Ordinary
@@ -83,9 +117,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or that holds only a refund — now posts with a negative total, as money out of
   the bank, matching the card processor's debit on the statement. It lists with
   the payments when you reconcile. Only a deposit netting to zero is refused.
+- **The lock date can warn instead of block.** Close the books now has a mode.
+  **Block** (the default, and what every existing organization keeps) still
+  refuses a posting on or before the lock date, but an Owner or Admin can
+  override that one transaction with their password. **Warn and confirm** lets
+  anyone using the form carry on after confirming. Every override is recorded in
+  the audit log (`period.lock_overridden`). The API, MCP and scheduled jobs never
+  override. ([#105](https://github.com/lineledger/lineledger/pull/105))
+- **Post year-end adjustments after reconciling.** A reconciliation now protects
+  the lines it ticked, not every date it covered, so an adjusting entry dated
+  July 31 can be posted after the bank is reconciled through September 30. It
+  shows as uncleared on the next reconciliation. The journal form warns before
+  posting into a reconciled period or a prior fiscal year.
+  ([#105](https://github.com/lineledger/lineledger/pull/105))
+- **Drag to resize line-item columns.** On the line tables of the sales, purchase
+  and banking forms, drag a column edge to widen it; double-click the edge to
+  reset it. Each browser remembers the widths per form. The Account column also
+  starts wider. ([#79](https://github.com/lineledger/lineledger/pull/79))
+- **Search opens an account's General Ledger.** Choosing an account in ⌘K search
+  opens its General Ledger report instead of the Chart of Accounts (a member
+  without Reports access still lands on the Chart of Accounts).
+  ([#81](https://github.com/lineledger/lineledger/pull/81))
+- **A UK demo.** `php artisan db:seed --class=UkDemoCompanySeeder` adds Thames
+  Valley Trading Ltd (`uk-demo`), with two VAT quarters of trading (one filed,
+  one left as a draft to file), and Laxey Craft Brewery Ltd (`iom-demo`) on the
+  Isle of Man. It is separate from the main demo seeder and safe to re-run.
+- **A Docker development stack.** The root `docker-compose.yml` runs the app,
+  queue, scheduler, Vite and MySQL from your checkout for development; run the
+  tests with `sh docker/pest.sh`. It is separate from the self-hosting compose
+  file in `docker/`. See README → Develop with Docker.
+  ([#51](https://github.com/lineledger/lineledger/pull/51))
+- **The nightly integrity check reports over-refunded receipts** — a payment
+  refunded for more than it brought in.
 
 ### Changed
 
+- **Only two-decimal currencies can be a home currency.** Yen and other zero- or
+  three-decimal currencies (JPY, KRW, BHD, KWD, …) are refused as an
+  organization's home currency: amounts are kept in hundredths, so a JPY
+  organization booked fractions of a yen, and a card payment would have charged
+  a hundred times the invoice. The currency box in Settings → Organizations is
+  now a list. An organization already on such a currency keeps it and can still
+  save its other settings, but card payments and multi-currency are off for it,
+  and a backup that holds one is refused on restore.
+  ([#103](https://github.com/lineledger/lineledger/pull/103))
+- **Reconciled lines are protected wherever they're edited.** Editing a posted
+  invoice, bill, receipt, bill payment, sales receipt, credit memo or vendor
+  credit could rewrite a bank line a completed reconciliation had ticked; that is
+  now refused, as it already was for cheques and deposits. Editing a posted
+  journal entry checks both its old and new date against the lock date, so an
+  entry can no longer be moved out of a locked period.
+  ([#105](https://github.com/lineledger/lineledger/pull/105))
+- **Other deposits lines offer every account**, including expense and cost of
+  goods sold, so a refund cheque can go back to the account it was paid from.
+  ([#106](https://github.com/lineledger/lineledger/pull/106))
+- **Switching organizations opens the Dashboard.** The organization switcher used
+  to reopen the page you were on, which 404'd on any page naming a record of the
+  organization you left. ([#75](https://github.com/lineledger/lineledger/pull/75))
+- **The cheque payee address folds behind a one-line summary** of what will
+  print, with Show / Hide; it opens by itself when a field needs fixing.
+  ([#76](https://github.com/lineledger/lineledger/pull/76))
+- **`storage:check` expects `eu-west-2`** for object storage when the region is
+  the United Kingdom.
+- **`ext-intl` is now a declared requirement.** Money formatting already used it;
+  `composer install` now says so instead of failing later. The Docker image has
+  always included it.
 - **Type a GL number or a name to pick a line's account.** Every line "Account"
   picker (cheques, expenses, bills, deposits, journal entries, invoices and the
   rest of the sales and purchase forms, recurring documents and templates,
@@ -109,9 +205,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The browser tab title follows `APP_NAME`** instead of a hardcoded "Line
   Ledger". Deployments that want the spaced form should set
   `APP_NAME="Line Ledger"`.
-- **The guest country-switcher banner now renders only on the project's own two
-  deployments** — the hosts in `APP_URL_CA` / `APP_URL_US` — rather than on every
-  installation. `APP_REGION` still picks which marketing site the legal links
+- **The guest country-switcher banner now renders only on the project's own
+  deployments** — the hosts in `APP_URL_CA` / `APP_URL_US` / `APP_URL_GB` —
+  rather than on every installation. `APP_REGION` still picks which marketing site the legal links
   point at, but no longer forces the banner, so a self-host that set it to get the
   right legal documents is no longer offered a trip to someone else's app.
 - **API: filing a tax return that doesn't reconcile is refused.** `POST
@@ -245,8 +341,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of a credit memo's draft refund cheque in the cheque form saved, so posting it
   refunded more than the memo granted. Saving, posting and reposting a refund
   cheque now refuse an amount above the credit left.
+- **Opening a search result no longer logs calculator errors** in the browser
+  console. ([#83](https://github.com/lineledger/lineledger/pull/83))
+- **Saving Settings → Invoices no longer blanks the CRA registration number.**
+  That number is edited under Lists → Tax codes.
+  ([#109](https://github.com/lineledger/lineledger/pull/109))
 
 ### Security
+
+- **A customer-portal session no longer signs in on another organization's
+  portal.** The portal's organization was bound after the customer guard had
+  already loaded the signed-in contact, so a session from one organization's
+  portal passed authentication on another's. The pages still showed only the
+  portal's own organization's data, but the sign-in itself should have failed;
+  it now does, on the customer and employee portals and on their Livewire
+  updates. ([#116](https://github.com/lineledger/lineledger/pull/116))
+- **source-map-js 1.2.2**
+  ([GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)) and
+  **concurrently 10.0.6 / shell-quote 1.12.0**
+  ([GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)).
+  Both are build- or development-time only and never reach the browser or the
+  server. ([#88](https://github.com/lineledger/lineledger/pull/88),
+  [#92](https://github.com/lineledger/lineledger/pull/92))
+
+### Upgrade notes
+
+- **Back up first: one migration can't be rolled back.**
+  `move_bc_and_yukon_companies_off_us_pacific_time` moves British Columbia and
+  Yukon organizations still on US Pacific time to `America/Vancouver` /
+  `America/Whitehorse`, and its `down()` does nothing. To go back to 1.1.0,
+  restore the pre-upgrade backup. Ten migrations run in all; the other nine add
+  columns or a table, and the locale one sets every existing organization's
+  document language to English.
+- **No new backfills.** `php artisan app:upgrade --verify` runs the same steps as
+  in 1.1.0; on Docker the image runs `app:upgrade` on boot.
+- **Check the server's time zone data** knows BC stays on UTC−7:
+  `php -r 'echo (new DateTime("2026-12-01", new DateTimeZone("America/Vancouver")))->format("P");'`
+  should print `-07:00`. Update the system's tzdata (or PHP) if it prints `-08:00`.
+- **Bare-metal installs need `ext-intl`**, which `composer install` now checks.
+- **API clients:** `POST /tax-returns/{id}/file` answers 422 for a return that
+  doesn't reconcile unless `accepted_difference_cents` names the difference;
+  receipts' `unapplied_cents` nets out refunds; deposit lines accept negative
+  amounts; and `DELETE /journal-entries/{id}` refuses a draft created by another
+  document. MCP connectors speak protocol 2026-07-28 with no `Mcp-Session-Id`.
+- **New settings are optional.** `APP_LOCALE` (default document language),
+  `APP_REGION=GB` / `APP_URL_GB` / `MARKETING_URL_GB`, `BRAND_LOGO`,
+  `BRAND_LOGO_DARK`, `BRAND_FOOTER_OWNER`, `BRAND_SHOW_PROJECT_LINKS` and
+  `SUPPORT_ENABLED` all default to 1.1.0's behaviour.
+- See `UPGRADING.md` for the full step-by-step.
 
 - **league/commonmark 2.10.3**, which renders the Markdown in outgoing mail. It
   fixes a quadratic-time denial of service in the GitHub-flavoured table
@@ -663,6 +805,7 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/lineledger/lineledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/lineledger/lineledger/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/lineledger/lineledger/releases/tag/v1.0.0
