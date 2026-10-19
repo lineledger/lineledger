@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OFX, QFX and QBO statements are accepted on upload.** Banking → Import rejected real
+  bank downloads in these formats with "must be a file of type: …", even
+  though they are supported. The files are plain text, so the upload check saw
+  them as `.txt` (or `.xml` for OFX 2.x). The check now accepts that for the
+  OFX family and CSV, while still holding the filename to the supported
+  extensions; PDF and Excel are checked as strictly as before (#130).
+
 ## [1.2.0] - 2026-10-18
 
 **Highlights.** LineLedger now speaks **French**: the staff app, customer and

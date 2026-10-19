@@ -51,6 +51,23 @@ enum BankStatementFormat: string
     }
 
     /**
+     * Extra extensions a real file of this format can sniff as, beyond its own.
+     * The OFX family is plain SGML or XML and CSV is plain text, so content
+     * detection reports `txt`/`xml` rather than the format's own type. Binary
+     * formats sniff reliably, so they get none.
+     *
+     * @return array<int, string>
+     */
+    public function contentSniffAliases(): array
+    {
+        return match ($this) {
+            self::Ofx, self::Qfx, self::Qbo => ['txt', 'xml'],
+            self::Csv => ['txt'],
+            self::Xlsx, self::Pdf => [],
+        };
+    }
+
+    /**
      * Best-effort detection from a file extension. Returns null for anything we
      * do not recognise so the caller can reject the upload.
      */

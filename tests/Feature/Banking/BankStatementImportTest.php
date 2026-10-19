@@ -266,6 +266,49 @@ it('dedups OFX re-imports by FITID even when the description changes', function 
         ->and($second->lines()->first()->match_status)->toBe(StatementLineMatchStatus::Duplicate);
 });
 
+// Real OFX-family files are plain text, so content sniffing reports them as
+// text/plain (SGML) or text/xml (OFX 2.x) — never application/x-ofx. Fake
+// uploads report the MIME of their extension, so each case pins the MIME a
+// real upload would sniff as.
+it('accepts an uploaded statement whose contents sniff as plain text', function (string $filename, string $mime, string $content) {
+    $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
+
+    Livewire::test('pages::banking.import', ['company' => $this->company])
+        ->set('account_id', $this->bank->id)
+        ->set('upload', UploadedFile::fake()->createWithContent($filename, $content)->mimeType($mime))
+        ->call('startImport')
+        ->assertHasNoErrors();
+
+    $import = BankStatementImport::query()->latest('id')->firstOrFail();
+    expect($import->status)->toBe(BankStatementImportStatus::Ready)
+        ->and($import->lines()->count())->toBe(1);
+})->with([
+    'qbo (SGML)' => ['statement.qbo', 'text/plain', oneTxnOfx('FIT-1', 'PAYROLL', '2000.00', '20260105')],
+    'qfx (SGML)' => ['statement.qfx', 'text/plain', oneTxnOfx('FIT-1', 'PAYROLL', '2000.00', '20260105')],
+    'ofx (SGML)' => ['statement.ofx', 'text/plain', oneTxnOfx('FIT-1', 'PAYROLL', '2000.00', '20260105')],
+    'ofx (XML)' => ['statement.ofx', 'text/xml', '<?xml version="1.0" encoding="UTF-8"?><?OFX OFXHEADER="200" VERSION="220"?>'
+        .'<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>CAD</CURDEF><BANKTRANLIST>'
+        .'<STMTTRN><DTPOSTED>20260105</DTPOSTED><TRNAMT>2000.00</TRNAMT><FITID>FIT-1</FITID><NAME>PAYROLL</NAME></STMTTRN>'
+        .'</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>'],
+    'csv' => ['statement.csv', 'text/plain', "Date,Description,Amount\n2026-01-05,PAYROLL,2000.00\n"],
+]);
+
+it('still rejects an unsupported extension or a binary format whose contents sniff as plain text', function (string $filename) {
+    $user = User::factory()->create();
+    $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($user);
+
+    Livewire::test('pages::banking.import', ['company' => $this->company])
+        ->set('account_id', $this->bank->id)
+        ->set('upload', UploadedFile::fake()->createWithContent($filename, "Date,Description,Amount\n")->mimeType('text/plain'))
+        ->call('startImport')
+        ->assertHasErrors('upload');
+
+    expect(BankStatementImport::query()->count())->toBe(0);
+})->with(['statement.txt', 'statement.pdf', 'statement.xlsx']);
+
 it('renders the import page through the app layout', function () {
     $user = User::factory()->create();
     $this->company->members()->attach($user, ['role' => CompanyRole::Owner->value]);

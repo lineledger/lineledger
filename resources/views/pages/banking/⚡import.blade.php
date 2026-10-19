@@ -160,8 +160,17 @@ new #[Title('Import statement')] class extends Component {
         $extensions = config('banking.statement_import.allowed_extensions');
         $maxKb = (int) config('banking.statement_import.max_kilobytes');
 
+        // Content sniffing reports text formats (OFX/QFX/QBO, CSV) as txt/xml, so
+        // the MIME check also accepts those aliases for the claimed format, while
+        // the filename extension is held to the configured list on its own.
+        $sniffAliases = $this->upload instanceof \Illuminate\Http\UploadedFile
+            ? (BankStatementFormat::fromExtension($this->upload->getClientOriginalExtension())?->contentSniffAliases() ?? [])
+            : [];
+
         $this->validate(
-            ['upload' => ['required', 'file', \Illuminate\Validation\Rules\File::types($extensions)->max($maxKb)]],
+            ['upload' => ['required', 'file', \Illuminate\Validation\Rules\File::types([...$extensions, ...$sniffAliases])
+                ->extensions($extensions)
+                ->max($maxKb)]],
             [],
             ['upload' => __('statement file')],
         );
