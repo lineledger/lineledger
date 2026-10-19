@@ -22,8 +22,8 @@ newest first.
   change that line and not whenever a `docker compose pull` happens to run.
 - **`php artisan app:upgrade` is the post-deploy step, everywhere.** It runs the pending
   migrations, then every backfill the release needs (since 1.1.0:
-  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0
-  adds none). Each
+  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 and 1.2.1
+  add none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -34,6 +34,42 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.2.0 → 1.2.1
+
+Released 2026-10-19. A patch release: it fixes OFX, QFX and QBO bank-statement uploads
+(Banking → Import rejected real bank files as the wrong type) and takes the October
+dependency updates, including `laravel/framework` 13.37 and `smalot/pdfparser` 2.13.1,
+which hardens PDF statement parsing against crafted files. PHP `^8.5` and Laravel 13 are
+unchanged. **No migrations, no backfills, no config or env changes**, and
+`docker-compose.yml`, `backup.sh` and `restore.sh` are unchanged from 1.2.0. Coming from
+1.1.0, do the 1.1.0 → 1.2.0 steps below first.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.2.1` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.2.1 (or stay on 1.2, which moves to 1.2.1 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script. `composer install` and
+`npm ci && npm run build` both pick up updated dependencies, so keep those lines. Then run
+`php artisan app:upgrade --verify` (nothing to migrate; it runs the integrity check) and
+`php artisan queue:restart`.
+
+### Rolling back
+
+Nothing in the database changed, so going back to 1.2.0 is just a matter of deploying it
+again: set `LINELEDGER_VERSION=1.2.0`, or check out `v1.2.0`. No restore is needed.
 
 ## 1.1.0 → 1.2.0
 

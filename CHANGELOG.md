@@ -7,14 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-19
+
+**Highlights.** Bank statements downloaded in **QuickBooks (QBO)**, **Quicken
+(QFX)** or **OFX** format can now be imported. These are the formats most
+banks offer as "Download to Quicken/QuickBooks", and the import page recommends
+them, but uploads were rejected before they reached the parser. This release
+also takes the October dependency updates, including a PDF-parser hardening
+that matters because statement PDFs are untrusted uploads. No migrations, no
+backfills and no configuration changes; see `UPGRADING.md`.
+
 ### Fixed
 
-- **OFX, QFX and QBO statements are accepted on upload.** Banking → Import rejected real
-  bank downloads in these formats with "must be a file of type: …", even
-  though they are supported. The files are plain text, so the upload check saw
+- **OFX, QFX and QBO statements are accepted on upload.** Banking → Import
+  rejected real bank downloads in these formats with "The statement file field
+  must be a file of type: csv, xlsx, xls, ofx, qfx, qbo, pdf.", even though
+  they are supported. The files are plain text, so the upload check detected
   them as `.txt` (or `.xml` for OFX 2.x). The check now accepts that for the
-  OFX family and CSV, while still holding the filename to the supported
-  extensions; PDF and Excel are checked as strictly as before (#130).
+  OFX family and CSV, while still requiring a supported file extension; PDF
+  and Excel are checked as strictly as before.
+  ([#130](https://github.com/lineledger/lineledger/issues/130),
+  [#131](https://github.com/lineledger/lineledger/pull/131))
+
+### Security
+
+- **`smalot/pdfparser` 2.13.1** adds a nesting-depth limit and page-tree cycle
+  detection against denial-of-service PDFs. LineLedger uses it to read PDF bank
+  statements, which are user uploads.
+  ([#132](https://github.com/lineledger/lineledger/pull/132))
+- **`laravel/framework` 13.37** (from 13.35) includes the 13.36 fix that
+  escapes inline Markdown in user input in Markdown mail, so a name or memo
+  that reaches an email can't inject links or formatting.
+  ([#132](https://github.com/lineledger/lineledger/pull/132))
+
+### Changed
+
+- Dependency updates: `laravel/passport` 13.10, `laravel/mcp` 1.0.2,
+  `laravel/nightwatch` 1.30.4, `laravel/sail` 1.69, `openspout/openspout`
+  5.12.2, `setasign/fpdi` 2.6.9, Symfony components 8.1.9, Vite 8.3.4, and the
+  CodeQL SARIF upload action 4.39.
+  ([#132](https://github.com/lineledger/lineledger/pull/132), superseding
+  #118–#129)
 
 ## [1.2.0] - 2026-10-18
 
@@ -823,7 +856,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/lineledger/lineledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/lineledger/lineledger/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/lineledger/lineledger/releases/tag/v1.0.0
