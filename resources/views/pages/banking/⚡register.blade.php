@@ -5,6 +5,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalLine;
 use App\Support\Banking\LastBankAccount;
+use App\Support\Preferences\UserPreferences;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -34,11 +35,18 @@ new #[Title('Bank register')] class extends Component {
         }
 
         LastBankAccount::remember($company, $this->account_id);
+
+        $this->showCleared = (bool) UserPreferences::get($company, 'banking.register.show_cleared', true);
     }
 
     public function updatedAccountId(): void
     {
         LastBankAccount::remember($this->company, $this->account_id);
+    }
+
+    public function updatedShowCleared(): void
+    {
+        UserPreferences::put($this->company, 'banking.register.show_cleared', $this->showCleared);
     }
 
     protected function linesQuery()

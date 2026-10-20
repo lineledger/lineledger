@@ -607,13 +607,19 @@ new #[Title('Reconcile')] class extends Component {
         try {
             app(BankReconciliationService::class)->complete($this->current, auth()->user());
 
+            $attached = 0;
+
             if ($this->newAttachments !== []) {
-                $attachmentService->upload($this->current, $this->newAttachments, Auth::id());
+                $attached = $attachmentService->upload($this->current, $this->newAttachments, Auth::id());
                 $this->newAttachments = [];
                 unset($this->attachments);
             }
 
-            Flux::toast(variant: 'success', text: __('Reconciliation complete.'));
+            // Say what was filed: the attachments panel leaves with the
+            // finished reconciliation, so the toast is the only confirmation.
+            Flux::toast(variant: 'success', text: $attached > 0
+                ? trans_choice('Reconciliation complete. :count file attached.|Reconciliation complete. :count files attached.', $attached, ['count' => $attached])
+                : __('Reconciliation complete.'));
 
             unset($this->current, $this->history, $this->lastCompleted);
             $this->resetBeginForm();
@@ -1052,7 +1058,7 @@ new #[Title('Reconcile')] class extends Component {
                     <flux:modal.close>
                         <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
-                    <flux:button variant="primary" wire:click="startReconciliation">{{ __('Continue') }}</flux:button>
+                    <flux:button variant="primary" wire:click="startReconciliation" wire:loading.attr="disabled" wire:target="statementForFill">{{ __('Continue') }}</flux:button>
                 </div>
             </div>
         </flux:modal>
@@ -1242,6 +1248,9 @@ new #[Title('Reconcile')] class extends Component {
                         icon="check-circle"
                         wire:click="reconcileNow"
                         :disabled="$diff !== 0"
+                        wire:loading.attr="disabled"
+                        wire:target="newAttachments"
+                        data-test="reconcile-now"
                     >
                         {{ __('Reconcile now') }}
                     </flux:button>

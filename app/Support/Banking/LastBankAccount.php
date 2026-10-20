@@ -4,6 +4,7 @@ namespace App\Support\Banking;
 
 use App\Models\Account;
 use App\Models\Company;
+use App\Support\Preferences\UserPreferences;
 use Illuminate\Support\Collection;
 
 /**
@@ -12,14 +13,17 @@ use Illuminate\Support\Collection;
  * deposit, expense and transfer forms — reopens on that account instead of
  * snapping back to the lowest-numbered one.
  *
- * Kept in the session, so it is per user and per company and never outlives a
- * sign-in. It is a *convenience default only*: {@see self::recall()} hands back
- * an id only when it is in the caller's own allowed set, so a remembered
+ * Stored as a {@see UserPreferences} row, so it is per user and per company
+ * and survives sign-out and session expiry. It is a *convenience default
+ * only*: {@see self::recall()} hands back an id only when it is in the
+ * caller's own allowed set, so a remembered
  * account can never widen what a screen would otherwise offer, and each caller
  * keeps its existing fallback for the first visit.
  */
 final class LastBankAccount
 {
+    private const KEY = 'banking.last_account';
+
     /**
      * Record the account the operator just chose. A null/zero id (the
      * "— Select —" placeholder) clears the memory rather than storing a
@@ -29,9 +33,7 @@ final class LastBankAccount
     {
         $id = (int) $accountId;
 
-        $id > 0
-            ? session()->put(self::key($company), $id)
-            : session()->forget(self::key($company));
+        UserPreferences::put($company, self::KEY, $id > 0 ? $id : null);
     }
 
     /**
@@ -43,7 +45,7 @@ final class LastBankAccount
      */
     public static function recall(Company $company, iterable $allowed): ?int
     {
-        $remembered = (int) session(self::key($company));
+        $remembered = (int) UserPreferences::get($company, self::KEY);
 
         if ($remembered <= 0) {
             return null;
@@ -54,10 +56,5 @@ final class LastBankAccount
             ->all();
 
         return in_array($remembered, $ids, true) ? $remembered : null;
-    }
-
-    private static function key(Company $company): string
-    {
-        return 'banking.last_account.'.$company->id;
     }
 }

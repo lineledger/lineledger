@@ -5330,6 +5330,7 @@
   "Reconciliation": "Rapprochement",
   "Reconciliation cancelled.": "Rapprochement annulé.",
   "Reconciliation complete.": "Rapprochement terminé.",
+  "Reconciliation complete. :count file attached.|Reconciliation complete. :count files attached.": "Rapprochement terminé. :count fichier joint.|Rapprochement terminé. :count fichiers joints.",
   "Reconciliation details updated.": "Détails du rapprochement mis à jour.",
   "Reconciliation started.": "Rapprochement commencé.",
   "Reconciliation to :account": "Rapprochement avec :account",
