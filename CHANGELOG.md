@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Bank register sorting** — the register now opens newest-first, and every
+  column (Cleared, Date, Entry #, Memo, Payment, Deposit) sorts from its header;
+  the choice is kept in the URL. A new **Balance** column shows the account's
+  running balance after each line, always worked out in date order, so it stays
+  correct whatever the sort, page or Show cleared setting. Long registers page
+  50 rows at a time instead of loading every line at once.
+
 ## [1.2.1] - 2026-10-19
 
 **Highlights.** Bank statements downloaded in **QuickBooks (QBO)**, **Quicken
