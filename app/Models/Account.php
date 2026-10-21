@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'type',
     'subtype',
     'gifi_code',
+    'statutory_line',
+    'statutory_label',
     'default_tax_code_id',
     'normal_balance',
     'currency_code',

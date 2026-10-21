@@ -53,6 +53,7 @@ class ReportCatalog
                     ->filter(fn (array $report): bool => match ($report['key']) {
                         'reports.form-1099' => $company->supports(JurisdictionCapability::Form1099),
                         'reports.vat-return' => $company->supports(JurisdictionCapability::VatReturn),
+                        'reports.statutory-accounts' => $company->supports(JurisdictionCapability::UkStatutoryAccounts),
                         'reports.gifi' => $company->usesGifi(),
                         'reports.t5013' => $company->filesT5013(),
                         'reports.t2125' => $company->filesT2125(),
@@ -204,6 +205,7 @@ class ReportCatalog
                 'label' => __('Accountant & Taxes'),
                 'reports' => [
                     ['key' => 'reports.trial-balance', 'label' => __('Trial Balance'), 'description' => __('Debit and credit balance of every account on a date.'), 'icon' => 'scale', 'route' => 'reports.trial-balance', 'companyScoped' => true],
+                    ['key' => 'reports.statutory-accounts', 'label' => __('Statutory Accounts'), 'description' => __('Year-end accounts to file — FRS 102 Section 1A or FRS 105 micro-entity — with notes, as a PDF.'), 'icon' => 'document-text', 'route' => 'reports.statutory-accounts', 'companyScoped' => true],
                     ['key' => 'reports.gifi', 'label' => __('GIFI Statement'), 'description' => __('CRA T2 balance sheet (S100) and income statement (S125) by GIFI code.'), 'icon' => 'document-chart-bar', 'route' => 'reports.gifi', 'companyScoped' => true],
                     ['key' => 'reports.t5013', 'label' => __('T5013 Partnership'), 'description' => __('Partnership GIFI Schedules 100/125 plus the partner income allocation.'), 'icon' => 'document-chart-bar', 'route' => 'reports.t5013', 'companyScoped' => true],
                     ['key' => 'reports.t2125', 'label' => __('T2125 Business Activities'), 'description' => __('Statement of business or professional activities with the capital cost allowance (CCA) schedule.'), 'icon' => 'document-chart-bar', 'route' => 'reports.t2125', 'companyScoped' => true],

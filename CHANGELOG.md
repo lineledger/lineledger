@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Statutory accounts (UK)** — year-end accounts for small companies as one PDF,
+  laid out the way an accountant presents them: cover, company information and
+  contents, then numbered pages with the directors' report, the Statement of
+  Comprehensive Income, Statement of Financial Position, Statement of Changes in
+  Equity and notes (accounting policies, taxation, tangible fixed assets, debtors,
+  creditors, share capital, related parties), each with the prior year. Choose
+  FRS 102 Section 1A or FRS 105 (micro-entity). Periods are explicit dates, so a
+  5 April year end works; figures are rounded line by line to whole pounds and
+  cast. Every account maps onto a statutory line with a default from its type and
+  name (dividends become a distribution, a director's loan a creditor) and an
+  optional caption that groups accounts in the statements and notes. The company
+  details — regime (UK Companies Act 2006 or the Isle of Man Acts), directors and
+  shareholdings, policies, note text, approval and signatories — live on the
+  report. Download as a PDF to file, or as a Word document (same layout, live
+  page-number fields) to edit before filing; the Accounts tab summarises every
+  year from the one picked to the latest. New `accounts.statutory_line` /
+  `statutory_label` columns; adds `phpoffice/phpword`.
+
 ## [1.2.1] - 2026-10-19
 
 **Highlights.** Bank statements downloaded in **QuickBooks (QBO)**, **Quicken

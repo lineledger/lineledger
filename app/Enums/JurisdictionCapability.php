@@ -50,4 +50,5 @@ enum JurisdictionCapability: string
 
     // Pure-country United Kingdom features.
     case VatReturn = 'vat_return';                    // HMRC nine-box VAT return
+    case UkStatutoryAccounts = 'uk_statutory_accounts'; // FRS 102 1A / FRS 105 statutory accounts
 }
