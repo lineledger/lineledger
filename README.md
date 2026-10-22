@@ -851,6 +851,59 @@ docker compose exec app php artisan app:upgrade --verify   # nothing pending, th
 docker compose exec app php artisan proof:generate         # optional: refresh /verification
 ```
 
+## Deploy on DigitalOcean App Platform
+
+One script sets up everything inside your DigitalOcean account: a managed MySQL
+cluster, two Spaces buckets, and the app itself (web, queue worker, scheduler,
+and a migrate job that runs before each release goes live). It generates
+`APP_KEY` and the other secrets for you and stores them encrypted in the app.
+The only questions are your mail settings. You need [`doctl`](https://docs.digitalocean.com/reference/doctl/how-to/install/),
+`jq`, `openssl` and `curl`.
+
+```bash
+brew install doctl jq        # or your platform's package manager
+doctl auth init              # paste a DigitalOcean API token with write access
+
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.2.1/docker/digitalocean
+curl -fsSLO "$base/deploy.sh"
+curl -fsSLO "$base/app.yaml"
+chmod +x deploy.sh
+./deploy.sh                  # most of the wait is the database starting up
+```
+
+It prints the app's URL and its `APP_KEY` when it finishes. Keep the key somewhere
+safe: App Platform holds a copy, but restoring a database dump anywhere else needs
+it. Register at the URL — **the first account becomes the site admin** — then
+close registration in `/admin` → Site settings if the install is just for you.
+
+`./deploy.sh --help` lists the options: `--region` (default `tor1`; the app,
+database and buckets all go there), `--spaces-region` if Spaces isn't offered in
+that region, `--country` (`CA`/`US`/`GB`, for `APP_REGION`), `--name`, and
+`--tag` to pin an image release. Mail settings can come from the environment
+(`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`,
+`ALERT_EMAIL`) with `--yes` for a run with no prompts.
+
+**What it creates.** A single-node `db-s-1vcpu-1gb` MySQL cluster; a private
+bucket (attachments, backups, uploads waiting for the queue) and a public-read
+bucket (logos) with an access key that reaches only those two; and three 1 GB
+containers. Resize any of them in the control panel. App Platform has no
+persistent disk, so nothing is kept in `storage/`: files live in Spaces, logs go
+to the platform (`doctl apps logs <app-id> web`), and the OAuth signing keys are
+env vars rather than files. Add your own domain under the app's Settings →
+Domains; `APP_URL` follows it on the next deploy.
+
+**Upgrading.** Back up first (each organization's Settings → Backup & Export,
+or a database backup in the control panel), then run `./deploy.sh` again. With the app already
+there it only starts a new deployment: App Platform pulls the image tag again,
+runs `php artisan app:upgrade` as the pre-deploy job, and switches traffic only
+if that succeeds. Check the release's notes in [`UPGRADING.md`](UPGRADING.md) for
+anything else; a release that changes `app.yaml` says so there.
+
+**If a deploy fails**, the deploy logs name the step:
+`doctl apps logs <app-id> migrate --type deploy` for the migrate job, and
+`doctl apps logs <app-id> web --type run` for the web container. Fix the cause
+and run `./deploy.sh` again; it redeploys and keeps your secrets.
+
 ## Deploy (Laravel Forge / DigitalOcean)
 
 A standard Laravel deploy: PHP-FPM + Nginx, a **queue worker daemon**, the
@@ -981,7 +1034,7 @@ can move some and not others:
 | --- | --- | --- | --- |
 | `ATTACHMENT_DISK` | Receipts, bills, statements, documents | `local` | `s3` |
 | `LOGO_DISK` | Organization logos (browser-visible) | `public` | `s3_public` |
-| `BACKUP_DISK` | Organization backup ZIPs | `local` | `s3` |
+| `BACKUP_DISK` | Organization backup ZIPs, plus uploaded restore bundles and QuickBooks ledgers waiting for the queue worker | `local` | `s3` |
 
 **Two buckets, both in the region you serve** (`ca-central-1` for Canada,
 `eu-west-2` for the United Kingdom — the default if `AWS_DEFAULT_REGION` is unset
@@ -1060,6 +1113,9 @@ Notes:
 - **Uploads still stage locally.** Livewire writes the in-progress upload to
   `storage/app` before the app moves it to its permanent home, and backup ZIPs
   are assembled on local disk before being uploaded. Keep some free space.
+  The exception is an upload a queued job reads (a restore bundle, a QuickBooks
+  ledger import): it waits on the backups disk, so a queue worker on another
+  machine can still reach it.
 - **S3-compatible stores work**: set `AWS_ENDPOINT` and
   `AWS_USE_PATH_STYLE_ENDPOINT=true` for MinIO, Cloudflare R2, or Backblaze B2.
 

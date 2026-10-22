@@ -61,3 +61,33 @@ it('runs the replay job, marks the step complete, and deletes the source file', 
     $bank->recomputeBalance();
     expect((int) $bank->balance_cents)->toBe(75000);
 });
+
+it('reads source files staged on object storage and deletes them there', function () {
+    // The web request that took the upload and the worker running this job
+    // share no filesystem on a multi-container host; only the bucket.
+    Storage::fake('local');
+    Storage::fake('s3');
+
+    $bank = Account::withoutGlobalScopes()->where('company_id', $this->company->id)->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->first();
+    $income = Account::withoutGlobalScopes()->where('company_id', $this->company->id)->where('subtype', AccountSubtype::Income->value)->orderBy('code')->first();
+
+    $csv = "trans_no,type,date,num,name,memo,account,debit,credit\n"
+        ."1,Deposit,2024-01-01,,,,{$bank->name},750.00,\n"
+        .",,,,,,{$income->name},,750.00\n";
+
+    Storage::disk('s3')->put('migrations/gl.csv', $csv);
+
+    (new ReplayGeneralLedgerImport(
+        companyId: (int) $this->company->id,
+        runId: (int) $this->run->id,
+        storedPaths: ['migrations/gl.csv'],
+        sourceFormat: 'csv',
+        autoCreateAccounts: false,
+        linkContactNames: true,
+        disk: 's3',
+    ))->handle(app(GeneralLedgerReplayImporter::class), app(ContactLinkBackfiller::class));
+
+    expect($this->run->fresh()->step_results['general_ledger']['committed'])->toBe(1);
+
+    Storage::disk('s3')->assertMissing('migrations/gl.csv');
+});

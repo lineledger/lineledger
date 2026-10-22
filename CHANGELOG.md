@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **One-command deploy to DigitalOcean App Platform.**
+  `docker/digitalocean/deploy.sh` creates a managed MySQL cluster, two Spaces
+  buckets with an access key limited to them, and the app (web, queue worker,
+  scheduler, and a pre-deploy job that runs `php artisan app:upgrade`). It
+  generates `APP_KEY`, the OAuth signing keys and the passkey secret, and stores
+  them as encrypted app secrets. The only prompts are for mail. Running it again
+  deploys the newest image. See README → Deploy on DigitalOcean App Platform.
+- **The Docker image runs on hosts without a `.env` file or persistent disk.**
+  The entrypoint writes a managed database's CA certificate (`DB_CA_CERT`) to a
+  file for TLS. It skips generating OAuth key files when `PASSPORT_PRIVATE_KEY`
+  is set, and reports why the database is unreachable on the first failed
+  attempt instead of after two minutes.
+
+### Fixed
+
+- **Restoring from a backup and the QuickBooks ledger import work when the
+  queue worker runs on a different machine from the web server.** Both stored
+  the upload on the web server's own disk, so a worker elsewhere failed with
+  "Restore bundle missing from disk". Uploads now wait on the backups disk
+  (`BACKUP_DISK`), and the worker copies them down. Installs that keep backups
+  on local disk behave exactly as before.
+- **`storage:check` no longer warns that an S3-compatible store is outside
+  the deployment's country** because of the AWS-style region it signs with.
+  When `AWS_ENDPOINT` is set it says the region can't be checked.
+
 ## [1.2.1] - 2026-10-19
 
 **Highlights.** Bank statements downloaded in **QuickBooks (QBO)**, **Quicken

@@ -241,6 +241,38 @@ afterEach(function () {
     app()->forgetInstance('current_company');
 });
 
+it('restores a bundle staged on object storage', function () {
+    // On a multi-container host the worker shares only the bucket with the
+    // request that took the upload, so the importer must fetch it from there.
+    Storage::fake('s3');
+
+    $backup = CompanyBackup::create([
+        'status' => CompanyBackupStatus::Pending,
+        'requested_by_user_id' => $this->alice->id,
+        'app_version' => config('version.app'),
+        'schema_version' => config('version.schema'),
+    ]);
+    app(CompanyExporter::class)->export($backup);
+    $backup->refresh();
+
+    $restorePath = 'restores/'.basename($backup->file_path);
+    Storage::disk('s3')->put($restorePath, Storage::disk('local')->get($backup->file_path));
+
+    $restore = CompanyRestore::create([
+        'requested_by_user_id' => $this->alice->id,
+        'status' => CompanyRestoreStatus::Pending,
+        'file_path' => $restorePath,
+        'disk' => 's3',
+    ]);
+
+    app()->forgetInstance('current_company');
+    app(CompanyImporter::class)->import($restore);
+    $restore->refresh();
+
+    expect($restore->status)->toBe(CompanyRestoreStatus::Completed)
+        ->and(Company::find($restore->company_id)?->name)->toBe('Acme Inc.');
+});
+
 it('round-trips a company through export and import', function () {
     // ---- Export ----
     $backup = CompanyBackup::create([
