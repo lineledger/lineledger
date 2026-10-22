@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-22
+
+**Highlights.** LineLedger can be deployed to **DigitalOcean App Platform** with
+one command: `docker/digitalocean/deploy.sh` creates the database, file storage
+and app in your own DigitalOcean account and generates every secret. This
+release also makes backup restores and QuickBooks ledger imports work when the
+queue worker runs on a different machine from the web server, and brings five
+usability fixes reported from production. Two migrations, both run by
+`php artisan app:upgrade`; no backfills and no configuration changes; see
+`UPGRADING.md`.
+
 ### Added
 
 - **One-command deploy to DigitalOcean App Platform.**
@@ -16,11 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generates `APP_KEY`, the OAuth signing keys and the passkey secret, and stores
   them as encrypted app secrets. The only prompts are for mail. Running it again
   deploys the newest image. See README → Deploy on DigitalOcean App Platform.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
 - **The Docker image runs on hosts without a `.env` file or persistent disk.**
   The entrypoint writes a managed database's CA certificate (`DB_CA_CERT`) to a
   file for TLS. It skips generating OAuth key files when `PASSPORT_PRIVATE_KEY`
   is set, and reports why the database is unreachable on the first failed
   attempt instead of after two minutes.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
 
 ### Fixed
 
@@ -30,9 +43,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Restore bundle missing from disk". Uploads now wait on the backups disk
   (`BACKUP_DISK`), and the worker copies them down. Installs that keep backups
   on local disk behave exactly as before.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
 - **`storage:check` no longer warns that an S3-compatible store is outside
   the deployment's country** because of the AWS-style region it signs with.
   When `AWS_ENDPOINT` is set it says the region can't be checked.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
+- **Reconcile no longer loses a statement dropped in just before you finish.**
+  The attachment drop zone uploaded without telling the page, so "Reconcile
+  now" stayed clickable mid-upload and the late file was discarded. The button
+  (and the Begin dialog's Continue) now waits for the upload, and the
+  confirmation says how many files were attached.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
+- **Suggested cheque numbers skip labels.** After a cheque numbered `10300`
+  and one labelled `e-transfer`, the next suggestion is `10301`, and it steps
+  past numbers already used on the account, payroll cheques included.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
+
+### Changed
+
+- **Screens remember your choices.** AR and AP aging remember "Owing only",
+  the register remembers "Show cleared", and the last bank account you used is
+  kept per user and organization, so it survives signing out (it was kept in
+  the session before; pick it once more after upgrading). An explicit link or a
+  memorized report still wins. Saving a cheque now counts as using its account.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
 
 ## [1.2.1] - 2026-10-19
 
@@ -883,7 +917,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/lineledger/lineledger/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/lineledger/lineledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/lineledger/lineledger/compare/v1.0.0...v1.1.0

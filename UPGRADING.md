@@ -22,8 +22,8 @@ newest first.
   change that line and not whenever a `docker compose pull` happens to run.
 - **`php artisan app:upgrade` is the post-deploy step, everywhere.** It runs the pending
   migrations, then every backfill the release needs (since 1.1.0:
-  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 and 1.2.1
-  add none). Each
+  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0, 1.2.1
+  and 1.2.2 add none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -34,6 +34,65 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.2.1 → 1.2.2
+
+Released 2026-10-22. A patch release that adds a one-command deploy to DigitalOcean App
+Platform (`docker/digitalocean/deploy.sh`; see the README), makes backup restores and
+QuickBooks ledger imports work when the queue worker runs on a different machine from the
+web server, and brings five usability fixes (AR/AP aging and the bank register remember
+their filters, the last bank account survives signing out, suggested cheque numbers skip
+labels like `e-transfer`, and Reconcile waits for a statement that is still uploading).
+PHP `^8.5`, Laravel 13 and the dependencies are unchanged. **Two migrations, no
+backfills, no config or env changes**, and `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.2.1. Coming from 1.2.0 or 1.1.0, do the earlier steps
+below first.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.2.2` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.2.2 (or stay on 1.2, which moves to 1.2.2 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+The entrypoint runs the two migrations on boot unless `MIGRATE_ON_BOOT=false`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script, then run `php artisan app:upgrade --verify`
+(it applies the two migrations and runs the integrity check) and
+`php artisan queue:restart`.
+
+### What the migrations do
+
+- **`user_preferences`** (new table): the last bank account each user picked, per
+  organization. It used to live in the session, so each user picks their account once
+  more after the upgrade.
+- **`company_restores.disk`** (new column, default `local`): which disk an uploaded
+  restore bundle is waiting on. Existing rows are on the local disk, which is what the
+  default says.
+
+### Behaviour to know about
+
+- **Restore bundles and QuickBooks ledger uploads now wait on the backups disk.** If
+  `BACKUP_DISK` is `local` (the default), nothing changes. If it points at a bucket,
+  these uploads now land in that bucket under `restores/` and `migrations/` instead of in
+  `storage/app/private/`, so a queue worker on another machine can read them. Ledger
+  uploads are deleted once the import finishes; restore bundles are kept, as before.
+
+### Rolling back
+
+Both migrations only add, so going back to 1.2.1 is a matter of deploying it again: set
+`LINELEDGER_VERSION=1.2.1`, or check out `v1.2.1`. No restore is needed. Finish any
+restore or QuickBooks ledger import in progress first: 1.2.1 looks for those uploads on
+the local disk.
 
 ## 1.2.0 → 1.2.1
 
