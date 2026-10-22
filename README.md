@@ -852,9 +852,60 @@ docker compose exec app php artisan app:upgrade --verify   # nothing pending, th
 docker compose exec app php artisan proof:generate         # optional: refresh /verification
 ```
 
+## Deploy on a DigitalOcean Droplet (one click)
+
+The simplest way to run LineLedger for one business: a single Droplet running
+the [Docker stack](#self-hosting-with-docker), MySQL included, set up for you.
+There is nothing to configure before the first visit.
+
+1. **Create the Droplet.** From the DigitalOcean Marketplace, choose
+   **LineLedger** → **Create LineLedger Droplet**. Until the Marketplace listing
+   is live, create an **Ubuntu 24.04** Droplet and, under **Advanced options →
+   Add initialization scripts**, paste:
+
+   ```bash
+   #!/bin/bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.2.2/docker/digitalocean/droplet/install.sh | bash
+   ```
+
+   Pick a size with at least 2 GB of memory, and turn on **Backups** while
+   you are there.
+2. **Open `http://<droplet-ip>`** a few minutes after it boots and register.
+   The first account becomes the site admin and can sign in straight away;
+   email isn't needed yet.
+3. **Set up email** in **Admin → Email**: any SMTP service (Postmark, Mailgun,
+   Amazon SES, your email host). Until then, invitations, password resets and
+   reminders aren't sent, and later accounts can't verify their address, so
+   keep registration closed (**Admin → Feature toggles**) until it works.
+4. **Use your own domain** for HTTPS: point an `A` record at the Droplet's IP,
+   then over SSH run `lineledger domain books.example.com`. The certificate
+   is issued and renewed automatically. Until you do this, traffic isn't
+   encrypted, and passkeys (which need HTTPS) aren't available.
+
+Everything lives in `/opt/lineledger` (the compose bundle, its `.env` holding
+`APP_KEY`, and `backups/`). Over SSH:
+
+| Command | What it does |
+| --- | --- |
+| `lineledger status` | Version, address, and the containers |
+| `lineledger domain books.example.com` | Serve LineLedger on your domain with HTTPS |
+| `lineledger upgrade [1.2.3]` | Back up, then move to the newest (or a given) release |
+| `lineledger backup` | Database, files and `.env` into `/opt/lineledger/backups` |
+| `lineledger logs [service]` | Follow the logs (default: `app`) |
+| `lineledger config KEY VALUE` | Set an `.env` value (e.g. `APP_REGION US`) and restart |
+| `lineledger artisan ...` | Run `php artisan` inside the app |
+
+**Backups.** DigitalOcean's Droplet backups copy the whole disk. Also copy
+`lineledger backup`'s output off the Droplet now and then: a backup on the
+same machine is not a backup of the machine. **Alerts** for security, ledger
+integrity and failed jobs go to the site admins' addresses once email works.
+Security updates for Ubuntu install automatically.
+
 ## Deploy on DigitalOcean App Platform
 
-One script sets up everything inside your DigitalOcean account: a managed MySQL
+For a managed setup instead of a server you look after: no OS to patch, and
+the database and files live in DigitalOcean's managed services. One script sets
+up everything inside your DigitalOcean account: a managed MySQL
 cluster, two Spaces buckets, and the app itself (web, queue worker, scheduler,
 and a migrate job that runs before each release goes live). It generates
 `APP_KEY` and the other secrets for you and stores them encrypted in the app.

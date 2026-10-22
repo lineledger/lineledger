@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **One-click install on a DigitalOcean Droplet.** A Marketplace image (built
+  from `docker/digitalocean/marketplace/` with Packer), or a one-line Droplet
+  user-data script (`docker/digitalocean/droplet/install.sh`), installs Docker
+  and the LineLedger stack and generates every secret on first boot. Open the
+  Droplet's IP and register. `lineledger domain books.example.com` switches on
+  HTTPS for your own domain, and `lineledger upgrade` backs up and moves to the
+  newest release. See README → Deploy on a DigitalOcean Droplet.
+- **Email can be set up in the app.** Site admins enter SMTP settings in
+  Admin → Email (the password is stored encrypted) and send themselves a test
+  message. Settings saved there win over the `MAIL_*` environment variables.
+
+### Changed
+
+- **A fresh install works before email does.** With SMTP selected but no host
+  (how a one-click install starts), outgoing mail is written to the log instead
+  of failing the request that sent it, and the first account, which becomes
+  the site admin, can sign in without verifying its address. Every later
+  account still verifies. Site admins see a banner until email is set up.
+- **Operator alerts with a blank address go to the site admins.** Security,
+  ledger-integrity, failed-job and exchange-rate alerts used to be skipped when
+  their `*_ALERT_EMAIL` was set but blank; now they are emailed to every active
+  site admin. An unset variable still falls back as before.
+
 ## [1.2.2] - 2026-10-22
 
 **Highlights.** LineLedger can be deployed to **DigitalOcean App Platform** with

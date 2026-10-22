@@ -24,13 +24,13 @@ class SchedulerFailureAlert
     public static function for(string $command): Closure
     {
         return function (Stringable $output) use ($command): void {
-            $email = config('services.ops_alerts.alert_email');
+            $recipients = AlertRecipients::for('services.ops_alerts.alert_email');
 
-            if (! is_string($email) || $email === '') {
+            if ($recipients === []) {
                 return;
             }
 
-            Notification::route('mail', $email)
+            Notification::route('mail', $recipients)
                 ->notify(new ScheduledTaskFailedAlert($command, (string) $output));
         };
     }

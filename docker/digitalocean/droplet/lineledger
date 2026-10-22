@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+# LineLedger on a DigitalOcean Droplet. Installed as /usr/local/bin/lineledger
+# by install.sh, next to the Docker Compose stack in /opt/lineledger.
+#
+#   lineledger setup                    first-boot setup: secrets, address, start (runs once)
+#   lineledger domain books.example.com use your own domain, with automatic HTTPS
+#   lineledger upgrade [1.2.3]          back up, then move to the newest (or a given) release
+#   lineledger backup                   database + files + .env into /opt/lineledger/backups
+#   lineledger status                   what's running and where
+#   lineledger logs [service]           follow the logs (default: app)
+#   lineledger config KEY VALUE         set a value in .env and restart
+#   lineledger artisan ...              run php artisan inside the app container
+
+set -euo pipefail
+
+DIR=${LINELEDGER_DIR:-/opt/lineledger}
+REPO=lineledger/lineledger
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+say() { printf '%s\n' "$*"; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
+
+[ -d "$DIR" ] || die "$DIR doesn't exist; is LineLedger installed here?"
+cd "$DIR"
+
+compose() { docker compose "$@"; }
+
+env_get() { [ -f .env ] && grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
+
+# Replace KEY's line in .env (commented out or not), or append it. VALUE is
+# written as given, so quote it yourself if it needs quotes.
+env_set() {
+    local tmp
+    tmp=$(mktemp "$DIR/.env.XXXXXX")
+    awk -v key="$1" -v line="$1=$2" '
+        !done && ($0 ~ "^" key "=" || $0 ~ "^# ?" key "=") { print line; done = 1; next }
+        { print }
+        END { if (!done) print line }
+    ' .env > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" .env
+}
+
+# The Droplet's public IPv4, from DigitalOcean's metadata service.
+public_ip() {
+    if [ -n "${LINELEDGER_PUBLIC_IP:-}" ]; then
+        printf '%s' "$LINELEDGER_PUBLIC_IP"
+        return
+    fi
+    curl -fsS --max-time 3 http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address 2> /dev/null \
+        || hostname -I | awk '{ print $1 }'
+}
+
+# Wait for the app container to answer /up through its own port.
+wait_until_ready() {
+    local i
+    for i in $(seq 1 90); do
+        if compose exec -T app curl -fsS -o /dev/null http://localhost:8080/up 2> /dev/null; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+restart_app() {
+    # Recreate rather than restart, so the containers pick up the new .env.
+    compose up -d --force-recreate app queue scheduler
+}
+
+cmd_setup() {
+    if [ "$(env_get APP_KEY)" != "" ]; then
+        say "Already set up; starting LineLedger."
+    else
+        say "Generating secrets for this Droplet ..."
+        umask 077
+        cp .env.example .env
+        env_set APP_KEY "base64:$(openssl rand -base64 32)"
+        env_set PASSKEYS_USER_HANDLE_SECRET "$(openssl rand -hex 32)"
+        env_set DB_PASSWORD "$(openssl rand -hex 24)"
+        env_set DB_ROOT_PASSWORD "$(openssl rand -hex 24)"
+        env_set DB_QUEUE_RETRY_AFTER 3700
+        env_set LINELEDGER_VERSION "$(cat VERSION)"
+        local ip='' i
+        for i in $(seq 1 15); do
+            ip=$(public_ip || true)
+            [ -n "$ip" ] && break
+            sleep 2
+        done
+        [ -n "$ip" ] || { rm -f .env; die "couldn't find this Droplet's public IP address"; }
+        env_set APP_URL "http://$ip"
+        env_set HTTP_PORT "${LINELEDGER_HTTP_PORT:-80}"
+        # Mail is set up in the app (Admin -> Email), and until then the first
+        # account signs in without verifying. Blank alert addresses mean the
+        # alerts go to this install's site admins.
+        env_set MAIL_HOST ""
+        env_set SECURITY_ALERT_EMAIL ""
+        env_set LEDGER_INTEGRITY_ALERT_EMAIL ""
+        env_set OPS_ALERT_EMAIL ""
+    fi
+
+    compose up -d
+    say "Waiting for LineLedger to start (the first start also creates the database) ..."
+    wait_until_ready || die "LineLedger didn't come up. See: lineledger logs"
+    say "LineLedger is running at $(env_get APP_URL)"
+}
+
+cmd_domain() {
+    local domain=${1:-} ip resolved
+    [ -n "$domain" ] || die "usage: lineledger domain books.example.com"
+    [[ $domain =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]] \
+        || die "$domain isn't a domain name"
+
+    ip=$(public_ip)
+    resolved=$(getent ahostsv4 "$domain" 2> /dev/null | awk 'NR == 1 { print $1 }' || true)
+    if [ "$resolved" != "$ip" ] && [ "${2:-}" != "--force" ]; then
+        die "$domain points at ${resolved:-nothing}, not this Droplet ($ip).
+Add a DNS A record for $domain with the value $ip, wait for it to take effect,
+then run this again. (--force skips this check.)"
+    fi
+
+    # The web server answers the domain over HTTPS on 80/443, getting its
+    # certificate automatically, and keeps plain HTTP on :8080 inside the
+    # container for the health check.
+    env_set SERVER_NAME "\"$domain, :8080\""
+    env_set APP_URL "https://$domain"
+    env_set HTTP_PORT "127.0.0.1:8080"
+    cat > docker-compose.override.yml << 'EOF'
+# Written by `lineledger domain`: the app serves HTTPS itself on 80/443.
+services:
+  app:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+EOF
+    restart_app
+    wait_until_ready || die "LineLedger didn't come back up. See: lineledger logs"
+
+    say "Getting a certificate for $domain ..."
+    local i
+    for i in $(seq 1 30); do
+        if curl -fsS -o /dev/null --max-time 5 "https://$domain/up" 2> /dev/null; then
+            say "LineLedger is live at https://$domain"
+            return 0
+        fi
+        sleep 4
+    done
+    die "https://$domain isn't answering yet. Check that ports 80 and 443 reach this Droplet, then see: lineledger logs"
+}
+
+cmd_upgrade() {
+    local target=${1:-} current
+    current=$(env_get LINELEDGER_VERSION)
+    if [ -z "$target" ]; then
+        target=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//')
+        [ -n "$target" ] || die "couldn't look up the newest release; pass one: lineledger upgrade 1.2.3"
+    fi
+    target=${target#v}
+    if [ "$target" = "$current" ]; then
+        say "Already on $current."
+        return 0
+    fi
+
+    say "Upgrading $current -> $target. Read the release notes first:"
+    say "  https://github.com/$REPO/blob/v$target/UPGRADING.md"
+    say "Backing up ..."
+    ./backup.sh
+
+    # The compose file and scripts can change between releases; take the new
+    # release's copies, and this command's own.
+    local base="https://raw.githubusercontent.com/$REPO/v$target/docker" f
+    for f in docker-compose.yml backup.sh restore.sh .env.example; do
+        curl -fsSL "$base/$f" -o "$f.new" || die "couldn't download $f for $target"
+    done
+    for f in docker-compose.yml backup.sh restore.sh .env.example; do mv "$f.new" "$f"; done
+    chmod +x backup.sh restore.sh
+    if curl -fsSL "$base/digitalocean/droplet/lineledger" -o /tmp/lineledger.new; then
+        install -m 0755 /tmp/lineledger.new /usr/local/bin/lineledger && rm -f /tmp/lineledger.new
+    fi
+
+    env_set LINELEDGER_VERSION "$target"
+    printf '%s\n' "$target" > VERSION
+    compose pull
+    compose up -d
+    wait_until_ready || die "LineLedger didn't come back up. See: lineledger logs. Rolling back: https://github.com/$REPO/blob/v$target/UPGRADING.md"
+    compose exec -T app php artisan app:upgrade --verify
+    say "Now on $target."
+}
+
+cmd_status() {
+    say "Version: $(env_get LINELEDGER_VERSION)"
+    say "Address: $(env_get APP_URL)"
+    compose ps
+}
+
+case "${1:-help}" in
+    setup) shift; cmd_setup "$@" ;;
+    domain) shift; cmd_domain "$@" ;;
+    upgrade) shift; cmd_upgrade "$@" ;;
+    backup) shift; ./backup.sh "$@" ;;
+    status) cmd_status ;;
+    logs) shift; compose logs -f --tail=100 "${@:-app}" ;;
+    config)
+        [ $# -eq 3 ] || die "usage: lineledger config KEY VALUE"
+        [[ $2 =~ ^[A-Z][A-Z0-9_]*$ ]] || die "$2 isn't an environment variable name"
+        env_set "$2" "$3"
+        restart_app
+        ;;
+    artisan) shift; compose exec app php artisan "$@" ;;
+    help | -h | --help) usage ;;
+    *) usage >&2; die "unknown command: $1" ;;
+esac
