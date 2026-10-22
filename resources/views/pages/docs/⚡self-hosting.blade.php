@@ -100,18 +100,18 @@ cp .env ~/lineledger-env-$(date +%Y%m%d) &amp;&amp; chmod 600 ~/lineledger-env-$
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Read the release’s notes (see Where to read what changed below) and fetch the release’s docker-compose.yml, backup.sh, and restore.sh if the notes say they changed.') }}</li>
             <li>{{ __('Run ./backup.sh and confirm the three files landed.') }}</li>
-            <li>{{ __('In .env, pin the release: set LINELEDGER_VERSION to the exact version, for example LINELEDGER_VERSION=1.2.2. The line ships commented out, so uncomment it the first time.') }}</li>
+            <li>{{ __('In .env, pin the release: set LINELEDGER_VERSION to the exact version, for example LINELEDGER_VERSION=1.3.0. The line ships commented out, so uncomment it the first time.') }}</li>
             <li>{{ __('Pull the new image and recreate the containers. The app container runs app:upgrade on boot, and the queue and scheduler containers wait until the app is healthy, so the workers never run new code against the old database.') }}</li>
             <li>{{ __('Confirm and prove the books.') }}</li>
         </ol>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>./backup.sh
-# in .env:  LINELEDGER_VERSION=1.2.2
+# in .env:  LINELEDGER_VERSION=1.3.0
 docker compose pull &amp;&amp; docker compose up -d
 docker compose logs -f app        # wait for "LineLedger ready (role: app)"
 docker compose exec app php artisan app:upgrade --verify</code></pre>
 
         <flux:text>
-            {{ __('Pinning matters. The image tag 1.2.2 is one exact release; 1.2 follows the newest patch on that line; latest follows the newest tagged release; and edge follows the development branch. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
+            {{ __('Pinning matters. The image tag 1.3.0 is one exact release; 1.3 follows the newest patch on that line; latest follows the newest tagged release; and edge follows the development branch. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
         </flux:text>
 
         <x-docs.callout type="tip" heading="{{ __('Run the upgrade step yourself') }}">
@@ -270,7 +270,7 @@ chmod 700 ~/lineledger-backup.sh
         </ul>
 
         <x-docs.callout type="warning" heading="{{ __('One release at a time') }}">
-            {{ __('Go 1.0.0 → 1.1.0 → 1.2.0, running each release’s steps in turn. Skipping a release skips its behaviour notes and the checks its section asks you to make, and leaves you upgrading two releases’ worth of database changes with one backup to fall back on.') }}
+            {{ __('Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0, running each release’s steps in turn. Skipping a release skips its behaviour notes and the checks its section asks you to make, and leaves you upgrading two releases’ worth of database changes with one backup to fall back on.') }}
         </x-docs.callout>
 
         <flux:text>

@@ -6,7 +6,7 @@ drive documents through the general ledger.
 
 > **Two documents, one API.** This guide is the narrative — auth, conventions,
 > lifecycle, and worked examples. The complete per-endpoint reference is the
-> machine-readable OpenAPI 3.1 spec (version `1.2.2`), served **unauthenticated** at
+> machine-readable OpenAPI 3.1 spec (version `1.3.0`), served **unauthenticated** at
 > **`GET /api/v1/openapi.json`** (source: `resources/api/openapi.yaml`). It covers
 > every resource in [§3](#3-the-resource-map). Point your client generator at that;
 > read this to understand how the API behaves.

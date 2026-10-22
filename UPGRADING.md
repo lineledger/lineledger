@@ -14,16 +14,16 @@ newest first.
   release's *Before you start*.
 - **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0, running each release's
   steps in turn. Skipping a release skips its backfills and its behaviour notes.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.2.0` is one exact
-  release; `1.2` follows the newest 1.2.x patch; `latest` follows the newest tagged
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.3.0` is one exact
+  release; `1.3` follows the newest 1.3.x patch; `latest` follows the newest tagged
   release; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
   `LINELEDGER_VERSION` in `.env` to the exact release, so an upgrade happens when you
   change that line and not whenever a `docker compose pull` happens to run.
 - **`php artisan app:upgrade` is the post-deploy step, everywhere.** It runs the pending
   migrations, then every backfill the release needs (since 1.1.0:
-  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0, 1.2.1
-  and 1.2.2 add none). Each
+  `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
+  1.3.0 add none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -34,6 +34,71 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.2.2 → 1.3.0
+
+Released 2026-10-22. A minor release that adds a one-click install on a DigitalOcean
+Droplet (`docker/digitalocean/droplet/install.sh` and a Marketplace image; see the
+README) and lets site admins set up outgoing email in the app (Admin → Email). It also
+changes what happens when mail isn't set up yet, and where alerts with a blank address
+go. PHP `^8.5`, Laravel 13 and the dependencies are unchanged. **No migrations, no
+backfills, no config or env changes**, and `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.2.2. Coming from 1.2.1 or earlier, do the earlier
+steps below first.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.3.0` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.3.0 (or 1.3).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+**The `1.2` tag stays on 1.2.2.** If `.env` pins `LINELEDGER_VERSION=1.2`, change it to
+`1.3.0` (or `1.3`, which follows the 1.3.x patches). `latest` moves to 1.3.0 by itself.
+
+### DigitalOcean App Platform
+
+Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy picks up
+1.3.0 and the pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script, then run `php artisan app:upgrade --verify` and
+`php artisan queue:restart`.
+
+### Behaviour to know about
+
+- **Mail settings saved in Admin → Email override `MAIL_*`.** Nothing changes until a
+  site admin saves settings there. Once saved, the app sends through that SMTP server
+  whatever `.env` says, and saving restarts the queue workers so they pick it up. Remove
+  the saved settings on the same page to go back to `MAIL_*`.
+- **SMTP with no host now writes mail to the log instead of failing.** With
+  `MAIL_MAILER=smtp` and `MAIL_HOST` blank, every email used to fail the request or job
+  that sent it. Now each one is written to the log, and site admins see a banner until
+  mail is set up. Installs with a working mailer, or with `MAIL_MAILER=log`, behave as
+  before. On a brand-new install in this state, the first account, which becomes the
+  site admin, signs in without verifying its address; every later account still
+  verifies.
+- **Alerts whose address is set but blank now go to the site admins.** This covers
+  `SECURITY_ALERT_EMAIL`, `LEDGER_INTEGRITY_ALERT_EMAIL`, `OPS_ALERT_EMAIL` and
+  `EXCHANGE_RATE_HEALTH_ALERT_EMAIL`: the security, ledger-integrity, failed-job,
+  scheduled-task and exchange-rate alerts. They used to be skipped; now each one is
+  emailed to every active site admin. If you blanked an address to silence those
+  alerts, they will start arriving. Set it to an address that should get them instead.
+  An unset variable still falls back as before.
+
+### Rolling back
+
+1.3.0 has no migrations, so going back to 1.2.2 is a matter of deploying it again: set
+`LINELEDGER_VERSION=1.2.2`, or check out `v1.2.2`. Settings saved in Admin → Email stay
+in the database, where 1.2.2 ignores them, and mail goes back to the `MAIL_*` values.
 
 ## 1.2.1 → 1.2.2
 
