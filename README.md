@@ -30,6 +30,39 @@ terms of the [license](#license) below. The software is provided **as is, used a
 your own risk, and is not a substitute for professional accounting or tax
 advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty).
 
+## Install
+
+Pick the route that fits; each links to its full guide further down.
+
+| You want | Use | You need |
+| --- | --- | --- |
+| The quickest start, nothing to configure | [DigitalOcean Droplet (one click)](#deploy-on-a-digitalocean-droplet-one-click) | A DigitalOcean account |
+| Your own server or VM | [Self-hosting with Docker](#self-hosting-with-docker) | Docker and Docker Compose |
+| Managed infrastructure, no server to patch | [DigitalOcean App Platform](#deploy-on-digitalocean-app-platform) | `doctl`, a DigitalOcean API token |
+| A Laravel host you already use | [Laravel Forge](#deploy-laravel-forge--digitalocean) | PHP 8.5, MySQL 8 |
+| To work on the code | [Develop with Docker](#develop-with-docker) or [Develop](#develop) | Docker, or PHP 8.5 + Node |
+
+**Quickest start (DigitalOcean Droplet):**
+
+1. Create a Droplet: choose **LineLedger** in the DigitalOcean Marketplace. Until
+   the listing is live, create an **Ubuntu 24.04** Droplet with at least 2 GB of
+   memory and paste this under **Advanced options → Add initialization scripts**:
+
+   ```bash
+   #!/bin/bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.2.2/docker/digitalocean/droplet/install.sh | bash
+   ```
+
+2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
+   account becomes the site admin and can sign in without email.
+3. Set up email in **Admin → Email**, then give it your own domain with HTTPS:
+   point an `A` record at the Droplet and run `lineledger domain books.example.com`
+   over SSH.
+
+Whichever route you take, **back up `APP_KEY`**: it encrypts stored secrets, and a
+database restored without it can't read them. Upgrading later? Read
+[`UPGRADING.md`](UPGRADING.md) first.
+
 ## What's in here
 
 - **English and French** — the staff app, customer and vendor documents, emails, and
