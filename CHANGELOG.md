@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Airy invoice layout** — a second invoice layout, chosen per form style
+  (Settings → Lists → Form styles → Layout): your details top left and logo top
+  right, a large INVOICE heading, Invoice to beside the number and dates, an
+  Activity / Qty / Rate / Amount table with each line's item name in bold above
+  its description, and the balance due under a dotted rule beside the customer
+  message and payment instructions. Existing styles keep the classic layout. New
+  `form_styles.layout` column.
+
 ## [1.3.0] - 2026-10-22
 
 **Highlights.** LineLedger installs on a **DigitalOcean Droplet in one click**: create

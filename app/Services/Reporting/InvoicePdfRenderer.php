@@ -30,7 +30,7 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): Response => $this->pdf->inline('pdf.invoices.invoice', $this->data($company, $invoice), $this->filename($invoice)),
+            fn (): Response => $this->pdf->inline($this->view($company, $invoice), $this->data($company, $invoice), $this->filename($invoice)),
         );
     }
 
@@ -41,7 +41,7 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => $this->pdf->raw('pdf.invoices.invoice', $this->data($company, $invoice)),
+            fn (): string => $this->pdf->raw($this->view($company, $invoice), $this->data($company, $invoice)),
         );
     }
 
@@ -52,8 +52,34 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => view('pdf.invoices.invoice', $this->data($company, $invoice))->render(),
+            fn (): string => view($this->view($company, $invoice), $this->data($company, $invoice))->render(),
         );
+    }
+
+    /**
+     * The layout the invoice's style prints with; the classic layout when it
+     * has none.
+     */
+    private function view(Company $company, Invoice $invoice): string
+    {
+        return $this->style($company, $invoice)?->invoiceView() ?? 'pdf.invoices.invoice';
+    }
+
+    /**
+     * The invoice's chosen style, else the company default. The explicit
+     * company_id filter matters for queued contexts (e.g. email sending) where
+     * the `current_company` global scope is not bound. Null when the company has
+     * no styles — the classic blade then renders exactly as before.
+     */
+    private function style(Company $company, Invoice $invoice): ?FormStyle
+    {
+        $invoice->loadMissing('formStyle');
+
+        return $invoice->formStyle ?: FormStyle::query()
+            ->where('company_id', $company->id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
     }
 
     /**
@@ -63,15 +89,7 @@ class InvoicePdfRenderer
     {
         $invoice->loadMissing('lines.taxCode', 'lines.item', 'contact', 'terms', 'salesRep', 'formStyle');
 
-        // The invoice's chosen style, else the company default. The explicit
-        // company_id filter matters for queued contexts (e.g. email sending)
-        // where the `current_company` global scope is not bound. Null when the
-        // company has no styles — the blade then renders exactly as before.
-        $style = $invoice->formStyle ?: FormStyle::query()
-            ->where('company_id', $company->id)
-            ->where('is_default', true)
-            ->where('is_active', true)
-            ->first();
+        $style = $this->style($company, $invoice);
 
         return [
             'company' => $company,

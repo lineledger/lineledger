@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Expected $data shape:
  *   name:           string
+ *   layout:         ?string  (FormStyle::layouts() key; unknown values fall back to classic)
  *   show_logo:      ?bool
  *   accent_color:   ?string  (#rrggbb)
  *   footer_message: ?string
@@ -31,6 +32,12 @@ final class SaveFormStyle
             $attributes = [
                 'name' => $data['name'],
             ];
+
+            if (array_key_exists('layout', $data)) {
+                $attributes['layout'] = array_key_exists((string) $data['layout'], FormStyle::layouts())
+                    ? (string) $data['layout']
+                    : FormStyle::LAYOUT_CLASSIC;
+            }
 
             if (array_key_exists('show_logo', $data)) {
                 $attributes['show_logo'] = (bool) $data['show_logo'];
