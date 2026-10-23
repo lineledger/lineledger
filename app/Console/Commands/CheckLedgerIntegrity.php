@@ -14,6 +14,7 @@ use App\Services\Audit\AuditMute;
 use App\Services\Posting\BillPaymentPoster;
 use App\Services\Posting\ReceiptPoster;
 use App\Support\Accounting\ControlAccountRoles;
+use App\Support\AlertRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -376,15 +377,15 @@ class CheckLedgerIntegrity extends Command
      */
     protected function sendAlert(array $issuesByCompany): void
     {
-        $email = config('services.ledger_integrity.alert_email');
+        $recipients = AlertRecipients::for('services.ledger_integrity.alert_email');
 
-        if (is_string($email) && $email !== '') {
-            Notification::route('mail', $email)->notify(new LedgerIntegrityAlert($issuesByCompany));
-            $this->line("Alert emailed to {$email}.");
+        if ($recipients !== []) {
+            Notification::route('mail', $recipients)->notify(new LedgerIntegrityAlert($issuesByCompany));
+            $this->line('Alert emailed to '.implode(', ', $recipients).'.');
 
             return;
         }
 
-        $this->warn('No alert email configured (services.ledger_integrity.alert_email); skipping email.');
+        $this->warn('No alert email configured (services.ledger_integrity.alert_email) and no site admin to fall back to; skipping email.');
     }
 }

@@ -118,6 +118,7 @@ use App\Models\TimeEntry;
 use App\Models\TimeOffPolicy;
 use App\Models\TimeOffRequest;
 use App\Models\Transfer;
+use App\Models\UserPreference;
 use App\Models\VendorCredit;
 use App\Models\VendorCreditLine;
 use App\Models\WorkersCompSetting;
@@ -332,6 +333,9 @@ final class BackupTableRegistry
             // Per-user, per-company grid column choices. Like nav_preferences:
             // company_id + user_id only, both handled by the generic remap.
             ['table' => 'grid_preferences', 'model' => GridPreference::class, 'group' => 'user_affordances'],
+            // Per-user, per-company remembered screen settings (last bank account,
+            // report filters). Like grid_preferences: company_id + user_id only.
+            ['table' => 'user_preferences', 'model' => UserPreference::class, 'group' => 'user_affordances'],
             // Daily "Did you know?" insights. Carry only company_id — like
             // partners, no PARENT_FK_MAP entry is needed; the generic
             // company_id swap suffices.

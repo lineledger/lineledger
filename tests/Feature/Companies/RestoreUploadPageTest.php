@@ -143,6 +143,7 @@ it('transitions to preview mode and creates a Ready restore row on a happy uploa
     expect($restore)->not->toBeNull()
         ->and($restore->status)->toBe(CompanyRestoreStatus::Ready)
         ->and($restore->file_path)->toStartWith('restores/')
+        ->and($restore->disk)->toBe('local')
         ->and($restore->sha256)->toBeString()
         ->and(strlen((string) $restore->sha256))->toBe(64)
         ->and($restore->manifest_data)->toBeArray();
@@ -175,4 +176,27 @@ it('keeps the user in upload mode and surfaces the error when the inspector reje
 
     // The orphaned file should be cleaned up, and no CompanyRestore row written.
     expect(CompanyRestore::query()->where('requested_by_user_id', $user->id)->count())->toBe(0);
+});
+
+it('stages the uploaded bundle on the backups disk so a worker elsewhere can read it', function () {
+    Storage::fake('s3');
+    config()->set('filesystems.roles.backups', 's3');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Livewire::test('pages::companies.restore')
+        ->set('upload', makeValidBackupZip())
+        ->call('inspect')
+        ->assertHasNoErrors()
+        ->assertSet('mode', 'preview');
+
+    $restore = CompanyRestore::query()->where('requested_by_user_id', $user->id)->sole();
+
+    expect($restore->disk)->toBe('s3')
+        ->and($restore->file_size_bytes)->toBeGreaterThan(0)
+        ->and(strlen((string) $restore->sha256))->toBe(64);
+
+    Storage::disk('s3')->assertExists($restore->file_path);
+    Storage::disk('local')->assertMissing($restore->file_path);
 });

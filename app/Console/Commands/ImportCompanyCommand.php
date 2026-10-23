@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Restore\BundleInspector;
 use App\Services\Restore\CompanyImporter;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Support\Storage\StorageDisks;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -66,9 +67,10 @@ class ImportCompanyCommand extends Command
             return self::FAILURE;
         }
 
-        // Copy the file into storage/app/private/restores/ so the importer's
-        // disk-relative path resolution mirrors the Livewire-upload flow.
-        $localDisk = Storage::disk('local');
+        // Stage the bundle where the Livewire-upload flow does — the backups
+        // disk — so a queued restore works even when the worker runs on
+        // another machine.
+        $disk = StorageDisks::backups();
         $relativePath = 'restores/cli-'.Str::random(8).'-'.basename($file);
 
         $contents = @file_get_contents($file);
@@ -78,20 +80,19 @@ class ImportCompanyCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $localDisk->put($relativePath, $contents)) {
-            $this->error("Unable to persist bundle into local storage at {$relativePath}.");
+        if (! Storage::disk($disk)->put($relativePath, $contents)) {
+            $this->error("Unable to persist bundle onto the [{$disk}] disk at {$relativePath}.");
 
             return self::FAILURE;
         }
-
-        $absolutePath = $localDisk->path($relativePath);
 
         $restore = CompanyRestore::create([
             'requested_by_user_id' => $user->id,
             'status' => CompanyRestoreStatus::Ready,
             'file_path' => $relativePath,
-            'file_size_bytes' => $localDisk->size($relativePath),
-            'sha256' => hash_file('sha256', $absolutePath),
+            'disk' => $disk,
+            'file_size_bytes' => strlen($contents),
+            'sha256' => hash('sha256', $contents),
         ]);
 
         $this->line(sprintf('Created CompanyRestore #%d for user %d.', $restore->id, $user->id));

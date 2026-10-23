@@ -566,6 +566,7 @@ new #[Title('Cheque')] class extends Component
         }
 
         $this->storePendingAttachments();
+        LastBankAccount::remember($this->company, $this->bank_account_id);
 
         Flux::toast(variant: 'success', text: __('Draft saved.'));
         $this->redirectRoute('cheques.edit', ['company' => $this->company->slug, 'cheque' => $this->cheque->id], navigate: true);
@@ -605,6 +606,7 @@ new #[Title('Cheque')] class extends Component
         }
 
         $this->storePendingAttachments();
+        LastBankAccount::remember($this->company, $this->bank_account_id);
 
         $label = $this->company->jurisdiction->cheque('singular');
 

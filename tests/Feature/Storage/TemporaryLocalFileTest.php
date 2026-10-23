@@ -93,3 +93,35 @@ it('returns whatever the callback returns', function () {
     expect(TemporaryLocalFile::with('s3', 'inbox/receipt.pdf', fn () => ['parsed' => 3]))
         ->toBe(['parsed' => 3]);
 });
+
+it('hands several remote files over at once, in order, and removes every copy', function () {
+    Storage::disk('s3')->put('migrations/ledger.csv', 'first');
+    Storage::disk('s3')->put('migrations/ledger.iif', 'second');
+
+    $seen = TemporaryLocalFile::withAll('s3', ['migrations/ledger.csv', 'migrations/ledger.iif'], function (array $paths) {
+        expect(array_map('file_get_contents', $paths))->toBe(['first', 'second'])
+            ->and(pathinfo($paths[1], PATHINFO_EXTENSION))->toBe('iif');
+
+        return $paths;
+    });
+
+    expect(array_filter($seen, 'is_file'))->toBe([]);
+});
+
+it('removes every copy when the callback for several files throws', function () {
+    Storage::disk('s3')->put('migrations/a.csv', 'a');
+    Storage::disk('s3')->put('migrations/b.csv', 'b');
+
+    $captured = [];
+
+    expect(function () use (&$captured) {
+        TemporaryLocalFile::withAll('s3', ['migrations/a.csv', 'migrations/b.csv'], function (array $paths) use (&$captured) {
+            $captured = $paths;
+
+            throw new RuntimeException('replay blew up');
+        });
+    })->toThrow(RuntimeException::class, 'replay blew up');
+
+    expect($captured)->toHaveCount(2)
+        ->and(array_filter($captured, 'is_file'))->toBe([]);
+});

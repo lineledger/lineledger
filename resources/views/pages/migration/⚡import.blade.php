@@ -20,6 +20,7 @@ use App\Services\Migration\Importers\TrialBalanceImporter;
 use App\Services\Migration\Importers\VendorsImporter;
 use App\Services\Migration\QuickBooksMigrationService;
 use App\Services\Migration\SystemAccountMapper;
+use App\Support\Storage\StorageDisks;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -378,10 +379,13 @@ new #[Title('Import from QuickBooks')] class extends Component {
             'accountTypesFile' => ['nullable', 'file', 'max:10240'],
         ]);
 
-        // Persist each upload to the local disk; the queued job reads then deletes them.
+        // Persist each upload for the queued job, which reads then deletes them.
+        // The backups disk, not this server's local one: the worker may run on
+        // another machine (DigitalOcean App Platform does).
+        $disk = StorageDisks::backups();
         $storedPaths = [];
         foreach ($this->glFiles as $file) {
-            $storedPaths[] = $file->store('migrations', 'local');
+            $storedPaths[] = $file->store('migrations', $disk);
         }
 
         // Optional Account Listing — used only on CSV replays to type auto-created accounts.
@@ -389,7 +393,7 @@ new #[Title('Import from QuickBooks')] class extends Component {
         if ($this->sourceFormat !== StreamingGeneralLedgerReader::FORMAT_IIF
             && $this->autoCreateAccounts
             && $this->accountTypesFile !== null) {
-            $accountTypesPath = $this->accountTypesFile->store('migrations', 'local');
+            $accountTypesPath = $this->accountTypesFile->store('migrations', $disk);
         }
 
         // Seed a running marker so the poller shows progress immediately.
@@ -407,6 +411,7 @@ new #[Title('Import from QuickBooks')] class extends Component {
             linkContactNames: (bool) $this->linkContactNames,
             reconstructDocuments: (bool) $this->reconstructDocuments,
             accountTypesPath: $accountTypesPath,
+            disk: $disk,
         );
 
         $this->generalLedgerRunning = true;

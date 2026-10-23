@@ -4,6 +4,7 @@ namespace App\Services\Posting;
 
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\PayrollCheque;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -22,6 +23,9 @@ class DocumentNumberGenerator
 {
     /** Guard against an unbounded search when a whole numeric run is taken. */
     private const MAX_PROBES = 1000;
+
+    /** How far back nextChequeNumber() looks for a number it can count on from. */
+    private const RECENT_CHEQUES = 50;
 
     /**
      * @param  class-string<Model>  $modelClass
@@ -172,11 +176,16 @@ class DocumentNumberGenerator
     }
 
     /**
-     * The number for the next cheque on a bank account: the last cheque written
-     * on that account, incremented in its own format ("1001" → "1002",
-     * "CHQ-009" → "CHQ-010"), or 1001 for a fresh chequebook. Cheque numbers
-     * may repeat on an account ("EFT", "DD"), so this is a suggestion the user
-     * can overwrite, not a reserved number.
+     * The number for the next cheque on a bank account: the latest cheque on
+     * that account that carries a number, incremented in its own format
+     * ("1001" → "1002", "CHQ-009" → "CHQ-010"), or 1001 for a fresh chequebook.
+     *
+     * Labels with no digits to count on ("e-transfer", "EFT", "DD") are skipped,
+     * so 10300 followed by an e-transfer still suggests 10301. The suggestion
+     * also steps past any number already on this account, payroll cheques
+     * included — they draw on the same chequebook. Cheque numbers may repeat on
+     * an account, so this is a suggestion the user can overwrite, not a
+     * reserved number.
      */
     public function nextChequeNumber(Company $company, ?int $bankAccountId): string
     {
@@ -184,17 +193,53 @@ class DocumentNumberGenerator
             return '1001';
         }
 
-        $last = Cheque::withoutGlobalScopes()
+        // withoutGlobalScopes() also drops SoftDeletes: a deleted cheque's
+        // paper is spent all the same.
+        $recent = Cheque::withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->where('bank_account_id', $bankAccountId)
             ->orderByDesc('id')
-            ->first();
+            ->limit(self::RECENT_CHEQUES)
+            ->pluck('cheque_no');
 
-        if ($last && ($next = self::incrementFormat((string) $last->cheque_no)) !== null) {
-            return $next;
+        $candidate = '1001';
+
+        foreach ($recent as $number) {
+            if (($next = self::incrementFormat((string) $number)) !== null) {
+                $candidate = $next;
+
+                break;
+            }
         }
 
-        return '1001';
+        for ($probe = 0; $probe < self::MAX_PROBES && $this->chequeNumberTaken($company, $bankAccountId, $candidate); $probe++) {
+            $next = self::incrementFormat($candidate);
+
+            if ($next === null || $next === $candidate) {
+                break;
+            }
+
+            $candidate = $next;
+        }
+
+        return $candidate;
+    }
+
+    private function chequeNumberTaken(Company $company, int $bankAccountId, string $number): bool
+    {
+        foreach ([Cheque::class, PayrollCheque::class] as $modelClass) {
+            $taken = $modelClass::withoutGlobalScopes()
+                ->where('company_id', $company->id)
+                ->where('bank_account_id', $bankAccountId)
+                ->where('cheque_no', $number)
+                ->exists();
+
+            if ($taken) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

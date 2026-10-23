@@ -29,6 +29,7 @@ Route::middleware(['auth', 'verified', EnsureSiteAdmin::class, ...$confirmsPassw
         Route::livewire('/', 'pages::admin.dashboard')->name('admin.dashboard');
         Route::livewire('security', 'pages::admin.security')->name('admin.security');
         Route::livewire('settings', 'pages::admin.settings')->name('admin.settings');
+        Route::livewire('mail', 'pages::admin.mail')->name('admin.mail');
         Route::livewire('users', 'pages::admin.users')->name('admin.users');
         Route::livewire('support', 'pages::admin.support-tickets')->name('admin.support');
         Route::livewire('support/{ticket}', 'pages::admin.support-ticket-show')->name('admin.support.show');

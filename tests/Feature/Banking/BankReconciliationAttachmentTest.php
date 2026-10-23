@@ -132,3 +132,17 @@ it('purges attachment blobs when the reconciliation is deleted', function () {
     expect(Attachment::whereKey($attachment->id)->exists())->toBeFalse();
     Storage::disk('local')->assertMissing('attachments/'.$this->company->id.'/stmt.pdf');
 });
+
+it('holds Reconcile now while a dropped statement is still uploading', function () {
+    // The dropzone fires livewire-upload-start/finish for its model, so this
+    // disables the button until the file has landed in newAttachments — a
+    // click mid-upload would otherwise finish the reconciliation without it.
+    $html = Livewire::test('pages::banking.reconcile', ['company' => $this->company])
+        ->set('account_id', $this->bankAccount->id)
+        ->html();
+
+    expect($html)->toMatch('/<button[^>]*data-test="reconcile-now"[^>]*>/')
+        ->and(preg_match('/<button[^>]*data-test="reconcile-now"[^>]*>/', $html, $m) ? $m[0] : '')
+        ->toContain('wire:loading.attr="disabled"')
+        ->toContain('wire:target="newAttachments"');
+});

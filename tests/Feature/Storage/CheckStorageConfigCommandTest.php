@@ -84,6 +84,19 @@ it('warns when a Canadian deployment stores files outside Canada', function () {
         ->expectsOutputToContain('ca-central-1');
 });
 
+it('does not hold an S3-compatible store to the AWS region map', function () {
+    // DigitalOcean Spaces in Toronto signs as us-east-1; that is not a US bucket.
+    config()->set('app.region', 'CA');
+    config()->set('filesystems.roles.attachments', 's3');
+    config()->set('filesystems.disks.s3.region', 'us-east-1');
+    config()->set('filesystems.disks.s3.endpoint', 'https://tor1.digitaloceanspaces.com');
+    Storage::fake('s3');
+
+    $this->artisan('storage:check', ['--skip-probes' => true])
+        ->doesntExpectOutputToContain('ca-central-1')
+        ->expectsOutputToContain('not checked');
+});
+
 it('skips the live probes when asked', function () {
     $this->artisan('storage:check', ['--skip-probes' => true])
         ->doesntExpectOutputToContain('Round trip')

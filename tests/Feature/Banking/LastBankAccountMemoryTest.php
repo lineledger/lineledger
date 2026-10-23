@@ -116,3 +116,25 @@ it('clears the memory when the selector is emptied', function () {
 
     expect(LastBankAccount::recall($this->company, [$this->savings->id]))->toBeNull();
 });
+
+it('still remembers the account after the session ends', function () {
+    Livewire::test('pages::cheques.form', ['company' => $this->company])
+        ->set('bank_account_id', $this->savings->id);
+
+    // Signing out (or a 2-hour idle timeout) ends the session; the memory is per user, not per session.
+    session()->flush();
+
+    Livewire::test('pages::banking.register', ['company' => $this->company])
+        ->assertSet('account_id', $this->savings->id);
+});
+
+it('does not hand one user’s account to a colleague in the same company', function () {
+    LastBankAccount::remember($this->company, $this->savings->id);
+
+    $colleague = User::factory()->create();
+    $this->company->members()->attach($colleague, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($colleague);
+
+    Livewire::test('pages::banking.register', ['company' => $this->company])
+        ->assertSet('account_id', $this->primaryBank->id);
+});

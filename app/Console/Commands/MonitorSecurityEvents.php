@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Notifications\SecurityAnomalyAlert;
 use App\Services\Security\SecurityAnomalyScanner;
+use App\Support\AlertRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -65,15 +66,15 @@ class MonitorSecurityEvents extends Command
      */
     protected function sendAlert(array $anomalies, int $window): void
     {
-        $email = config('services.security_alerts.alert_email');
+        $recipients = AlertRecipients::for('services.security_alerts.alert_email');
 
-        if (is_string($email) && $email !== '') {
-            Notification::route('mail', $email)->notify(new SecurityAnomalyAlert($anomalies, $window));
-            $this->line("Alert emailed to {$email}.");
+        if ($recipients !== []) {
+            Notification::route('mail', $recipients)->notify(new SecurityAnomalyAlert($anomalies, $window));
+            $this->line('Alert emailed to '.implode(', ', $recipients).'.');
 
             return;
         }
 
-        $this->warn('No alert email configured (services.security_alerts.alert_email); skipping email.');
+        $this->warn('No alert email configured (services.security_alerts.alert_email) and no site admin to fall back to; skipping email.');
     }
 }

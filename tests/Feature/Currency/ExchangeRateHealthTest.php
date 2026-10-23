@@ -61,7 +61,7 @@ it('fails and emails the ops address when the newest rate is older than the thre
 
     Notification::assertSentOnDemand(
         ExchangeRateHealthAlert::class,
-        fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === 'hello@lineledger.ca',
+        fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === ['hello@lineledger.ca'],
     );
 });
 

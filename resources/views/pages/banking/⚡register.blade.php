@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Support\Banking\LastBankAccount;
+use App\Support\Preferences\UserPreferences;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -58,16 +59,13 @@ new #[Title('Bank register')] class extends Component {
         }
 
         LastBankAccount::remember($company, $this->account_id);
+
+        $this->showCleared = (bool) UserPreferences::get($company, 'banking.register.show_cleared', true);
     }
 
     public function updatedAccountId(): void
     {
         LastBankAccount::remember($this->company, $this->account_id);
-        $this->resetPage();
-    }
-
-    public function updatedShowCleared(): void
-    {
         $this->resetPage();
     }
 
@@ -84,6 +82,12 @@ new #[Title('Bank register')] class extends Component {
             $this->sortDir = self::SORT_FIELDS[$field];
         }
 
+        $this->resetPage();
+    }
+
+    public function updatedShowCleared(): void
+    {
+        UserPreferences::put($this->company, 'banking.register.show_cleared', $this->showCleared);
         $this->resetPage();
     }
 

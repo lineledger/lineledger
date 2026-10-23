@@ -15,8 +15,11 @@ use RuntimeException;
  * self-hosted installs and the test suite on the local filesystem.
  *
  * Only *durable* files have roles. Scratch space (Livewire temp uploads,
- * migration CSV staging, backup/restore work directories) deliberately stays
- * local — several of its consumers need a real filesystem path.
+ * backup/restore work directories) deliberately stays local — several of its
+ * consumers need a real filesystem path. The exception is an upload handed to
+ * a queued job (restore bundles, QuickBooks ledger imports): the worker may run
+ * on another machine, so those are staged on the backups disk and copied back
+ * down with {@see TemporaryLocalFile}.
  */
 final class StorageDisks
 {
@@ -32,7 +35,10 @@ final class StorageDisks
         return self::role('logos', 'public');
     }
 
-    /** Finished company backup ZIPs. Private. */
+    /**
+     * Finished company backup ZIPs, plus uploaded restore bundles and ledger
+     * imports waiting for the queue worker. Private.
+     */
     public static function backups(): string
     {
         return self::role('backups', 'local');
