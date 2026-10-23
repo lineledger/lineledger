@@ -56,6 +56,16 @@ build {
     inline = ["cloud-init status --wait", "mkdir -p ${local.stage}/digitalocean/droplet"]
   }
 
+  # Bring the base image up to date: DigitalOcean's image check fails a
+  # snapshot with security updates pending.
+  provisioner "shell" {
+    environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
+    inline = [
+      "apt-get -qq -o DPkg::Lock::Timeout=300 update",
+      "apt-get -qqy -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold full-upgrade",
+    ]
+  }
+
   # Only the files the install needs: never the whole directory, which may
   # hold a developer's .env.
   provisioner "file" {
@@ -87,5 +97,16 @@ build {
 
   provisioner "shell" {
     script = "${path.root}/cleanup.sh"
+  }
+
+  # DigitalOcean's own Marketplace image check (pinned), on the cleaned build
+  # Droplet as its Marketplace templates run it. A failed check fails the build.
+  provisioner "shell" {
+    inline = [
+      "curl -fsSL https://raw.githubusercontent.com/digitalocean/marketplace-partners/735b351eb3aa244b610287ef17d9e70b002f83a1/scripts/99-img-check.sh -o /root/99-img-check.sh",
+      "status=0; bash /root/99-img-check.sh || status=$?",
+      "rm -f /root/99-img-check.sh",
+      "exit $status",
+    ]
   }
 }
