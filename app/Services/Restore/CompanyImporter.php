@@ -13,6 +13,7 @@ use App\Services\Audit\CanonicalJson;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Backup\CompanyExporter;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Support\Storage\TemporaryLocalFile;
 use Carbon\CarbonImmutable;
 use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
@@ -87,12 +88,26 @@ final class CompanyImporter
             throw new RuntimeException("CompanyRestore #{$restore->id} has no file_path.");
         }
 
-        $zipAbsolute = Storage::disk('local')->path($restore->file_path);
+        $disk = $restore->storageDisk();
 
-        if (! is_file($zipAbsolute)) {
-            throw new RuntimeException("Restore bundle missing from disk: {$zipAbsolute}");
+        if (! Storage::disk($disk)->exists($restore->file_path)) {
+            throw new RuntimeException("Restore bundle missing from disk [{$disk}]: {$restore->file_path}");
         }
 
+        // ZipArchive needs a real path. On object storage that is a temporary
+        // local copy, removed again however the import ends.
+        return TemporaryLocalFile::with(
+            $disk,
+            $restore->file_path,
+            fn (string $zipAbsolute) => $this->importBundle($restore, $zipAbsolute),
+        );
+    }
+
+    /**
+     * Steps 1–9 of the class docblock, against a local copy of the bundle.
+     */
+    private function importBundle(CompanyRestore $restore, string $zipAbsolute): CompanyRestore
+    {
         $tmpRoot = storage_path('app/private/restores/tmp');
         if (! is_dir($tmpRoot) && ! @mkdir($tmpRoot, 0755, true) && ! is_dir($tmpRoot)) {
             throw new RuntimeException("Unable to create restore tmp root: {$tmpRoot}");

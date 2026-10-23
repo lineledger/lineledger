@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Notifications\FailedJobsAlert;
+use App\Support\AlertRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -80,15 +81,15 @@ class MonitorFailedJobs extends Command
      */
     protected function sendAlert(array $failures, int $total): void
     {
-        $email = config('services.ops_alerts.alert_email');
+        $recipients = AlertRecipients::for('services.ops_alerts.alert_email');
 
-        if (is_string($email) && $email !== '') {
-            Notification::route('mail', $email)->notify(new FailedJobsAlert($failures, $total));
-            $this->line("Alert emailed to {$email}.");
+        if ($recipients !== []) {
+            Notification::route('mail', $recipients)->notify(new FailedJobsAlert($failures, $total));
+            $this->line('Alert emailed to '.implode(', ', $recipients).'.');
 
             return;
         }
 
-        $this->warn('No alert email configured (services.ops_alerts.alert_email); skipping email.');
+        $this->warn('No alert email configured (services.ops_alerts.alert_email) and no site admin to fall back to; skipping email.');
     }
 }

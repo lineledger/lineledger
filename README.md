@@ -14,9 +14,11 @@ the GL.
 
 ## Status
 
-LineLedger is at **1.2.1**, released October 19, 2026, a patch that fixes OFX, QFX
-and QBO bank-statement uploads on top of 1.2.0 (October 18), which added French and
-United Kingdom organizations; 1.1.0 shipped September 18 and 1.0.0 August 15, 2026 (see
+LineLedger is at **1.3.0**, released October 22, 2026, which adds a one-click install on
+a DigitalOcean Droplet and email settings you set up from inside the app. It follows
+1.2.2 (also October 22, a one-command deploy to DigitalOcean App Platform), 1.2.1
+(October 19) and 1.2.0 (October 18), which added French and United Kingdom
+organizations; 1.1.0 shipped September 18 and 1.0.0 August 15, 2026 (see
 [`CHANGELOG.md`](CHANGELOG.md)). Running an existing install? Read
 [`UPGRADING.md`](UPGRADING.md) before you pull — it covers the backup-first,
 `php artisan app:upgrade` path for both Docker and Forge, and the same material is in
@@ -28,6 +30,39 @@ Laravel SaaS-style app is structured.
 terms of the [license](#license) below. The software is provided **as is, used at
 your own risk, and is not a substitute for professional accounting or tax
 advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty).
+
+## Install
+
+Pick the route that fits; each links to its full guide further down.
+
+| You want | Use | You need |
+| --- | --- | --- |
+| The quickest start, nothing to configure | [DigitalOcean Droplet (one click)](#deploy-on-a-digitalocean-droplet-one-click) | A DigitalOcean account |
+| Your own server or VM | [Self-hosting with Docker](#self-hosting-with-docker) | Docker and Docker Compose |
+| Managed infrastructure, no server to patch | [DigitalOcean App Platform](#deploy-on-digitalocean-app-platform) | `doctl`, a DigitalOcean API token |
+| A Laravel host you already use | [Laravel Forge](#deploy-laravel-forge--digitalocean) | PHP 8.5, MySQL 8 |
+| To work on the code | [Develop with Docker](#develop-with-docker) or [Develop](#develop) | Docker, or PHP 8.5 + Node |
+
+**Quickest start (DigitalOcean Droplet):**
+
+1. Create a Droplet: choose **LineLedger** in the DigitalOcean Marketplace. Until
+   the listing is live, create an **Ubuntu 24.04** Droplet with at least 2 GB of
+   memory and paste this under **Advanced options → Add initialization scripts**:
+
+   ```bash
+   #!/bin/bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean/droplet/install.sh | bash
+   ```
+
+2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
+   account becomes the site admin and can sign in without email.
+3. Set up email in **Admin → Email**, then give it your own domain with HTTPS:
+   point an `A` record at the Droplet and run `lineledger domain books.example.com`
+   over SSH.
+
+Whichever route you take, **back up `APP_KEY`**: it encrypts stored secrets, and a
+database restored without it can't read them. Upgrading later? Read
+[`UPGRADING.md`](UPGRADING.md) first.
 
 ## What's in here
 
@@ -197,7 +232,7 @@ advice** — please read the [Disclaimer & no warranty](#disclaimer--no-warranty
 | Layer | Choice |
 | --- | --- |
 | Runtime | PHP 8.5+ with `intl` |
-| Framework | Laravel 13 (`laravel/framework` 13.37 as of 1.2.1) |
+| Framework | Laravel 13 (`laravel/framework` 13.37 as of 1.3.0) |
 | UI | Livewire 4 + Flux UI Free + Tailwind CSS 4 (Vite) |
 | Charts | Chart.js 4 (`chart.js`) for the dashboard and report chart panels (`resources/js/charts.js`) |
 | Auth | Laravel Fortify + passkeys (WebAuthn, configured in `config/fortify.php`); OAuth2 via Laravel Passport (MCP); optional Cloudflare Turnstile on the auth forms (`config/turnstile.php`) |
@@ -665,7 +700,7 @@ No clone needed — fetch the compose bundle for the release, configure, and sta
 
 ```bash
 mkdir lineledger && cd lineledger
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.2.1/docker
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker
 curl -fsSLO "$base/docker-compose.yml"
 curl -fsSL  "$base/.env.example" -o .env
 curl -fsSLO "$base/backup.sh"
@@ -680,13 +715,14 @@ docker compose run --rm --no-deps app php artisan key:generate --show
 docker compose up -d
 ```
 
-Fetch from the tag you are deploying (`v1.2.1` above), not `main` — the compose
+Fetch from the tag you are deploying (`v1.3.0` above), not `main` — the compose
 file, entrypoint and scripts on `main` may already describe the next release.
 
-**Mail has to work before anyone can get in.** Email verification is enforced: a
-new account can't create its organization until it clicks the verification link, so a
-blank `MAIL_HOST` leaves a fresh install stuck at the verify-email screen. Point
-`MAIL_*` at a real mailer, or for a trial run start Mailpit
+**Set up mail before anyone else registers.** Email verification is enforced: a new
+account can't create its organization until it clicks the verification link. While
+`MAIL_HOST` is blank, mail is only written to the log, and just the first account (the
+site admin) gets in without verifying. Enter an SMTP server in `/admin` → Email, or
+point `MAIL_*` at a real mailer. For a trial run, start Mailpit
 (`docker compose --profile mail up -d`, then `MAIL_HOST=mailpit`, `MAIL_PORT=1025`;
 its inbox is at `127.0.0.1:8025`, loopback only, because it shows password-reset
 links with no login).
@@ -716,21 +752,21 @@ Release notes and anything a specific version needs are in
 
 ```bash
 ./backup.sh                                # 1. DB dump + storage volume + .env into ./backups
-# 2. in .env, pin the release:  LINELEDGER_VERSION=1.2.1
+# 2. in .env, pin the release:  LINELEDGER_VERSION=1.3.0
 docker compose pull && docker compose up -d   # 3. new image; app:upgrade runs on boot
 docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and prove the books
 ```
 
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
 pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
-the two `banking:backfill-*` commands; 1.2.0 and 1.2.1 add none) — and the workers wait for it to become
+the two `banking:backfill-*` commands; 1.2.0 through 1.3.0 add none) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
 migrate it just runs `integrity:check` and exits non-zero if the ledger doesn't
 reconcile, which is the moment to reach for `restore.sh`.
 
-Image tags: `1.2.1` (exact release), `1.2` (moves with patch releases on the 1.2
+Image tags: `1.3.0` (exact release), `1.3` (moves with patch releases on the 1.3
 line — the pin most self-hosters want), `latest` (newest tagged release, never
 `main`), and `edge` (`main`, amd64-only, if you want to live dangerously). Release
 tags are multi-arch, so a Raspberry Pi or Graviton host pulls the arm64 image with
@@ -850,6 +886,110 @@ docker compose exec app php artisan storage:check          # every disk role rou
 docker compose exec app php artisan app:upgrade --verify   # nothing pending, then integrity:check
 docker compose exec app php artisan proof:generate         # optional: refresh /verification
 ```
+
+## Deploy on a DigitalOcean Droplet (one click)
+
+The simplest way to run LineLedger for one business: a single Droplet running
+the [Docker stack](#self-hosting-with-docker), MySQL included, set up for you.
+There is nothing to configure before the first visit.
+
+1. **Create the Droplet.** From the DigitalOcean Marketplace, choose
+   **LineLedger** → **Create LineLedger Droplet**. Until the Marketplace listing
+   is live, create an **Ubuntu 24.04** Droplet and, under **Advanced options →
+   Add initialization scripts**, paste:
+
+   ```bash
+   #!/bin/bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean/droplet/install.sh | bash
+   ```
+
+   Pick a size with at least 2 GB of memory, and turn on **Backups** while
+   you are there.
+2. **Open `http://<droplet-ip>`** a few minutes after it boots and register.
+   The first account becomes the site admin and can sign in straight away;
+   email isn't needed yet.
+3. **Set up email** in **Admin → Email**: any SMTP service (Postmark, Mailgun,
+   Amazon SES, your email host). Until then, invitations, password resets and
+   reminders aren't sent, and later accounts can't verify their address, so
+   keep registration closed (**Admin → Feature toggles**) until it works.
+4. **Use your own domain** for HTTPS: point an `A` record at the Droplet's IP,
+   then over SSH run `lineledger domain books.example.com`. The certificate
+   is issued and renewed automatically. Until you do this, traffic isn't
+   encrypted, and passkeys (which need HTTPS) aren't available.
+
+Everything lives in `/opt/lineledger` (the compose bundle, its `.env` holding
+`APP_KEY`, and `backups/`). Over SSH:
+
+| Command | What it does |
+| --- | --- |
+| `lineledger status` | Version, address, and the containers |
+| `lineledger domain books.example.com` | Serve LineLedger on your domain with HTTPS |
+| `lineledger upgrade [1.2.3]` | Back up, then move to the newest (or a given) release |
+| `lineledger backup` | Database, files and `.env` into `/opt/lineledger/backups` |
+| `lineledger logs [service]` | Follow the logs (default: `app`) |
+| `lineledger config KEY VALUE` | Set an `.env` value (e.g. `APP_REGION US`) and restart |
+| `lineledger artisan ...` | Run `php artisan` inside the app |
+
+**Backups.** DigitalOcean's Droplet backups copy the whole disk. Also copy
+`lineledger backup`'s output off the Droplet now and then: a backup on the
+same machine is not a backup of the machine. **Alerts** for security, ledger
+integrity and failed jobs go to the site admins' addresses once email works.
+Security updates for Ubuntu install automatically.
+
+## Deploy on DigitalOcean App Platform
+
+For a managed setup instead of a server you look after: no OS to patch, and
+the database and files live in DigitalOcean's managed services. One script sets
+up everything inside your DigitalOcean account: a managed MySQL
+cluster, two Spaces buckets, and the app itself (web, queue worker, scheduler,
+and a migrate job that runs before each release goes live). It generates
+`APP_KEY` and the other secrets for you and stores them encrypted in the app.
+The only questions are your mail settings. You need [`doctl`](https://docs.digitalocean.com/reference/doctl/how-to/install/),
+`jq`, `openssl` and `curl`.
+
+```bash
+brew install doctl jq        # or your platform's package manager
+doctl auth init              # paste a DigitalOcean API token with write access
+
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean
+curl -fsSLO "$base/deploy.sh"
+curl -fsSLO "$base/app.yaml"
+chmod +x deploy.sh
+./deploy.sh                  # most of the wait is the database starting up
+```
+
+It prints the app's URL and its `APP_KEY` when it finishes. Keep the key somewhere
+safe: App Platform holds a copy, but restoring a database dump anywhere else needs
+it. Register at the URL — **the first account becomes the site admin** — then
+close registration in `/admin` → Site settings if the install is just for you.
+
+`./deploy.sh --help` lists the options: `--region` (default `tor1`; the app,
+database and buckets all go there), `--spaces-region` if Spaces isn't offered in
+that region, `--country` (`CA`/`US`/`GB`, for `APP_REGION`), `--name`, and
+`--tag` to pin an image release. Mail settings can come from the environment
+(`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`,
+`ALERT_EMAIL`) with `--yes` for a run with no prompts.
+
+**What it creates.** A single-node `db-s-1vcpu-1gb` MySQL cluster; a private
+bucket (attachments, backups, uploads waiting for the queue) and a public-read
+bucket (logos) with an access key that reaches only those two; and three 1 GB
+containers. Resize any of them in the control panel. App Platform has no
+persistent disk, so nothing is kept in `storage/`: files live in Spaces, logs go
+to the platform (`doctl apps logs <app-id> web`), and the OAuth signing keys are
+env vars rather than files. Add your own domain under the app's Settings →
+Domains; `APP_URL` follows it on the next deploy.
+
+**Upgrading.** Back up first (each organization's Settings → Backup & Export,
+or a database backup in the control panel), then run `./deploy.sh` again. With the app already
+there it only starts a new deployment: App Platform pulls the image tag again,
+runs `php artisan app:upgrade` as the pre-deploy job, and switches traffic only
+if that succeeds. Check the release's notes in [`UPGRADING.md`](UPGRADING.md) for
+anything else; a release that changes `app.yaml` says so there.
+
+**If a deploy fails**, the deploy logs name the step:
+`doctl apps logs <app-id> migrate --type deploy` for the migrate job, and
+`doctl apps logs <app-id> web --type run` for the web container. Fix the cause
+and run `./deploy.sh` again; it redeploys and keeps your secrets.
 
 ## Deploy (Laravel Forge / DigitalOcean)
 
@@ -981,7 +1121,7 @@ can move some and not others:
 | --- | --- | --- | --- |
 | `ATTACHMENT_DISK` | Receipts, bills, statements, documents | `local` | `s3` |
 | `LOGO_DISK` | Organization logos (browser-visible) | `public` | `s3_public` |
-| `BACKUP_DISK` | Organization backup ZIPs | `local` | `s3` |
+| `BACKUP_DISK` | Organization backup ZIPs, plus uploaded restore bundles and QuickBooks ledgers waiting for the queue worker | `local` | `s3` |
 
 **Two buckets, both in the region you serve** (`ca-central-1` for Canada,
 `eu-west-2` for the United Kingdom — the default if `AWS_DEFAULT_REGION` is unset
@@ -1060,6 +1200,9 @@ Notes:
 - **Uploads still stage locally.** Livewire writes the in-progress upload to
   `storage/app` before the app moves it to its permanent home, and backup ZIPs
   are assembled on local disk before being uploaded. Keep some free space.
+  The exception is an upload a queued job reads (a restore bundle, a QuickBooks
+  ledger import): it waits on the backups disk, so a queue worker on another
+  machine can still reach it.
 - **S3-compatible stores work**: set `AWS_ENDPOINT` and
   `AWS_USE_PATH_STYLE_ENDPOINT=true` for MinIO, Cloudflare R2, or Backblaze B2.
 
@@ -1074,7 +1217,7 @@ things around it — take a backup before you click, and read
 [`UPGRADING.md`](UPGRADING.md) for anything the release needs beyond what
 `app:upgrade` does on its own. To upgrade by tag rather than by whatever is on
 `main`, swap the `git pull` line for
-`git fetch --tags origin && git checkout v1.2.1` (or point the Forge site at a
+`git fetch --tags origin && git checkout v1.3.0` (or point the Forge site at a
 release branch), so a deploy always lands on a version you chose. After the deploy,
 `php artisan app:upgrade --verify` proves the ledger still reconciles, and
 `proof:generate` refreshes `/verification` if you publish it.

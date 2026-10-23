@@ -88,6 +88,41 @@ final class TemporaryLocalFile
     }
 
     /**
+     * {@see with()} for several files on one disk: the callback receives their
+     * local paths in the order given, and every temporary copy is removed on
+     * the way out.
+     *
+     * @template TReturn
+     *
+     * @param  list<string>  $paths
+     * @param  callable(list<string>): TReturn  $callback  Receives absolute local paths.
+     * @return TReturn
+     */
+    public static function withAll(string $disk, array $paths, callable $callback): mixed
+    {
+        return self::nest($disk, $paths, [], $callback);
+    }
+
+    /**
+     * @param  list<string>  $remaining
+     * @param  list<string>  $resolved
+     */
+    private static function nest(string $disk, array $remaining, array $resolved, callable $callback): mixed
+    {
+        if ($remaining === []) {
+            return $callback($resolved);
+        }
+
+        $path = array_shift($remaining);
+
+        return self::with(
+            $disk,
+            $path,
+            fn (string $local): mixed => self::nest($disk, $remaining, [...$resolved, $local], $callback),
+        );
+    }
+
+    /**
      * Best-effort cleanup. A leftover temp file is a nuisance, not a failure,
      * and must never mask the callback's own exception.
      */

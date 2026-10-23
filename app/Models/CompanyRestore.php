@@ -9,8 +9,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 // NOTE: No BelongsToCompany trait — restore rows exist before the Company they create.
+/**
+ * Static analysis can't see through `casts()` to the enum, and without this it
+ * reads `$status` as a plain string — which makes the strict `in_array()` gate
+ * in CompanyImporter::import() look permanently false and the restore itself
+ * dead code.
+ *
+ * @property CompanyRestoreStatus $status
+ * @property string|null $disk
+ * @property string|null $file_path
+ */
 #[Fillable([
-    'requested_by_user_id', 'company_id', 'status', 'file_path',
+    'requested_by_user_id', 'company_id', 'status', 'file_path', 'disk',
     'file_size_bytes', 'sha256', 'manifest_data', 'step_results',
     'error_message', 'started_at', 'completed_at',
 ])]
@@ -32,6 +42,15 @@ class CompanyRestore extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * The disk the uploaded bundle was staged on. Rows created before bundles
+     * could live on object storage carry no value and are on the local disk.
+     */
+    public function storageDisk(): string
+    {
+        return $this->disk ?: 'local';
     }
 
     public function isComplete(): bool

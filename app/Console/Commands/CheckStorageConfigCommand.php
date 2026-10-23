@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Attachment;
 use App\Models\CompanyBackup;
+use App\Models\CompanyRestore;
 use App\Support\Storage\StorageDisks;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -317,6 +318,20 @@ class CheckStorageConfigCommand extends Command
                 continue;
             }
 
+            // An S3-compatible store (DigitalOcean Spaces, R2, MinIO) is reached
+            // through AWS_ENDPOINT and names its regions its own way, so the AWS
+            // region map says nothing about where the data sits.
+            $endpoint = (string) config("filesystems.disks.{$disk}.endpoint");
+
+            if ($endpoint !== '') {
+                $this->components->twoColumnDetail(
+                    "{$disk} region",
+                    sprintf('not checked — S3-compatible endpoint %s; confirm it is in %s', $endpoint, strtoupper((string) config('app.region'))),
+                );
+
+                continue;
+            }
+
             $region = (string) config("filesystems.disks.{$disk}.region");
 
             if ($region !== $expected) {
@@ -344,6 +359,7 @@ class CheckStorageConfigCommand extends Command
         $sources = [
             'attachments' => fn () => Attachment::query()->withoutGlobalScopes(),
             'company_backups' => fn () => CompanyBackup::query()->withoutGlobalScopes()->whereNotNull('file_path'),
+            'company_restores' => fn () => CompanyRestore::query()->whereNotNull('file_path'),
         ];
 
         foreach ($sources as $table => $makeQuery) {

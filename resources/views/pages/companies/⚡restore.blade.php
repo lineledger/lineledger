@@ -5,6 +5,7 @@ use App\Jobs\RestoreCompanyDataJob;
 use App\Models\CompanyRestore;
 use App\Services\Restore\BundleInspector;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Support\Storage\StorageDisks;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
 use Livewire\Attributes\Computed;
@@ -53,31 +54,40 @@ new #[Layout('layouts.onboarding'), Title('Restore from backup')] class extends 
             'upload' => ['required', 'file', 'mimes:zip', 'max:102400'],
         ]);
 
-        // Persist the upload — Livewire's temp file gets garbage-collected.
-        // store() MOVES the temp file off the livewire-tmp disk, so once we've
-        // done this the `$this->upload` handle is stale. We must drop it before
-        // returning: re-validating a moved temp file (e.g. a second click on
-        // "Inspect bundle" after a rejection) throws UnableToRetrieveMetadata
-        // from the `max` rule's getSize() and 500s the request.
-        $diskPath = $this->upload->store('restores', 'local');
-        $absolute = Storage::disk('local')->path($diskPath);
+        // Inspect Livewire's temp file in place (temp uploads always stay on a
+        // local disk), so a rejected bundle is never persisted.
+        $absolute = $this->upload->getRealPath();
 
         try {
             $preview = $inspector->inspect($absolute, auth()->user());
         } catch (BundleValidationException $e) {
-            Storage::disk('local')->delete($diskPath);
+            $this->upload->delete();
             $this->reset('upload');
             $this->uploadError = $e->getMessage();
 
             return;
         }
 
+        $sizeBytes = $this->upload->getSize();
+        $sha256 = hash_file('sha256', $absolute);
+
+        // The queue worker reads the bundle, and it may run on a different
+        // machine from this request (it does on DigitalOcean App Platform), so
+        // stage it on the backups disk rather than this server's local one. store() MOVES the
+        // temp file, so the `$this->upload` handle is stale afterwards and must
+        // be dropped: re-validating a moved temp file (a second click on
+        // "Inspect bundle") throws UnableToRetrieveMetadata from the `max`
+        // rule's getSize() and 500s the request.
+        $disk = StorageDisks::backups();
+        $diskPath = $this->upload->store('restores', $disk);
+
         $restore = CompanyRestore::create([
             'requested_by_user_id' => auth()->id(),
             'status' => CompanyRestoreStatus::Ready,
             'file_path' => $diskPath,
-            'file_size_bytes' => Storage::disk('local')->size($diskPath),
-            'sha256' => hash_file('sha256', $absolute),
+            'disk' => $disk,
+            'file_size_bytes' => $sizeBytes,
+            'sha256' => $sha256,
             'manifest_data' => $preview['manifest'] ?? null,
         ]);
 
@@ -119,8 +129,8 @@ new #[Layout('layouts.onboarding'), Title('Restore from backup')] class extends 
             $restore = CompanyRestore::find($this->restoreId);
 
             if ($restore !== null) {
-                if ($restore->file_path !== null && Storage::disk('local')->exists($restore->file_path)) {
-                    Storage::disk('local')->delete($restore->file_path);
+                if ($restore->file_path !== null && Storage::disk($restore->storageDisk())->exists($restore->file_path)) {
+                    Storage::disk($restore->storageDisk())->delete($restore->file_path);
                 }
 
                 $restore->delete();

@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
 use App\Support\Legal\LegalDocuments;
+use App\Support\MailSettings;
 use App\Support\SiteSettings;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
@@ -62,7 +63,16 @@ class CreateNewUser implements CreatesNewUsers
         // `site_admin` is not mass-assignable, so set it explicitly rather than
         // through the create() array (the column defaults to false otherwise).
         if ($isFirstUser) {
-            $user->forceFill(['site_admin' => true])->save();
+            $user->forceFill(['site_admin' => true]);
+
+            // A fresh one-click install has no mail server yet, so this address
+            // could never be verified. Let the site admin in; they set mail up
+            // in /admin/mail, and every later account still verifies.
+            if (! MailSettings::configured()) {
+                $user->forceFill(['email_verified_at' => now()]);
+            }
+
+            $user->save();
         }
 
         app(LegalDocuments::class)->record($user, ['terms', 'privacy'], request());

@@ -17,6 +17,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   message and payment instructions. Existing styles keep the classic layout. New
   `form_styles.layout` column.
 
+## [1.3.0] - 2026-10-22
+
+**Highlights.** LineLedger installs on a **DigitalOcean Droplet in one click**: create
+a Droplet with a one-line user-data script (or, once DigitalOcean lists it, from the
+Marketplace image), open its address and register. Every secret is generated on
+first boot, and the `lineledger` command on the Droplet adds your own domain with
+automatic HTTPS and upgrades to new releases. Site admins can now **set up outgoing
+email in the app** (Admin → Email), and a fresh install works before email does. No
+migrations, no backfills and no configuration changes; see `UPGRADING.md`.
+
+### Added
+
+- **One-click install on a DigitalOcean Droplet.** A Marketplace image (built
+  from `docker/digitalocean/marketplace/` with Packer), or a one-line Droplet
+  user-data script (`docker/digitalocean/droplet/install.sh`), installs Docker
+  and the LineLedger stack and generates every secret on first boot. Open the
+  Droplet's IP and register. `lineledger domain books.example.com` switches on
+  HTTPS for your own domain, and `lineledger upgrade` backs up and moves to the
+  newest release. See README → Deploy on a DigitalOcean Droplet (one click).
+  ([#139](https://github.com/lineledger/lineledger/pull/139))
+- **Email can be set up in the app.** Site admins enter SMTP settings in
+  Admin → Email (the password is stored encrypted) and send themselves a test
+  message. Settings saved there win over the `MAIL_*` environment variables.
+  ([#139](https://github.com/lineledger/lineledger/pull/139))
+
+### Changed
+
+- **A fresh install works before email does.** With SMTP selected but no host
+  (how a one-click install starts), outgoing mail is written to the log instead
+  of failing the request that sent it, and the first account, which becomes
+  the site admin, can sign in without verifying its address. Every later
+  account still verifies. Site admins see a banner until email is set up.
+  ([#139](https://github.com/lineledger/lineledger/pull/139))
+- **Operator alerts with a blank address go to the site admins.** Security,
+  ledger-integrity, failed-job, scheduled-task and exchange-rate alerts used to
+  be skipped when their `*_ALERT_EMAIL` was set but blank; now they are emailed
+  to every active site admin. An unset variable still falls back as before.
+  ([#139](https://github.com/lineledger/lineledger/pull/139))
+
+## [1.2.2] - 2026-10-22
+
+**Highlights.** LineLedger can be deployed to **DigitalOcean App Platform** with
+one command: `docker/digitalocean/deploy.sh` creates the database, file storage
+and app in your own DigitalOcean account and generates every secret. This
+release also makes backup restores and QuickBooks ledger imports work when the
+queue worker runs on a different machine from the web server, and brings five
+usability fixes reported from production. Two migrations, both run by
+`php artisan app:upgrade`; no backfills and no configuration changes; see
+`UPGRADING.md`.
+
+### Added
+
+- **One-command deploy to DigitalOcean App Platform.**
+  `docker/digitalocean/deploy.sh` creates a managed MySQL cluster, two Spaces
+  buckets with an access key limited to them, and the app (web, queue worker,
+  scheduler, and a pre-deploy job that runs `php artisan app:upgrade`). It
+  generates `APP_KEY`, the OAuth signing keys and the passkey secret, and stores
+  them as encrypted app secrets. The only prompts are for mail. Running it again
+  deploys the newest image. See README → Deploy on DigitalOcean App Platform.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
+- **The Docker image runs on hosts without a `.env` file or persistent disk.**
+  The entrypoint writes a managed database's CA certificate (`DB_CA_CERT`) to a
+  file for TLS. It skips generating OAuth key files when `PASSPORT_PRIVATE_KEY`
+  is set, and reports why the database is unreachable on the first failed
+  attempt instead of after two minutes.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
+
+### Fixed
+
+- **Restoring from a backup and the QuickBooks ledger import work when the
+  queue worker runs on a different machine from the web server.** Both stored
+  the upload on the web server's own disk, so a worker elsewhere failed with
+  "Restore bundle missing from disk". Uploads now wait on the backups disk
+  (`BACKUP_DISK`), and the worker copies them down. Installs that keep backups
+  on local disk behave exactly as before.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
+- **`storage:check` no longer warns that an S3-compatible store is outside
+  the deployment's country** because of the AWS-style region it signs with.
+  When `AWS_ENDPOINT` is set it says the region can't be checked.
+  ([#137](https://github.com/lineledger/lineledger/pull/137))
+- **Reconcile no longer loses a statement dropped in just before you finish.**
+  The attachment drop zone uploaded without telling the page, so "Reconcile
+  now" stayed clickable mid-upload and the late file was discarded. The button
+  (and the Begin dialog's Continue) now waits for the upload, and the
+  confirmation says how many files were attached.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
+- **Suggested cheque numbers skip labels.** After a cheque numbered `10300`
+  and one labelled `e-transfer`, the next suggestion is `10301`, and it steps
+  past numbers already used on the account, payroll cheques included.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
+
+### Changed
+
+- **Screens remember your choices.** AR and AP aging remember "Owing only",
+  the register remembers "Show cleared", and the last bank account you used is
+  kept per user and organization, so it survives signing out (it was kept in
+  the session before; pick it once more after upgrading). An explicit link or a
+  memorized report still wins. Saving a cheque now counts as using its account.
+  ([#134](https://github.com/lineledger/lineledger/pull/134))
+
 ## [1.2.1] - 2026-10-19
 
 **Highlights.** Bank statements downloaded in **QuickBooks (QBO)**, **Quicken
@@ -866,7 +966,9 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/lineledger/lineledger/compare/v1.2.2...v1.3.0
+[1.2.2]: https://github.com/lineledger/lineledger/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/lineledger/lineledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/lineledger/lineledger/compare/v1.0.0...v1.1.0
