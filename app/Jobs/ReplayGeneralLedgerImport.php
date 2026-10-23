@@ -7,6 +7,8 @@ use App\Models\DataMigrationRun;
 use App\Services\Migration\ContactLinkBackfiller;
 use App\Services\Migration\ImportContext;
 use App\Services\Migration\Importers\GeneralLedgerReplayImporter;
+use App\Services\Migration\ImportResult;
+use App\Support\Storage\TemporaryLocalFile;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -18,14 +20,22 @@ use Throwable;
  * into the general ledger off the request cycle, writing live progress into the
  * run's step_results so the wizard can poll it. Transactions keep their own dates
  * so the ledger is chronological regardless of file order, and shared idempotency
- * dedupes overlapping files. Source files live on the local disk for the duration
- * of the job and are deleted when it finishes.
+ * dedupes overlapping files. Source files are staged on the backups disk (so a
+ * worker on another machine can read them), copied locally for the duration of
+ * the job, and deleted when it finishes.
  */
 class ReplayGeneralLedgerImport implements ShouldQueue
 {
     use Queueable;
 
     public int $timeout = 3600;
+
+    /**
+     * Disk the source files were staged on. A plain property with a default
+     * rather than a promoted one, so a job queued before the field existed
+     * still unserializes — its files are on the local disk.
+     */
+    public string $disk = 'local';
 
     /**
      * @param  list<string>  $storedPaths
@@ -40,36 +50,44 @@ class ReplayGeneralLedgerImport implements ShouldQueue
         public bool $linkContactNames,
         public bool $reconstructDocuments = false,
         public ?string $accountTypesPath = null,
-    ) {}
+        ?string $disk = null,
+    ) {
+        $this->disk = $disk ?? 'local';
+    }
 
     public function handle(GeneralLedgerReplayImporter $importer, ContactLinkBackfiller $backfiller): void
     {
         $company = Company::query()->findOrFail($this->companyId);
         $run = DataMigrationRun::withoutGlobalScopes()->findOrFail($this->runId);
 
-        $absolutePaths = array_map(fn (string $p) => Storage::disk('local')->path($p), $this->storedPaths);
-
         $this->patchProgress($run, ['status' => 'running', 'progress' => 0]);
 
-        $ctx = new ImportContext(
-            company: $company,
-            run: $run,
-            conversionDate: CarbonImmutable::parse($run->conversion_date),
-            sourceFormat: $this->sourceFormat,
-            autoCreateAccounts: $this->autoCreateAccounts,
-            linkContactNames: $this->linkContactNames,
-            reconstructDocuments: $this->reconstructDocuments,
-            accountTypesPath: $this->accountTypesPath !== null
-                ? Storage::disk('local')->path($this->accountTypesPath)
-                : null,
-        );
+        // The Account Listing, when given, rides along as the last path.
+        $sources = $this->accountTypesPath !== null
+            ? [...$this->storedPaths, $this->accountTypesPath]
+            : $this->storedPaths;
 
         try {
-            $result = $importer->commit(
-                $absolutePaths,
-                $ctx,
-                onProgress: fn (int $processed) => $this->patchProgress($run, ['status' => 'running', 'progress' => $processed]),
-            );
+            $result = TemporaryLocalFile::withAll($this->disk, $sources, function (array $localPaths) use ($importer, $company, $run): ImportResult {
+                $accountTypesPath = $this->accountTypesPath !== null ? array_pop($localPaths) : null;
+
+                $ctx = new ImportContext(
+                    company: $company,
+                    run: $run,
+                    conversionDate: CarbonImmutable::parse($run->conversion_date),
+                    sourceFormat: $this->sourceFormat,
+                    autoCreateAccounts: $this->autoCreateAccounts,
+                    linkContactNames: $this->linkContactNames,
+                    reconstructDocuments: $this->reconstructDocuments,
+                    accountTypesPath: $accountTypesPath,
+                );
+
+                return $importer->commit(
+                    $localPaths,
+                    $ctx,
+                    onProgress: fn (int $processed) => $this->patchProgress($run, ['status' => 'running', 'progress' => $processed]),
+                );
+            });
         } catch (Throwable $e) {
             $this->patchProgress($run, ['status' => 'failed', 'message' => $e->getMessage()]);
             $this->cleanup();
@@ -111,11 +129,11 @@ class ReplayGeneralLedgerImport implements ShouldQueue
     protected function cleanup(): void
     {
         foreach ($this->storedPaths as $path) {
-            Storage::disk('local')->delete($path);
+            Storage::disk($this->disk)->delete($path);
         }
 
         if ($this->accountTypesPath !== null) {
-            Storage::disk('local')->delete($this->accountTypesPath);
+            Storage::disk($this->disk)->delete($this->accountTypesPath);
         }
     }
 

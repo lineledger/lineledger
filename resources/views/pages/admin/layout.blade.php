@@ -15,6 +15,7 @@
                 <flux:navlist.item icon="home" :href="route('admin.dashboard')" :current="request()->routeIs('admin.dashboard')" wire:navigate>{{ __('Overview') }}</flux:navlist.item>
                 <flux:navlist.item icon="shield-exclamation" :href="route('admin.security')" :current="request()->routeIs('admin.security')" wire:navigate>{{ __('Security') }}</flux:navlist.item>
                 <flux:navlist.item icon="adjustments-horizontal" :href="route('admin.settings')" :current="request()->routeIs('admin.settings')" wire:navigate>{{ __('Feature toggles') }}</flux:navlist.item>
+                <flux:navlist.item icon="envelope" :href="route('admin.mail')" :current="request()->routeIs('admin.mail')" wire:navigate>{{ __('Email') }}</flux:navlist.item>
                 <flux:navlist.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
                 <flux:navlist.item icon="lifebuoy" :href="route('admin.support')" :current="request()->routeIs('admin.support*')" :badge="$openTicketCount > 0 ? $openTicketCount : null" badge-color="amber" wire:navigate>{{ __('Support') }}</flux:navlist.item>
                 <flux:navlist.item icon="building-office-2" :href="route('admin.companies')" :current="request()->routeIs('admin.companies')" wire:navigate>{{ __('Companies') }}</flux:navlist.item>

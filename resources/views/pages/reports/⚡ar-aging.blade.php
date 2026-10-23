@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Services\Reporting\OpenDocumentAgingBuilder;
 use App\Services\Reporting\PdfExporter;
 use App\Services\Reporting\XlsxExporter;
+use App\Support\Preferences\UserPreferences;
 use Carbon\CarbonImmutable;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -46,6 +47,13 @@ new #[Title('AR Aging')] class extends Component
         $this->company = $company;
 
         $this->initReportAsOfDate();
+
+        // Reopen with the operator's last open-only choice unless the URL says
+        // otherwise; a memorized report, applied next, wins over both.
+        if (! request()->has('open_only')) {
+            $this->excludeUnappliedCredits = (bool) UserPreferences::get($company, $this->openOnlyPreferenceKey(), true);
+        }
+
         $this->applyMemorized((int) request('memorized'));
 
         if (! in_array($this->view, ['summary', 'detail'], true)) {
@@ -56,6 +64,16 @@ new #[Title('AR Aging')] class extends Component
     protected function reportKey(): string
     {
         return 'reports.ar-aging';
+    }
+
+    public function updatedExcludeUnappliedCredits(): void
+    {
+        UserPreferences::put($this->company, $this->openOnlyPreferenceKey(), $this->excludeUnappliedCredits);
+    }
+
+    private function openOnlyPreferenceKey(): string
+    {
+        return $this->reportKey().'.open_only';
     }
 
     /**

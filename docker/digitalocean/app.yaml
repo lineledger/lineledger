@@ -1,0 +1,144 @@
+# LineLedger on DigitalOcean App Platform.
+#
+# deploy.sh, next to this file, fills in every double-underscore value and
+# creates the app. Run it rather than applying this file by hand.
+#
+#   web        the app, behind App Platform's HTTPS load balancer
+#   queue      queue worker: backups, restores, imports, recurring documents, mail
+#   scheduler  php artisan schedule:work (keep it at one instance)
+#   migrate    pre-deploy job: php artisan app:upgrade (migrations plus the
+#              release's post-upgrade steps) runs once before a release takes
+#              traffic, so a long migration never trips the web health check
+#   db         the managed MySQL cluster deploy.sh created
+#
+# Nothing here has a persistent disk. Uploads, logos and backups live in two
+# Spaces buckets, and the OAuth signing keys are env vars rather than files.
+
+name: __APP_NAME__
+region: __DO_REGION__
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+# Every component gets these.
+envs:
+  - {key: APP_KEY, type: SECRET, value: __APP_KEY__}
+  - {key: APP_URL, value: "${APP_URL}"}
+  - {key: APP_REGION, value: __COUNTRY__}
+  - {key: PASSKEYS_USER_HANDLE_SECRET, type: SECRET, value: __PASSKEYS_USER_HANDLE_SECRET__}
+  - {key: PASSPORT_PRIVATE_KEY, type: SECRET, value: __PASSPORT_PRIVATE_KEY__}
+  - {key: PASSPORT_PUBLIC_KEY, value: __PASSPORT_PUBLIC_KEY__}
+  # Container filesystems are thrown away on every deploy; log to the platform.
+  - {key: LOG_CHANNEL, value: stderr}
+  - {key: DB_CONNECTION, value: mysql}
+  - {key: SESSION_DRIVER, value: database}
+  - {key: QUEUE_CONNECTION, value: database}
+  - {key: CACHE_STORE, value: database}
+  # Longer than the slowest job (the QuickBooks ledger replay, 3600 s).
+  - {key: DB_QUEUE_RETRY_AFTER, value: "3700"}
+  - {key: MAIL_MAILER, value: smtp}
+  - {key: MAIL_HOST, value: __MAIL_HOST__}
+  - {key: MAIL_PORT, value: __MAIL_PORT__}
+  - {key: MAIL_USERNAME, value: __MAIL_USERNAME__}
+  - {key: MAIL_PASSWORD, type: SECRET, value: __MAIL_PASSWORD__}
+  - {key: MAIL_FROM_ADDRESS, value: __MAIL_FROM_ADDRESS__}
+  - {key: SECURITY_ALERT_EMAIL, value: __ALERT_EMAIL__}
+  - {key: LEDGER_INTEGRITY_ALERT_EMAIL, value: __ALERT_EMAIL__}
+  - {key: OPS_ALERT_EMAIL, value: __ALERT_EMAIL__}
+  - {key: ATTACHMENT_DISK, value: s3}
+  - {key: LOGO_DISK, value: s3_public}
+  - {key: BACKUP_DISK, value: s3}
+  - {key: AWS_ACCESS_KEY_ID, value: __AWS_ACCESS_KEY_ID__}
+  - {key: AWS_SECRET_ACCESS_KEY, type: SECRET, value: __AWS_SECRET_ACCESS_KEY__}
+  # The S3 SDK needs a region; Spaces accepts us-east-1 and the endpoint picks the datacenter.
+  - {key: AWS_DEFAULT_REGION, value: us-east-1}
+  - {key: AWS_ENDPOINT, value: __AWS_ENDPOINT__}
+  - {key: AWS_BUCKET, value: __AWS_BUCKET__}
+  - {key: AWS_PUBLIC_BUCKET, value: __AWS_PUBLIC_BUCKET__}
+  - {key: AWS_PUBLIC_URL, value: __AWS_PUBLIC_URL__}
+
+services:
+  - name: web
+    image: &image
+      registry_type: GHCR
+      registry: lineledger
+      repository: lineledger
+      tag: __IMAGE_TAG__
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    http_port: 8080
+    health_check:
+      http_path: /up
+      initial_delay_seconds: 20
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 9
+    envs:
+      - {key: CONTAINER_ROLE, value: app}
+      # The migrate job has already upgraded the schema.
+      - {key: MIGRATE_ON_BOOT, value: "false"}
+      - {key: DB_HOST, value: "${db.HOSTNAME}"}
+      - {key: DB_PORT, value: "${db.PORT}"}
+      - {key: DB_DATABASE, value: "${db.DATABASE}"}
+      - {key: DB_USERNAME, value: "${db.USERNAME}"}
+      - {key: DB_PASSWORD, value: "${db.PASSWORD}"}
+      - {key: DB_CA_CERT, value: "${db.CA_CERT}"}
+
+workers:
+  - name: queue
+    image: *image
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    run_command: entrypoint.sh php artisan queue:work --queue=default --tries=3 --timeout=120 --sleep=3
+    envs:
+      - {key: CONTAINER_ROLE, value: queue}
+      - {key: DB_HOST, value: "${db.HOSTNAME}"}
+      - {key: DB_PORT, value: "${db.PORT}"}
+      - {key: DB_DATABASE, value: "${db.DATABASE}"}
+      - {key: DB_USERNAME, value: "${db.USERNAME}"}
+      - {key: DB_PASSWORD, value: "${db.PASSWORD}"}
+      - {key: DB_CA_CERT, value: "${db.CA_CERT}"}
+
+  - name: scheduler
+    image: *image
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    run_command: entrypoint.sh php artisan schedule:work
+    envs:
+      - {key: CONTAINER_ROLE, value: scheduler}
+      - {key: DB_HOST, value: "${db.HOSTNAME}"}
+      - {key: DB_PORT, value: "${db.PORT}"}
+      - {key: DB_DATABASE, value: "${db.DATABASE}"}
+      - {key: DB_USERNAME, value: "${db.USERNAME}"}
+      - {key: DB_PASSWORD, value: "${db.PASSWORD}"}
+      - {key: DB_CA_CERT, value: "${db.CA_CERT}"}
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    image: *image
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    run_command: entrypoint.sh php artisan app:upgrade
+    envs:
+      - {key: CONTAINER_ROLE, value: migrate}
+      - {key: DB_HOST, value: "${db.HOSTNAME}"}
+      - {key: DB_PORT, value: "${db.PORT}"}
+      - {key: DB_DATABASE, value: "${db.DATABASE}"}
+      - {key: DB_USERNAME, value: "${db.USERNAME}"}
+      - {key: DB_PASSWORD, value: "${db.PASSWORD}"}
+      - {key: DB_CA_CERT, value: "${db.CA_CERT}"}
+
+databases:
+  - name: db
+    engine: MYSQL
+    production: true
+    cluster_name: __DB_CLUSTER__
+    db_name: lineledger
+    db_user: lineledger
+
+ingress:
+  rules:
+    - match: {path: {prefix: /}}
+      component: {name: web}

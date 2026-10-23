@@ -493,6 +493,8 @@ final class RowTransformer
         'nav_preferences' => [],
         // user_id is remapped by the generic USER_ID_EXACT pass, like nav_preferences.
         'grid_preferences' => [],
+        // user_id is remapped by the generic USER_ID_EXACT pass, like grid_preferences.
+        'user_preferences' => [],
         'report_sections' => [],
         'company_members' => [],
         'company_invitations' => [],
