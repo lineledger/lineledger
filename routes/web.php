@@ -28,6 +28,7 @@ use App\Http\Controllers\Portal\SessionController as PortalSessionController;
 use App\Http\Controllers\Purchasing\PrintPurchaseOrderController;
 use App\Http\Controllers\Purchasing\PrintVendorCreditController;
 use App\Http\Controllers\Reports\PrintReportController;
+use App\Http\Controllers\Reports\StatutoryAccountsPdfController;
 use App\Http\Controllers\SalesOrders\PrintSalesOrderController;
 use App\Http\Controllers\Security\CspReportController;
 use App\Http\Controllers\Settings\ListImportTemplateController;
@@ -359,6 +360,8 @@ Route::prefix('{company}')
         Route::livewire('budgets/{budget}/edit', 'pages::budgets.form')->name('budgets.edit');
         Route::livewire('reports/sales-tax', 'pages::reports.sales-tax')->name('reports.sales-tax');
         Route::livewire('reports/vat-return', 'pages::reports.vat-return')->name('reports.vat-return');
+        Route::livewire('reports/statutory-accounts', 'pages::reports.statutory-accounts')->name('reports.statutory-accounts');
+        Route::get('reports/statutory-accounts/pdf', StatutoryAccountsPdfController::class)->name('reports.statutory-accounts.pdf');
 
         // Sales, Purchases & Inventory reports
         Route::livewire('reports/sales-by-customer', 'pages::reports.sales-by-customer')->name('reports.sales-by-customer');
