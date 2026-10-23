@@ -56,9 +56,10 @@ Pick the route that fits; each links to its full guide further down.
 
 2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
    account becomes the site admin and can sign in without email.
-3. Set up email in **Admin → Email**, then give it your own domain with HTTPS:
-   point an `A` record at the Droplet and run `lineledger domain books.example.com`
-   over SSH.
+3. Turn on two-factor authentication (**Settings → Security**), which the site admin
+   area requires, and set up email in **Admin → Email**. Then give it your own domain
+   with HTTPS: point an `A` record at the Droplet and run
+   `lineledger domain books.example.com` over SSH.
 
 Whichever route you take, **back up `APP_KEY`**: it encrypts stored secrets, and a
 database restored without it can't read them. Upgrading later? Read
@@ -721,8 +722,9 @@ file, entrypoint and scripts on `main` may already describe the next release.
 **Set up mail before anyone else registers.** Email verification is enforced: a new
 account can't create its organization until it clicks the verification link. While
 `MAIL_HOST` is blank, mail is only written to the log, and just the first account (the
-site admin) gets in without verifying. Enter an SMTP server in `/admin` → Email, or
-point `MAIL_*` at a real mailer. For a trial run, start Mailpit
+site admin) gets in without verifying. Turn on two-factor authentication (the `/admin`
+area requires it) and enter an SMTP server in `/admin` → Email, or point `MAIL_*` at a
+real mailer. For a trial run, start Mailpit
 (`docker compose --profile mail up -d`, then `MAIL_HOST=mailpit`, `MAIL_PORT=1025`;
 its inbox is at `127.0.0.1:8025`, loopback only, because it shows password-reset
 links with no login).
@@ -909,7 +911,8 @@ There is nothing to configure before the first visit.
    The first account becomes the site admin and can sign in straight away;
    email isn't needed yet.
 3. **Set up email** in **Admin → Email**: any SMTP service (Postmark, Mailgun,
-   Amazon SES, your email host). Until then, invitations, password resets and
+   Amazon SES, your email host). The site admin area needs two-factor
+   authentication, so turn it on first in **Settings → Security**. Until then, invitations, password resets and
    reminders aren't sent, and later accounts can't verify their address, so
    keep registration closed (**Admin → Feature toggles**) until it works.
 4. **Use your own domain** for HTTPS: point an `A` record at the Droplet's IP,

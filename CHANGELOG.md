@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Set up email" no longer dead-ends for a new site admin.** The site admin
+  area needs two-factor authentication, so the banner's link sent an admin
+  without it to Settings → Security with no explanation. The banner now says
+  two-factor authentication comes first and links to it, and the Security page
+  says why you were sent there (the site admin area, or an organization that
+  requires two-factor authentication).
+
 ## [1.3.0] - 2026-10-22
 
 **Highlights.** LineLedger installs on a **DigitalOcean Droplet in one click**: create

@@ -2400,6 +2400,7 @@
   "Email invoices to this customer": "Envoyer les factures par courriel à ce client",
   "Email is sent through :host, using the settings saved here.": "Les courriels sont envoyés par :host, selon les paramètres enregistrés ici.",
   "Email is sent using the server's settings (:mailer). Saving settings here overrides them.": "Les courriels sont envoyés selon les paramètres du serveur (:mailer). Les paramètres enregistrés ici les remplacent.",
+  "Email is set up in the site admin area, which needs two-factor authentication on your account.": "Le courriel se configure dans la zone d’administration du site, qui exige l’authentification à deux facteurs sur votre compte.",
   "Email isn't set up yet": "Le courriel n’est pas encore configuré",
   "Email isn't set up yet, so a test message would only be written to the log. Save your SMTP settings first.": "Le courriel n’est pas encore configuré : un message d’essai serait seulement écrit dans le journal. Enregistrez d’abord vos paramètres SMTP.",
   "Email me a sign-in link": "M’envoyer un lien de connexion par courriel",

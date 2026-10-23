@@ -37,6 +37,9 @@ new #[Title('Security settings')] class extends Component {
 
     public bool $requiresConfirmation;
 
+    /** Why 2FA is needed, for someone sent here to turn it on. */
+    public ?string $twoFactorRequiredNotice = null;
+
     /** @var array<int, array<string, mixed>> */
     public array $trustedDevices = [];
     /* @end-chisel-2fa */
@@ -82,6 +85,13 @@ new #[Title('Security settings')] class extends Component {
 
             if ($this->twoFactorEnabled) {
                 $this->loadTrustedDevices();
+            } else {
+                // EnsureSiteAdmin and EnforceTwoFactor send people here with the
+                // reason. A site admin is told even when that message was used up
+                // on the way through password confirmation.
+                $reason = session('two_factor_required');
+                $this->twoFactorRequiredNotice = is_string($reason) ? $reason
+                    : (auth()->user()->site_admin ? __('Enable two-factor authentication to access the site admin area.') : null);
             }
         }
         /* @end-chisel-2fa */
@@ -323,6 +333,17 @@ new #[Title('Security settings')] class extends Component {
     <flux:heading class="sr-only">{{ __('Security settings') }}</flux:heading>
 
     <x-pages::settings.layout :heading="__('Update password')" :subheading="__('Ensure your account is using a long, random password to stay secure')">
+        {{-- @chisel-2fa --}}
+        @if ($canManageTwoFactor && ! $twoFactorEnabled && $twoFactorRequiredNotice)
+            <flux:callout variant="warning" icon="shield-exclamation" class="mt-6" data-test="two-factor-required-notice">
+                <flux:callout.text>
+                    {{ $twoFactorRequiredNotice }}
+                    <flux:callout.link href="#two-factor">{{ __('Enable two-factor authentication') }}</flux:callout.link>
+                </flux:callout.text>
+            </flux:callout>
+        @endif
+        {{-- @end-chisel-2fa --}}
+
         <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-6">
             <flux:input
                 wire:model="current_password"
@@ -360,7 +381,7 @@ new #[Title('Security settings')] class extends Component {
 
         {{-- @chisel-2fa --}}
         @if ($canManageTwoFactor)
-            <section class="mt-12">
+            <section id="two-factor" class="mt-12 scroll-mt-6">
                 <flux:heading>{{ __('Two-factor authentication') }}</flux:heading>
                 <flux:subheading>{{ __('Manage your two-factor authentication settings') }}</flux:subheading>
 
