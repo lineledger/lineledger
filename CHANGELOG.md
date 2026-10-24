@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-24
+
+**Highlights.** A patch for the first sign-in on a new install: a site admin
+without two-factor authentication is now told to turn it on before setting up
+email, instead of landing on Settings → Security with no explanation. The
+DigitalOcean Marketplace image build also passes DigitalOcean's image check. No
+migrations, no backfills and no configuration changes; see `UPGRADING.md`.
+
 ### Fixed
 
 - **"Set up email" no longer dead-ends for a new site admin.** The site admin
@@ -15,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   two-factor authentication comes first and links to it, and the Security page
   says why you were sent there (the site admin area, or an organization that
   requires two-factor authentication).
+  ([#143](https://github.com/lineledger/lineledger/pull/143))
+- **The Marketplace image passes DigitalOcean's image check.** The Packer
+  build installs the pending Ubuntu security updates, removes DigitalOcean's
+  agents and `/opt/digitalocean`, and ends by running DigitalOcean's
+  `99-img-check.sh`, so a build that would be rejected fails before it makes a
+  snapshot. ([#142](https://github.com/lineledger/lineledger/pull/142))
 
 ## [1.3.0] - 2026-10-22
 
@@ -965,7 +979,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/lineledger/lineledger/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/lineledger/lineledger/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/lineledger/lineledger/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1

@@ -14,9 +14,11 @@ the GL.
 
 ## Status
 
-LineLedger is at **1.3.0**, released October 22, 2026, which adds a one-click install on
-a DigitalOcean Droplet and email settings you set up from inside the app. It follows
-1.2.2 (also October 22, a one-command deploy to DigitalOcean App Platform), 1.2.1
+LineLedger is at **1.3.1**, released October 24, 2026, a patch that stops a new site
+admin's "Set up email" link from dead-ending at two-factor authentication. It follows
+1.3.0 (October 22), which added a one-click install on a DigitalOcean Droplet and email
+settings you set up from inside the app, 1.2.2 (also October 22, a one-command deploy
+to DigitalOcean App Platform), 1.2.1
 (October 19) and 1.2.0 (October 18), which added French and United Kingdom
 organizations; 1.1.0 shipped September 18 and 1.0.0 August 15, 2026 (see
 [`CHANGELOG.md`](CHANGELOG.md)). Running an existing install? Read
@@ -51,7 +53,7 @@ Pick the route that fits; each links to its full guide further down.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.1/docker/digitalocean/droplet/install.sh | bash
    ```
 
 2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
@@ -233,7 +235,7 @@ database restored without it can't read them. Upgrading later? Read
 | Layer | Choice |
 | --- | --- |
 | Runtime | PHP 8.5+ with `intl` |
-| Framework | Laravel 13 (`laravel/framework` 13.37 as of 1.3.0) |
+| Framework | Laravel 13 (`laravel/framework` 13.37 as of 1.3.1) |
 | UI | Livewire 4 + Flux UI Free + Tailwind CSS 4 (Vite) |
 | Charts | Chart.js 4 (`chart.js`) for the dashboard and report chart panels (`resources/js/charts.js`) |
 | Auth | Laravel Fortify + passkeys (WebAuthn, configured in `config/fortify.php`); OAuth2 via Laravel Passport (MCP); optional Cloudflare Turnstile on the auth forms (`config/turnstile.php`) |
@@ -701,7 +703,7 @@ No clone needed — fetch the compose bundle for the release, configure, and sta
 
 ```bash
 mkdir lineledger && cd lineledger
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.1/docker
 curl -fsSLO "$base/docker-compose.yml"
 curl -fsSL  "$base/.env.example" -o .env
 curl -fsSLO "$base/backup.sh"
@@ -716,7 +718,7 @@ docker compose run --rm --no-deps app php artisan key:generate --show
 docker compose up -d
 ```
 
-Fetch from the tag you are deploying (`v1.3.0` above), not `main` — the compose
+Fetch from the tag you are deploying (`v1.3.1` above), not `main` — the compose
 file, entrypoint and scripts on `main` may already describe the next release.
 
 **Set up mail before anyone else registers.** Email verification is enforced: a new
@@ -754,21 +756,21 @@ Release notes and anything a specific version needs are in
 
 ```bash
 ./backup.sh                                # 1. DB dump + storage volume + .env into ./backups
-# 2. in .env, pin the release:  LINELEDGER_VERSION=1.3.0
+# 2. in .env, pin the release:  LINELEDGER_VERSION=1.3.1
 docker compose pull && docker compose up -d   # 3. new image; app:upgrade runs on boot
 docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and prove the books
 ```
 
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
 pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
-the two `banking:backfill-*` commands; 1.2.0 through 1.3.0 add none) — and the workers wait for it to become
+the two `banking:backfill-*` commands; 1.2.0 through 1.3.1 add none) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
 migrate it just runs `integrity:check` and exits non-zero if the ledger doesn't
 reconcile, which is the moment to reach for `restore.sh`.
 
-Image tags: `1.3.0` (exact release), `1.3` (moves with patch releases on the 1.3
+Image tags: `1.3.1` (exact release), `1.3` (moves with patch releases on the 1.3
 line — the pin most self-hosters want), `latest` (newest tagged release, never
 `main`), and `edge` (`main`, amd64-only, if you want to live dangerously). Release
 tags are multi-arch, so a Raspberry Pi or Graviton host pulls the arm64 image with
@@ -902,7 +904,7 @@ There is nothing to configure before the first visit.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.1/docker/digitalocean/droplet/install.sh | bash
    ```
 
    Pick a size with at least 2 GB of memory, and turn on **Backups** while
@@ -954,7 +956,7 @@ The only questions are your mail settings. You need [`doctl`](https://docs.digit
 brew install doctl jq        # or your platform's package manager
 doctl auth init              # paste a DigitalOcean API token with write access
 
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.3.1/docker/digitalocean
 curl -fsSLO "$base/deploy.sh"
 curl -fsSLO "$base/app.yaml"
 chmod +x deploy.sh
@@ -1220,7 +1222,7 @@ things around it — take a backup before you click, and read
 [`UPGRADING.md`](UPGRADING.md) for anything the release needs beyond what
 `app:upgrade` does on its own. To upgrade by tag rather than by whatever is on
 `main`, swap the `git pull` line for
-`git fetch --tags origin && git checkout v1.3.0` (or point the Forge site at a
+`git fetch --tags origin && git checkout v1.3.1` (or point the Forge site at a
 release branch), so a deploy always lands on a version you chose. After the deploy,
 `php artisan app:upgrade --verify` proves the ledger still reconciles, and
 `proof:generate` refreshes `/verification` if you publish it.
