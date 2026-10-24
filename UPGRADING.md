@@ -39,9 +39,10 @@ newest first.
 
 Released 2026-10-24. A patch release: a site admin without two-factor authentication
 is now told to turn it on before setting up email (the site admin area, Admin → Email
-included, has always required it), and the DigitalOcean Marketplace image build passes
-DigitalOcean's image check. PHP `^8.5`, Laravel 13 and the dependencies are unchanged.
-**No migrations, no backfills, no config or env changes**, and `docker-compose.yml`,
+included, has always required it), the DigitalOcean Marketplace image build passes
+DigitalOcean's image check, and `livewire/livewire` moves from 4.4.7 to 4.4.8 for a
+security advisory. PHP `^8.5` and Laravel 13 are unchanged, and so is every other
+dependency. **No migrations, no backfills, no config or env changes**, and `docker-compose.yml`,
 `backup.sh` and `restore.sh` are unchanged from 1.3.0. Coming from 1.2.2 or earlier, do
 the earlier steps below first.
 
@@ -71,8 +72,8 @@ Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy
 
 ### Forge / bare metal
 
-Deploy with the unchanged deploy script, then run `php artisan app:upgrade --verify` and
-`php artisan queue:restart`.
+Deploy with the unchanged deploy script; its `composer install` picks up Livewire 4.4.8.
+Then run `php artisan app:upgrade --verify` and `php artisan queue:restart`.
 
 ### Rolling back
 

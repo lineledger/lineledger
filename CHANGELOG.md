@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Highlights.** A patch for the first sign-in on a new install: a site admin
 without two-factor authentication is now told to turn it on before setting up
 email, instead of landing on Settings → Security with no explanation. The
-DigitalOcean Marketplace image build also passes DigitalOcean's image check. No
-migrations, no backfills and no configuration changes; see `UPGRADING.md`.
+DigitalOcean Marketplace image build also passes DigitalOcean's image check, and
+Livewire moves to 4.4.8 for a security advisory. No migrations, no backfills and
+no configuration changes; see `UPGRADING.md`.
 
 ### Fixed
 
@@ -29,6 +30,15 @@ migrations, no backfills and no configuration changes; see `UPGRADING.md`.
   agents and `/opt/digitalocean`, and ends by running DigitalOcean's
   `99-img-check.sh`, so a build that would be rejected fails before it makes a
   snapshot. ([#142](https://github.com/lineledger/lineledger/pull/142))
+
+### Security
+
+- **`livewire/livewire` 4.4.8** (from 4.4.7) fixes an authorization bypass in
+  the `#[Authorize]` attribute
+  ([GHSA-mhf7-xp6r-6qrc](https://github.com/advisories/GHSA-mhf7-xp6r-6qrc)).
+  LineLedger doesn't use `#[Authorize]` or `#[Json]`, so it wasn't exposed;
+  the update keeps the dependency audit clean.
+  ([#144](https://github.com/lineledger/lineledger/pull/144))
 
 ## [1.3.0] - 2026-10-22
 
