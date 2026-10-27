@@ -188,3 +188,29 @@ test('correct password must be provided to update password', function () {
 
     $response->assertHasErrors(['current_password']);
 });
+
+test('a site admin without two-factor authentication is told the admin area needs it', function () {
+    $this->actingAs(User::factory()->siteAdmin()->create());
+
+    Livewire::test('pages::settings.security')
+        ->assertSee('data-test="two-factor-required-notice"', false)
+        ->assertSee(__('Enable two-factor authentication to access the site admin area.'));
+});
+
+test('the security page shows why someone was sent to turn on two-factor authentication', function () {
+    $this->actingAs(User::factory()->create());
+    session()->flash('two_factor_required', 'This company requires two-factor authentication for owners and admins. Enable it to continue.');
+
+    Livewire::test('pages::settings.security')
+        ->assertSee('This company requires two-factor authentication for owners and admins. Enable it to continue.');
+});
+
+test('no two-factor notice for someone who was not sent here, or who already has it', function () {
+    $this->actingAs(User::factory()->create());
+    Livewire::test('pages::settings.security')
+        ->assertDontSee('data-test="two-factor-required-notice"', false);
+
+    $this->actingAs(User::factory()->siteAdmin()->withTwoFactor()->create());
+    Livewire::test('pages::settings.security')
+        ->assertDontSee('data-test="two-factor-required-notice"', false);
+});
