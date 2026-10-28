@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Accounting\SaveStatutoryMapping;
 use App\Enums\JurisdictionCapability;
 use App\Enums\Section;
 use App\Models\Account;
@@ -64,9 +65,20 @@ new #[Title('Statutory Accounts')] class extends Component
         return $form;
     }
 
+    /** Loaded once per request; {@see self::refresh()} drops it after a save. */
+    private ?StatutoryAccountsProfile $loadedProfile = null;
+
+    /** One builder per request, so the summary's years share their ledger queries. */
+    private ?UkStatutoryAccountsBuilder $loadedBuilder = null;
+
     private function profile(): StatutoryAccountsProfile
     {
-        return StatutoryAccountsProfile::forCompany($this->company->fresh());
+        return $this->loadedProfile ??= StatutoryAccountsProfile::forCompany($this->company->fresh());
+    }
+
+    private function builder(): UkStatutoryAccountsBuilder
+    {
+        return $this->loadedBuilder ??= app(UkStatutoryAccountsBuilder::class);
     }
 
     private function validDate(string $value): bool
@@ -95,9 +107,11 @@ new #[Title('Statutory Accounts')] class extends Component
      */
     public function useLastYear(int $offset = 0): void
     {
-        [$start, $end] = $this->profile()->lastCompletedYear($this->company->currentDateTime()->toImmutable());
-        $this->startDate = $start->addYears($offset)->toDateString();
-        $this->endDate = $end->addYears($offset)->toDateString();
+        $profile = $this->profile();
+        [$start, $end] = $profile->lastCompletedYear($this->company->currentDateTime()->toImmutable());
+        [$start, $end] = $profile->shiftPeriod($start, $end, $offset);
+        $this->startDate = $start->toDateString();
+        $this->endDate = $end->toDateString();
         $this->refresh();
     }
 
@@ -107,8 +121,9 @@ new #[Title('Statutory Accounts')] class extends Component
             return;
         }
 
-        $this->startDate = CarbonImmutable::parse($this->startDate)->addYears($years)->toDateString();
-        $this->endDate = CarbonImmutable::parse($this->endDate)->addYears($years)->toDateString();
+        [$start, $end] = $this->profile()->shiftPeriod(CarbonImmutable::parse($this->startDate), CarbonImmutable::parse($this->endDate), $years);
+        $this->startDate = $start->toDateString();
+        $this->endDate = $end->toDateString();
         $this->refresh();
     }
 
@@ -125,6 +140,8 @@ new #[Title('Statutory Accounts')] class extends Component
     private function refresh(): void
     {
         unset($this->report, $this->mappingRows, $this->summaryYears, $this->rangeYears);
+        $this->loadedProfile = null;
+        $this->loadedBuilder = null;
         $this->version++;
     }
 
@@ -145,7 +162,7 @@ new #[Title('Statutory Accounts')] class extends Component
         // Accounts are for one year: a range spanning several shows the latest.
         [$start, $end] = $this->profile()->documentPeriod($start, $end);
 
-        return app(UkStatutoryAccountsBuilder::class)->build($this->company, $start, $end);
+        return $this->builder()->build($this->company, $start, $end);
     }
 
     /**
@@ -181,7 +198,7 @@ new #[Title('Statutory Accounts')] class extends Component
             return [];
         }
 
-        $builder = app(UkStatutoryAccountsBuilder::class);
+        $builder = $this->builder();
         $column = fn (array $built) => ['label' => $built['end']->format('Y'), 'end' => $built['end']->toDateString(), 'sci' => $built['sci']['current'], 'sfp' => $built['sfp']['current']];
 
         // A range spanning several years: a column for each year in it.
@@ -202,8 +219,8 @@ new #[Title('Statutory Accounts')] class extends Component
         }
 
         for ($i = 0; $i < $count; $i++) {
-            $built = $i === 0 ? $r : $builder->build($this->company, $r['start']->addYears($i), $r['end']->addYears($i));
-            $years[] = ['label' => $built['end']->format('Y'), 'end' => $built['end']->toDateString(), 'sci' => $built['sci']['current'], 'sfp' => $built['sfp']['current']];
+            [$start, $end] = $this->profile()->shiftPeriod($r['start'], $r['end'], $i);
+            $years[] = $column($i === 0 ? $r : $builder->build($this->company, $start, $end));
         }
 
         return $years;
@@ -255,8 +272,7 @@ new #[Title('Statutory Accounts')] class extends Component
     {
         abort_unless($this->canEdit, 403);
 
-        $account = $this->ownedAccount($accountId);
-        $account->forceFill(['statutory_line' => UkStatutoryCatalog::exists($line) ? $line : null])->save();
+        app(SaveStatutoryMapping::class)->handle($this->ownedAccount($accountId), ['statutory_line' => $line]);
         $this->refresh();
         Flux::toast(variant: 'success', text: __('Line updated.'));
     }
@@ -265,9 +281,7 @@ new #[Title('Statutory Accounts')] class extends Component
     {
         abort_unless($this->canEdit, 403);
 
-        $account = $this->ownedAccount($accountId);
-        $label = trim(mb_substr($label, 0, 120));
-        $account->forceFill(['statutory_label' => $label === '' ? null : $label])->save();
+        app(SaveStatutoryMapping::class)->handle($this->ownedAccount($accountId), ['statutory_label' => $label]);
         $this->refresh();
         Flux::toast(variant: 'success', text: __('Caption updated.'));
     }
@@ -350,7 +364,6 @@ new #[Title('Statutory Accounts')] class extends Component
 
 <section class="w-full">
     @php
-        $r = $this->report;
         $frameworks = StatutoryAccountsProfile::frameworks();
         $fmt = fn (int $v) => \App\Support\Statutory\StatutoryFormat::amount($v);
     @endphp
@@ -403,6 +416,8 @@ new #[Title('Statutory Accounts')] class extends Component
 
     {{-- ───────────── Accounts: summary + PDF preview ───────────── --}}
     @if ($tab === 'accounts')
+        {{-- Built here only: the mapping and details tabs don't need the accounts. --}}
+        @php $r = $this->report; @endphp
         @if ($r === null)
             <flux:callout variant="warning" icon="exclamation-triangle">{{ __('Choose a period that ends after it starts.') }}</flux:callout>
         @else

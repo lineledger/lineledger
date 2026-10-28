@@ -108,7 +108,7 @@ final class StatutoryAccountsProfile
         // 5 April) set 5 April here.
         $startMonth = max(1, min(12, (int) ($company->fiscal_year_start_month ?? 1)));
         $endMonth = $startMonth === 1 ? 12 : $startMonth - 1;
-        $endDay = CarbonImmutable::create(2001, $endMonth, 1)->endOfMonth()->day;
+        $endDay = self::longestDay($endMonth);
 
         $office = collect([
             $company->address_line1 ?? null,
@@ -176,7 +176,7 @@ final class StatutoryAccountsProfile
         $framework = array_key_exists((string) ($a['framework'] ?? ''), self::frameworks()) ? (string) $a['framework'] : self::FRAMEWORK_FRS102_1A;
         $regime = array_key_exists((string) ($a['regime'] ?? ''), self::regimes()) ? (string) $a['regime'] : self::REGIME_UK_2006;
         $month = max(1, min(12, (int) ($a['year_end_month'] ?? 12)));
-        $day = max(1, min(CarbonImmutable::create(2001, $month, 1)->endOfMonth()->day, (int) ($a['year_end_day'] ?? 31)));
+        $day = max(1, min(self::longestDay($month), (int) ($a['year_end_day'] ?? 31)));
         $employees = ($a['average_employees'] ?? null);
         $approval = trim((string) ($a['approval_date'] ?? ''));
 
@@ -322,6 +322,40 @@ final class StatutoryAccountsProfile
         $last = CarbonImmutable::create($year, $this->yearEndMonth, 1)->endOfMonth()->day;
 
         return CarbonImmutable::create($year, $this->yearEndMonth, min($this->yearEndDay, $last))->startOfDay();
+    }
+
+    /**
+     * Move a period by whole years. A start the day after a year end and an
+     * end on one stay on the year end, so an end-of-February year keeps 29
+     * February in leap years; any other date moves by calendar years without
+     * spilling into the next month.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function shiftPeriod(CarbonImmutable $start, CarbonImmutable $end, int $years): array
+    {
+        $start = $start->startOfDay();
+        $end = $end->startOfDay();
+        $previousEnd = $start->subDay();
+
+        return [
+            $previousEnd->equalTo($this->yearEndIn($previousEnd->year))
+                ? $this->yearEndIn($previousEnd->year + $years)->addDay()
+                : $start->addYearsNoOverflow($years),
+            $end->equalTo($this->yearEndIn($end->year))
+                ? $this->yearEndIn($end->year + $years)
+                : $end->addYearsNoOverflow($years),
+        ];
+    }
+
+    /**
+     * The last day a month can have — 29 for February — so an end-of-February
+     * year end is stored as the 29th and {@see self::yearEndIn()} brings it back
+     * to the 28th in other years.
+     */
+    private static function longestDay(int $month): int
+    {
+        return CarbonImmutable::create(2000, $month, 1)->endOfMonth()->day;
     }
 
     /**

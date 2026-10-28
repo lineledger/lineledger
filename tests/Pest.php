@@ -219,3 +219,29 @@ function claimLinesForReconciliation(BankReconciliation $rec, JournalEntry $entr
 
     $rec->forceFill(['marked_line_ids' => array_values(array_unique([...$rec->markedLineIds(), ...$ids]))])->save();
 }
+
+/**
+ * All the text of a .docx — body, headers and footers — tags stripped, for the
+ * statutory accounts Word export tests.
+ */
+function docxText(string $bytes): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'docx');
+    file_put_contents($path, $bytes);
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $xml = '';
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        if (preg_match('#^word/(document|header\d*|footer\d*)\.xml$#', $name)) {
+            $xml .= ' '.$zip->getFromName($name);
+        }
+    }
+    $zip->close();
+    @unlink($path);
+
+    // One space per paragraph, none between runs, so "5" + "th" reads "5th".
+    $xml = preg_replace('#</w:p>#', ' ', $xml);
+
+    return preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1));
+}

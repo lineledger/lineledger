@@ -22,6 +22,9 @@ use setasign\Fpdi\Tcpdf\Fpdi;
  */
 class UkStatutoryAccountsPdf
 {
+    /** Renders before the page numbering is taken as settled. */
+    private const MAX_PASSES = 4;
+
     public function __construct(private readonly PdfMerger $merger) {}
 
     /**
@@ -32,31 +35,32 @@ class UkStatutoryAccountsPdf
         $data = $this->viewData($company, $profile, $report);
         $sections = $this->sections($profile, $data);
 
-        // First pass: page counts with a provisional notes range.
-        $data['notesRange'] = '';
-        $counts = [];
-        foreach ($sections as $key => $section) {
-            $counts[$key] = $this->merger->pageCount($this->renderSection($section['view'], $data));
-        }
+        // The page references ("the notes on pages x to y", the directors'
+        // report pointing at the income statement) change what they sit in, so
+        // a nearly full section can gain or lose a page once they are filled
+        // in. Start from stand-ins as long as any real reference and render
+        // until the page counts stop moving.
+        $data['notesRange'] = __('pages :a to :b', ['a' => 888, 'b' => 888]);
+        $data['pages'] = array_fill_keys(array_keys($sections), 888);
+        $counts = null;
 
-        $page = 1;
-        foreach ($sections as $key => &$section) {
-            $section['first'] = $page;
-            $section['last'] = $page + $counts[$key] - 1;
-            $page += $counts[$key];
-        }
-        unset($section);
+        for ($pass = 1; $pass <= self::MAX_PASSES; $pass++) {
+            $bodies = [];
+            foreach ($sections as $key => $section) {
+                $bodies[$key] = $this->renderSection($section['view'], $data);
+            }
 
-        $notes = $sections['notes'];
-        $data['notesRange'] = $notes['first'] === $notes['last']
-            ? __('page :n', ['n' => $notes['first']])
-            : __('pages :a to :b', ['a' => $notes['first'], 'b' => $notes['last']]);
-        $data['pages'] = array_map(fn ($s) => $s['first'], $sections);
+            $rendered = array_map(fn (string $bytes) => $this->merger->pageCount($bytes), $bodies);
+            if ($rendered === $counts) {
+                break;
+            }
 
-        // Second pass: the final bytes, now that cross-references are known.
-        $bodies = [];
-        foreach ($sections as $key => $section) {
-            $bodies[$key] = $this->renderSection($section['view'], $data);
+            $counts = $rendered;
+            $sections = $this->number($sections, $counts);
+            $data['notesRange'] = $sections['notes']['first'] === $sections['notes']['last']
+                ? __('page :n', ['n' => $sections['notes']['first']])
+                : __('pages :a to :b', ['a' => $sections['notes']['first'], 'b' => $sections['notes']['last']]);
+            $data['pages'] = array_map(fn ($s) => $s['first'], $sections);
         }
 
         $data['contents'] = collect($sections)->map(fn ($s) => [
@@ -175,6 +179,26 @@ class UkStatutoryAccountsPdf
         }
 
         $sections['notes'] = ['title' => __('Notes to the financial statements'), 'subtitle' => $yearEnded, 'view' => 'pdf.statutory.notes'];
+
+        return $sections;
+    }
+
+    /**
+     * Give each section its first and last page number from its page count.
+     *
+     * @param  array<string, array<string, mixed>>  $sections
+     * @param  array<string, int>  $counts
+     * @return array<string, array<string, mixed>>
+     */
+    private function number(array $sections, array $counts): array
+    {
+        $page = 1;
+
+        foreach ($sections as $key => $section) {
+            $sections[$key]['first'] = $page;
+            $sections[$key]['last'] = $page + $counts[$key] - 1;
+            $page += $counts[$key];
+        }
 
         return $sections;
     }

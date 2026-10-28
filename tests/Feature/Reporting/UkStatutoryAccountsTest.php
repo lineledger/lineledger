@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Accounting\SaveStatutoryMapping;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\Country;
@@ -8,6 +9,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\User;
+use App\Services\Pdf\PdfMerger;
 use App\Services\Posting\JournalPoster;
 use App\Services\Reporting\UkStatutoryAccountsBuilder;
 use App\Services\Reporting\UkStatutoryAccountsDocx;
@@ -16,7 +18,9 @@ use App\Support\Reporting\ReportCatalog;
 use App\Support\Statutory\StatutoryAccountsProfile;
 use App\Support\Statutory\UkStatutoryCatalog;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Mockery\MockInterface;
 use Smalot\PdfParser\Parser;
 
 /*
@@ -127,22 +131,28 @@ it('builds the income statement in whole pounds for a 5 April year', function ()
     $c = $r['sci']['current'];
     $p = $r['sci']['prior'];
 
+    // Rounded line by line the year's profit is £11,813, but retained earnings
+    // only move from £6,000 to £12,812 with £5,000 of dividends — £11,812. The
+    // pound is taken up on the largest expense line, wages (£6,000.49), so the
+    // income statement casts to the balance sheets either side of it.
     expect($r['has_prior'])->toBeTrue()
         ->and($c['turnover'])->toBe(20000)            // the 6 April sale is next year's
-        ->and($c['expenses'])->toEqualCanonicalizing(['Depreciation' => 1000, 'Rent' => 1200, 'Wages and salaries' => 6000])
-        ->and($c['expense_total'])->toBe(8200)
-        ->and($c['operating_profit'])->toBe(11800)
+        ->and($c['expenses'])->toEqualCanonicalizing(['Depreciation' => 1000, 'Rent' => 1200, 'Wages and salaries' => 6001])
+        ->and($c['expense_total'])->toBe(8201)
+        ->and($c['operating_profit'])->toBe(11799)
         ->and($c['interest_receivable'])->toBe(13)    // £12.50 rounds up
-        ->and($c['profit_after_tax'])->toBe(11813)
+        ->and($c['profit_after_tax'])->toBe(11812)
+        ->and($c['rounding_adjustment'])->toBe(-1)
         ->and($c['dividends'])->toBe(5000)            // a distribution, not an expense
         ->and($c['staff_costs'])->toBe(6000)
         ->and($p['turnover'])->toBe(10000)
         ->and($p['profit_after_tax'])->toBe(8000)
+        ->and($p['rounding_adjustment'])->toBe(0)
         ->and($p['dividends'])->toBe(2000)
         ->and($r['captions']['turnover'])->toBe('Turnover');
 
     expect(collect($r['sci']['expense_rows'])->firstWhere('label', 'Wages and salaries'))
-        ->toBe(['label' => 'Wages and salaries', 'current' => 6000, 'prior' => 0]);
+        ->toBe(['label' => 'Wages and salaries', 'current' => 6001, 'prior' => 0]);
 });
 
 it('builds a balance sheet that balances, with retained earnings as the balancing figure', function () {
@@ -160,14 +170,12 @@ it('builds a balance sheet that balances, with retained earnings as the balancin
         ->and($s['share_capital'])->toBe(100)
         ->and($s['retained_earnings'])->toBe(12812)
         ->and($s['equity_total'])->toBe($s['net_assets'])
-        // Last year's balance sheet rounds to £6,100 on its own, but last year's
-        // retained earnings must be this year's £12,812 less this year's profit
-        // (£11,813) plus its dividends (£5,000) = £5,999 — so the pound comes
-        // off cash, the way an accountant casts comparatives.
-        ->and($p['retained_earnings'])->toBe(5999)
-        ->and($p['net_assets'])->toBe(6099)
-        ->and($p['cash'])->toBe(9099)
-        ->and($p['rounding_adjustment'])->toBe(-1);
+        // The comparative is last year's balance sheet exactly as it rounds on
+        // its own — what last year's accounts said — not restated to cast.
+        ->and($p['retained_earnings'])->toBe(6000)
+        ->and($p['net_assets'])->toBe(6100)
+        ->and($p['cash'])->toBe(9100)
+        ->and($p)->not->toHaveKey('rounding_adjustment');
 
     expect($r['analysis']['creditors_within'])->toBe([['label' => 'Taxation and social security', 'current' => 4000, 'prior' => 0]])
         ->and($r['analysis']['creditors_after'])->toBe([['label' => "Director's loan", 'current' => 5000, 'prior' => 5000]])
@@ -258,7 +266,7 @@ it('renders both frameworks as a paginated PDF with the figures in it', function
 })->with([
     'FRS 102 Section 1A' => [StatutoryAccountsProfile::FRAMEWORK_FRS102_1A, [
         'RAMSEY WEB LTD', 'Page 1', 'Statement of Financial Position', 'Statement of Changes in Equity',
-        '12,912', '11,813', '(5,000)', 'Tangible fixed assets', 'section 477', 'FRS 102 Section 1A',
+        '12,912', '11,812', '(5,000)', 'Tangible fixed assets', 'section 477', 'FRS 102 Section 1A',
     ]],
     'FRS 105 micro-entity' => [StatutoryAccountsProfile::FRAMEWORK_FRS105, [
         'Balance Sheet', '12,912', 'micro-entity provisions', 'Advances, credits and guarantees granted to directors',
@@ -412,31 +420,6 @@ it('shows VAT due back as a debtor and an overdraft as a creditor', function () 
         ->and($s['creditors_within_by_label'])->toBe(['Bank loans and overdrafts' => 100]);
 });
 
-/**
- * All the text of a .docx — body, headers and footers — tags stripped.
- */
-function docxText(string $bytes): string
-{
-    $path = tempnam(sys_get_temp_dir(), 'docx');
-    file_put_contents($path, $bytes);
-    $zip = new ZipArchive;
-    $zip->open($path);
-    $xml = '';
-    for ($i = 0; $i < $zip->numFiles; $i++) {
-        $name = $zip->getNameIndex($i);
-        if (preg_match('#^word/(document|header\d*|footer\d*)\.xml$#', $name)) {
-            $xml .= ' '.$zip->getFromName($name);
-        }
-    }
-    $zip->close();
-    @unlink($path);
-
-    // One space per paragraph, none between runs, so "5" + "th" reads "5th".
-    $xml = preg_replace('#</w:p>#', ' ', $xml);
-
-    return preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1));
-}
-
 it('exports the same accounts as an editable Word document', function (string $framework) {
     StatutoryAccountsProfile::fromArray([
         'framework' => $framework,
@@ -461,9 +444,9 @@ it('exports the same accounts as an editable Word document', function (string $f
 
     // Every heading and figure in the PDF is in the Word document too.
     $shared = $framework === StatutoryAccountsProfile::FRAMEWORK_FRS105
-        ? ['RAMSEY WEB LTD', 'Balance Sheet', 'Profit and Loss Account', '12,912', '11,813', 'micro-entity provisions', 'Advances, credits and guarantees granted to directors']
+        ? ['RAMSEY WEB LTD', 'Balance Sheet', 'Profit and Loss Account', '12,912', '11,812', 'micro-entity provisions', 'Advances, credits and guarantees granted to directors']
         : ['RAMSEY WEB LTD', "Directors' Report", 'Statement of Comprehensive Income', 'Statement of Financial Position', 'Statement of Changes in Equity',
-            'Notes to the financial statements', 'Tangible fixed assets', '12,912', '11,813', '(5,000)', '12,812', '4,500', 'section 477', 'FRS 102 Section 1A Small Entities'];
+            'Notes to the financial statements', 'Tangible fixed assets', '12,912', '11,812', '(5,000)', '12,812', '4,500', 'section 477', 'FRS 102 Section 1A Small Entities'];
 
     foreach ($shared as $needle) {
         expect($pdf)->toContain($needle)
@@ -558,4 +541,191 @@ it('finds the whole statutory years inside a range', function () {
         ->and($years('2023-04-06', '2024-04-05'))->toBe(['2023-04-06..2024-04-05'])
         ->and($years('2023-05-01', '2025-04-05'))->toBe(['2024-04-06..2025-04-05'])
         ->and($profile->documentPeriod(CarbonImmutable::parse('2023-06-01'), CarbonImmutable::parse('2023-12-31'))[1]->toDateString())->toBe('2023-12-31');
+});
+
+it('keeps an end-of-February year end on 29 February in leap years', function () {
+    $profile = StatutoryAccountsProfile::fromArray(['year_end_day' => 29, 'year_end_month' => 2]);
+
+    expect($profile->yearEndDay)->toBe(29)
+        ->and($profile->yearEndIn(2028)->toDateString())->toBe('2028-02-29')
+        ->and($profile->yearEndIn(2027)->toDateString())->toBe('2027-02-28')
+        // A March fiscal start defaults to the end of February, not the 28th.
+        ->and(StatutoryAccountsProfile::defaultsFor(Company::factory()->make(['fiscal_year_start_month' => 3]))['year_end_day'])->toBe(29);
+
+    $dates = fn (array $period) => array_map(fn (CarbonImmutable $d) => $d->toDateString(), $period);
+
+    $year = $profile->lastCompletedYear(CarbonImmutable::parse('2028-06-01'));
+    expect($dates($year))->toBe(['2027-03-01', '2028-02-29']);
+
+    // A year either way stays on the year end, leap day and all.
+    $next = $profile->shiftPeriod($year[0], $year[1], 1);
+    expect($dates($next))->toBe(['2028-03-01', '2029-02-28'])
+        ->and($dates($profile->shiftPeriod($next[0], $next[1], -1)))->toBe(['2027-03-01', '2028-02-29']);
+
+    // Dates off the year end move by calendar years, without running into March.
+    $april = StatutoryAccountsProfile::fromArray(['year_end_day' => 5, 'year_end_month' => 4]);
+    expect($dates($april->shiftPeriod(CarbonImmutable::parse('2023-06-15'), CarbonImmutable::parse('2024-02-29'), 1)))
+        ->toBe(['2024-06-15', '2025-02-28']);
+});
+
+it('steps an end-of-February year a year at a time on the page', function () {
+    StatutoryAccountsProfile::fromArray(['year_end_day' => 29, 'year_end_month' => 2])->save($this->company);
+
+    Livewire::test('pages::reports.statutory-accounts', ['company' => $this->company])
+        ->set('startDate', '2027-03-01')
+        ->set('endDate', '2028-02-29')
+        ->call('shiftYear', 1)
+        ->assertSet('startDate', '2028-03-01')
+        ->assertSet('endDate', '2029-02-28')
+        ->call('shiftYear', -1)
+        ->assertSet('startDate', '2027-03-01')
+        ->assertSet('endDate', '2028-02-29');
+});
+
+it('presents last year as its own accounts said, and opens a first year at nil', function () {
+    // Two 50p items in the first year each round up to £1 on the income
+    // statement but add only £1 to the bank: year one has a pound to cast too.
+    ($this->post)('2023-12-01', [['bank', 50, 0], ['sales', 0, 50]]);
+    ($this->post)('2023-12-02', [['bank', 50, 0], ['interest', 0, 50]]);
+
+    $year1 = app(UkStatutoryAccountsBuilder::class)->build($this->company->fresh(), CarbonImmutable::parse('2023-04-06'), CarbonImmutable::parse('2024-04-05'));
+    $year2 = ($this->build)();
+
+    expect($year1['has_prior'])->toBeFalse()
+        ->and($year1['sci']['current']['rounding_adjustment'])->toBe(-1)
+        ->and($year1['soce']['current']['opening'])->toBe(['share_capital' => 0, 'other_reserves' => 0, 'retained_earnings' => 0])
+        ->and($year1['soce']['current']['other_movements'])->toBe(0)
+        // Next year's comparatives are this year's figures, unrestated.
+        ->and($year2['sfp']['prior'])->toEqual($year1['sfp']['current'])
+        ->and($year2['sci']['prior'])->toEqual($year1['sci']['current'])
+        ->and(collect($year2['sci']['expense_rows'])->pluck('prior', 'label')->filter()->all())->toEqual($year1['sci']['current']['expenses']);
+});
+
+it('warns about an excluded account that still holds a balance', function () {
+    // Neither moves this year, but the loan still holds £5,000 and the share
+    // capital £100: both would drop silently into retained earnings.
+    $this->a['loan']->forceFill(['statutory_line' => 'excluded'])->save();
+    $this->a['shares']->forceFill(['statutory_line' => 'excluded'])->save();
+
+    $warnings = ($this->build)()['warnings'];
+
+    expect($warnings)->toHaveCount(2)
+        ->each->toContain('is excluded from the statutory accounts but has a balance or activity this year');
+});
+
+it('shows each overdrawn bank account as an overdraft, not netted against the others', function () {
+    $this->a['reserve'] = Account::withoutGlobalScopes()->create([
+        'company_id' => $this->company->id,
+        'code' => '91010',
+        'name' => 'Business Reserve',
+        'type' => AccountSubtype::Bank->type(),
+        'subtype' => AccountSubtype::Bank,
+        'normal_balance' => AccountSubtype::Bank->type()->normalBalance(),
+        'is_active' => true,
+    ]);
+
+    // Sweep £20,000 into the reserve: the current account (£15,412.41) is
+    // overdrawn by £4,587.59 while the reserve holds £20,000.
+    ($this->post)('2025-04-01', [['reserve', 2000000, 0], ['bank', 0, 2000000]]);
+
+    $s = ($this->build)()['sfp']['current'];
+
+    expect($s['cash'])->toBe(20000)
+        ->and($s['creditors_within_by_label'])->toBe(['Bank loans and overdrafts' => 4588, 'Taxation and social security' => 4000])
+        ->and($s['net_assets'])->toBe(12912);
+
+    // Accounts captioned alike — a set-off arrangement — net as one.
+    $this->a['bank']->forceFill(['statutory_label' => 'Pooled'])->save();
+    $this->a['reserve']->forceFill(['statutory_label' => 'Pooled'])->save();
+
+    $s = ($this->build)()['sfp']['current'];
+
+    expect($s['cash'])->toBe(15412)
+        ->and($s['creditors_within_by_label'])->toBe(['Taxation and social security' => 4000]);
+});
+
+it('shares ledger reads across the years one builder builds', function () {
+    $company = $this->company->fresh();
+    $builder = app(UkStatutoryAccountsBuilder::class);
+    $builder->build($company, CarbonImmutable::parse('2024-04-06'), CarbonImmutable::parse('2025-04-05'));
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $builder->build($company, CarbonImmutable::parse('2023-04-06'), CarbonImmutable::parse('2024-04-05'));
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    // The year before shares its balance sheets and profit with the year
+    // after; only its fixed asset movements are read afresh.
+    expect($queries)->toBeLessThanOrEqual(2);
+});
+
+it('builds no accounts for the mapping and details tabs', function () {
+    $this->mock(UkStatutoryAccountsBuilder::class, function (MockInterface $mock) {
+        $mock->shouldReceive('mapping')->andReturn([]);
+        $mock->shouldNotReceive('build');
+    });
+
+    Livewire::withQueryParams(['tab' => 'mapping', 'start' => '2024-04-06', 'end' => '2025-04-05'])
+        ->test('pages::reports.statutory-accounts', ['company' => $this->company])
+        ->assertOk()
+        ->set('tab', 'details')
+        ->assertOk();
+});
+
+it('re-renders the PDF until the page numbers settle', function () {
+    // Filling in the page references pushes the balance sheet onto a second
+    // page, so every later page number has to move with it.
+    $this->mock(PdfMerger::class, function (MockInterface $mock) {
+        $mock->shouldReceive('pageCount')->times(15)->andReturn(
+            1, 1, 1, 1, 1,      // with stand-in references
+            1, 1, 2, 1, 1,      // with the real ones: the balance sheet grows
+            1, 1, 2, 1, 1,      // settled
+        );
+    });
+
+    $company = $this->company->fresh();
+    $bytes = app(UkStatutoryAccountsPdf::class)->render($company, StatutoryAccountsProfile::forCompany($company), ($this->build)());
+    $text = preg_replace('/\s+/', ' ', (new Parser)->parseContent($bytes)->getText());
+
+    expect($text)->toContain('Statement of Changes in Equity 5')
+        ->toContain('The notes on page 6 form part of these financial statements.');
+});
+
+it('keeps only recognised statutory lines and trims captions', function () {
+    $save = app(SaveStatutoryMapping::class);
+    $rent = $this->a['rent'];
+
+    $save->handle($rent, ['statutory_line' => 'administrative_expenses', 'statutory_label' => '  Premises costs  ']);
+    expect($rent->fresh())->statutory_line->toBe('administrative_expenses')->statutory_label->toBe('Premises costs');
+
+    $save->handle($rent, ['statutory_line' => 'not_a_line', 'statutory_label' => str_repeat('x', 200)]);
+    expect($rent->fresh()->statutory_line)->toBeNull()
+        ->and(mb_strlen($rent->fresh()->statutory_label))->toBe(SaveStatutoryMapping::LABEL_MAX);
+
+    // A key left out keeps its value; a blank caption clears it.
+    $save->handle($rent, ['statutory_line' => 'staff_costs']);
+    $save->handle($rent, ['statutory_label' => ' ']);
+    expect($rent->fresh())->statutory_line->toBe('staff_costs')->statutory_label->toBeNull();
+
+    // Outside the UK there are no statutory accounts to map onto.
+    $canadian = Company::factory()->create();
+    app()->instance('current_company', $canadian);
+    $cash = Account::where('subtype', AccountSubtype::Bank)->firstOrFail();
+    $save->handle($cash, ['statutory_line' => 'cash']);
+
+    expect($cash->fresh()->statutory_line)->toBeNull();
+});
+
+it('downloads the accounts in English whatever language the app is in', function () {
+    $bytes = $this->get(route('reports.statutory-accounts.pdf', [
+        'company' => $this->company->slug, 'start' => '2024-04-06', 'end' => '2025-04-05', 'lang' => 'fr',
+    ]))->assertOk()->getContent();
+
+    $text = preg_replace('/\s+/', ' ', (new Parser)->parseContent($bytes)->getText());
+
+    // lang/fr.json translates this heading for other reports.
+    expect($text)->toContain('Statement of Financial Position')
+        ->not->toContain('situation financière')
+        ->and(app()->getLocale())->toBe('fr');
 });

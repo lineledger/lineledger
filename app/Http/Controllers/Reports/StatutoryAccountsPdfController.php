@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Services\Reporting\UkStatutoryAccountsBuilder;
 use App\Services\Reporting\UkStatutoryAccountsDocx;
 use App\Services\Reporting\UkStatutoryAccountsPdf;
+use App\Support\Locales;
 use App\Support\Reporting\ReportCatalog;
 use App\Support\Statutory\StatutoryAccountsProfile;
 use Carbon\CarbonImmutable;
@@ -38,20 +39,25 @@ class StatutoryAccountsPdfController extends Controller
 
         $report = $builder->build($company, $start, $end);
 
-        if ($request->query('format') === 'docx') {
-            return new Response($docx->render($company, $profile, $report), 200, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'Content-Disposition' => 'attachment; filename="'.$docx->filename($company, $report).'"',
+        // Accounts are delivered to Companies House in English (Companies Act
+        // 2006 s1103), so the documents are English whatever language the
+        // person downloading them reads the app in.
+        return Locales::using('en', function () use ($request, $company, $profile, $report, $pdf, $docx): Response {
+            if ($request->query('format') === 'docx') {
+                return new Response($docx->render($company, $profile, $report), 200, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'Content-Disposition' => 'attachment; filename="'.$docx->filename($company, $report).'"',
+                ]);
+            }
+
+            $bytes = $pdf->render($company, $profile, $report);
+            $filename = $pdf->filename($company, $report);
+
+            return new Response($bytes, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="'.$filename.'"',
             ]);
-        }
-
-        $bytes = $pdf->render($company, $profile, $report);
-        $filename = $pdf->filename($company, $report);
-
-        return new Response($bytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline').'; filename="'.$filename.'"',
-        ]);
+        });
     }
 
     private function date(mixed $value): ?CarbonImmutable

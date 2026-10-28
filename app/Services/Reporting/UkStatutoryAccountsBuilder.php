@@ -51,48 +51,47 @@ class UkStatutoryAccountsBuilder
     private Company $company;
 
     /**
+     * The ledger figures read so far, for the company loaded — one builder
+     * building several years (the report page's summary) reads each balance
+     * date and period once. Use a fresh builder after the ledger changes.
+     *
+     * @var array<string, array<int, int>>
+     */
+    private array $ledgerReads = [];
+
+    private ?int $loadedCompanyId = null;
+
+    /** The company's earliest posted entry date, or null when it has none. */
+    private ?CarbonImmutable $firstEntryDate = null;
+
+    /**
      * @return array<string, mixed>
      */
     public function build(Company $company, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $this->company = $company;
-        $this->accounts = Account::withoutGlobalScopes()
-            ->where('company_id', $company->id)
-            ->orderBy('code')
-            ->get();
-
-        foreach ($this->accounts as $account) {
-            $this->lineOf[$account->id] = UkStatutoryCatalog::lineFor($account);
-            $this->labelOf[$account->id] = UkStatutoryCatalog::labelFor($account);
-        }
+        $this->load($company);
 
         $start = $start->startOfDay();
         $end = $end->startOfDay();
         $priorStart = $start->subYear();
         $priorEnd = $start->subDay();
 
-        $hasPrior = DB::table('journal_lines')
-            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->where('journal_entries.company_id', $company->id)
-            ->where('journal_lines.is_posted', true)
-            ->where('journal_lines.entry_date', '<', $start->toDateString())
-            ->exists();
-
-        $sci = $this->sci($start, $end, $hasPrior ? $priorStart : null, $hasPrior ? $priorEnd : null);
+        $hasPrior = $this->firstEntryDate?->lt($start) ?? false;
 
         $sfpEnd = $this->sfp($end);
         $sfpStart = $this->sfp($priorEnd); // also the prior year's closing position
         $sfpPriorOpen = $hasPrior ? $this->sfp($priorStart->subDay()) : null;
 
-        // Chain retained earnings back from this year end so every year casts:
-        // last year's closing figure is this year's closing figure less this
-        // year's profit plus its dividends, and so on back. Each balance sheet is
-        // rounded on its own, so an earlier one can come out a pound different;
-        // that pound is taken up on its largest asset line, as accountants do.
-        $sfpStart = $this->castTo($sfpStart, $sfpEnd['retained_earnings'] - $sci['current']['profit_after_tax'] + $sci['current']['dividends'] - $this->genuineOther($sfpStart, $sfpEnd, $sci['current']));
-        if ($sfpPriorOpen !== null) {
-            $sfpPriorOpen = $this->castTo($sfpPriorOpen, $sfpStart['retained_earnings'] - $sci['prior']['profit_after_tax'] + $sci['prior']['dividends'] - $this->genuineOther($sfpPriorOpen, $sfpStart, $sci['prior']));
-        }
+        // Each balance sheet is presented exactly as its own rounded lines, so
+        // this year's comparative is last year's balance sheet as filed. The
+        // pound or two that rounding every line on its own leaves between the
+        // change in retained earnings and the rounded profit is taken up in
+        // that year's income statement — worked out from the balance sheets
+        // either side of it alone, so next year's comparative profit matches
+        // too, and a first year opens at nil.
+        $current = $this->castProfit($this->sciFor($start, $end), $sfpStart, $sfpEnd);
+        $prior = $hasPrior ? $this->castProfit($this->sciFor($priorStart, $priorEnd), $sfpPriorOpen, $sfpStart) : null;
+        $sci = ['current' => $current, 'prior' => $prior, 'expense_rows' => $this->expenseRows($current, $prior)];
 
         $soce = [
             'current' => $this->soce($sfpStart, $sfpEnd, $sci['current'], $start, $end),
@@ -176,16 +175,52 @@ class UkStatutoryAccountsBuilder
             ->all();
     }
 
+    /**
+     * Read the company's accounts and mapping, unless this builder already has.
+     */
+    private function load(Company $company): void
+    {
+        $this->company = $company;
+
+        if ($this->loadedCompanyId === $company->id) {
+            return;
+        }
+
+        $this->loadedCompanyId = $company->id;
+        $this->ledgerReads = [];
+        $this->lineOf = [];
+        $this->labelOf = [];
+        $this->accounts = Account::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->orderBy('code')
+            ->get();
+
+        foreach ($this->accounts as $account) {
+            $this->lineOf[$account->id] = UkStatutoryCatalog::lineFor($account);
+            $this->labelOf[$account->id] = UkStatutoryCatalog::labelFor($account);
+        }
+
+        $first = DB::table('journal_lines')
+            ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->where('accounts.company_id', $company->id)
+            ->where('journal_lines.is_posted', true)
+            ->min('journal_lines.entry_date');
+
+        $this->firstEntryDate = $first === null ? null : CarbonImmutable::parse((string) $first)->startOfDay();
+    }
+
     // ───────────────────────── Income statement ─────────────────────────
 
     /**
-     * @return array{current: array<string, mixed>, prior: array<string, mixed>|null, expense_rows: list<array{label: string, current: int, prior: int}>}
+     * The expenses block of the income statement, one row per caption across
+     * both years.
+     *
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>|null  $prior
+     * @return list<array{label: string, current: int, prior: int}>
      */
-    private function sci(CarbonImmutable $start, CarbonImmutable $end, ?CarbonImmutable $priorStart, ?CarbonImmutable $priorEnd): array
+    private function expenseRows(array $current, ?array $prior): array
     {
-        $current = $this->sciFor($start, $end);
-        $prior = $priorStart !== null ? $this->sciFor($priorStart, $priorEnd) : null;
-
         $labels = array_unique(array_merge(array_keys($current['expenses']), array_keys($prior['expenses'] ?? [])));
         natcasesort($labels);
 
@@ -198,7 +233,7 @@ class UkStatutoryAccountsBuilder
             ];
         }
 
-        return ['current' => $current, 'prior' => $prior, 'expense_rows' => $rows];
+        return $rows;
     }
 
     /**
@@ -298,7 +333,7 @@ class UkStatutoryAccountsBuilder
         $raw = $this->rawBalances($date);
 
         $single = [];
-        $byLabel = ['debtors' => [], 'creditors_within' => [], 'creditors_after' => []];
+        $byLabel = ['debtors' => [], 'creditors_within' => [], 'creditors_after' => [], 'cash' => []];
         $classes = [];
         $netAssetsPence = 0;
         $otherEquityPence = 0;
@@ -341,7 +376,10 @@ class UkStatutoryAccountsBuilder
 
         // Present balances on the side they belong: a creditor in debit (VAT
         // due back, an overpaid supplier) is a debtor, a debtor in credit is a
-        // creditor, and an overdrawn bank account is an overdraft.
+        // creditor, and an overdrawn bank account is an overdraft. Accounts
+        // sharing a caption net first — separate VAT input and output accounts
+        // are one balance with HMRC — but nothing else is set off: assets and
+        // liabilities may not be netted (SI 2008/409, Sch 1 para 8).
         foreach ($byLabel['creditors_within'] as $label => $pence) {
             if ($pence < 0) {
                 $byLabel['debtors'][$label] = ($byLabel['debtors'][$label] ?? 0) - $pence;
@@ -354,9 +392,16 @@ class UkStatutoryAccountsBuilder
                 unset($byLabel['debtors'][$label]);
             }
         }
-        if (($single['cash'] ?? 0) < 0) {
-            $byLabel['creditors_within']['Bank loans and overdrafts'] = ($byLabel['creditors_within']['Bank loans and overdrafts'] ?? 0) - $single['cash'];
-            $single['cash'] = 0;
+        // A bank account's caption defaults to its own name, so each overdrawn
+        // account is an overdraft unless the accountant captions accounts with a
+        // set-off arrangement alike.
+        $single['cash'] = 0;
+        foreach ($byLabel['cash'] as $pence) {
+            if ($pence < 0) {
+                $byLabel['creditors_within']['Bank loans and overdrafts'] = ($byLabel['creditors_within']['Bank loans and overdrafts'] ?? 0) - $pence;
+            } else {
+                $single['cash'] += $pence;
+            }
         }
 
         $tangibleByClass = [];
@@ -454,53 +499,43 @@ class UkStatutoryAccountsBuilder
     }
 
     /**
-     * Restate a balance sheet so its retained earnings are the given figure,
-     * taking the (rounding-sized) difference up on cash, or failing that the
-     * largest debtor, or failing that the largest creditor.
+     * Make a year's rounded profit agree with the change in retained earnings
+     * between its two (rounded) balance sheets, taking the rounding-sized
+     * difference up on the largest expense line, or failing that turnover, as
+     * accountants do. The balance sheets are left exactly as they round.
      *
-     * @param  array<string, mixed>  $sfp
+     * @param  array<string, mixed>  $sci
+     * @param  array<string, mixed>  $open
+     * @param  array<string, mixed>  $close
      * @return array<string, mixed>
      */
-    private function castTo(array $sfp, int $retained): array
+    private function castProfit(array $sci, array $open, array $close): array
     {
-        $diff = $retained - $sfp['retained_earnings'];
-        $sfp['rounding_adjustment'] = $diff;
+        $profit = $close['retained_earnings'] - $open['retained_earnings'] + $sci['dividends'] - $this->genuineOther($open, $close, $sci);
+        $diff = $profit - $sci['profit_after_tax'];
+        $sci['rounding_adjustment'] = $diff;
 
         if ($diff === 0) {
-            return $sfp;
+            return $sci;
         }
 
-        $largest = function (array $byLabel): ?string {
-            if ($byLabel === []) {
-                return null;
-            }
-            arsort($byLabel);
-
-            return (string) array_key_first($byLabel);
-        };
-
-        if ($sfp['cash'] !== 0) {
-            $sfp['cash'] += $diff;
-            $sfp['current_total'] += $diff;
-        } elseif (($label = $largest($sfp['debtors_by_label'])) !== null) {
-            $sfp['debtors_by_label'][$label] += $diff;
-            $sfp['debtors'] += $diff;
-            $sfp['current_total'] += $diff;
-        } elseif (($label = $largest($sfp['creditors_within_by_label'])) !== null) {
-            $sfp['creditors_within_by_label'][$label] -= $diff;
-            $sfp['creditors_within'] -= $diff;
+        if ($sci['expenses'] !== []) {
+            // More profit is less expense. The FRS 105 re-cut shows it in
+            // other charges, so both layouts still add up.
+            $label = array_keys($sci['expenses'], max($sci['expenses']), true)[0];
+            $sci['expenses'][$label] -= $diff;
+            $sci['expense_total'] -= $diff;
+            $sci['other_charges'] -= $diff;
         } else {
-            $sfp['cash'] += $diff;
-            $sfp['current_total'] += $diff;
+            $sci['turnover'] += $diff;
+            $sci['gross_profit'] += $diff;
         }
 
-        $sfp['net_current_assets'] += $diff;
-        $sfp['total_assets_less_current_liabilities'] += $diff;
-        $sfp['net_assets'] += $diff;
-        $sfp['equity_total'] += $diff;
-        $sfp['retained_earnings'] = $retained;
+        $sci['operating_profit'] += $diff;
+        $sci['profit_before_tax'] += $diff;
+        $sci['profit_after_tax'] = $profit;
 
-        return $sfp;
+        return $sci;
     }
 
     // ───────────────────────── Changes in equity ─────────────────────────
@@ -520,8 +555,8 @@ class UkStatutoryAccountsBuilder
         $dividends = $sci['dividends'];
         $sharesIssued = $close['share_capital'] - $open['share_capital'];
         $otherReserveMovement = $otherClose - $otherOpen;
-        // The balance sheets are already chained (see castTo), so this is only
-        // ever a genuine movement through reserves.
+        // The profit already casts to the balance sheets (see castProfit), so
+        // this is only ever a genuine movement through reserves.
         $openingRetained = $open['retained_earnings'];
         $otherMovements = $close['retained_earnings'] - $openingRetained - $profit + $dividends;
 
@@ -712,8 +747,12 @@ class UkStatutoryAccountsBuilder
             $type = UkStatutoryCatalog::typeOf($account);
             $isPl = in_array($type, [AccountType::Income, AccountType::Expense], true);
 
-            if ($line === 'excluded' && (int) ($movements[$account->id] ?? 0) !== 0) {
-                $warnings[] = __(':account is excluded from the statutory accounts but has activity this year; it only shows through retained earnings.', ['account' => $account->displayName()]);
+            // An excluded balance sheet account still holds its balance, which
+            // drops out of net assets into retained earnings even in a quiet year.
+            $hasAmount = (int) ($movements[$account->id] ?? 0) !== 0 || (! $isPl && (int) ($balances[$account->id] ?? 0) !== 0);
+
+            if ($line === 'excluded' && $hasAmount) {
+                $warnings[] = __(':account is excluded from the statutory accounts but has a balance or activity this year; it only shows through retained earnings.', ['account' => $account->displayName()]);
             } elseif (! $isPl && $type !== AccountType::Equity && $statement === UkStatutoryCatalog::SCI && (int) ($balances[$account->id] ?? 0) !== 0) {
                 $warnings[] = __(':account is a balance sheet account mapped to an income statement line.', ['account' => $account->displayName()]);
             } elseif ($isPl && $statement === UkStatutoryCatalog::SFP && (int) ($movements[$account->id] ?? 0) !== 0) {
@@ -731,7 +770,7 @@ class UkStatutoryAccountsBuilder
      */
     private function rawBalances(CarbonImmutable $date): array
     {
-        return $this->rawQuery()
+        return $this->ledgerReads['balance:'.$date->toDateString()] ??= $this->rawQuery()
             ->where('journal_lines.entry_date', '<=', $date->toDateString())
             ->pluck('raw', 'account_id')
             ->map(fn ($v) => (int) $v)
@@ -745,7 +784,7 @@ class UkStatutoryAccountsBuilder
      */
     private function rawMovements(CarbonImmutable $start, CarbonImmutable $end): array
     {
-        return $this->rawQuery()
+        return $this->ledgerReads['movement:'.$start->toDateString().':'.$end->toDateString()] ??= $this->rawQuery()
             ->whereBetween('journal_lines.entry_date', [$start->toDateString(), $end->toDateString()])
             ->pluck('raw', 'account_id')
             ->map(fn ($v) => (int) $v)

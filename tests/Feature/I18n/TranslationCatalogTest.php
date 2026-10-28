@@ -1,8 +1,11 @@
 <?php
 
+use App\Support\Statutory\StatutoryAccountsProfile;
+use App\Support\Statutory\UkStatutoryCatalog;
 use App\Support\Translation\ChartCopy;
 use App\Support\Translation\GifiCopy;
 use App\Support\Translation\KeyExtractor;
+use App\Support\Translation\StatutoryCopy;
 use App\Support\Translation\TaxCopy;
 
 it('registers starter chart names for translation', function () {
@@ -15,6 +18,23 @@ it('registers seeded tax codes for translation', function () {
 
 it('registers GIFI catalog strings for translation', function () {
     expect(GifiCopy::strings())->not->toBeEmpty();
+});
+
+it('registers every UK statutory accounts picker string for translation', function () {
+    $shown = [
+        ...array_column(UkStatutoryCatalog::all(), 'label'),
+        ...array_keys(UkStatutoryCatalog::options()),
+        ...array_values(StatutoryAccountsProfile::frameworks()),
+        ...array_values(StatutoryAccountsProfile::regimes()),
+    ];
+
+    expect(array_values(array_diff($shown, StatutoryCopy::strings())))->toBe([]);
+});
+
+it('leaves the English-only statutory accounts documents out of the catalog', function () {
+    expect(KeyExtractor::keys())
+        ->not->toContain('The notes on :pages form part of these financial statements.')
+        ->toContain('Statement of Financial Position');
 });
 
 it('has a French catalog entry for every static translation key', function () {

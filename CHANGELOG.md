@@ -24,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shareholdings, policies, note text, approval and signatories — live on the
   report. Download as a PDF to file, or as a Word document (same layout, live
   page-number fields) to edit before filing; the Accounts tab summarises every
-  year from the one picked to the latest. New `accounts.statutory_line` /
+  year from the one picked to the latest. The documents are always in English,
+  as Companies House takes them, and changing the mapping or the company
+  details needs access to Accounting. New `accounts.statutory_line` /
   `statutory_label` columns; adds `phpoffice/phpword`.
 
 ### Changed
