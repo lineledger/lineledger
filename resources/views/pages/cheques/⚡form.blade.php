@@ -1167,7 +1167,7 @@ new #[Title('Cheque')] class extends Component
                 <tfoot class="hidden bg-muted lg:table-footer-group">
                     @foreach ($this->taxBreakdown as $taxRow)
                         <tr data-test="cheque-tax-row">
-                            <td colspan="{{ 4 + $this->dimensionColumns }}" class="px-2 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
+                            <td colspan="{{ 4 + $this->dimensionColumns }}" class="px-2 py-2 text-right font-medium">{{ LineTaxBreakdown::labelWithRate($taxRow['label'], $taxRow['rate']) }}</td>
                             <td class="px-2 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                             <td></td>
                         </tr>
@@ -1183,7 +1183,7 @@ new #[Title('Cheque')] class extends Component
             {{-- Mobile totals (tfoot is desktop-only) --}}
             <div class="space-y-1 border-t border-border bg-muted px-3 py-3 text-sm lg:hidden">
                 @foreach ($this->taxBreakdown as $taxRow)
-                    <div class="flex justify-between"><span class="font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
+                    <div class="flex justify-between"><span class="font-medium">{{ LineTaxBreakdown::labelWithRate($taxRow['label'], $taxRow['rate']) }}</span><span class="font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</span></div>
                 @endforeach
                 <div class="flex justify-between text-base"><span class="font-semibold">{{ __('Total') }}</span><span class="font-mono font-semibold">{{ number_format($this->totalCents() / 100, 2) }}</span></div>
             </div>

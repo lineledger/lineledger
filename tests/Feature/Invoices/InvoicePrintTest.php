@@ -112,8 +112,8 @@ it('renders customer-facing content without GL account codes', function () {
         ->toContain('INV-PRINT-1')
         ->toContain('Chavez, Isaac Jr.')
         ->toContain('123 Main St')
-        ->toContain('GST (5%)')
-        ->toContain('5.00%')
+        ->toContain('<td>GST (5%)</td>')
+        ->not->toContain('5.00%')
         ->toContain('GST/HST No.')
         ->toContain('123456789 RT0001')
         ->toContain('Thank you for your business')
@@ -384,7 +384,10 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->toContain('123456789 RT0001')
         ->toContain('N° TVQ')
         ->toContain('1234567890 TQ 0001')
-        ->toContain('TVQ (9,975 %) 9.975%');
+        ->toContain('TVQ (9,975 %)')
+        ->toContain('TPS (5 %)')
+        ->not->toContain('9.975%')
+        ->not->toContain('5.00%');
 
     // Customer with English locale gets English headers and labels
     $customerEn = Contact::create([
@@ -430,7 +433,10 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->toContain('123456789 RT0001')
         ->toContain('QST No.')
         ->toContain('1234567890 TQ 0001')
-        ->toContain('QST (9.975%) 9.975%');
+        ->toContain('QST (9.975%)')
+        ->toContain('GST (5%)')
+        ->not->toContain('QST (9.975%) 9.975%')
+        ->not->toContain('GST (5%) 5.00%');
 
     // When show_tax_number is false, neither tax number prints
     InvoiceSetting::updateOrCreate(

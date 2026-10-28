@@ -25,6 +25,25 @@ final class LineTaxBreakdown
     }
 
     /**
+     * A tax row's label with its rate: "PST 7.00%". Seeded names already carry
+     * the rate ("GST (5%)", "TVQ (9,975 %)"), so it is added only when the name
+     * doesn't show this rate. A name left showing an old rate still gets the
+     * real one beside it, so a document never states the wrong rate on its own.
+     */
+    public static function labelWithRate(string $label, float|int|string|null $rate): string
+    {
+        preg_match_all('/(\d+(?:[.,]\d+)?)[\s\x{00A0}\x{202F}]*%/u', $label, $matches);
+
+        foreach ($matches[1] as $shown) {
+            if (abs((float) str_replace(',', '.', $shown) - (float) $rate) < 0.00001) {
+                return $label;
+            }
+        }
+
+        return trim($label.' '.self::formatRate($rate).'%');
+    }
+
+    /**
      * Group document lines by tax code, summing the primary and secondary tax on
      * each. Lines must expose `taxCode` and `secondaryTaxCode`/`secondary_tax_cents`,
      * plus the primary tax as `line_tax_cents` (invoice, bill, … lines) or

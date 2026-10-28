@@ -66,7 +66,8 @@ it('shows translated tax and agency names on the French estimate show page', fun
     app()->setLocale('fr');
 
     Livewire::test('pages::estimates.show', ['company' => $this->company, 'estimate' => $estimate])
-        ->assertSee('TVQ (9,975 %) 9.975%')
+        ->assertSee('TVQ (9,975 %)')
+        ->assertDontSee('9.975%')
         ->assertDontSee('TVQ 9.98%')
         ->assertSee('Agence du revenu du Canada');
 });
