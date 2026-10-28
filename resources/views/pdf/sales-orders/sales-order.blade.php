@@ -182,7 +182,7 @@
         </tr>
         @foreach ($taxSummary as $tax)
             <tr>
-                <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>
+                <td>{{ LineTaxBreakdown::labelWithRate($tax['label'], $tax['rate']) }}</td>
                 <td class="num">{{ number_format($tax['tax_cents'] / 100, 2) }}</td>
             </tr>
         @endforeach

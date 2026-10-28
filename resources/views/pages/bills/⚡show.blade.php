@@ -258,7 +258,7 @@ new #[Title('Bill')] class extends Component {
                 @endphp
                 @forelse ($taxRows as $taxRow)
                     <tr data-test="bill-tax-row">
-                        <td colspan="7" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
+                        <td colspan="7" class="px-4 py-2 text-right font-medium">{{ LineTaxBreakdown::labelWithRate($taxRow['label'], $taxRow['rate']) }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @empty

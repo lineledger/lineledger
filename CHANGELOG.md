@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correct whatever the sort, page or Show cleared setting. Long registers page
   50 rows at a time instead of loading every line at once.
 
+### Fixed
+
+- **Tax rows print the rate once.** The built-in tax names already include
+  their rate, so totals read "GST (5%) 5.00%" on invoices, estimates, sales
+  orders, credit memos, bills, purchase orders and vendor credits, on screen
+  and in the PDF. The rate is now added only when the name doesn't already
+  show it ("PST 7.00%" for a code named "PST"). If a name still shows an old
+  rate, the real rate is printed beside it.
+
 ## [1.3.1] - 2026-10-24
 
 **Highlights.** A patch for the first sign-in on a new install: a site admin
