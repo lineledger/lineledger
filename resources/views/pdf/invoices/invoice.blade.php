@@ -217,6 +217,12 @@
             <td>{{ __('Subtotal') }}</td>
             <td class="num">{{ number_format($invoice->subtotal_cents / 100, 2) }}</td>
         </tr>
+        @if ((int) $invoice->document_discount_cents !== 0)
+            <tr>
+                <td>{{ __('Discount') }}</td>
+                <td class="num">-{{ number_format($invoice->document_discount_cents / 100, 2) }}</td>
+            </tr>
+        @endif
         @foreach ($taxSummary as $tax)
             <tr>
                 <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>

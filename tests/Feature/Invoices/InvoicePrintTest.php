@@ -445,3 +445,21 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->not->toContain('123456789 RT0001')
         ->not->toContain('1234567890 TQ 0001');
 });
+
+it('prints the document discount between the subtotal and the tax', function () {
+    $invoice = makePostedInvoice($this);
+    $render = fn () => app(InvoicePdfRenderer::class)->html($this->company, $invoice->fresh());
+
+    expect($render())->not->toContain('>Discount<');
+
+    $invoice->forceFill(['document_discount_cents' => 1000])->save();
+    $invoice->recalculateTotals();
+    $html = $render();
+
+    // 50.00 − 10.00 discount + 2.50 GST = 42.50
+    expect($html)->toContain('<td>Discount</td>')
+        ->and($html)->toContain('-10.00')
+        ->and($html)->toContain('$42.50')
+        ->and(strpos($html, '>Subtotal<'))->toBeLessThan(strpos($html, '>Discount<'))
+        ->and(strpos($html, '>Discount<'))->toBeLessThan(strpos($html, '>Total<'));
+});

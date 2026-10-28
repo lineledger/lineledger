@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correct whatever the sort, page or Show cleared setting. Long registers page
   50 rows at a time instead of loading every line at once.
 
+### Fixed
+
+- **The classic invoice prints its document discount.** An invoice with a
+  discount on the whole document printed the subtotal, tax and total with
+  nothing between them, so the figures did not add up on the page. The
+  discount now prints between the subtotal and the tax.
+
 ## [1.3.1] - 2026-10-24
 
 **Highlights.** A patch for the first sign-in on a new install: a site admin
