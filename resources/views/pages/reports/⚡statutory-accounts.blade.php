@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\JurisdictionCapability;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Company;
 use App\Services\Reporting\UkStatutoryAccountsBuilder;
@@ -8,6 +9,7 @@ use App\Support\Statutory\StatutoryAccountsProfile;
 use App\Support\Statutory\UkStatutoryCatalog;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -70,6 +72,21 @@ new #[Title('Statutory Accounts')] class extends Component
     private function validDate(string $value): bool
     {
         return $value !== '' && strtotime($value) !== false;
+    }
+
+    /**
+     * The page sits in Reports, but the mapping and the company details change
+     * what every later set of accounts says — chart-of-accounts work. A member
+     * who can reach Reports but not Accounting can view and download only.
+     */
+    #[Computed]
+    public function canEdit(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null
+            && $this->company->sectionEnabled(Section::Accounting)
+            && $user->canAccessSection($this->company, Section::Accounting);
     }
 
     /**
@@ -236,6 +253,8 @@ new #[Title('Statutory Accounts')] class extends Component
 
     public function setLine(int $accountId, string $line): void
     {
+        abort_unless($this->canEdit, 403);
+
         $account = $this->ownedAccount($accountId);
         $account->forceFill(['statutory_line' => UkStatutoryCatalog::exists($line) ? $line : null])->save();
         $this->refresh();
@@ -244,6 +263,8 @@ new #[Title('Statutory Accounts')] class extends Component
 
     public function setLabel(int $accountId, string $label): void
     {
+        abort_unless($this->canEdit, 403);
+
         $account = $this->ownedAccount($accountId);
         $label = trim(mb_substr($label, 0, 120));
         $account->forceFill(['statutory_label' => $label === '' ? null : $label])->save();
@@ -285,6 +306,8 @@ new #[Title('Statutory Accounts')] class extends Component
 
     public function saveDetails(): void
     {
+        abort_unless($this->canEdit, 403);
+
         $this->validate([
             'form.framework' => ['required', 'in:'.implode(',', array_keys(StatutoryAccountsProfile::frameworks()))],
             'form.regime' => ['required', 'in:'.implode(',', array_keys(StatutoryAccountsProfile::regimes()))],
@@ -316,7 +339,9 @@ new #[Title('Statutory Accounts')] class extends Component
      */
     public function updatedFormFramework(string $framework): void
     {
-        $profile = StatutoryAccountsProfile::fromArray(array_merge($this->profile()->toArray(), ['framework' => $framework]));
+        abort_unless($this->canEdit, 403);
+
+        $profile =StatutoryAccountsProfile::fromArray(array_merge($this->profile()->toArray(), ['framework' => $framework]));
         $profile->save($this->company);
         $this->form['framework'] = $profile->framework;
         $this->refresh();
@@ -344,7 +369,7 @@ new #[Title('Statutory Accounts')] class extends Component
                 <flux:button wire:click="shiftYear(1)" icon="chevron-right" :aria-label="__('Next year')" />
             </flux:button.group>
             <div style="width: 17rem;">
-                <flux:select wire:model.live="form.framework" :label="__('Framework')" data-test="statutory-framework">
+                <flux:select wire:model.live="form.framework" :label="__('Framework')" :disabled="! $this->canEdit" data-test="statutory-framework">
                     @foreach ($frameworks as $value => $label)
                         <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
                     @endforeach
@@ -371,6 +396,10 @@ new #[Title('Statutory Accounts')] class extends Component
                 class="-mb-px border-b-2 px-4 py-2 text-sm {{ $tab === $key ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground' }}">{{ $label }}</button>
         @endforeach
     </div>
+
+    @if ($tab !== 'accounts' && ! $this->canEdit)
+        <flux:callout icon="lock-closed" class="mb-4" data-test="statutory-read-only">{{ __('You can view and download these accounts. Changing the account mapping or the company details needs access to Accounting.') }}</flux:callout>
+    @endif
 
     {{-- ───────────── Accounts: summary + PDF preview ───────────── --}}
     @if ($tab === 'accounts')
@@ -476,7 +505,7 @@ new #[Title('Statutory Accounts')] class extends Component
                             <td class="px-3 py-2"><span class="font-mono text-muted-foreground">{{ $row['code'] }}</span> {{ $row['name'] }}</td>
                             <td class="px-3 py-2">
                                 <select class="w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm {{ $row['explicit_line'] ? 'font-medium' : 'text-muted-foreground' }}"
-                                    wire:change="setLine({{ $row['id'] }}, $event.target.value)" data-test="statutory-line-{{ $row['id'] }}">
+                                    wire:change="setLine({{ $row['id'] }}, $event.target.value)" @disabled(! $this->canEdit) data-test="statutory-line-{{ $row['id'] }}">
                                     <option value="">{{ __('Default') }} — {{ __(UkStatutoryCatalog::label($row['default_line'])) }}</option>
                                     @foreach (UkStatutoryCatalog::options() as $group => $options)
                                         <optgroup label="{{ __($group) }}">
@@ -490,7 +519,7 @@ new #[Title('Statutory Accounts')] class extends Component
                             <td class="px-3 py-2">
                                 <input type="text" value="{{ $row['explicit_label'] ? $row['label'] : '' }}" placeholder="{{ $row['label'] }}"
                                     class="w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm"
-                                    wire:change="setLabel({{ $row['id'] }}, $event.target.value)" data-test="statutory-label-{{ $row['id'] }}" />
+                                    wire:change="setLabel({{ $row['id'] }}, $event.target.value)" @disabled(! $this->canEdit) data-test="statutory-label-{{ $row['id'] }}" />
                             </td>
                         </tr>
                     @endforeach
@@ -501,95 +530,100 @@ new #[Title('Statutory Accounts')] class extends Component
 
     {{-- ───────────── Company details ───────────── --}}
     @if ($tab === 'details')
-        <form wire:submit="saveDetails" class="max-w-4xl space-y-6">
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <flux:select wire:model="form.regime" :label="__('Prepared under')">
-                    @foreach (StatutoryAccountsProfile::regimes() as $value => $label)
-                        <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:input type="number" min="1" max="31" wire:model="form.year_end_day" :label="__('Year-end day')" />
-                    <flux:select wire:model="form.year_end_month" :label="__('Year-end month')">
-                        @foreach (range(1, 12) as $m)
-                            <flux:select.option :value="$m">{{ \Carbon\Carbon::create(2001, $m, 1)->translatedFormat('F') }}</flux:select.option>
+        <form wire:submit="saveDetails" class="max-w-4xl">
+            {{-- A disabled fieldset disables every control inside it, Flux's included. --}}
+            <fieldset class="min-w-0 space-y-6" @disabled(! $this->canEdit) data-test="statutory-details-fields">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <flux:select wire:model="form.regime" :label="__('Prepared under')">
+                        @foreach (StatutoryAccountsProfile::regimes() as $value => $label)
+                            <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
                         @endforeach
                     </flux:select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:input type="number" min="1" max="31" wire:model="form.year_end_day" :label="__('Year-end day')" />
+                        <flux:select wire:model="form.year_end_month" :label="__('Year-end month')">
+                            @foreach (range(1, 12) as $m)
+                                <flux:select.option :value="$m">{{ \Carbon\Carbon::create(2001, $m, 1)->translatedFormat('F') }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <flux:input wire:model="form.company_number" :label="__('Company number')" />
+                    <flux:input wire:model="form.incorporated_in" :label="__('Incorporated in')" :placeholder="__('England and Wales')" />
+                    <flux:textarea wire:model="form.registered_office" :label="__('Registered office')" rows="4" />
+                    <flux:textarea wire:model="form.principal_activity" :label="__('Principal activity')" rows="4" />
                 </div>
-                <flux:input wire:model="form.company_number" :label="__('Company number')" />
-                <flux:input wire:model="form.incorporated_in" :label="__('Incorporated in')" :placeholder="__('England and Wales')" />
-                <flux:textarea wire:model="form.registered_office" :label="__('Registered office')" rows="4" />
-                <flux:textarea wire:model="form.principal_activity" :label="__('Principal activity')" rows="4" />
-            </div>
 
-            <div>
-                <flux:heading size="md" class="mb-2">{{ __('Directors') }}</flux:heading>
-                <flux:text class="mb-2 block text-muted-foreground">{{ __('Shares held at the year end and the year before, for the directors’ report. Leave blank for none.') }}</flux:text>
-                @if ($form['directors'] !== [])
-                    <div class="mb-1 grid gap-2 text-sm font-medium" style="grid-template-columns: 1fr 9rem 9rem 2.5rem;">
-                        <span>{{ __('Name') }}</span><span>{{ __('Shares (this year)') }}</span><span>{{ __('Shares (last year)') }}</span><span></span>
+                <div>
+                    <flux:heading size="md" class="mb-2">{{ __('Directors') }}</flux:heading>
+                    <flux:text class="mb-2 block text-muted-foreground">{{ __('Shares held at the year end and the year before, for the directors’ report. Leave blank for none.') }}</flux:text>
+                    @if ($form['directors'] !== [])
+                        <div class="mb-1 grid gap-2 text-sm font-medium" style="grid-template-columns: 1fr 9rem 9rem 2.5rem;">
+                            <span>{{ __('Name') }}</span><span>{{ __('Shares (this year)') }}</span><span>{{ __('Shares (last year)') }}</span><span></span>
+                        </div>
+                    @endif
+                    @foreach ($form['directors'] as $i => $d)
+                        <div class="mb-2 grid items-center gap-2" style="grid-template-columns: 1fr 9rem 9rem 2.5rem;" wire:key="dir-{{ $i }}">
+                            <flux:input wire:model="form.directors.{{ $i }}.name" :aria-label="__('Name')" />
+                            <flux:input wire:model="form.directors.{{ $i }}.shares_current" :aria-label="__('Shares (this year)')" />
+                            <flux:input wire:model="form.directors.{{ $i }}.shares_prior" :aria-label="__('Shares (last year)')" />
+                            <flux:button wire:click="removeDirector({{ $i }})" icon="trash" variant="ghost" :aria-label="__('Remove')" />
+                        </div>
+                    @endforeach
+                    <flux:button wire:click="addDirector" icon="plus" size="sm">{{ __('Add director') }}</flux:button>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <flux:input wire:model="form.secretary" :label="__('Secretary')" />
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:input wire:model="form.directors_report_signatory" :label="__('Directors’ report signed by')" />
+                        <flux:input wire:model="form.directors_report_signatory_role" :label="__('as')" :placeholder="__('Director')" />
+                    </div>
+                    <flux:textarea wire:model="form.signatories" :label="__('Balance sheet signed by (one per line)')" rows="2" :placeholder="__('Defaults to the first two directors')" />
+                    <flux:input type="date" wire:model="form.approval_date" :label="__('Approved by the board on')" :description="__('Leave blank to print a dotted line.')" />
+                </div>
+
+                <div>
+                    <flux:heading size="md" class="mb-2">{{ __('Depreciation rates') }}</flux:heading>
+                    @if ($form['depreciation_rates'] !== [])
+                        <div class="mb-1 grid gap-2 text-sm font-medium" style="grid-template-columns: 1fr 7rem 14rem 2.5rem;">
+                            <span>{{ __('Asset class') }}</span><span>{{ __('Rate') }}</span><span>{{ __('Method') }}</span><span></span>
+                        </div>
+                    @endif
+                    @foreach ($form['depreciation_rates'] as $i => $rate)
+                        <div class="mb-2 grid items-center gap-2" style="grid-template-columns: 1fr 7rem 14rem 2.5rem;" wire:key="rate-{{ $i }}">
+                            <flux:input wire:model="form.depreciation_rates.{{ $i }}.class" :aria-label="__('Asset class')" />
+                            <flux:input wire:model="form.depreciation_rates.{{ $i }}.rate" :aria-label="__('Rate')" />
+                            <flux:input wire:model="form.depreciation_rates.{{ $i }}.method" :aria-label="__('Method')" />
+                            <flux:button wire:click="removeRate({{ $i }})" icon="trash" variant="ghost" :aria-label="__('Remove')" />
+                        </div>
+                    @endforeach
+                    <flux:button wire:click="addRate" icon="plus" size="sm">{{ __('Add rate') }}</flux:button>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <flux:input wire:model="form.authorised_shares" :label="__('Authorised share capital')" :placeholder="__('2,000 ordinary shares of £1 each')" />
+                    <flux:input wire:model="form.issued_shares" :label="__('Issued share capital')" :placeholder="__('1 ordinary share of £1')" />
+                    <flux:input type="number" min="0" wire:model="form.average_employees" :label="__('Average number of employees')" />
+                    <div></div>
+                    <flux:textarea wire:model="form.judgements_note" :label="__('Critical accounting estimates and judgements')" rows="3" />
+                    <flux:textarea wire:model="form.taxation_note" :label="__('Taxation note')" rows="3" />
+                    <flux:textarea wire:model="form.creditors_after_narrative" :label="__('Long-term creditors note narrative')" rows="3" />
+                    <flux:textarea wire:model="form.related_parties" :label="__('Related party transactions')" rows="3" />
+                    <flux:textarea wire:model="form.directors_advances" :label="__('Advances, credits and guarantees to directors')" rows="3" />
+                    <flux:textarea wire:model="form.guarantees" :label="__('Guarantees and other financial commitments')" rows="3" />
+                </div>
+
+                @if (($form['framework'] ?? '') === StatutoryAccountsProfile::FRAMEWORK_FRS105)
+                    <div class="space-y-2">
+                        <flux:checkbox wire:model="form.include_directors_report" :label="__('Include the directors’ report')" />
+                        <flux:checkbox wire:model="form.include_profit_and_loss_for_micro" :label="__('Include the profit and loss account (micro-entities need not file it)')" />
                     </div>
                 @endif
-                @foreach ($form['directors'] as $i => $d)
-                    <div class="mb-2 grid items-center gap-2" style="grid-template-columns: 1fr 9rem 9rem 2.5rem;" wire:key="dir-{{ $i }}">
-                        <flux:input wire:model="form.directors.{{ $i }}.name" :aria-label="__('Name')" />
-                        <flux:input wire:model="form.directors.{{ $i }}.shares_current" :aria-label="__('Shares (this year)')" />
-                        <flux:input wire:model="form.directors.{{ $i }}.shares_prior" :aria-label="__('Shares (last year)')" />
-                        <flux:button wire:click="removeDirector({{ $i }})" icon="trash" variant="ghost" :aria-label="__('Remove')" />
-                    </div>
-                @endforeach
-                <flux:button wire:click="addDirector" icon="plus" size="sm">{{ __('Add director') }}</flux:button>
-            </div>
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <flux:input wire:model="form.secretary" :label="__('Secretary')" />
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:input wire:model="form.directors_report_signatory" :label="__('Directors’ report signed by')" />
-                    <flux:input wire:model="form.directors_report_signatory_role" :label="__('as')" :placeholder="__('Director')" />
-                </div>
-                <flux:textarea wire:model="form.signatories" :label="__('Balance sheet signed by (one per line)')" rows="2" :placeholder="__('Defaults to the first two directors')" />
-                <flux:input type="date" wire:model="form.approval_date" :label="__('Approved by the board on')" :description="__('Leave blank to print a dotted line.')" />
-            </div>
-
-            <div>
-                <flux:heading size="md" class="mb-2">{{ __('Depreciation rates') }}</flux:heading>
-                @if ($form['depreciation_rates'] !== [])
-                    <div class="mb-1 grid gap-2 text-sm font-medium" style="grid-template-columns: 1fr 7rem 14rem 2.5rem;">
-                        <span>{{ __('Asset class') }}</span><span>{{ __('Rate') }}</span><span>{{ __('Method') }}</span><span></span>
-                    </div>
+                @if ($this->canEdit)
+                    <flux:button type="submit" variant="primary" data-test="statutory-save">{{ __('Save details') }}</flux:button>
                 @endif
-                @foreach ($form['depreciation_rates'] as $i => $rate)
-                    <div class="mb-2 grid items-center gap-2" style="grid-template-columns: 1fr 7rem 14rem 2.5rem;" wire:key="rate-{{ $i }}">
-                        <flux:input wire:model="form.depreciation_rates.{{ $i }}.class" :aria-label="__('Asset class')" />
-                        <flux:input wire:model="form.depreciation_rates.{{ $i }}.rate" :aria-label="__('Rate')" />
-                        <flux:input wire:model="form.depreciation_rates.{{ $i }}.method" :aria-label="__('Method')" />
-                        <flux:button wire:click="removeRate({{ $i }})" icon="trash" variant="ghost" :aria-label="__('Remove')" />
-                    </div>
-                @endforeach
-                <flux:button wire:click="addRate" icon="plus" size="sm">{{ __('Add rate') }}</flux:button>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <flux:input wire:model="form.authorised_shares" :label="__('Authorised share capital')" :placeholder="__('2,000 ordinary shares of £1 each')" />
-                <flux:input wire:model="form.issued_shares" :label="__('Issued share capital')" :placeholder="__('1 ordinary share of £1')" />
-                <flux:input type="number" min="0" wire:model="form.average_employees" :label="__('Average number of employees')" />
-                <div></div>
-                <flux:textarea wire:model="form.judgements_note" :label="__('Critical accounting estimates and judgements')" rows="3" />
-                <flux:textarea wire:model="form.taxation_note" :label="__('Taxation note')" rows="3" />
-                <flux:textarea wire:model="form.creditors_after_narrative" :label="__('Long-term creditors note narrative')" rows="3" />
-                <flux:textarea wire:model="form.related_parties" :label="__('Related party transactions')" rows="3" />
-                <flux:textarea wire:model="form.directors_advances" :label="__('Advances, credits and guarantees to directors')" rows="3" />
-                <flux:textarea wire:model="form.guarantees" :label="__('Guarantees and other financial commitments')" rows="3" />
-            </div>
-
-            @if (($form['framework'] ?? '') === StatutoryAccountsProfile::FRAMEWORK_FRS105)
-                <div class="space-y-2">
-                    <flux:checkbox wire:model="form.include_directors_report" :label="__('Include the directors’ report')" />
-                    <flux:checkbox wire:model="form.include_profit_and_loss_for_micro" :label="__('Include the profit and loss account (micro-entities need not file it)')" />
-                </div>
-            @endif
-
-            <flux:button type="submit" variant="primary" data-test="statutory-save">{{ __('Save details') }}</flux:button>
+            </fieldset>
         </form>
     @endif
 </section>

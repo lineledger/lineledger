@@ -3,6 +3,7 @@
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\Country;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -324,6 +325,57 @@ it('lets the mapping and company details be edited on the report page', function
     // The framework switch saves straight away.
     $page->set('form.framework', StatutoryAccountsProfile::FRAMEWORK_FRS105);
     expect(StatutoryAccountsProfile::forCompany($this->company->fresh())->isMicro())->toBeTrue();
+});
+
+it('lets a member without Accounting view the accounts but not change them', function () {
+    $viewer = User::factory()->create();
+    $this->company->memberships()->create([
+        'user_id' => $viewer->id,
+        'role' => CompanyRole::Custom,
+        'sections' => [Section::Reports->value],
+    ]);
+    $this->actingAs($viewer);
+
+    $page = fn () => Livewire::test('pages::reports.statutory-accounts', ['company' => $this->company]);
+
+    $page()->assertOk()->assertSeeHtml('data-test="statutory-summary"');
+    $page()->set('tab', 'mapping')->assertSeeHtml('data-test="statutory-read-only"');
+    $page()->set('tab', 'details')
+        ->assertSeeHtml('data-test="statutory-read-only"')
+        ->assertDontSeeHtml('data-test="statutory-save"');
+
+    $page()->call('setLine', $this->a['rent']->id, 'administrative_expenses')->assertForbidden();
+    $page()->call('setLabel', $this->a['rent']->id, 'Premises costs')->assertForbidden();
+    $page()->set('form.principal_activity', 'Web design.')->call('saveDetails')->assertForbidden();
+    $page()->set('form.framework', StatutoryAccountsProfile::FRAMEWORK_FRS105)->assertForbidden();
+
+    expect($this->a['rent']->fresh())
+        ->statutory_line->toBeNull()
+        ->statutory_label->toBeNull()
+        ->and(($this->company->fresh()->settings ?? [])['statutory_accounts'] ?? null)->toBeNull();
+});
+
+it('lets a member with Accounting change the mapping and details', function () {
+    $preparer = User::factory()->create();
+    $this->company->memberships()->create([
+        'user_id' => $preparer->id,
+        'role' => CompanyRole::Custom,
+        'sections' => [Section::Reports->value, Section::Accounting->value],
+    ]);
+    $this->actingAs($preparer);
+
+    Livewire::test('pages::reports.statutory-accounts', ['company' => $this->company])
+        ->set('tab', 'mapping')
+        ->assertDontSeeHtml('data-test="statutory-read-only"')
+        ->call('setLine', $this->a['rent']->id, 'administrative_expenses')
+        ->set('tab', 'details')
+        ->assertSeeHtml('data-test="statutory-save"')
+        ->set('form.principal_activity', 'Web design.')
+        ->call('saveDetails')
+        ->assertHasNoErrors();
+
+    expect($this->a['rent']->fresh()->statutory_line)->toBe('administrative_expenses')
+        ->and(StatutoryAccountsProfile::forCompany($this->company->fresh())->principalActivity)->toBe('Web design.');
 });
 
 it('refuses the report page to a non-UK company', function () {
