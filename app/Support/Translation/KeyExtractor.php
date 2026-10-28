@@ -14,6 +14,17 @@ use SplFileInfo;
 final class KeyExtractor
 {
     /**
+     * Sources that only ever render in English, so their strings are not
+     * translation keys: UK statutory accounts are delivered to Companies House
+     * in English (StatutoryAccountsPdfController renders them under 'en').
+     */
+    private const ENGLISH_ONLY = [
+        'app/Services/Reporting/UkStatutoryAccountsDocx.php',
+        'app/Services/Reporting/UkStatutoryAccountsPdf.php',
+        'resources/views/pdf/statutory/',
+    ];
+
+    /**
      * @return list<string>
      */
     public static function keys(): array
@@ -90,6 +101,11 @@ final class KeyExtractor
 
                 $name = $file->getFilename();
                 if (! str_ends_with($name, '.php') && ! str_ends_with($name, '.blade.php')) {
+                    continue;
+                }
+
+                $relative = str_replace('\\', '/', substr($file->getPathname(), strlen(base_path()) + 1));
+                if (array_any(self::ENGLISH_ONLY, fn (string $prefix): bool => str_starts_with($relative, $prefix))) {
                     continue;
                 }
 

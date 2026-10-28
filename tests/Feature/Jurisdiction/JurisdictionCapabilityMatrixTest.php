@@ -49,6 +49,7 @@ const US_ONLY = [
 /** Capabilities that must be false for any CA or US company (UK-locked). */
 const GB_ONLY = [
     JurisdictionCapability::VatReturn,
+    JurisdictionCapability::UkStatutoryAccounts,
 ];
 
 /*

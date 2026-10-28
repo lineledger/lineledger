@@ -6,6 +6,15 @@ set -euo pipefail
 
 rm -rf /tmp/lineledger-src
 
+# DigitalOcean's agents (Droplet Console, monitoring) are DigitalOcean's to add
+# to each customer Droplet; the image check fails a snapshot that has them.
+for agent in droplet-agent do-agent; do
+    if dpkg -s "$agent" > /dev/null 2>&1; then
+        apt-get -y purge "$agent"
+    fi
+done
+rm -rf /opt/digitalocean
+
 apt-get -y autoremove
 apt-get -y autoclean
 apt-get -y clean
@@ -29,7 +38,9 @@ unset HISTFILE
 
 rm -rf /tmp/* /var/tmp/*
 
-# Zero free space so the snapshot compresses well.
+# Zero free space so the snapshot compresses well. dd stops when the disk is
+# full, so its "No space left on device" is expected.
+echo "Zeroing free space; ignore the 'No space left on device' that ends it."
 dd if=/dev/zero of=/zerofile bs=4M status=none || true
 rm -f /zerofile
 sync

@@ -28,7 +28,8 @@ it('redirects a site admin without 2FA to enroll', function () {
     $this->actingAs($admin)
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('admin.dashboard'))
-        ->assertRedirect(route('security.edit'));
+        ->assertRedirect(route('security.edit'))
+        ->assertSessionHas('two_factor_required', __('Enable two-factor authentication to access the site admin area.'));
 });
 
 it('requires password re-confirmation for a 2FA-enabled site admin', function () {

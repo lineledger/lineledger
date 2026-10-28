@@ -71,7 +71,8 @@ final class JurisdictionProfile
             JurisdictionCapability::CanadianCapitalCostAllowance => $this->company->jurisdiction === Country::Canada,
 
             // pure country — United Kingdom
-            JurisdictionCapability::VatReturn => $this->company->jurisdiction === Country::UnitedKingdom,
+            JurisdictionCapability::VatReturn,
+            JurisdictionCapability::UkStatutoryAccounts => $this->company->jurisdiction === Country::UnitedKingdom,
         };
     }
 }

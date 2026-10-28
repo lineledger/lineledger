@@ -90,7 +90,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
         <flux:heading size="lg" class="mt-8">{{ __('Base URL & spec') }}</flux:heading>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>{{ url('/api/v1') }}</code></pre>
         <flux:text>
-            {{ __('The full machine-readable OpenAPI spec (version 1.3.0, covering every resource) is available without a key at') }}
+            {{ __('The full machine-readable OpenAPI spec (version 1.3.1, covering every resource) is available without a key at') }}
             <a href="{{ url('/api/v1/openapi.json') }}" class="underline" target="_blank" rel="noopener">{{ url('/api/v1/openapi.json') }}</a>{{ __('.') }}
             {{ __('Import it into Postman, Insomnia, or your code generator. The interactive reference at the bottom of this page is generated from it.') }}
         </flux:text>

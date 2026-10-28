@@ -95,12 +95,34 @@ new #[Title('Documentation — United Kingdom & VAT')] class extends Component {
             caption="{{ __('A filed UK return. The nine boxes are frozen at filing, beside the usual tiles and snapshot.') }}"
         />
 
+        {{-- ───────────────────────── Statutory accounts ───────────────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('Statutory accounts') }}</flux:heading>
+        <flux:text>
+            {{ __('Reports → Accountant & Taxes → Statutory Accounts produces the year-end accounts a small company files, as one PDF laid out the way an accountant presents them: a cover, company information and contents, then numbered pages with the directors’ report, the primary statements and the notes, each with the prior year alongside. Download it as a PDF to file, or as a Word document to edit the wording first — the Word version has the same layout, and its page numbers and contents page are live fields that Word updates when the file opens. Choose the framework at the top: FRS 102 Section 1A (small entities) gives the Statement of Comprehensive Income, Statement of Financial Position, Statement of Changes in Equity and full notes; FRS 105 (micro-entities) gives the shorter balance sheet, an optional profit and loss account and the three notes a micro-entity discloses. The documents are always in English, whatever language you use LineLedger in, because Companies House takes accounts in English.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The period is a pair of dates rather than the fiscal-year setting, so a year ending on 5 April works as well as one ending on 31 March: set the year-end day and month once on the Company details tab, and Last year end picks the most recent completed year. The summary on the Accounts tab runs from the year you pick to the latest completed one, a column per year, so you can see the trend at a glance; the documents themselves always show the year you picked with its comparative. Every figure is worked to the penny and then each line is rounded to the pound on its own, with totals adding up the rounded lines; retained earnings is the balancing figure, so the balance sheet always balances. Each balance sheet is shown exactly as it rounds, so last year’s column matches last year’s accounts; the pound or two that rounding leaves between two balance sheets is taken up on the year’s largest expense line, so the change in equity reconciles.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The Account mapping tab shows the line every account presents on. Each account starts on a sensible default worked out from its type and name — a dividend account is shown as a distribution in the change in equity rather than as an expense, a depreciation account as the year’s charge, a director’s loan as a creditor — and you can move any account to another line. The caption groups accounts within a line: accounts sharing a caption are added together on the income statement, in the debtors and creditors notes, and as one asset class in the tangible fixed assets note. An overdrawn bank account is shown as an overdraft under creditors, not netted against your other bank accounts, unless you give them the same caption.') }}
+        </flux:text>
+        <flux:text>
+            {{ __('The Company details tab holds what the accounts say beyond the numbers: the legislation they are prepared under (UK Companies Act 2006 with the section 477 audit-exemption statements, or the Isle of Man Companies Acts), the company number and registered office, directors and their shareholdings, the secretary, principal activity, depreciation rates, the text of the taxation, related-party and other notes, the approval date and who signs. Changing the account mapping or the company details needs access to Accounting; anyone who can open Reports can view and download the accounts.') }}
+        </flux:text>
+        <x-docs.callout type="note" heading="{{ __('Fixed asset notes') }}">
+            {{ __('The tangible fixed assets note reads cost and accumulated depreciation from separate accounts for each asset class. An asset class kept net in a single account still shows the right net book value, additions and charge, but its cost and depreciation brought forward restart each year — split it into cost and depreciation accounts for a complete note.') }}
+        </x-docs.callout>
+        <x-docs.callout type="warning" heading="{{ __('LineLedger does not file accounts') }}">
+            {{ __('Download the PDF and file it with Companies House or the Isle of Man Companies Registry yourself, or hand it to your accountant. LineLedger does not produce iXBRL or a CT600 corporation tax return.') }}
+        </x-docs.callout>
+
         {{-- ───────────────────────── Not available ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('What is not available for UK organizations') }}</flux:heading>
         <ul class="list-disc ps-6 space-y-1">
             <li>{{ __('Payroll. The payroll engine is built on Canadian rules, so the Payroll switch is not offered; run UK payroll in other software and post its totals with a journal entry.') }}</li>
             <li>{{ __('Gift Aid and charity donation receipts — see Set up a UK organization above.') }}</li>
             <li>{{ __('Making Tax Digital submission, and the VAT special schemes.') }}</li>
+            <li>{{ __('Online filing of statutory accounts (iXBRL) and the CT600 corporation tax return.') }}</li>
             <li>{{ __('Settings → Tax & filing and the CRA income-tax reports, which are for Canadian organizations.') }}</li>
         </ul>
 

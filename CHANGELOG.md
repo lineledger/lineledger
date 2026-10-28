@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Statutory accounts (UK)** — year-end accounts for small companies as one PDF,
+  laid out the way an accountant presents them: cover, company information and
+  contents, then numbered pages with the directors' report, the Statement of
+  Comprehensive Income, Statement of Financial Position, Statement of Changes in
+  Equity and notes (accounting policies, taxation, tangible fixed assets, debtors,
+  creditors, share capital, related parties), each with the prior year. Choose
+  FRS 102 Section 1A or FRS 105 (micro-entity). Periods are explicit dates, so a
+  5 April year end works; figures are rounded line by line to whole pounds and
+  cast. Every account maps onto a statutory line with a default from its type and
+  name (dividends become a distribution, a director's loan a creditor) and an
+  optional caption that groups accounts in the statements and notes. The company
+  details — regime (UK Companies Act 2006 or the Isle of Man Acts), directors and
+  shareholdings, policies, note text, approval and signatories — live on the
+  report. Download as a PDF to file, or as a Word document (same layout, live
+  page-number fields) to edit before filing; the Accounts tab summarises every
+  year from the one picked to the latest. The documents are always in English,
+  as Companies House takes them, and changing the mapping or the company
+  details needs access to Accounting. New `accounts.statutory_line` /
+  `statutory_label` columns; adds `phpoffice/phpword`.
 - **Airy invoice layout** — a second invoice layout, chosen per form style
   (Settings → Lists → Form styles → Layout): your details top left and logo top
   right, a large INVOICE heading, Invoice to beside the number and dates, an
@@ -16,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its description, and the balance due under a dotted rule beside the customer
   message and payment instructions. Existing styles keep the classic layout. New
   `form_styles.layout` column.
+
+### Changed
+
+- **Bank register sorting** — the register now opens newest-first, and every
+  column (Cleared, Date, Entry #, Memo, Payment, Deposit) sorts from its header;
+  the choice is kept in the URL. A new **Balance** column shows the account's
+  running balance after each line, always worked out in date order, so it stays
+  correct whatever the sort, page or Show cleared setting. Long registers page
+  50 rows at a time instead of loading every line at once.
 
 ## [1.3.0] - 2026-10-22
 
@@ -966,7 +994,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/lineledger/lineledger/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/lineledger/lineledger/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/lineledger/lineledger/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1

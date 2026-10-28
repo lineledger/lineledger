@@ -5,7 +5,7 @@
 # initialization scripts), which installs and starts it on first boot:
 #
 #   #!/bin/bash
-#   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.0/docker/digitalocean/droplet/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.3.1/docker/digitalocean/droplet/install.sh | bash
 #
 # For the Marketplace image, Packer runs it with --image: everything except
 # the per-Droplet setup (secrets and address), which then runs on each

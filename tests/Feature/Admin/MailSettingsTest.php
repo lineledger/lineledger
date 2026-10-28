@@ -196,7 +196,8 @@ it('shows site admins a banner until mail is set up', function () {
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('admin.dashboard'))
         ->assertOk()
-        ->assertSee('data-test="mail-not-configured-banner"', false);
+        ->assertSee('data-test="mail-not-configured-banner"', false)
+        ->assertSee('data-test="mail-banner-set-up"', false);
 
     $this->actingAs($member)
         ->get(route('profile.edit'))
@@ -212,4 +213,18 @@ it('shows site admins a banner until mail is set up', function () {
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('admin.dashboard'))
         ->assertDontSee('data-test="mail-not-configured-banner"', false);
+});
+
+it('sends a site admin without two-factor authentication to turn it on before setting up email', function () {
+    // The site admin area, /admin/mail included, needs 2FA (EnsureSiteAdmin), so
+    // the banner points at that step instead of a link that bounces.
+    $admin = User::factory()->siteAdmin()->create();
+    withoutMailServer();
+
+    $this->actingAs($admin)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee('data-test="mail-banner-enable-2fa"', false)
+        ->assertSee(route('security.edit'), false)
+        ->assertDontSee('data-test="mail-banner-set-up"', false);
 });

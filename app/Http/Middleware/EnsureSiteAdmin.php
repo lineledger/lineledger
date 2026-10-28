@@ -32,7 +32,7 @@ class EnsureSiteAdmin
         if (! $user->hasEnabledTwoFactorAuthentication()) {
             return redirect()
                 ->route('security.edit')
-                ->with('status', __('Enable two-factor authentication to access the site admin area.'));
+                ->with('two_factor_required', __('Enable two-factor authentication to access the site admin area.'));
         }
 
         return $next($request);
