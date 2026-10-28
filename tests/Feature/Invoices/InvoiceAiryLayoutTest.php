@@ -142,8 +142,18 @@ it('shows applied credits so the balance due adds up', function () {
 
     expect(($this->html)())
         ->toContain('>Total<')->toContain('762.50')
-        ->toContain('>Credits applied<')->toContain('-300.00')
+        ->toContain('>Credits and adjustments<')->toContain('-300.00')
         ->toContain('£462.50');
+});
+
+it('prints the payment instructions only while there is a balance', function () {
+    ($this->airy)();
+
+    expect(($this->html)())->toContain('How to pay')->toContain('Account number: 00000000');
+
+    $this->invoice->forceFill(['amount_paid_cents' => $this->invoice->total_cents])->save();
+
+    expect(($this->html)())->not->toContain('How to pay')->not->toContain('Account number: 00000000');
 });
 
 it('shows only the balance due on a plain unpaid invoice', function () {

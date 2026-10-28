@@ -62,7 +62,8 @@
         .dotted { border-top: 1px dotted #6b7280; margin: 14px 0 10px 0; }
         table.bottom td { vertical-align: top; padding: 0; }
         .message { font-size: 10.5px; white-space: pre-line; }
-        .payment { font-size: 10.5px; white-space: pre-line; margin-top: 14px; }
+        .payment { margin-top: 14px; }
+        .payment .instructions { font-size: 10.5px; white-space: pre-line; margin-top: 2px; }
         table.totals { width: 100%; }
         table.totals td { padding: 1px 0 3px 0; }
         table.totals td.k { padding-right: 12px; text-transform: uppercase; }
@@ -260,8 +261,12 @@
                 @if (filled($invoice->customer_message))
                     <div class="message">{{ $invoice->customer_message }}</div>
                 @endif
-                @if (filled($settings->payment_instructions))
-                    <div class="payment">{{ $settings->payment_instructions }}</div>
+                {{-- As in the customer portal, only while there is something to pay. --}}
+                @if ($invoice->balanceCents() > 0 && filled($settings->payment_instructions))
+                    <div class="payment">
+                        <div class="label">{{ __('How to pay') }}</div>
+                        <div class="instructions">{{ $settings->payment_instructions }}</div>
+                    </div>
                 @endif
                 <div class="regs">
                     @include('pdf.invoices.partials.tax-numbers')
@@ -288,7 +293,7 @@
                         <tr><td class="k">{{ __('Payment') }}</td><td class="v">-{{ $money($paid) }}</td></tr>
                     @endif
                     @if ($credits > 0)
-                        <tr><td class="k">{{ __('Credits applied') }}</td><td class="v">-{{ $money($credits) }}</td></tr>
+                        <tr><td class="k">{{ __('Credits and adjustments') }}</td><td class="v">-{{ $money($credits) }}</td></tr>
                     @endif
                     <tr class="due">
                         <td class="k">{{ __('Balance Due') }}</td>
