@@ -16,6 +16,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correct whatever the sort, page or Show cleared setting. Long registers page
   50 rows at a time instead of loading every line at once.
 
+## [1.3.1] - 2026-10-24
+
+**Highlights.** A patch for the first sign-in on a new install: a site admin
+without two-factor authentication is now told to turn it on before setting up
+email, instead of landing on Settings → Security with no explanation. The
+DigitalOcean Marketplace image build also passes DigitalOcean's image check, and
+Livewire moves to 4.4.8 for a security advisory. No migrations, no backfills and
+no configuration changes; see `UPGRADING.md`.
+
+### Fixed
+
+- **"Set up email" no longer dead-ends for a new site admin.** The site admin
+  area needs two-factor authentication, so the banner's link sent an admin
+  without it to Settings → Security with no explanation. The banner now says
+  two-factor authentication comes first and links to it, and the Security page
+  says why you were sent there (the site admin area, or an organization that
+  requires two-factor authentication).
+  ([#143](https://github.com/lineledger/lineledger/pull/143))
+- **The Marketplace image passes DigitalOcean's image check.** The Packer
+  build installs the pending Ubuntu security updates, removes DigitalOcean's
+  agents and `/opt/digitalocean`, and ends by running DigitalOcean's
+  `99-img-check.sh`, so a build that would be rejected fails before it makes a
+  snapshot. ([#142](https://github.com/lineledger/lineledger/pull/142))
+
+### Security
+
+- **`livewire/livewire` 4.4.8** (from 4.4.7) fixes an authorization bypass in
+  the `#[Authorize]` attribute
+  ([GHSA-mhf7-xp6r-6qrc](https://github.com/advisories/GHSA-mhf7-xp6r-6qrc)).
+  LineLedger doesn't use `#[Authorize]` or `#[Json]`, so it wasn't exposed;
+  the update keeps the dependency audit clean.
+  ([#144](https://github.com/lineledger/lineledger/pull/144))
+
 ## [1.3.0] - 2026-10-22
 
 **Highlights.** LineLedger installs on a **DigitalOcean Droplet in one click**: create
