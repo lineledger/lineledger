@@ -32,6 +32,9 @@
         .footer { margin-top: 28px; border-top: 1px solid #d1d5db; padding-top: 8px; color: #374151; }
         .footer .taxno { font-size: 10px; }
         .footer .message { margin-top: 6px; color: #4b5563; white-space: pre-line; }
+        .footer .how-to-pay { margin-top: 8px; }
+        .footer .how-to-pay-label { font-weight: bold; color: #374151; }
+        .footer .how-to-pay .message { margin-top: 2px; }
     </style>
     @php
         // Optional FormStyle override (per-invoice template). Some callers render
@@ -275,6 +278,14 @@
         @endif
         @if (filled($invoice->customer_message))
             <div class="message">{{ $invoice->customer_message }}</div>
+        @endif
+        {{-- Settings → Invoices → How customers can pay; shown, as in the
+             customer portal, only while the invoice has something to pay. --}}
+        @if ($invoice->balanceCents() > 0 && filled($settings->payment_instructions))
+            <div class="how-to-pay">
+                <div class="how-to-pay-label">{{ __('How to pay') }}</div>
+                <div class="message">{{ $settings->payment_instructions }}</div>
+            </div>
         @endif
         @php($footerMessage = $style?->footer_message ?: $settings->footer_message)
         @if (filled($footerMessage))

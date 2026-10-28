@@ -125,7 +125,7 @@ new #[Title('Documentation — Customer portal')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="tip">
-            {{ __('Prefer e-transfer or a bank deposit? Under Settings → Invoices, fill in “How customers can pay” in the Payment instructions section. The text appears under a “How to pay” heading on the pay screen and on any invoice that still has a balance — with or without Stripe connected — so customers always know how to reach you. It does not show on the dashboard, so a customer who owes nothing will not see it.') }}
+            {{ __('Prefer e-transfer or a bank deposit? Under Settings → Invoices, fill in “How customers can pay” in the Payment instructions section. The text appears under a “How to pay” heading on the pay screen, and on the portal page and the PDF of any invoice that still has a balance — with or without Stripe connected — so customers always know how to reach you. It does not show on the dashboard, so a customer who owes nothing will not see it.') }}
         </x-docs.callout>
 
         <x-docs.callout type="warning" heading="{{ __('Foreign-currency invoices') }}">

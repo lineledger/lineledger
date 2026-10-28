@@ -445,3 +445,24 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->not->toContain('123456789 RT0001')
         ->not->toContain('1234567890 TQ 0001');
 });
+
+it('prints the payment instructions while the invoice has a balance', function () {
+    $invoice = makePostedInvoice($this);
+    $render = fn () => app(InvoicePdfRenderer::class)->html($this->company, $invoice->fresh());
+
+    expect($render())->not->toContain('How to pay');
+
+    $this->company->invoiceSettingsOrNew()->forceFill([
+        'company_id' => $this->company->id,
+        'payment_instructions' => "Interac e-Transfer to billing@example.test\nReference: your invoice number",
+    ])->save();
+    $this->company->unsetRelation('invoiceSettings');
+
+    expect($render())
+        ->toContain('<div class="how-to-pay-label">How to pay</div>')
+        ->toContain("Interac e-Transfer to billing@example.test\nReference: your invoice number");
+
+    // Paid in full: nothing left to pay, so no instructions — as in the portal.
+    $invoice->forceFill(['amount_paid_cents' => $invoice->total_cents])->save();
+    expect($render())->not->toContain('How to pay');
+});

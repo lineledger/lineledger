@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correct whatever the sort, page or Show cleared setting. Long registers page
   50 rows at a time instead of loading every line at once.
 
+### Fixed
+
+- **The classic invoice prints your payment instructions.** The "How customers
+  can pay" text from Settings → Invoices showed in the customer portal but
+  never on the classic invoice PDF. It now prints under a How to pay heading
+  in the footer of any invoice that still has a balance, as the portal does.
+
 ## [1.3.1] - 2026-10-24
 
 **Highlights.** A patch for the first sign-in on a new install: a site admin
