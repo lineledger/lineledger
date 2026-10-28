@@ -232,6 +232,16 @@
                 <td>{{ __('Paid') }}</td>
                 <td class="num">{{ number_format($invoice->amount_paid_cents / 100, 2) }}</td>
             </tr>
+        @endif
+        {{-- What a credit memo or write-off closed (Invoice::$reconciled_cents),
+             which the balance due takes off as well as payments. --}}
+        @if ($invoice->reconciled_cents > 0)
+            <tr>
+                <td>{{ __('Credits and adjustments') }}</td>
+                <td class="num">{{ number_format($invoice->reconciled_cents / 100, 2) }}</td>
+            </tr>
+        @endif
+        @if ($invoice->amount_paid_cents > 0 || $invoice->reconciled_cents > 0)
             <tr>
                 <td>{{ __('Balance Due') }}</td>
                 <td class="num">{{ $currencySymbol }}{{ number_format($invoice->balanceCents() / 100, 2) }}</td>
