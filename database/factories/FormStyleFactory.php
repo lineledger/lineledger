@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\InvoiceLayout;
 use App\Models\FormStyle;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,6 +18,7 @@ class FormStyleFactory extends Factory
     {
         return [
             'name' => fake()->unique()->words(2, true),
+            'layout' => InvoiceLayout::Classic,
             'is_default' => false,
             'show_logo' => true,
             'accent_color' => null,

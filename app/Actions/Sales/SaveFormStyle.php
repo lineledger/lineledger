@@ -2,6 +2,7 @@
 
 namespace App\Actions\Sales;
 
+use App\Enums\InvoiceLayout;
 use App\Models\FormStyle;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Expected $data shape:
  *   name:           string
- *   layout:         ?string  (FormStyle::layouts() key; unknown values fall back to classic)
+ *   layout:         InvoiceLayout|string|null  (unknown values fall back to classic)
  *   show_logo:      ?bool
  *   accent_color:   ?string  (#rrggbb)
  *   footer_message: ?string
@@ -34,9 +35,9 @@ final class SaveFormStyle
             ];
 
             if (array_key_exists('layout', $data)) {
-                $attributes['layout'] = array_key_exists((string) $data['layout'], FormStyle::layouts())
-                    ? (string) $data['layout']
-                    : FormStyle::LAYOUT_CLASSIC;
+                $attributes['layout'] = $data['layout'] instanceof InvoiceLayout
+                    ? $data['layout']
+                    : (InvoiceLayout::tryFrom((string) $data['layout']) ?? InvoiceLayout::Classic);
             }
 
             if (array_key_exists('show_logo', $data)) {
@@ -63,6 +64,7 @@ final class SaveFormStyle
                 $style->update($attributes);
             } else {
                 $style = FormStyle::create($attributes + [
+                    'layout' => InvoiceLayout::Classic,
                     'show_logo' => $data['show_logo'] ?? true,
                     'is_default' => $data['is_default'] ?? false,
                     'is_active' => $data['is_active'] ?? true,

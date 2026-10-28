@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use App\Enums\InvoiceLayout;
 use App\Models\Company;
 use App\Models\FormStyle;
 use App\Models\Invoice;
@@ -30,7 +31,11 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): Response => $this->pdf->inline($this->view($company, $invoice), $this->data($company, $invoice), $this->filename($invoice)),
+            function () use ($company, $invoice): Response {
+                $data = $this->data($company, $invoice);
+
+                return $this->pdf->inline($this->view($data), $data, $this->filename($invoice));
+            },
         );
     }
 
@@ -41,7 +46,11 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => $this->pdf->raw($this->view($company, $invoice), $this->data($company, $invoice)),
+            function () use ($company, $invoice): string {
+                $data = $this->data($company, $invoice);
+
+                return $this->pdf->raw($this->view($data), $data);
+            },
         );
     }
 
@@ -52,17 +61,23 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => view($this->view($company, $invoice), $this->data($company, $invoice))->render(),
+            function () use ($company, $invoice): string {
+                $data = $this->data($company, $invoice);
+
+                return view($this->view($data), $data)->render();
+            },
         );
     }
 
     /**
-     * The layout the invoice's style prints with; the classic layout when it
-     * has none.
+     * The view for the layout the invoice's style prints with; the classic
+     * layout when there is no style.
+     *
+     * @param  array<string, mixed>  $data  from {@see data()}
      */
-    private function view(Company $company, Invoice $invoice): string
+    private function view(array $data): string
     {
-        return $this->style($company, $invoice)?->invoiceView() ?? 'pdf.invoices.invoice';
+        return ($data['style']->layout ?? InvoiceLayout::Classic)->view();
     }
 
     /**
@@ -73,8 +88,6 @@ class InvoicePdfRenderer
      */
     private function style(Company $company, Invoice $invoice): ?FormStyle
     {
-        $invoice->loadMissing('formStyle');
-
         return $invoice->formStyle ?: FormStyle::query()
             ->where('company_id', $company->id)
             ->where('is_default', true)

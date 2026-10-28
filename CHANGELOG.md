@@ -29,12 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   details needs access to Accounting. New `accounts.statutory_line` /
   `statutory_label` columns; adds `phpoffice/phpword`.
 - **Airy invoice layout** — a second invoice layout, chosen per form style
-  (Settings → Lists → Form styles → Layout): your details top left and logo top
-  right, a large INVOICE heading, Invoice to beside the number and dates, an
-  Activity / Qty / Rate / Amount table with each line's item name in bold above
-  its description, and the balance due under a dotted rule beside the customer
-  message and payment instructions. Existing styles keep the classic layout. New
-  `form_styles.layout` column.
+  (Settings → Lists → Form styles → Layout; the list shows each style's layout):
+  your details top left and logo top right, a large INVOICE heading, Invoice to
+  (and Ship to, when the customer has a shipping address) beside the number and
+  dates, an Activity / Qty / Rate / Amount table with each line's item name in
+  bold above its description, and the balance due under a dotted rule beside the
+  customer message and payment instructions, with any payment or applied credit
+  shown above it. It prints everything the classic layout does — terms, P.O.
+  number, sales rep, shipping details, the payment schedule and the GST/HST,
+  QST/PST or VAT numbers — in French for French-speaking customers and with any
+  currency symbol. Make an Airy style the default to use it for every invoice,
+  or pick it on one invoice. Existing styles keep the classic layout, which
+  prints exactly as before. New `form_styles.layout` column.
 
 ### Changed
 
