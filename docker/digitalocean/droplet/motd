@@ -8,7 +8,8 @@ cat << EOF
   LineLedger is running at ${url:-(still starting; check with: lineledger status)}
 
   First visit: register. The first account becomes the site admin.
-  Then open Admin -> Email to set up outgoing mail.
+  Then turn on two-factor authentication (Settings -> Security), which the
+  site admin area needs, and open Admin -> Email to set up outgoing mail.
 
   Use your own domain, with HTTPS:   lineledger domain books.example.com
   Upgrade to the newest release:     lineledger upgrade

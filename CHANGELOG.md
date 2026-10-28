@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   year from the one picked to the latest. New `accounts.statutory_line` /
   `statutory_label` columns; adds `phpoffice/phpword`.
 
+### Changed
+
+- **Bank register sorting** — the register now opens newest-first, and every
+  column (Cleared, Date, Entry #, Memo, Payment, Deposit) sorts from its header;
+  the choice is kept in the URL. A new **Balance** column shows the account's
+  running balance after each line, always worked out in date order, so it stays
+  correct whatever the sort, page or Show cleared setting. Long registers page
+  50 rows at a time instead of loading every line at once.
+
 ## [1.3.0] - 2026-10-22
 
 **Highlights.** LineLedger installs on a **DigitalOcean Droplet in one click**: create
@@ -976,7 +985,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/lineledger/lineledger/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/lineledger/lineledger/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/lineledger/lineledger/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lineledger/lineledger/compare/v1.2.0...v1.2.1

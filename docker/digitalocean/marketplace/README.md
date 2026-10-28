@@ -24,17 +24,23 @@ packer init lineledger.pkr.hcl
 DIGITALOCEAN_TOKEN=... packer build -var lineledger_version=1.2.3 lineledger.pkr.hcl
 ```
 
-The build Droplet runs `install.sh --image`, then `cleanup.sh`, which strips
-SSH keys, logs, history and cloud-init state, and refuses to finish if an
-`.env` (and so a set of secrets) exists. Packer then saves the snapshot to your
-account as `lineledger-<version>-<timestamp>`.
+The build Droplet installs the pending Ubuntu updates and runs
+`install.sh --image`. Then `cleanup.sh` removes DigitalOcean's agents, SSH
+keys, logs, history and cloud-init state, and refuses to finish if an `.env`
+(and so a set of secrets) exists. Last, the build runs DigitalOcean's image
+validation script (`99-img-check.sh` from the
+[marketplace-partners](https://github.com/digitalocean/marketplace-partners)
+repository, pinned to a commit), and a failed check fails the build. Packer
+then saves the snapshot to your account as `lineledger-<version>-<timestamp>`.
+The zero-fill at the end of `cleanup.sh` prints "No space left on device";
+that's how it finishes.
 
 ## Before submitting
 
-1. Run DigitalOcean's image validation script (`99-img-check.sh` in the
-   [marketplace-partners](https://github.com/digitalocean/marketplace-partners)
-   repository) on a Droplet built from the snapshot, and fix anything it
-   reports.
+1. Read the image check's summary near the end of the build output. Fix any
+   `[WARN]` it reports unless it is intended. Don't re-run the check on a
+   Droplet created from the snapshot: DigitalOcean adds your SSH key to that
+   Droplet, which the check reports as a failure.
 2. Create a Droplet from the snapshot and check the customer path: open
    `http://<ip>`, register (the account is signed in without email), save
    SMTP settings in Admin → Email and send the test email, then run
