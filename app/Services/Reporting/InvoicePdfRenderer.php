@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use App\Enums\InvoiceLayout;
 use App\Models\Company;
 use App\Models\FormStyle;
 use App\Models\Invoice;
@@ -30,7 +31,11 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): Response => $this->pdf->inline('pdf.invoices.invoice', $this->data($company, $invoice), $this->filename($invoice)),
+            function () use ($company, $invoice): Response {
+                $data = $this->data($company, $invoice);
+
+                return $this->pdf->inline($this->view($data), $data, $this->filename($invoice));
+            },
         );
     }
 
@@ -41,7 +46,11 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => $this->pdf->raw('pdf.invoices.invoice', $this->data($company, $invoice)),
+            function () use ($company, $invoice): string {
+                $data = $this->data($company, $invoice);
+
+                return $this->pdf->raw($this->view($data), $data);
+            },
         );
     }
 
@@ -52,8 +61,38 @@ class InvoicePdfRenderer
     {
         return Locales::using(
             $this->locale($company, $invoice),
-            fn (): string => view('pdf.invoices.invoice', $this->data($company, $invoice))->render(),
+            function () use ($company, $invoice): string {
+                $data = $this->data($company, $invoice);
+
+                return view($this->view($data), $data)->render();
+            },
         );
+    }
+
+    /**
+     * The view for the layout the invoice's style prints with; the classic
+     * layout when there is no style.
+     *
+     * @param  array<string, mixed>  $data  from {@see data()}
+     */
+    private function view(array $data): string
+    {
+        return ($data['style']->layout ?? InvoiceLayout::Classic)->view();
+    }
+
+    /**
+     * The invoice's chosen style, else the company default. The explicit
+     * company_id filter matters for queued contexts (e.g. email sending) where
+     * the `current_company` global scope is not bound. Null when the company has
+     * no styles — the classic blade then renders exactly as before.
+     */
+    private function style(Company $company, Invoice $invoice): ?FormStyle
+    {
+        return $invoice->formStyle ?: FormStyle::query()
+            ->where('company_id', $company->id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
     }
 
     /**
@@ -63,15 +102,7 @@ class InvoicePdfRenderer
     {
         $invoice->loadMissing('lines.taxCode', 'lines.item', 'contact', 'terms', 'salesRep', 'formStyle');
 
-        // The invoice's chosen style, else the company default. The explicit
-        // company_id filter matters for queued contexts (e.g. email sending)
-        // where the `current_company` global scope is not bound. Null when the
-        // company has no styles — the blade then renders exactly as before.
-        $style = $invoice->formStyle ?: FormStyle::query()
-            ->where('company_id', $company->id)
-            ->where('is_default', true)
-            ->where('is_active', true)
-            ->first();
+        $style = $this->style($company, $invoice);
 
         return [
             'company' => $company,

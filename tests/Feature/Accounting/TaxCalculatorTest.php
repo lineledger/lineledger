@@ -172,3 +172,16 @@ it('formats tax rates with two decimals for standard rates and exact decimals fo
         ->and(LineTaxBreakdown::formatRate(9.975))->toBe('9.975')
         ->and(LineTaxBreakdown::formatRate(5.0))->toBe('5.00');
 });
+
+it('prints a tax row rate once, adding it only when the name does not show it', function () {
+    expect(LineTaxBreakdown::labelWithRate('GST (5%)', 5.0))->toBe('GST (5%)')
+        ->and(LineTaxBreakdown::labelWithRate('HST Ontario (13%)', 13.0))->toBe('HST Ontario (13%)')
+        ->and(LineTaxBreakdown::labelWithRate('QST (9.975%)', 9.975))->toBe('QST (9.975%)')
+        ->and(LineTaxBreakdown::labelWithRate('TVQ (9,975 %)', 9.975))->toBe('TVQ (9,975 %)')
+        ->and(LineTaxBreakdown::labelWithRate('Zero-rated (0%)', 0.0))->toBe('Zero-rated (0%)')
+        ->and(LineTaxBreakdown::labelWithRate('PST', 7.0))->toBe('PST 7.00%')
+        ->and(LineTaxBreakdown::labelWithRate('QST', '9.975'))->toBe('QST 9.975%')
+        // A name left showing an old rate still prints the real one.
+        ->and(LineTaxBreakdown::labelWithRate('GST (5%)', 6.0))->toBe('GST (5%) 6.00%')
+        ->and(LineTaxBreakdown::labelWithRate('QST (9.975%)', 9.98))->toBe('QST (9.975%) 9.98%');
+});

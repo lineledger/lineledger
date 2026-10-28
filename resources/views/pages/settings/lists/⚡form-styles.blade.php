@@ -1,15 +1,18 @@
 <?php
 
 use App\Actions\Sales\SaveFormStyle;
+use App\Enums\InvoiceLayout;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\FormStyle;
 use Flux\Flux;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Form styles')] class extends Component {
+new #[Title('Form styles')] class extends Component
+{
     use HoldsEditLock;
 
     public Company $company;
@@ -17,6 +20,8 @@ new #[Title('Form styles')] class extends Component {
     public ?int $editingId = null;
 
     public string $f_name = '';
+
+    public string $f_layout = InvoiceLayout::Classic->value;
 
     public bool $f_show_logo = true;
 
@@ -36,7 +41,7 @@ new #[Title('Form styles')] class extends Component {
     public function openCreate(): void
     {
         $this->releaseEditLock();
-        $this->reset(['editingId', 'f_name', 'f_show_logo', 'f_accent_color', 'f_footer_message', 'f_is_default', 'f_is_active']);
+        $this->reset(['editingId', 'f_name', 'f_layout', 'f_show_logo', 'f_accent_color', 'f_footer_message', 'f_is_default', 'f_is_active']);
         $this->f_show_logo = true;
         $this->f_is_active = true;
         Flux::modal('form-styles-form')->show();
@@ -52,6 +57,7 @@ new #[Title('Form styles')] class extends Component {
 
         $this->editingId = $s->id;
         $this->f_name = $s->name;
+        $this->f_layout = ($s->layout ?? InvoiceLayout::Classic)->value;
         $this->f_show_logo = $s->show_logo;
         $this->f_accent_color = $s->accent_color ?? '';
         $this->f_footer_message = $s->footer_message ?? '';
@@ -68,6 +74,7 @@ new #[Title('Form styles')] class extends Component {
 
         $validated = $this->validate([
             'f_name' => ['required', 'string', 'max:255'],
+            'f_layout' => ['required', Rule::enum(InvoiceLayout::class)],
             'f_show_logo' => ['boolean'],
             'f_accent_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'f_footer_message' => ['nullable', 'string'],
@@ -82,6 +89,7 @@ new #[Title('Form styles')] class extends Component {
 
         app(SaveFormStyle::class)->handle([
             'name' => $validated['f_name'],
+            'layout' => $validated['f_layout'],
             'show_logo' => $validated['f_show_logo'],
             'accent_color' => $validated['f_accent_color'] ?: null,
             'footer_message' => $validated['f_footer_message'] ?: null,
@@ -104,7 +112,7 @@ new #[Title('Form styles')] class extends Component {
 <section class="w-full">
     @include('partials.settings-heading')
 
-    <x-pages::settings.layout :heading="__('Form styles')" :subheading="__('Named invoice templates. Pick a style on each invoice to override your logo, accent colour and footer message.')">
+    <x-pages::settings.layout :heading="__('Form styles')" :subheading="__('Named invoice templates. Each style picks a layout and can override your logo, accent colour and footer message; choose one on each invoice, or make one the default.')">
         <div class="mb-4 flex justify-end">
             <flux:button variant="primary" icon="plus" wire:click="openCreate" data-test="new-style-button">{{ __('New style') }}</flux:button>
         </div>
@@ -114,6 +122,7 @@ new #[Title('Form styles')] class extends Component {
                 <thead class="bg-muted">
                     <tr>
                         <th class="px-4 py-2 text-left">{{ __('Name') }}</th>
+                        <th class="px-4 py-2 text-left">{{ __('Layout') }}</th>
                         <th class="px-4 py-2 text-center">{{ __('Default') }}</th>
                         <th class="px-4 py-2 text-center">{{ __('Accent') }}</th>
                         <th class="px-4 py-2"></th>
@@ -123,6 +132,7 @@ new #[Title('Form styles')] class extends Component {
                     @forelse ($this->styles as $s)
                         <tr data-test="style-row" class="@if(! $s->is_active) opacity-50 @endif">
                             <td class="px-4 py-2">{{ $s->name }}</td>
+                            <td class="px-4 py-2" data-test="style-layout-cell">{{ ($s->layout ?? InvoiceLayout::Classic)->label() }}</td>
                             <td class="px-4 py-2 text-center">
                                 @if ($s->is_default)
                                     <flux:badge color="emerald" size="sm" data-test="style-default-badge">{{ __('Default') }}</flux:badge>
@@ -140,7 +150,7 @@ new #[Title('Form styles')] class extends Component {
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-8 text-center text-muted-foreground">{{ __('No form styles yet. Invoices use your invoice settings until you add one.') }}</td></tr>
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-muted-foreground">{{ __('No form styles yet. Invoices use your invoice settings until you add one.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -154,6 +164,11 @@ new #[Title('Form styles')] class extends Component {
             @endif
             <flux:heading size="lg">{{ $editingId ? __('Edit form style') : __('New form style') }}</flux:heading>
             <flux:input wire:model="f_name" :label="__('Name')" required data-test="style-name" />
+            <flux:select wire:model="f_layout" :label="__('Layout')" data-test="style-layout">
+                @foreach (InvoiceLayout::cases() as $layout)
+                    <flux:select.option :value="$layout->value">{{ $layout->label() }} — {{ $layout->description() }}</flux:select.option>
+                @endforeach
+            </flux:select>
             <flux:input wire:model="f_accent_color" :label="__('Accent colour')" placeholder="#2563eb" :description="__('Tints the invoice title, table headers and total. Leave blank for the standard look.')" data-test="style-accent-color" />
             <flux:textarea wire:model="f_footer_message" :label="__('Footer message')" rows="2" :description="__('Overrides the footer message from invoice settings.')" data-test="style-footer-message" />
             <flux:switch wire:model="f_show_logo" :label="__('Show logo')" data-test="style-show-logo" />
