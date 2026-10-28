@@ -28,6 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as Companies House takes them, and changing the mapping or the company
   details needs access to Accounting. New `accounts.statutory_line` /
   `statutory_label` columns; adds `phpoffice/phpword`.
+- **Airy invoice layout** — a second invoice layout, chosen per form style
+  (Settings → Lists → Form styles → Layout; the list shows each style's layout):
+  your details top left and logo top right, a large INVOICE heading, Invoice to
+  (and Ship to, when the customer has a shipping address) beside the number and
+  dates, an Activity / Qty / Rate / Amount table with each line's item name in
+  bold above its description, and the balance due under a dotted rule beside the
+  customer message and payment instructions, with any payment or applied credit
+  shown above it. It prints everything the classic layout does — terms, P.O.
+  number, sales rep, shipping details, the payment schedule and the GST/HST,
+  QST/PST or VAT numbers — in French for French-speaking customers and with any
+  currency symbol. Make an Airy style the default to use it for every invoice,
+  or pick it on one invoice. Existing styles keep the classic layout, which
+  prints exactly as before. New `form_styles.layout` column.
 
 ### Changed
 
@@ -40,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tax rows print the rate once.** The built-in tax names already include
+  their rate, so totals read "GST (5%) 5.00%" on invoices, estimates, sales
+  orders, credit memos, bills, purchase orders and vendor credits, on screen
+  and in the PDF. The rate is now added only when the name doesn't already
+  show it ("PST 7.00%" for a code named "PST"). If a name still shows an old
+  rate, the real rate is printed beside it.
+- **The classic invoice prints its document discount.** An invoice with a
+  discount on the whole document printed the subtotal, tax and total with
+  nothing between them, so the figures did not add up on the page. The
+  discount now prints between the subtotal and the tax.
 - **The classic invoice shows credits and write-offs.** When a credit memo or
   a write-off had closed part of an invoice's balance, the classic layout left
   it out: with no payment it printed only the total, as if the whole amount

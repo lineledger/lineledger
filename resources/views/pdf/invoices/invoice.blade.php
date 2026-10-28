@@ -217,9 +217,15 @@
             <td>{{ __('Subtotal') }}</td>
             <td class="num">{{ number_format($invoice->subtotal_cents / 100, 2) }}</td>
         </tr>
+        @if ((int) $invoice->document_discount_cents !== 0)
+            <tr>
+                <td>{{ __('Discount') }}</td>
+                <td class="num">-{{ number_format($invoice->document_discount_cents / 100, 2) }}</td>
+            </tr>
+        @endif
         @foreach ($taxSummary as $tax)
             <tr>
-                <td>{{ $tax['label'] }} {{ LineTaxBreakdown::formatRate($tax['rate']) }}%</td>
+                <td>{{ LineTaxBreakdown::labelWithRate($tax['label'], $tax['rate']) }}</td>
                 <td class="num">{{ number_format($tax['tax_cents'] / 100, 2) }}</td>
             </tr>
         @endforeach
@@ -249,40 +255,10 @@
         @endif
     </table>
 
-    @php
-        $schedule = $invoice->paymentRequests->isNotEmpty() ? app(\App\Services\Sales\PaymentRequestScheduleStatus::class)->for($invoice) : collect();
-    @endphp
-    @if ($settings->show_payment_schedule && $schedule->isNotEmpty())
-        <table class="data" style="margin-top: 16px;">
-            <thead>
-                <tr>
-                    <th colspan="2">{{ __('Payment Schedule') }}</th>
-                    <th class="num">{{ __('Amount') }}</th>
-                    <th class="num">{{ __('Status') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($schedule as $row)
-                    <tr>
-                        <td>{{ $row['request']->label }}</td>
-                        <td>{{ $row['request']->due_date?->toDateString() }}</td>
-                        <td class="num">{{ number_format($row['request']->amount_cents / 100, 2) }}</td>
-                        <td class="num">{{ $row['status']->label() }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @endif
+    @include('pdf.invoices.partials.payment-schedule')
 
     <div class="footer">
-        @include('pdf.partials.registration-numbers')
-        @php
-            $provincialTaxNumber = $company->provincialTaxNumber();
-            $provincialTaxLabel = $company->provincialTaxLabel();
-        @endphp
-        @if ($settings->show_tax_number && filled($provincialTaxNumber))
-            <div class="taxno">{{ __(':tax No.', ['tax' => $provincialTaxLabel]) }} {{ $provincialTaxNumber }}</div>
-        @endif
+        @include('pdf.invoices.partials.tax-numbers')
         @if (filled($invoice->customer_message))
             <div class="message">{{ $invoice->customer_message }}</div>
         @endif

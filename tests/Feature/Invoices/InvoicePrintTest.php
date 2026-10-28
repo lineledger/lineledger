@@ -112,8 +112,8 @@ it('renders customer-facing content without GL account codes', function () {
         ->toContain('INV-PRINT-1')
         ->toContain('Chavez, Isaac Jr.')
         ->toContain('123 Main St')
-        ->toContain('GST (5%)')
-        ->toContain('5.00%')
+        ->toContain('<td>GST (5%)</td>')
+        ->not->toContain('5.00%')
         ->toContain('GST/HST No.')
         ->toContain('123456789 RT0001')
         ->toContain('Thank you for your business')
@@ -384,7 +384,10 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->toContain('123456789 RT0001')
         ->toContain('N° TVQ')
         ->toContain('1234567890 TQ 0001')
-        ->toContain('TVQ (9,975 %) 9.975%');
+        ->toContain('TVQ (9,975 %)')
+        ->toContain('TPS (5 %)')
+        ->not->toContain('9.975%')
+        ->not->toContain('5.00%');
 
     // Customer with English locale gets English headers and labels
     $customerEn = Contact::create([
@@ -430,7 +433,10 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
         ->toContain('123456789 RT0001')
         ->toContain('QST No.')
         ->toContain('1234567890 TQ 0001')
-        ->toContain('QST (9.975%) 9.975%');
+        ->toContain('QST (9.975%)')
+        ->toContain('GST (5%)')
+        ->not->toContain('QST (9.975%) 9.975%')
+        ->not->toContain('GST (5%) 5.00%');
 
     // When show_tax_number is false, neither tax number prints
     InvoiceSetting::updateOrCreate(
@@ -444,6 +450,24 @@ it('prints both GST and TVQ/QST registration numbers on the invoice footer in th
     expect($htmlHidden)
         ->not->toContain('123456789 RT0001')
         ->not->toContain('1234567890 TQ 0001');
+});
+
+it('prints the document discount between the subtotal and the tax', function () {
+    $invoice = makePostedInvoice($this);
+    $render = fn () => app(InvoicePdfRenderer::class)->html($this->company, $invoice->fresh());
+
+    expect($render())->not->toContain('>Discount<');
+
+    $invoice->forceFill(['document_discount_cents' => 1000])->save();
+    $invoice->recalculateTotals();
+    $html = $render();
+
+    // 50.00 − 10.00 discount + 2.50 GST = 42.50
+    expect($html)->toContain('<td>Discount</td>')
+        ->and($html)->toContain('-10.00')
+        ->and($html)->toContain('$42.50')
+        ->and(strpos($html, '>Subtotal<'))->toBeLessThan(strpos($html, '>Discount<'))
+        ->and(strpos($html, '>Discount<'))->toBeLessThan(strpos($html, '>Total<'));
 });
 
 it('prints credits and write-offs and the balance they leave', function () {

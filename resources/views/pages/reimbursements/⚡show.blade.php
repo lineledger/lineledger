@@ -162,7 +162,7 @@ new #[Title('Reimbursement')] class extends Component {
             <tfoot class="bg-muted">
                 @foreach (LineTaxBreakdown::forLines($bill->lines) as $taxRow)
                     <tr data-test="reimbursement-tax-row">
-                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ $taxRow['label'] }} {{ LineTaxBreakdown::formatRate($taxRow['rate']) }}%</td>
+                        <td colspan="5" class="px-4 py-2 text-right font-medium">{{ LineTaxBreakdown::labelWithRate($taxRow['label'], $taxRow['rate']) }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($taxRow['tax_cents'] / 100, 2) }}</td>
                     </tr>
                 @endforeach
