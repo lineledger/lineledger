@@ -187,6 +187,12 @@ final class BackupTableRegistry
             // classifications/locations/funds), so order within the GL group is free.
             ['table' => 'journal_entry_templates', 'model' => JournalEntryTemplate::class, 'group' => 'gl'],
             ['table' => 'journal_entry_template_lines', 'model' => JournalEntryTemplateLine::class, 'group' => 'gl'],
+            // API keys: label + last_four only — the token hash never leaves
+            // the instance. Restored before the audit logs that FK them: those
+            // rows are hash-chained and immutable, so api_key_id must resolve
+            // on insert rather than in the post-loop UPDATE pass. Grouped with
+            // the user affordances for the restore preview.
+            ['table' => 'company_api_keys', 'model' => CompanyApiKey::class, 'group' => 'user_affordances'],
             ['table' => 'accounting_audit_logs', 'model' => AccountingAuditLog::class, 'group' => 'gl'],
             ['table' => 'currency_revaluations', 'model' => CurrencyRevaluation::class, 'group' => 'gl'],
             // Opening Balances workspace: states FK journal_entries (above) and
@@ -343,10 +349,7 @@ final class BackupTableRegistry
             // Membership uses table `company_members`. Phase 2 will re-link to users via email-match.
             ['table' => 'company_members', 'model' => Membership::class, 'group' => 'user_affordances'],
             ['table' => 'company_invitations', 'model' => CompanyInvitation::class, 'group' => 'user_affordances'],
-            // API keys: hashed token + last_four only — plaintext is unrecoverable.
-            // Documented as such in manifest.exclusions hints.
-            ['table' => 'company_api_keys', 'model' => CompanyApiKey::class, 'group' => 'user_affordances'],
-            // Agentic-MCP propose→confirm proposals. FK company_api_keys (above)
+            // Agentic-MCP propose→confirm proposals. FK company_api_keys (GL group)
             // and journal_entries (GL group, earlier), so it follows both.
             ['table' => 'mcp_write_proposals', 'model' => McpWriteProposal::class, 'group' => 'user_affordances'],
 

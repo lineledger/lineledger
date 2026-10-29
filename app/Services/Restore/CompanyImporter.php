@@ -34,10 +34,10 @@ use ZipArchive;
  *  1. Extracts the ZIP to a temp directory.
  *  2. Re-validates the manifest (schema + per-table sha256).
  *  3. Builds an email-match user remap and an empty IdMapper.
- *  4. Creates the new Company shell (`Company::withoutEvents` — bypass the
- *     CompanyObserver chart-seeding).
- *  5. Walks {@see BackupTableRegistry::tables()} in order inside a single
- *     `DB::transaction` wrapped by `AuditMute::silence`. Rows go through
+ *  4. Opens a single `DB::transaction` and creates the new Company shell in
+ *     it (`Company::withoutEvents` — bypass the CompanyObserver chart-seeding).
+ *  5. Walks {@see BackupTableRegistry::tables()} in order inside that
+ *     transaction, wrapped by `AuditMute::silence`. Rows go through
  *     `RowTransformer` (id strip, company_id swap, user remap, FK remap,
  *     polymorphic remap, per-table quirks). Every insert is via
  *     `DB::table()->insertGetId()` to skip `JournalLine::creating`'s clobber
@@ -49,9 +49,9 @@ use ZipArchive;
  *  9. Inserts the importing user's Owner Membership LAST — a half-built
  *     restore must never leave a user with an Owner card.
  *
- * On any throw the transaction rolls back, the restore goes to Failed with
- * `error_message`, and the temp dir is cleaned up. The uploaded ZIP is
- * intentionally retained for debugging.
+ * On any throw the transaction rolls back (Company shell included), the
+ * restore goes to Failed with `error_message`, and the temp dir is cleaned up.
+ * The uploaded ZIP is intentionally retained for debugging.
  */
 final class CompanyImporter
 {
@@ -119,7 +119,6 @@ final class CompanyImporter
         }
 
         $previousBinding = app()->bound('current_company') ? app('current_company') : null;
-        $newCompany = null;
 
         try {
             $this->extractZip($zipAbsolute, $extractedDir);
@@ -201,41 +200,44 @@ final class CompanyImporter
 
             $shellPayload = $this->prepareRowForInsert($shellRow);
 
-            $newCompanyId = (int) Company::withoutEvents(
-                fn (): int => DB::table('companies')->insertGetId($shellPayload)
-            );
-
-            $newCompany = Company::query()
-                ->withoutGlobalScopes()
-                ->findOrFail($newCompanyId);
-
-            if ($oldCompanyId !== null) {
-                $idMapper->set('companies', $oldCompanyId, (int) $newCompany->id);
-            }
-
-            app()->instance('current_company', $newCompany);
-
-            $rowTransformer = new RowTransformer(
-                idMapper: $idMapper,
-                userIdMap: $userIdMap,
-                importingUserId: (int) $restore->requested_by_user_id,
-                newCompanyId: (int) $newCompany->id,
-            );
-
             $stepResults = [];
             $deferredFkUpdates = [];
 
-            DB::transaction(function () use (
+            $newCompany = DB::transaction(function () use (
                 $extractedDir,
-                $rowTransformer,
+                $shellPayload,
+                $oldCompanyId,
+                $userIdMap,
                 $idMapper,
-                $newCompany,
                 $manifestTables,
                 $rawCompanyRow,
                 $restore,
                 &$stepResults,
                 &$deferredFkUpdates,
-            ): void {
+            ): Company {
+                // The shell goes in inside the transaction, so a failure at
+                // any later step rolls it back with everything else.
+                $newCompanyId = (int) Company::withoutEvents(
+                    fn (): int => DB::table('companies')->insertGetId($shellPayload)
+                );
+
+                $newCompany = Company::query()
+                    ->withoutGlobalScopes()
+                    ->findOrFail($newCompanyId);
+
+                if ($oldCompanyId !== null) {
+                    $idMapper->set('companies', $oldCompanyId, (int) $newCompany->id);
+                }
+
+                app()->instance('current_company', $newCompany);
+
+                $rowTransformer = new RowTransformer(
+                    idMapper: $idMapper,
+                    userIdMap: $userIdMap,
+                    importingUserId: (int) $restore->requested_by_user_id,
+                    newCompanyId: (int) $newCompany->id,
+                );
+
                 AuditMute::silence(function () use (
                     $extractedDir,
                     $rowTransformer,
@@ -415,6 +417,8 @@ final class CompanyImporter
                     'user_id' => $restore->requested_by_user_id,
                     'role' => CompanyRole::Owner,
                 ]);
+
+                return $newCompany;
             });
 
             $restore->forceFill([

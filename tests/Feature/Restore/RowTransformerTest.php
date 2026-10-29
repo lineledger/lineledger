@@ -271,19 +271,50 @@ it('preserves the bundle-relative path on attachments and remaps the polymorphic
         ->and($result['row']['attachable_type'])->toBe(Invoice::class);
 });
 
-it('nulls token columns on company_api_keys rows', function () {
+it('restores company_api_keys rows as revoked keys with an unusable token hash', function () {
     $transformer = buildTransformer();
 
+    // The bundle shape: the model hides token_hash, so the column is absent.
     $result = $transformer->transform('company_api_keys', [
         'id' => 1,
+        'company_id' => 5,
+        'label' => 'CI key',
+        'last_four' => '1234',
+        'revoked_at' => null,
+        'token' => 'll_live_plaintext',
+    ]);
+
+    expect($result['row']['token_hash'])->toMatch('/^[0-9a-f]{64}$/')
+        ->and($result['row']['revoked_at'])->not->toBeNull()
+        ->and($result['row']['token'])->toBeNull()
+        ->and($result['row']['last_four'])->toBe('1234')
+        ->and($result['skip'])->toBeFalse();
+
+    // A source hash is replaced, never carried over; each restore mints its own.
+    $again = $transformer->transform('company_api_keys', [
+        'id' => 2,
         'company_id' => 5,
         'label' => 'CI key',
         'token_hash' => 'hash-from-source-instance',
         'last_four' => '1234',
     ]);
 
-    expect($result['row']['token_hash'])->toBeNull()
-        ->and($result['row']['last_four'])->toBe('1234');
+    expect($again['row']['token_hash'])->toMatch('/^[0-9a-f]{64}$/')
+        ->and($again['row']['token_hash'])->not->toBe($result['row']['token_hash']);
+});
+
+it('keeps the original revocation date on a restored company_api_keys row', function () {
+    $transformer = buildTransformer();
+
+    $result = $transformer->transform('company_api_keys', [
+        'id' => 1,
+        'company_id' => 5,
+        'label' => 'Old key',
+        'last_four' => '1234',
+        'revoked_at' => '2026-03-01T12:00:00.000000Z',
+    ]);
+
+    expect($result['row']['revoked_at'])->toBe('2026-03-01T12:00:00.000000Z');
 });
 
 it('passes through company_members rows whose user_id was matched by email', function () {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\AuditAction;
 use App\Enums\CompanyBackupStatus;
 use App\Enums\CompanyRestoreStatus;
 use App\Enums\CompanyRole;
@@ -13,6 +14,7 @@ use App\Models\BillLine;
 use App\Models\BillPayment;
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\CompanyApiKey;
 use App\Models\CompanyBackup;
 use App\Models\CompanyRestore;
 use App\Models\Contact;
@@ -35,6 +37,7 @@ use App\Models\TaxCode;
 use App\Models\TaxReturn;
 use App\Models\User;
 use App\Models\VendorCredit;
+use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Backup\CompanyExporter;
 use App\Services\Restore\CompanyImporter;
@@ -235,6 +238,25 @@ beforeEach(function () {
         'size_bytes' => strlen('ARTICLES-PDF-BYTES'),
         'uploaded_by_id' => $this->bob->id,
     ]);
+
+    // ---- An API key, and an audit row attributed to it. The bundle never
+    //      carries the key's secret; the audit row's api_key_id FK must still
+    //      resolve to the restored key. ----
+    ['key' => $this->apiKey, 'plaintext' => $this->apiKeyPlaintext] = CompanyApiKey::mint(
+        $this->companyA,
+        'Zapier',
+        $this->alice->id,
+        ['sales:read'],
+    );
+
+    app()->instance('current_api_key', $this->apiKey);
+    app(AccountingAuditRecorder::class)->record(
+        $this->companyA->id,
+        AuditAction::JournalEntryPosted,
+        $this->journalEntry,
+        journalEntry: $this->journalEntry,
+    );
+    app()->forgetInstance('current_api_key');
 });
 
 afterEach(function () {
@@ -271,6 +293,50 @@ it('restores a bundle staged on object storage', function () {
 
     expect($restore->status)->toBe(CompanyRestoreStatus::Completed)
         ->and(Company::find($restore->company_id)?->name)->toBe('Acme Inc.');
+});
+
+it('leaves no company behind when a restore fails partway', function () {
+    $backup = CompanyBackup::create([
+        'status' => CompanyBackupStatus::Pending,
+        'requested_by_user_id' => $this->alice->id,
+        'app_version' => config('version.app'),
+        'schema_version' => config('version.schema'),
+    ]);
+    app(CompanyExporter::class)->export($backup);
+    $backup->refresh();
+
+    // Overstate the contacts row count in the manifest: the importer creates
+    // the company, inserts the contacts, then fails the per-table count check.
+    $restorePath = 'restores/'.basename($backup->file_path);
+    Storage::disk('local')->put($restorePath, Storage::disk('local')->get($backup->file_path));
+
+    $zip = new ZipArchive;
+    $zip->open(Storage::disk('local')->path($restorePath));
+    $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
+    $manifest['tables']['contacts']['rows']++;
+    $zip->addFromString('manifest.json', json_encode($manifest));
+    $zip->close();
+
+    $restore = CompanyRestore::create([
+        'requested_by_user_id' => $this->alice->id,
+        'status' => CompanyRestoreStatus::Pending,
+        'file_path' => $restorePath,
+    ]);
+
+    $companiesBefore = DB::table('companies')->count();
+    $membershipsBefore = DB::table('company_members')->count();
+
+    app()->forgetInstance('current_company');
+
+    expect(fn () => app(CompanyImporter::class)->import($restore))
+        ->toThrow(RuntimeException::class, 'Row count mismatch for table contacts');
+
+    $restore->refresh();
+
+    expect($restore->status)->toBe(CompanyRestoreStatus::Failed)
+        ->and($restore->company_id)->toBeNull()
+        ->and(DB::table('companies')->count())->toBe($companiesBefore)
+        ->and(DB::table('company_members')->count())->toBe($membershipsBefore);
 });
 
 it('round-trips a company through export and import', function () {
@@ -557,6 +623,29 @@ it('round-trips a company through export and import', function () {
     expect($bobMembershipB)->not->toBeNull()
         ->and($folderB->created_by_member_id)->toBe($bobMembershipB->id)
         ->and($folderB->viewer_member_ids)->toContain($bobMembershipB->id);
+
+    // ---- 7c. The API key comes back revoked, with a hash nobody holds. ----
+    $keyB = CompanyApiKey::withoutGlobalScopes()
+        ->where('company_id', $companyB->id)
+        ->sole();
+
+    expect($keyB->label)->toBe('Zapier')
+        ->and($keyB->abilities)->toBe(['sales:read'])
+        ->and($keyB->last_four)->toBe($this->apiKey->last_four)
+        ->and($keyB->isActive())->toBeFalse()
+        ->and($keyB->getRawOriginal('token_hash'))->not->toBe($this->apiKey->getRawOriginal('token_hash'))
+        ->and(CompanyApiKey::withoutGlobalScopes()
+            ->where('token_hash', hash('sha256', $this->apiKeyPlaintext))
+            ->pluck('id')
+            ->all())->toBe([$this->apiKey->id]);
+
+    $auditKeyIdsB = DB::table('accounting_audit_logs')
+        ->where('company_id', $companyB->id)
+        ->whereNotNull('api_key_id')
+        ->pluck('api_key_id')
+        ->all();
+
+    expect($auditKeyIdsB)->toBe([$keyB->id]);
 
     // ---- 8. Audit-log chain verifies on Company B. ----
     // With UNIQUE(company_id, row_hash) the bundle's hashes are copied verbatim,

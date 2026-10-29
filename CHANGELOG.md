@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   can pay" text from Settings → Invoices showed in the customer portal but
   never on the classic invoice PDF. It now prints under a How to pay heading
   in the footer of any invoice that still has a balance, as the portal does.
+- **Backups of organizations with API keys restore again.** A backup never
+  holds a key's secret, so the restore stopped with a database error for any
+  organization that had ever created an API key, from the app or with
+  `backup:import`. The keys now come back revoked, still linked to the audit
+  entries they made, and the owner creates new ones. A restore that fails
+  partway also no longer leaves an empty organization behind. Reported in #158.
 
 ## [1.3.1] - 2026-10-24
 

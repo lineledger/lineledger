@@ -3,6 +3,7 @@
 namespace App\Services\Restore;
 
 use App\Services\Backup\ReferencedUsersExporter;
+use Illuminate\Support\Str;
 
 /**
  * Transforms one decoded `.jsonl` row from the bundle into the row payload the
@@ -740,9 +741,6 @@ final class RowTransformer
         'donation_receipts' => [
             'donation_id' => 'donations',
         ],
-        'accounting_audit_logs' => [
-            'api_key_id' => 'company_api_keys',
-        ],
     ];
 
     /**
@@ -1041,11 +1039,18 @@ final class RowTransformer
                 break;
 
             case 'company_api_keys':
-                // Imported API keys are unusable until the user mints a new
-                // secret — only the hashed token + last_four crossed the wire
-                // and the hash isn't reversible. Null any plaintext token
-                // columns defensively in case a future schema gains one.
-                foreach (['token', 'token_hash', 'plaintext_token'] as $secretColumn) {
+                // The secret never crosses the wire (the exporter drops
+                // token_hash), but the row is kept: audit logs and MCP
+                // proposals point at it. Give it a hash of a value nobody
+                // holds, so it can never authenticate, and restore it revoked
+                // so the API keys page says so. A key revoked before the
+                // backup keeps its original date.
+                $row['token_hash'] = hash('sha256', Str::random(64));
+                $row['revoked_at'] ??= now();
+
+                // Null any plaintext token columns defensively in case a
+                // future schema gains one.
+                foreach (['token', 'plaintext_token'] as $secretColumn) {
                     if (array_key_exists($secretColumn, $row)) {
                         $row[$secretColumn] = null;
                     }

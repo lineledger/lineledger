@@ -417,6 +417,9 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         <flux:text>
             {{ __('A restore never overwrites an existing organization. It always creates a brand-new organization from the ZIP, and whoever uploads it becomes that organization’s Owner; the organization the backup came from is left exactly as it is. Team members are matched by email address where they already have an account on the server, and anything recorded by someone who is not matched is attributed to you.') }}
         </flux:text>
+        <flux:text>
+            {{ __('API keys come back revoked. A backup never holds a key’s secret, so the restored keys only record which integrations you had; create new ones in the API keys panel of Settings → Security and update those integrations.') }}
+        </flux:text>
 
         <p><strong>{{ __('To restore a backup into a new organization:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
