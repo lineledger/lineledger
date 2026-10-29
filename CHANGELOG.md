@@ -80,6 +80,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entries they made, and the owner creates new ones. A restore that fails
   partway also no longer leaves an empty organization behind. Reported in #158.
 
+### Security
+
+- **`symfony/mime` 8.1.10** (from 8.1.7) fixes an email header injection through
+  MIME parameter names that contain non-token characters
+  ([CVE-2026-45070](https://symfony.com/cve-2026-45070)). LineLedger never takes a
+  parameter name from user input (Symfony sets them: `filename`, `charset`, …),
+  so it wasn't exposed; the update keeps the dependency audit clean. The release
+  also escapes quotes and backslashes in quoted parameter values, such as
+  attachment filenames.
+  ([#160](https://github.com/lineledger/lineledger/pull/160))
+
 ## [1.3.1] - 2026-10-24
 
 **Highlights.** A patch for the first sign-in on a new install: a site admin
