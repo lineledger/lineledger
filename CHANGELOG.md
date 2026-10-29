@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so it wasn't exposed; the update keeps the dependency audit clean. The release
   also escapes quotes and backslashes in quoted parameter values, such as
   attachment filenames.
+  ([#160](https://github.com/lineledger/lineledger/pull/160))
 
 ## [1.3.1] - 2026-10-24
 
