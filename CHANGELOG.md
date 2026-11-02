@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Actions on an open page work again on a real hostname (#180).** Since 1.4.0,
+  every click that updates a page without reloading it, such as switching
+  accounts or sorting in the bank register or moving between periods in a
+  report, answered "400 Bad Request", and nothing was logged. This happened on
+  any installation whose `APP_URL` isn't `localhost`. The check that re-confirms
+  your access on each action looked up the page on `localhost`, and with cached
+  routes, which every deployment uses, that host was refused as untrusted. It now
+  looks the page up on the host you are using.
+
 ## [1.4.0] - 2026-10-29
 
 **Highlights.** UK companies get **statutory accounts** (FRS 102 Section 1A or

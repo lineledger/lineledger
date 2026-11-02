@@ -1,8 +1,14 @@
 <?php
 
+use App\Enums\AccountSubtype;
+use App\Enums\CompanyRole;
+use App\Models\Account;
+use App\Models\Company;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,3 +80,44 @@ it('answers the health check whatever the host', function (string $url) {
     'Docker' => 'http://localhost:8080/up',
     'App Platform' => 'http://10.244.3.7:8080/up',
 ]);
+
+it('serves Livewire updates on the APP_URL host when routes are cached', function () {
+    // Issue #180. Every deployment caches its routes (docker/entrypoint.sh, the
+    // Forge script), and a cached route collection reads the Host of each request
+    // it matches, including the one BindCurrentCompanyHook builds to find the
+    // page a component was rendered on. On a bare path that host was localhost,
+    // which isn't trusted once APP_URL is a real name, so every update was a 400.
+
+    // Plain HTTP on a custom port, as the reporter's install is reached.
+    config(['app.url' => 'http://books.example.com:8180']);
+    URL::forceRootUrl('http://books.example.com:8180');
+
+    $router = app('router');
+    $router->setCompiledRoutes($router->getRoutes()->compile());
+
+    // Running as production switches CSRF back on, and each test request starts
+    // a fresh session; the token is beside the point here. Every other gate runs.
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $owner = User::factory()->create();
+    $company = Company::factory()->create();
+    $company->members()->attach($owner, ['role' => CompanyRole::Owner->value]);
+
+    app()->instance('current_company', $company);
+    [$chequing, $savings] = Account::query()
+        ->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])
+        ->orderBy('code')
+        ->take(2)
+        ->get()
+        ->all();
+    app()->forgetInstance('current_company');
+
+    $url = route('banking.register', ['company' => $company->slug, 'account' => $chequing->id]);
+    expect($url)->toStartWith('http://books.example.com:8180/');
+
+    $snapshot = livewireReplayCapture($owner, $url, 'pages::banking.register');
+
+    // Sorting a column, and switching to another account: the reporter's steps.
+    livewireReplay($snapshot, [['sortBy', 'memo']])->assertOk();
+    livewireReplay($snapshot, updates: ['account_id' => $savings->id])->assertOk();
+});

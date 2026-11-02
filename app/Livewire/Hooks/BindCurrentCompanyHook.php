@@ -163,8 +163,16 @@ class BindCurrentCompanyHook extends ComponentHook
             return null;
         }
 
+        // On this request's scheme and host, not a bare path: a bare path makes
+        // the host localhost, and cached routes (every deployment runs
+        // route:cache) read the host while matching, so outside local and
+        // testing localhost is refused as an untrusted host (a 400) unless
+        // APP_URL happens to be localhost. This request's host has already
+        // passed that check.
         try {
-            return app('router')->getRoutes()->match(Request::create('/'.ltrim($path, '/'), $method));
+            return app('router')->getRoutes()->match(
+                Request::create(request()->getSchemeAndHttpHost().'/'.ltrim($path, '/'), $method),
+            );
         } catch (HttpExceptionInterface) {
             return null;
         }
