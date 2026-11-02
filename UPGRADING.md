@@ -14,7 +14,7 @@ newest first.
   release's *Before you start*.
 - **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0 → 1.4.0, running each
   release's steps in turn. Skipping a release skips its backfills and its behaviour notes.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.0` is one exact
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.1` is one exact
   release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest tagged
   release; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
@@ -24,7 +24,7 @@ newest first.
   migrations, then every backfill the release needs (since 1.1.0:
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
-  `currency:backfill-reversal-memos`). Each
+  `currency:backfill-reversal-memos`; 1.4.1 adds none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -35,6 +35,64 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.0 → 1.4.1
+
+Released 2026-11-02. A patch release for one serious 1.4.0 bug. On any installation
+whose `APP_URL` isn't `localhost`, which is nearly every real one, every action on an
+open page answered **400 Bad Request**: switching or sorting the bank register, moving
+between periods in a report, saving a form without reloading the page. Nothing was
+logged ([#180](https://github.com/lineledger/lineledger/issues/180)). Upgrade as soon
+as you can. Pages still loaded; only the actions inside them failed.
+
+PHP `^8.5`, Laravel 13 and every dependency are unchanged. **No migrations, no
+backfills, no config or env changes.** `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.4.0.
+
+**Coming from 1.3.1?** Follow the 1.3.1 → 1.4.0 steps below (its trusted-hosts and
+trusted-proxies settings, its migrations and backfills), but go straight to 1.4.1:
+pin `LINELEDGER_VERSION=1.4.1`, or check out `v1.4.1`. 1.4.1 contains everything in
+1.4.0, so you don't need to stop at 1.4.0 first.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.4.1` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.4.1 (or stay on 1.4, which moves to 1.4.1 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+Run `lineledger upgrade`. It backs up, moves to 1.4.1 and runs `app:upgrade --verify`.
+
+### DigitalOcean App Platform
+
+Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy picks up
+1.4.1 and the pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script. Then run `php artisan app:upgrade --verify`
+and `php artisan queue:restart`.
+
+### Check it worked
+
+Open Banking → Bank register and click a column heading. The register re-sorts in
+place instead of showing "400 Bad Request".
+
+### Rolling back
+
+Nothing in the database changed, so you can deploy 1.4.0 again
+(`LINELEDGER_VERSION=1.4.0`, or `v1.4.0`) without a restore, but that brings the 400s
+back. To leave the 1.4 line altogether, use the 1.3.1 → 1.4.0 rollback steps, which
+restore a backup.
 
 ## 1.3.1 → 1.4.0
 

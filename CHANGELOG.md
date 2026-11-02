@@ -7,16 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-02
+
+**Highlights.** A patch for one serious 1.4.0 bug: on any installation whose
+`APP_URL` isn't `localhost`, every action on an open page answered "400 Bad
+Request". No migrations, no backfills and no configuration changes; see
+`UPGRADING.md`.
+
 ### Fixed
 
-- **Actions on an open page work again on a real hostname (#180).** Since 1.4.0,
-  every click that updates a page without reloading it, such as switching
-  accounts or sorting in the bank register or moving between periods in a
-  report, answered "400 Bad Request", and nothing was logged. This happened on
+- **Actions on an open page work again on a real hostname.** Since 1.4.0, every
+  click that updates a page without reloading it answered "400 Bad Request", and
+  nothing was logged. That included switching accounts or sorting in the bank
+  register, moving between periods in a report and saving a form. It happened on
   any installation whose `APP_URL` isn't `localhost`. The check that re-confirms
-  your access on each action looked up the page on `localhost`, and with cached
+  your access on each action looked the page up on `localhost`. With cached
   routes, which every deployment uses, that host was refused as untrusted. It now
   looks the page up on the host you are using.
+  ([#180](https://github.com/lineledger/lineledger/issues/180),
+  [#191](https://github.com/lineledger/lineledger/pull/191))
 
 ## [1.4.0] - 2026-10-29
 
@@ -1492,7 +1501,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/lineledger/lineledger/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/lineledger/lineledger/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/lineledger/lineledger/compare/v1.2.2...v1.3.0
