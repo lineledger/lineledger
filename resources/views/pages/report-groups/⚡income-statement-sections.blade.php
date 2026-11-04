@@ -2,6 +2,7 @@
 
 use App\Concerns\ManagesReportGroupSections;
 use App\Enums\ReportStatement;
+use App\Livewire\Attributes\AuthorizesReportGroup;
 use App\Models\ReportGroup;
 use App\Models\ReportGroupLine;
 use App\Support\Reporting\IncomeStatementBucket;
@@ -9,7 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Combined Income Statement sections')] class extends Component {
+new #[Title('Combined Income Statement sections')] #[AuthorizesReportGroup('update')] class extends Component {
     use ManagesReportGroupSections;
 
     public ReportGroup $reportGroup;

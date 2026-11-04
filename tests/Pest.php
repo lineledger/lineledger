@@ -5,6 +5,7 @@ use App\Actions\Payroll\SavePayRun;
 use App\Actions\Sales\SaveInvoice;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\BankReconciliation;
 use App\Models\Company;
@@ -114,6 +115,27 @@ function editLockMember(Company $company, CompanyRole $role = CompanyRole::Accou
 {
     $user = User::factory()->create();
     $company->members()->attach($user, ['role' => $role->value]);
+
+    return $user;
+}
+
+/**
+ * A Custom-role member of $company holding only the given sections — for tests
+ * of what one section's members can and cannot reach.
+ *
+ * @param  list<Section>  $sections
+ */
+function customSectionsMember(Company $company, array $sections): User
+{
+    $user = User::factory()->create(['email_verified_at' => now()]);
+
+    // Through Eloquent, so the `sections` array cast encodes the JSON (pivot
+    // attach() would bypass the cast and double-encode it).
+    $company->memberships()->create([
+        'user_id' => $user->id,
+        'role' => CompanyRole::Custom,
+        'sections' => array_map(fn (Section $section) => $section->value, $sections),
+    ]);
 
     return $user;
 }

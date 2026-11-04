@@ -2,9 +2,11 @@
 
 namespace App\Services\Security;
 
+use App\Enums\Section;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\EmployeePayrollProfile;
+use App\Models\ReportEmailSchedule;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,14 +27,18 @@ class AccessRevoker
     /**
      * Full deprovisioning: the user has been removed from the company. Drop
      * their sessions (forcing re-authentication, after which the company is
-     * simply gone), revoke the company API keys they minted, and revoke their
-     * OAuth (Passport) tokens so any active MCP connection must re-authorize.
+     * simply gone), revoke the company API keys they minted, revoke their
+     * OAuth (Passport) tokens so any active MCP connection must re-authorize,
+     * pause the report emails they scheduled here, and stop their "current
+     * company" pointing at a company they no longer belong to.
      */
     public function revokeForRemoval(User $user, Company $company): void
     {
         $this->forgetSessions($user);
         $this->revokeCompanyApiKeys($user, $company);
         $this->revokePassportTokens($user);
+        $this->pauseReportSchedules($user, $company, __('The schedule’s owner is no longer a member of this organization.'));
+        $this->leaveCurrentCompany($user, $company);
 
         // A removed member must stop receiving employees' leave requests:
         // clear any designated-approver references (requests fall back to the
@@ -54,6 +60,14 @@ class AccessRevoker
     {
         $this->forgetSessions($user);
         $this->revokeCompanyApiKeys($user, $company);
+
+        // A member who can no longer open Reports must stop emailing them. One
+        // who keeps Reports but loses a section a scheduled report needs (e.g.
+        // Payroll) is caught when the schedule next runs, which re-checks each
+        // report against its owner's live access.
+        if (! ($company->sectionEnabled(Section::Reports) && $user->canAccessSection($company, Section::Reports))) {
+            $this->pauseReportSchedules($user, $company, __('The schedule’s owner no longer has access to Reports.'));
+        }
     }
 
     /**
@@ -76,6 +90,45 @@ class AccessRevoker
             ->where('created_by_user_id', $user->id)
             ->whereNull('revoked_at')
             ->update(['revoked_at' => now()]);
+
+        $this->pauseReportSchedules($user, null, __('The schedule’s owner’s account is disabled.'));
+    }
+
+    /**
+     * Pause the report emails a user scheduled — in one company, or in every
+     * company when $company is null — recording why on each schedule. The send
+     * job also re-checks the owner before every run; pausing here makes the
+     * stop immediate and visible on the schedules list.
+     */
+    protected function pauseReportSchedules(User $user, ?Company $company, string $reason): void
+    {
+        ReportEmailSchedule::query()->withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->when($company !== null, fn ($query) => $query->where('company_id', $company?->id))
+            ->where('is_active', true)
+            ->update(['is_active' => false, 'paused_reason' => $reason]);
+    }
+
+    /**
+     * Point a removed member's "current company" elsewhere — their personal
+     * company, else any company they still belong to, else nothing — so pages
+     * outside the tenant routes (settings, global search) don't keep resolving
+     * a company they were removed from and answer 403.
+     */
+    protected function leaveCurrentCompany(User $user, Company $company): void
+    {
+        if ((int) $user->current_company_id !== (int) $company->id) {
+            return;
+        }
+
+        $fallback = $user->companies()
+            ->where('companies.id', '!=', $company->id)
+            ->orderByDesc('is_personal')
+            ->orderBy('companies.id')
+            ->first();
+
+        $user->forceFill(['current_company_id' => $fallback?->id])->save();
+        $user->unsetRelation('currentCompany');
     }
 
     protected function forgetSessions(User $user): void

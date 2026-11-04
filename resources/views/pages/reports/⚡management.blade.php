@@ -5,6 +5,7 @@ use App\Models\ReportPackage;
 use App\Services\Reporting\Render\ManagementReportBuilder;
 use App\Support\Reporting\ComparisonPeriod;
 use App\Support\Reporting\RenderableReports;
+use App\Support\Reporting\ReportCatalog;
 use App\Support\Reporting\ReportDatePresets;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
@@ -66,7 +67,9 @@ new #[Title('Management Reports')] class extends Component {
     }
 
     /**
-     * PDF-capable reports offered by the item picker, key => label.
+     * PDF-capable reports offered by the item picker, key => label — only the
+     * ones this user may open (a package must not bundle a report its page
+     * would refuse them, e.g. payroll reports without Payroll access).
      *
      * @return array<string, string>
      */
@@ -74,9 +77,11 @@ new #[Title('Management Reports')] class extends Component {
     public function reportOptions(): array
     {
         $tracksMembership = $this->company->tracksMembership();
+        $user = Auth::user();
 
         return collect(RenderableReports::all())
             ->filter(fn (array $entry): bool => in_array('pdf', $entry['formats'], true))
+            ->filter(fn (array $entry, string $key): bool => ReportCatalog::allows($this->company, $user, $key))
             // The membership list is only meaningful — and only renders (it 403s
             // otherwise) — for companies that track membership.
             ->reject(fn (array $entry, string $key): bool => $key === 'reports.membership-roster' && ! $tracksMembership)
@@ -259,6 +264,19 @@ new #[Title('Management Reports')] class extends Component {
         $package = ReportPackage::query()->where('user_id', Auth::id())->with('items')->find($id);
 
         if ($package === null) {
+            return null;
+        }
+
+        // Access is re-checked at download time: a package saved while the user
+        // could open every report must not keep bundling one they have since
+        // lost (removed section, Payroll access withdrawn).
+        $refused = $package->items
+            ->reject(fn ($item): bool => array_key_exists($item->report_key, $this->reportOptions))
+            ->map(fn ($item): string => RenderableReports::get($item->report_key)['label'] ?? $item->report_key);
+
+        if ($refused->isNotEmpty()) {
+            Flux::toast(variant: 'danger', text: __('This package includes reports you can no longer open: :reports. Edit the package to remove them.', ['reports' => $refused->implode(', ')]));
+
             return null;
         }
 

@@ -4,13 +4,14 @@ use App\Concerns\ManagesReportGroupSections;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\ReportStatement;
+use App\Livewire\Attributes\AuthorizesReportGroup;
 use App\Models\ReportGroup;
 use App\Models\ReportGroupLine;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Combined Balance Sheet sections')] class extends Component {
+new #[Title('Combined Balance Sheet sections')] #[AuthorizesReportGroup('update')] class extends Component {
     use ManagesReportGroupSections;
 
     public ReportGroup $reportGroup;

@@ -17,6 +17,7 @@ use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\TaxReturn;
+use App\Models\User;
 use App\Support\Contacts\ContactLinkResolver;
 use App\Support\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,12 +29,25 @@ class GlobalSearch
     private const int LIMIT_PER_GROUP = 5;
 
     /**
+     * The searcher whose section access filters the results; null runs unfiltered
+     * (a system context such as a test calling the service directly).
+     */
+    private ?User $viewer = null;
+
+    /** @var array<string, bool> section value => reachable, for the current search */
+    private array $reachable = [];
+
+    /**
      * Run the search across every supported model and return results grouped by type.
      * Queries are auto-scoped to the current company by CompanyScope.
      *
+     * Each group is returned only when the searcher can open the section its
+     * results link into — the same sections EnsureSectionAccess checks for those
+     * pages — so search never shows a record whose page would refuse them.
+     *
      * @return array<string, Collection<int, GlobalSearchResult>>
      */
-    public function search(string $term): array
+    public function search(string $term, ?User $viewer = null): array
     {
         $term = trim($term);
 
@@ -41,22 +55,64 @@ class GlobalSearch
             return [];
         }
 
+        $user = Auth::user();
+        $this->viewer = $viewer ?? ($user instanceof User ? $user : null);
+        $this->reachable = [];
+
         $like = '%'.$this->escapeLike($term).'%';
 
-        return [
-            'invoices' => $this->invoices($like),
-            'credit_memos' => $this->creditMemos($like),
-            'bills' => $this->bills($like),
-            'bill_payments' => $this->billPayments($like),
-            'receipts' => $this->receipts($like),
-            'cheques' => $this->cheques($like),
-            'deposits' => $this->deposits($like),
-            'journal_entries' => $this->journalEntries($like),
-            'contacts' => $this->contacts($like),
-            'accounts' => $this->accounts($like),
-            'items' => $this->items($like),
-            'tax_returns' => $this->taxReturns($like),
+        $groups = [
+            'invoices' => [[Section::Customers], fn () => $this->invoices($like)],
+            'credit_memos' => [[Section::Customers], fn () => $this->creditMemos($like)],
+            'bills' => [[Section::Vendors, Section::Employees], fn () => $this->bills($like)],
+            'bill_payments' => [[Section::Vendors], fn () => $this->billPayments($like)],
+            'receipts' => [[Section::Customers], fn () => $this->receipts($like)],
+            'cheques' => [[Section::Banking], fn () => $this->cheques($like)],
+            'deposits' => [[Section::Banking], fn () => $this->deposits($like)],
+            'journal_entries' => [[Section::Accounting], fn () => $this->journalEntries($like)],
+            'contacts' => [[Section::Customers, Section::Vendors, Section::Employees, Section::Lists], fn () => $this->contacts($like)],
+            'accounts' => [[Section::Accounting, Section::Reports], fn () => $this->accounts($like)],
+            'items' => [[Section::Lists], fn () => $this->items($like)],
+            'tax_returns' => [[Section::Reports], fn () => $this->taxReturns($like)],
         ];
+
+        $results = [];
+
+        foreach ($groups as $key => [$sections, $query]) {
+            if ($this->reachesAny(...$sections)) {
+                $results[$key] = $query();
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Whether the searcher can open any of the given sections here: the section
+     * is enabled for the company (site-admin kill switch) and the searcher holds
+     * it — the same pair EnsureSectionEnabled and EnsureSectionAccess check.
+     */
+    private function reachesAny(Section ...$sections): bool
+    {
+        foreach ($sections as $section) {
+            if ($this->reaches($section)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function reaches(Section $section): bool
+    {
+        if ($this->viewer === null) {
+            return true;
+        }
+
+        $company = $this->company();
+
+        return $this->reachable[$section->value] ??= $company->sectionEnabled($section)
+            && $this->viewer->canAccessSection($company, $section);
     }
 
     /**
@@ -142,8 +198,16 @@ class GlobalSearch
      */
     private function bills(string $like): Collection
     {
+        // Vendor bills open under Vendors, reimbursements under Employees: show
+        // only the kinds whose page the searcher can open.
+        $types = array_values(array_filter([
+            $this->reaches(Section::Vendors) ? BillType::Vendor : null,
+            $this->reaches(Section::Employees) ? BillType::Reimbursement : null,
+        ]));
+
         return Bill::query()
             ->with('contact:id,display_name')
+            ->whereIn('bill_type', $types)
             ->where(fn (Builder $q) => $q
                 ->where('bill_no', 'like', $like)
                 ->orWhere('vendor_reference', 'like', $like)
@@ -300,12 +364,26 @@ class GlobalSearch
     {
         // Role label and destination come from the one resolver every contact
         // link shares (statement for customers/vendors, employee editor, or
-        // the all-time Transactions report for other names). Search results
-        // carry the ungated URL: GlobalSearchResult::$url is non-nullable.
+        // the all-time Transactions report for other names). A contact is
+        // listed when the searcher can open a section that owns one of its
+        // roles; its link falls back to that section's list when the viewer
+        // can't reach the contact's usual page.
         $links = app(ContactLinkResolver::class);
         $company = $this->company();
 
+        $roles = array_filter([
+            'is_customer' => $this->reaches(Section::Customers) ? 'customers.index' : null,
+            'is_vendor' => $this->reaches(Section::Vendors) ? 'vendors.index' : null,
+            'is_employee' => $this->reaches(Section::Employees) ? 'employees.index' : null,
+            'is_other_name' => $this->reaches(Section::Lists) ? 'lists.other-names' : null,
+        ]);
+
         return Contact::query()
+            ->when(count($roles) < 4, fn (Builder $query) => $query->where(function (Builder $q) use ($roles): void {
+                foreach (array_keys($roles) as $flag) {
+                    $q->orWhere($flag, true);
+                }
+            }))
             ->where(fn (Builder $q) => $q
                 ->where('display_name', 'like', $like)
                 ->orWhere('company_name', 'like', $like)
@@ -321,8 +399,35 @@ class GlobalSearch
                 secondary: $c->company_name ?: $c->email,
                 meta: $links->roleLabel($c),
                 amountCents: null,
-                url: $links->urlFor($c, $company),
+                url: $this->contactUrl($c, $company, $links, $roles),
             ));
+    }
+
+    /**
+     * The contact's usual page when the searcher can open it (or when running
+     * unfiltered), else the list page of the first role they can reach.
+     *
+     * @param  array<string, string>  $roles  role flag => list route the searcher can reach
+     */
+    private function contactUrl(Contact $contact, Company $company, ContactLinkResolver $links, array $roles): string
+    {
+        if ($this->viewer === null) {
+            return $links->urlFor($contact, $company);
+        }
+
+        $url = $links->urlForViewer($contact, $company, $this->viewer);
+
+        if ($url !== null) {
+            return $url;
+        }
+
+        foreach ($roles as $flag => $route) {
+            if ($contact->{$flag}) {
+                return route($route);
+            }
+        }
+
+        return $links->urlFor($contact, $company);
     }
 
     /**
@@ -339,7 +444,7 @@ class GlobalSearch
      */
     private function accounts(string $like): Collection
     {
-        $toLedger = $this->canOpenReports();
+        $toLedger = $this->reaches(Section::Reports);
 
         return Account::query()
             ->where(fn (Builder $q) => $q
@@ -359,20 +464,6 @@ class GlobalSearch
                     ? route('reports.general-ledger', ['account' => $a->id])
                     : route('accounts.index'),
             ));
-    }
-
-    /**
-     * Whether the searcher can open Reports here. An account result opens its
-     * General Ledger when they can, and falls back to the chart of accounts
-     * when they can't, rather than linking to a page that would refuse them.
-     */
-    private function canOpenReports(): bool
-    {
-        $company = $this->company();
-        $user = Auth::user();
-
-        return $company->sectionEnabled(Section::Reports)
-            && ($user === null || $user->canAccessSection($company, Section::Reports));
     }
 
     /**

@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Attributes\AuthorizesReportGroup;
 use App\Models\ReportGroup;
 use App\Services\Reporting\CombinedReportCalculator;
 use App\Services\Reporting\CsvExporter;
@@ -12,7 +13,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-new #[Title('Combined Trial Balance')] class extends Component {
+new #[Title('Combined Trial Balance')] #[AuthorizesReportGroup] class extends Component {
     public ReportGroup $reportGroup;
 
     #[Url(as: 'as_of')]

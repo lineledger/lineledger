@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CompanyRole;
 use App\Models\ReportGroupSection;
 use App\Models\User;
 use Livewire\Livewire;
@@ -9,6 +10,11 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->scenario = combinedScenario();
     $this->group = $this->scenario['group'];
+
+    // Editing a group needs its creator to still reach Reports in every member.
+    $this->scenario['a']->members()->attach($this->scenario['user'], ['role' => CompanyRole::Owner->value]);
+    $this->scenario['b']->members()->attach($this->scenario['user'], ['role' => CompanyRole::Owner->value]);
+
     $this->actingAs($this->scenario['user']);
 
     // The seeded combined lines: Expenses (expense bucket) and Revenue (income).

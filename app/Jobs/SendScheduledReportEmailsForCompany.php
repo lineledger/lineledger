@@ -3,12 +3,15 @@
 namespace App\Jobs;
 
 use App\Enums\RecurrenceEndType;
+use App\Enums\Section;
 use App\Models\Company;
 use App\Models\MemorizedReport;
 use App\Models\ReportEmailSchedule;
+use App\Models\User;
 use App\Notifications\Reports\ReportEmailNotification;
 use App\Services\Recurring\NextRunDateCalculator;
 use App\Support\Reporting\RenderableReports;
+use App\Support\Reporting\ReportCatalog;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -73,19 +76,35 @@ class SendScheduledReportEmailsForCompany implements ShouldQueue
         NextRunDateCalculator $calculator,
         CarbonImmutable $today,
     ): int {
-        $reports = $this->renderableTargets($schedule);
+        // A schedule sends its owner's reports on their behalf, so it may only
+        // send what they could still open right now: re-check the owner before
+        // every run rather than trusting access they had when it was created.
+        $user = $schedule->user;
+        $problem = $this->ownerAccessProblem($user, $company);
 
-        if ($reports === []) {
-            $schedule->is_active = false;
-            $schedule->paused_reason = $schedule->memorized_report_id !== null
-                ? __('The memorized report no longer exists or cannot be emailed.')
-                : __('The group has no reports that can be emailed.');
-            $schedule->save();
+        if ($problem !== null || $user === null) {
+            $this->pause($schedule, $problem ?? __('The schedule’s owner no longer has an account.'));
 
             return 0;
         }
 
-        $user = $schedule->user;
+        $reports = $this->renderableTargets($schedule);
+
+        if ($reports === []) {
+            $this->pause($schedule, $schedule->memorized_report_id !== null
+                ? __('The memorized report no longer exists or cannot be emailed.')
+                : __('The group has no reports that can be emailed.'));
+
+            return 0;
+        }
+
+        $refused = array_filter($reports, fn (MemorizedReport $report): bool => ! ReportCatalog::allows($company, $user, $report->report_key));
+
+        if ($refused !== []) {
+            $this->pause($schedule, __('This schedule includes a report its owner can no longer open.'));
+
+            return 0;
+        }
 
         foreach ($reports as $report) {
             $entry = RenderableReports::get($report->report_key);
@@ -99,14 +118,49 @@ class SendScheduledReportEmailsForCompany implements ShouldQueue
                 body: $schedule->body,
                 attachXlsx: $schedule->attach_xlsx && RenderableReports::supports($report->report_key, 'xlsx'),
                 resolvePresets: true,
-                replyToAddress: $user?->email,
-                senderName: $user?->name,
+                replyToAddress: $user->email,
+                senderName: $user->name,
             ));
         }
 
         $this->advance($schedule, $calculator, $today);
 
         return count($reports);
+    }
+
+    /**
+     * Why the schedule's owner may no longer send this company's reports, or
+     * null when they still may: the owner must have an enabled account, still
+     * belong to the company, and be able to open its Reports section (enabled
+     * by the site admin and granted to them).
+     */
+    protected function ownerAccessProblem(?User $user, Company $company): ?string
+    {
+        return match (true) {
+            $user === null => __('The schedule’s owner no longer has an account.'),
+            $user->isDisabled() => __('The schedule’s owner’s account is disabled.'),
+            ! $user->belongsToCompany($company) => __('The schedule’s owner is no longer a member of this organization.'),
+            ! $company->sectionEnabled(Section::Reports),
+            ! $user->canAccessSection($company, Section::Reports) => __('The schedule’s owner no longer has access to Reports.'),
+            default => null,
+        };
+    }
+
+    /**
+     * Stop the schedule and record why, for the owner (or whoever takes it
+     * over) to see on the schedules list.
+     */
+    protected function pause(ReportEmailSchedule $schedule, string $reason): void
+    {
+        $schedule->is_active = false;
+        $schedule->paused_reason = $reason;
+        $schedule->save();
+
+        Log::info('Paused a scheduled report email.', [
+            'schedule_id' => $schedule->id,
+            'company_id' => $schedule->company_id,
+            'reason' => $reason,
+        ]);
     }
 
     /**

@@ -4,6 +4,7 @@
 
     @param array $line     ['code', 'label', 'amount', 'accounts' => [['id','code','name','amount'], ...]]
     @param array $options  grouped reassignment options (section label => [['value','label'], ...])
+    @param bool  $canReassign  whether the viewer may move accounts (needs Accounting access)
 --}}
 <tr wire:key="gifi-line-{{ $line['code'] }}" x-data="{ open: false }" class="cursor-pointer hover:bg-muted/30" @click="open = !open" data-test="gifi-line">
     <td class="px-4 py-2 font-mono">{{ $line['code'] }}</td>
@@ -26,7 +27,7 @@
                         {{ __($account['name']) }}
                     </span>
                     <span class="font-mono text-sm">{{ number_format($account['amount'] / 100, 2) }}</span>
-                    @if ($account['id'])
+                    @if ($account['id'] && $canReassign)
                         <select
                             wire:change="reassign({{ $account['id'] }}, $event.target.value)"
                             @click.stop

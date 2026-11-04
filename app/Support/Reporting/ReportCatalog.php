@@ -94,6 +94,35 @@ class ReportCatalog
     }
 
     /**
+     * Whether the user may open a report by its key (route name) — the check
+     * anything that renders a report outside its own page request must apply:
+     * scheduled emails, management packages, printing. The user must reach the
+     * section(s) gating the report's route, exactly as EnsureSectionEnabled +
+     * EnsureSectionAccess would; and a report the hub catalogues must also be
+     * in this user's catalog (which applies the company's feature, jurisdiction
+     * and owner-only rules). Uncatalogued reports (e.g. the Transactions
+     * report) need only the section.
+     */
+    public static function allows(Company $company, User $user, string $reportKey): bool
+    {
+        $sections = Section::forRouteName($reportKey);
+
+        $reachable = $sections !== [] && collect($sections)->contains(
+            fn (Section $section): bool => $company->sectionEnabled($section) && $user->canAccessSection($company, $section),
+        );
+
+        if (! $reachable) {
+            return false;
+        }
+
+        $catalogued = collect(self::definitions())
+            ->flatMap(fn (array $category): array => $category['reports'])
+            ->contains('key', $reportKey);
+
+        return ! $catalogued || array_key_exists($reportKey, self::flatten($company, $user));
+    }
+
+    /**
      * @param  array{key: string, label: string, description: string, icon: string, route: string, companyScoped: bool}  $report
      * @return ReportEntry
      */

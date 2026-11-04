@@ -61,14 +61,22 @@ new #[Title('Combined reports')] class extends Component {
     }
 
     /**
-     * Companies the user belongs to (candidates for a group).
+     * Companies whose reports the user can open (candidates for a group). A
+     * company where they lack Reports access can't be combined: they couldn't
+     * view the group afterwards anyway.
      *
      * @return Collection<int, Company>
      */
     #[Computed]
     public function ownedCompanyOptions(): Collection
     {
-        return Auth::user()->companies()->orderByRaw('LOWER(companies.name)')->get();
+        $user = Auth::user();
+
+        return $user->companies()
+            ->orderByRaw('LOWER(companies.name)')
+            ->get()
+            ->filter(fn (Company $company) => ReportGroup::canReportOn($user, $company))
+            ->values();
     }
 
     /**

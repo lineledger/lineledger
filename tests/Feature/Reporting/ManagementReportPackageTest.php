@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CompanyRole;
 use App\Models\Company;
 use App\Models\ReportPackage;
 use App\Models\ReportPackageItem;
@@ -21,6 +22,9 @@ beforeEach(function () {
     // wraps at a hyphen inside a date and breaks the text assertions.
     $this->company = Company::factory()->create(['fiscal_year_start_month' => 1, 'name' => 'Board Pack Co']);
     $this->user = User::factory()->create();
+    // The picker and the download only offer reports the user can open, which
+    // takes membership with Reports access.
+    $this->company->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
     app()->instance('current_company', $this->company);
 });
 

@@ -34,7 +34,9 @@ class CombinedReportCalculator
 
     /**
      * Member companies, keyed by id, ordered by name. Loaded without the company
-     * global scope since groups span tenants.
+     * global scope since groups span tenants — but never a soft-deleted company:
+     * a deleted organization drops out of every group, so its ledger is not
+     * shown to the group's viewers (who need not have been its members).
      *
      * @return Collection<int, Company>
      */
@@ -42,6 +44,7 @@ class CombinedReportCalculator
     {
         return $group->companies()
             ->withoutGlobalScopes()
+            ->whereNull('companies.deleted_at')
             ->orderByRaw('LOWER(companies.name)')
             ->get()
             ->keyBy('id');
@@ -635,7 +638,9 @@ class CombinedReportCalculator
     }
 
     /**
-     * All accounts mapped anywhere in the group, keyed by id (no global scope).
+     * All accounts mapped anywhere in the group, keyed by id (no global scope),
+     * limited to the live member companies — a map row left behind by a
+     * soft-deleted company resolves to no account and so adds nothing.
      *
      * @return Collection<int, Account>
      */
@@ -649,6 +654,7 @@ class CombinedReportCalculator
 
         return Account::withoutGlobalScopes()
             ->whereIn('id', $ids)
+            ->whereIn('company_id', $this->companies($group)->keys())
             ->get()
             ->keyBy('id');
     }

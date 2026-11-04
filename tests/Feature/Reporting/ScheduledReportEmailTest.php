@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CompanyRole;
 use App\Jobs\SendScheduledReportEmailsForCompany;
 use App\Models\Company;
 use App\Models\MemorizedReport;
@@ -16,6 +17,9 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->company = Company::factory()->create(['fiscal_year_start_month' => 1]);
     $this->user = User::factory()->create();
+    // A schedule sends on its owner's behalf, so the owner must belong to the
+    // company and be able to open Reports for it to send at all.
+    $this->company->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
     app()->instance('current_company', $this->company);
 });
 
