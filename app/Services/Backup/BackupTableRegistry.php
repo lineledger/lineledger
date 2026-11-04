@@ -48,6 +48,7 @@ use App\Models\Grant;
 use App\Models\GrantRecognition;
 use App\Models\GridPreference;
 use App\Models\InboxItem;
+use App\Models\InvitationRole;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\InvoicePaymentRequest;
@@ -67,6 +68,7 @@ use App\Models\McpWriteProposal;
 use App\Models\Member;
 use App\Models\Membership;
 use App\Models\MembershipLevel;
+use App\Models\MembershipRole;
 use App\Models\MemorizedReport;
 use App\Models\MemorizedReportGroup;
 use App\Models\NavPreference;
@@ -100,6 +102,8 @@ use App\Models\ReportFavorite;
 use App\Models\ReportPackage;
 use App\Models\ReportPackageItem;
 use App\Models\ReportSection;
+use App\Models\Role;
+use App\Models\RolePermission;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SalesReceipt;
@@ -148,6 +152,12 @@ final class BackupTableRegistry
         return [
             // === Tenant root ===
             ['table' => 'companies', 'model' => Company::class, 'group' => 'core'],
+
+            // === Roles ===
+            // Before anything that references them: member and invitation role
+            // assignments (below, after company_members / company_invitations).
+            ['table' => 'roles', 'model' => Role::class, 'group' => 'core'],
+            ['table' => 'role_permissions', 'model' => RolePermission::class, 'group' => 'core'],
 
             // === Core dimensions ===
             // No-FK dims first, then accounts (FK report_sections), then everything
@@ -348,7 +358,12 @@ final class BackupTableRegistry
             ['table' => 'daily_insights', 'model' => DailyInsight::class, 'group' => 'user_affordances'],
             // Membership uses table `company_members`. Phase 2 will re-link to users via email-match.
             ['table' => 'company_members', 'model' => Membership::class, 'group' => 'user_affordances'],
+            // The roles each member holds. A member skipped on import (their
+            // user isn't on this instance) drops their assignments too; see
+            // RowTransformer.
+            ['table' => 'company_member_roles', 'model' => MembershipRole::class, 'group' => 'user_affordances'],
             ['table' => 'company_invitations', 'model' => CompanyInvitation::class, 'group' => 'user_affordances'],
+            ['table' => 'company_invitation_roles', 'model' => InvitationRole::class, 'group' => 'user_affordances'],
             // Agentic-MCP propose→confirm proposals. FK company_api_keys (GL group)
             // and journal_entries (GL group, earlier), so it follows both.
             ['table' => 'mcp_write_proposals', 'model' => McpWriteProposal::class, 'group' => 'user_affordances'],

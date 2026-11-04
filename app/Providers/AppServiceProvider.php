@@ -15,6 +15,9 @@ use App\Livewire\Hooks\BindCurrentCompanyHook;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\Membership;
+use App\Models\MembershipRole;
+use App\Models\Role;
+use App\Models\RolePermission;
 use App\Models\User;
 use App\Observers\Audit\AuditableObserver;
 use App\Observers\CompanyObserver;
@@ -112,10 +115,12 @@ class AppServiceProvider extends ServiceProvider
 
         Company::observe(CompanyObserver::class);
 
-        // A changed membership changes what its member may do: drop anything
-        // resolved earlier in this request.
-        Membership::saved(fn () => app(PermissionResolver::class)->flush());
-        Membership::deleted(fn () => app(PermissionResolver::class)->flush());
+        // A changed membership, role or role permission changes what members
+        // may do: drop anything resolved earlier in this request.
+        foreach ([Membership::class, MembershipRole::class, Role::class, RolePermission::class] as $model) {
+            $model::saved(fn () => app(PermissionResolver::class)->flush());
+            $model::deleted(fn () => app(PermissionResolver::class)->flush());
+        }
 
         // Each request starts from the database as it stands. In production a
         // request is its own process anyway; this covers anything that keeps

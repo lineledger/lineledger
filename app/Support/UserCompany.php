@@ -13,6 +13,7 @@ readonly class UserCompany
         public ?string $role,
         public ?string $roleLabel,
         public ?bool $isCurrent = null,
+        public bool $canEdit = false,
     ) {
         //
     }

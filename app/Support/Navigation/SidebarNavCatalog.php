@@ -2,6 +2,7 @@
 
 namespace App\Support\Navigation;
 
+use App\Enums\Activity;
 use App\Enums\Country;
 use App\Enums\Section;
 use App\Models\Company;
@@ -171,9 +172,9 @@ class SidebarNavCatalog
             if ($featuresFixedAssets) {
                 $items[] = self::item('accounting.fixed_assets', __('Fixed assets'), 'cube', 'assets.index', ['assets.*']);
             }
-            // Owner-only, matching the route's :owner middleware — showing it to
-            // anyone else would link straight to a 403.
-            if ($user->ownsCompany($company)) {
+            // A reserved activity (the Owner, or a role built to carry it) —
+            // showing it to anyone else would link straight to a 403.
+            if ($user->permissions($company)->canView(Activity::OpeningBalances)) {
                 $items[] = self::item('accounting.opening_balances', __('Opening balances'), 'scale', 'opening-balances.index', ['opening-balances.*']);
             }
             $groups[] = self::group('accounting', __('Accounting'), $items);

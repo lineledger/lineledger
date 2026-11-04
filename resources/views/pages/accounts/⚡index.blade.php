@@ -1182,7 +1182,7 @@ new #[Title('Chart of Accounts')] class extends Component {
             @endif
 
             @if ($this->showOpeningBalanceFields)
-                @if (\App\Models\OpeningBalanceState::for($company) !== null && auth()->user()?->ownsCompany($company))
+                @if (\App\Models\OpeningBalanceState::for($company) !== null && (auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false))
                     <flux:callout icon="scale" data-test="account-opening-balance-workspace-hint">
                         <flux:callout.text>
                             {{ __('This company has an Opening Balances workspace — balances entered there stay reconciled against your draft trial balance.') }}

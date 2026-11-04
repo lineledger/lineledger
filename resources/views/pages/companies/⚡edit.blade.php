@@ -5,6 +5,7 @@ use App\Actions\Fundraising\EnsureFundraisingAccounts;
 use App\Actions\Inventory\EnsureInventoryAccounts;
 use App\Actions\MasterData\EnsureDefaultFund;
 use App\Actions\Payroll\EnsurePayrollAccounts;
+use App\Enums\Activity;
 use App\Enums\AuditAction;
 use App\Enums\CompanyRole;
 use App\Enums\ContributionMethod;
@@ -12,6 +13,7 @@ use App\Enums\Country;
 use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
 use App\Enums\PeriodLockMode;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
 use App\Models\Company;
 use App\Rules\CompanyName;
@@ -493,7 +495,7 @@ new class extends Component
      */
     public function confirmLockDate(): void
     {
-        Gate::authorize('update', $this->companyModel);
+        abort_unless(Auth::user()->permissions($this->companyModel)->allows(Activity::ClosingDate, PermissionAction::Modify), 403);
 
         $validated = $this->validate(
             [
@@ -1196,7 +1198,7 @@ new class extends Component
                 @endif
             </div>
 
-            @if ($this->permissions->canUpdateCompany)
+            @if (auth()->user()->permissions($companyModel)->allows(Activity::ClosingDate, PermissionAction::Modify))
                 <div class="space-y-6">
                     <div>
                         <flux:heading>{{ __('Close the books') }}</flux:heading>
@@ -1437,7 +1439,7 @@ new class extends Component
         <livewire:pages::companies.invite-member-modal :company="$companyModel" />
     @endif
 
-    @if ($this->permissions->canUpdateCompany)
+    @if (auth()->user()->permissions($companyModel)->allows(Activity::ClosingDate, PermissionAction::Modify))
         <flux:modal name="lock-period" focusable class="max-w-md">
             <form wire:submit="confirmLockDate" class="space-y-6">
                 <div>

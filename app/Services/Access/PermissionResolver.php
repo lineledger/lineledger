@@ -2,8 +2,11 @@
 
 namespace App\Services\Access;
 
+use App\Enums\CompanyRole;
 use App\Models\Company;
 use App\Models\Membership;
+use App\Models\MembershipRole;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\Access\LegacyRoleGrants;
 use App\Support\Access\PermissionSet;
@@ -47,6 +50,19 @@ class PermissionResolver
     }
 
     /**
+     * Everything a membership may do — for callers holding the membership
+     * rather than the user (document folder visibility).
+     */
+    public function forMembership(Membership $membership): PermissionSet
+    {
+        $key = $membership->user_id.':'.$membership->company_id;
+
+        $this->memberships[$key] ??= $membership;
+
+        return $this->sets[$key] ??= $this->resolve($membership);
+    }
+
+    /**
      * Forget everything resolved so far (a membership or role changed).
      */
     public function flush(): void
@@ -55,13 +71,35 @@ class PermissionResolver
         $this->sets = [];
     }
 
+    /**
+     * Everything the membership may do: all of it for the Owner; otherwise
+     * the most permissive combination of the roles it holds; a membership
+     * that holds no role yet (not converted by `access:sync-roles`) keeps
+     * what its original role and sections gave it.
+     */
     protected function resolve(?Membership $membership): PermissionSet
     {
         if ($membership === null) {
             return PermissionSet::none();
         }
 
-        return LegacyRoleGrants::for($membership->role, $membership->sectionValues());
+        if ($membership->role === CompanyRole::Owner) {
+            return PermissionSet::owner();
+        }
+
+        $roles = Role::query()->withoutGlobalScopes()
+            ->where('company_id', $membership->company_id)
+            ->whereIn('id', MembershipRole::query()->withoutGlobalScopes()
+                ->where('company_member_id', $membership->getKey())
+                ->select('role_id'))
+            ->with(['permissions' => fn ($query) => $query->withoutGlobalScopes()])
+            ->get();
+
+        if ($roles->isEmpty()) {
+            return LegacyRoleGrants::for($membership->role, $membership->sectionValues());
+        }
+
+        return PermissionSet::union(...$roles->map(fn (Role $role): PermissionSet => $role->permissionSet())->all());
     }
 
     private function key(User $user, Company $company): string

@@ -505,7 +505,13 @@ final class RowTransformer
         'user_preferences' => [],
         'report_sections' => [],
         'company_members' => [],
+        // company_member_id is remapped in applyTableQuirks: a member skipped on
+        // import must take its assignments with it, not keep a stale id.
+        'company_member_roles' => ['role_id' => 'roles'],
         'company_invitations' => [],
+        'company_invitation_roles' => ['company_invitation_id' => 'company_invitations', 'role_id' => 'roles'],
+        'roles' => [],
+        'role_permissions' => ['role_id' => 'roles'],
         'company_api_keys' => [],
         // Document inbox. created_by_user_id is remapped by the generic `*_user_id`
         // pass; promoted_document_id is a polymorphic (promoted_document_type)
@@ -1185,6 +1191,22 @@ final class RowTransformer
                     }
 
                     $row['viewer_member_ids'] = $remapped === [] ? null : $remapped;
+                }
+                break;
+
+            case 'company_member_roles':
+                // Follow the membership through IdMapper. A membership that was
+                // skipped (its user fell onto the importing user, who becomes
+                // the Owner and holds no role) maps to nothing: drop the row.
+                $oldMemberId = $row['company_member_id'] ?? null;
+                $newMemberId = (is_int($oldMemberId) || (is_string($oldMemberId) && ctype_digit($oldMemberId)))
+                    ? $this->idMapper->get('company_members', (int) $oldMemberId)
+                    : null;
+
+                if ($newMemberId === null) {
+                    $skip = true;
+                } else {
+                    $row['company_member_id'] = $newMemberId;
                 }
                 break;
 

@@ -130,7 +130,7 @@ new #[Title('Organizations')] class extends Component {
                     </div>
 
                     @php
-                        $canEditCompany = in_array($company->role, ['owner', 'admin'], true);
+                        $canEditCompany = $company->canEdit;
                     @endphp
                     <div class="flex items-center gap-2">
                         <flux:tooltip :content="$canEditCompany ? __('Edit organization') : __('View organization')">

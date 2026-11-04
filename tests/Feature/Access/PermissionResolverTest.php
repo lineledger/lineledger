@@ -18,12 +18,15 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-it('looks the membership up once per request', function () {
+it('looks the membership and its roles up once per request', function () {
     $this->company->memberships()->create(['user_id' => $this->user->id, 'role' => CompanyRole::Accountant]);
     app(PermissionResolver::class)->flush();
 
     DB::enableQueryLog();
     DB::flushQueryLog();
+
+    $this->user->permissions($this->company);
+    $first = count(DB::getQueryLog());
 
     foreach (range(1, 5) as $ignored) {
         $this->user->canAccessSection($this->company, Section::Customers);
@@ -31,7 +34,8 @@ it('looks the membership up once per request', function () {
         $this->user->companyMembership($this->company);
     }
 
-    expect(DB::getQueryLog())->toHaveCount(1);
+    expect($first)->toBeLessThanOrEqual(3)
+        ->and(DB::getQueryLog())->toHaveCount($first);
 });
 
 it('answers from the membership as it now stands after a change', function () {

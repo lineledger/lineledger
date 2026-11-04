@@ -173,21 +173,20 @@ trait HasCompanies
             role: $role?->value,
             roleLabel: $role?->label(),
             isCurrent: $this->isCurrentCompany($company),
+            canEdit: $this->hasCompanyPermission($company, CompanyPermission::UpdateCompany),
         );
     }
 
     public function toCompanyPermissions(Company $company): CompanyPermissions
     {
-        $role = $this->companyRole($company);
-
         return new CompanyPermissions(
-            canUpdateCompany: $role?->hasPermission(CompanyPermission::UpdateCompany) ?? false,
-            canDeleteCompany: $role?->hasPermission(CompanyPermission::DeleteCompany) ?? false,
-            canAddMember: $role?->hasPermission(CompanyPermission::AddMember) ?? false,
-            canUpdateMember: $role?->hasPermission(CompanyPermission::UpdateMember) ?? false,
-            canRemoveMember: $role?->hasPermission(CompanyPermission::RemoveMember) ?? false,
-            canCreateInvitation: $role?->hasPermission(CompanyPermission::CreateInvitation) ?? false,
-            canCancelInvitation: $role?->hasPermission(CompanyPermission::CancelInvitation) ?? false,
+            canUpdateCompany: $this->hasCompanyPermission($company, CompanyPermission::UpdateCompany),
+            canDeleteCompany: $this->hasCompanyPermission($company, CompanyPermission::DeleteCompany),
+            canAddMember: $this->hasCompanyPermission($company, CompanyPermission::AddMember),
+            canUpdateMember: $this->hasCompanyPermission($company, CompanyPermission::UpdateMember),
+            canRemoveMember: $this->hasCompanyPermission($company, CompanyPermission::RemoveMember),
+            canCreateInvitation: $this->hasCompanyPermission($company, CompanyPermission::CreateInvitation),
+            canCancelInvitation: $this->hasCompanyPermission($company, CompanyPermission::CancelInvitation),
         );
     }
 
@@ -199,8 +198,17 @@ trait HasCompanies
             ->first();
     }
 
+    /**
+     * Whether the user may manage the organization this way: through the
+     * administrative or reserved activity it maps to, or as the Owner.
+     */
     public function hasCompanyPermission(Company $company, CompanyPermission $permission): bool
     {
-        return $this->companyRole($company)?->hasPermission($permission) ?? false;
+        $permissions = $this->permissions($company);
+        $requirement = $permission->requirement();
+
+        return $requirement === null
+            ? $permissions->isOwner()
+            : $permissions->allows($requirement->activity, $requirement->action);
     }
 }

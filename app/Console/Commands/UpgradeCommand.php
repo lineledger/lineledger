@@ -119,6 +119,9 @@ class UpgradeCommand extends Command
             // unencrypted; this encrypts them in place (see EncryptedColumnRepairer).
             ['Encrypted columns', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('backup:repair-encrypted-columns', $dryRun)],
             ['Reversal currency memos', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('currency:backfill-reversal-memos', $dryRun)],
+            // Give every organization its predefined roles and convert members
+            // still on the original roles (nobody's access changes).
+            ['Users and roles', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('access:sync-roles', $dryRun)],
         ];
 
         if ($this->option('verify')) {

@@ -6,6 +6,7 @@ use App\Enums\SecurityEvent;
 use App\Models\CompanyInvitation;
 use App\Models\Membership;
 use App\Models\User;
+use App\Services\Access\LegacyRoleConverter;
 use App\Services\Audit\SecurityLogRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +21,10 @@ use Illuminate\Validation\ValidationException;
  */
 class AcceptInvitation
 {
-    public function __construct(private readonly SecurityLogRecorder $recorder) {}
+    public function __construct(
+        private readonly SecurityLogRecorder $recorder,
+        private readonly LegacyRoleConverter $roles,
+    ) {}
 
     /**
      * @throws ValidationException when the invitation can't be accepted by this user
@@ -37,6 +41,11 @@ class AcceptInvitation
                 ['user_id' => $user->id],
                 ['role' => $invitation->role, 'sections' => $invitation->sections],
             );
+
+            // A new member takes the roles the invitation grants.
+            if ($membership->wasRecentlyCreated) {
+                $this->grantInvitationRoles($invitation, $membership);
+            }
 
             $invitation->update(['accepted_at' => now()]);
 
@@ -55,6 +64,29 @@ class AcceptInvitation
         }
 
         return $membership;
+    }
+
+    private function grantInvitationRoles(CompanyInvitation $invitation, Membership $membership): void
+    {
+        $roleIds = DB::table('company_invitation_roles')
+            ->where('company_invitation_id', $invitation->getKey())
+            ->pluck('role_id');
+
+        if ($roleIds->isEmpty()) {
+            $this->roles->assignLegacy($membership);
+
+            return;
+        }
+
+        $now = now();
+        DB::table('company_member_roles')->insert($roleIds->map(fn ($roleId): array => [
+            'company_id' => $membership->company_id,
+            'company_member_id' => $membership->getKey(),
+            'role_id' => (int) $roleId,
+            'assigned_by_user_id' => $invitation->invited_by,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all());
     }
 
     private function ensureAcceptable(CompanyInvitation $invitation, User $user): void

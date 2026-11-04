@@ -11,6 +11,7 @@ use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
 use App\Models\TaxAgency;
 use App\Models\TaxCode;
+use App\Services\Access\PredefinedRoleSeeder;
 use App\Support\Defaults\CompanyDefaults;
 use App\Support\Tax\ProvincialSalesTax;
 
@@ -34,6 +35,9 @@ class CompanyObserver
             $this->seedPaymentMethods($company, $defaults);
             $this->seedTaxAgencyAndCodes($company, $defaults);
             $this->setInventoryDefaults($company);
+
+            // The predefined roles (Full Access, Accountant, Sales …).
+            app(PredefinedRoleSeeder::class)->seed($company);
         } finally {
             if ($previous !== null) {
                 app()->instance('current_company', $previous);

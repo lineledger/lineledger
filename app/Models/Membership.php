@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompanyRole;
 use App\Enums\Section;
+use App\Services\Access\PermissionResolver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -64,15 +65,12 @@ class Membership extends Pivot
     }
 
     /**
-     * Determine whether this member can access the given section.
+     * Determine whether this member can open anything in the section (area):
+     * from the roles they hold, or their original role until converted.
      */
     public function canAccessSection(Section $section): bool
     {
-        if ($this->role === CompanyRole::Owner) {
-            return true;
-        }
-
-        return $this->effectiveSections()->contains($section);
+        return app(PermissionResolver::class)->forMembership($this)->canAccessArea($section);
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyInvitation;
 use App\Models\User;
 use App\Notifications\Companies\CompanyInvitation as CompanyInvitationNotification;
+use App\Services\Access\LegacyRoleConverter;
 use App\Services\Audit\SecurityLogRecorder;
 use Illuminate\Support\Facades\Notification;
 
@@ -24,7 +25,10 @@ class InviteMember
 {
     public const int EXPIRES_AFTER_DAYS = 3;
 
-    public function __construct(private readonly SecurityLogRecorder $recorder) {}
+    public function __construct(
+        private readonly SecurityLogRecorder $recorder,
+        private readonly LegacyRoleConverter $roles,
+    ) {}
 
     /**
      * @param  list<string>|null  $sections  section values, kept only for the Custom role
@@ -40,6 +44,9 @@ class InviteMember
             'invited_by' => $actor->id,
             'expires_at' => now()->addDays(self::EXPIRES_AFTER_DAYS),
         ]);
+
+        // The roles the invitation grants once accepted.
+        $this->roles->assignLegacyToInvitation($invitation);
 
         Notification::route('mail', $invitation->email)
             ->notify(new CompanyInvitationNotification($invitation));

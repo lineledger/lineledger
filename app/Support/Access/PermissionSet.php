@@ -186,6 +186,35 @@ final class PermissionSet
     }
 
     /**
+     * What this set allows that the other doesn't — empty when the other
+     * keeps everything. A non-empty result is a downgrade.
+     *
+     * @return list<Requirement>
+     */
+    public function lostIn(self $after): array
+    {
+        $lost = [];
+
+        foreach (Activity::cases() as $activity) {
+            foreach ($activity->actions() as $action) {
+                if ($this->allows($activity, $action) && ! $after->allows($activity, $action)) {
+                    $lost[] = new Requirement($activity, $action);
+                }
+            }
+        }
+
+        return $lost;
+    }
+
+    /**
+     * Whether everything this set allows, the other allows too.
+     */
+    public function isSubsetOf(self $other): bool
+    {
+        return $this->lostIn($other) === [];
+    }
+
+    /**
      * Activity value => grant, for every activity with some access (None
      * omitted). The Owner's set lists every activity as Full.
      *

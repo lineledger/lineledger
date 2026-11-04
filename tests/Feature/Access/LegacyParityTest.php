@@ -85,7 +85,11 @@ it('lets a membership open exactly the company pages it could before', function 
         }
 
         $name = (string) $route->getName();
-        $ownerOnly = $middleware->contains(EnsureCompanyMembership::class.':owner');
+        // Owner-only before roles, through the route's `:owner` middleware
+        // (frozen: those routes now gate through reserved activities instead).
+        $ownerOnly = $name === 'reports.audit-log'
+            || str_starts_with($name, 'opening-balances.')
+            || $middleware->contains(EnsureCompanyMembership::class.':owner');
 
         $oldSections = $oldSectionsFor($name);
         $old = ($oldSections === [] || array_intersect(array_map(fn ($s) => $s->value, $oldSections), array_map(fn ($s) => $s->value, $reach)) !== [])

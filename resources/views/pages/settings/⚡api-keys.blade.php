@@ -100,9 +100,8 @@ new class extends Component {
     protected function refreshPermissions(): void
     {
         $company = $this->company();
-        $role = $company ? auth()->user()->companyRole($company) : null;
-
-        $this->canManage = $role !== null && $role->isAtLeast(\App\Enums\CompanyRole::Admin);
+        $this->canManage = $company !== null
+            && auth()->user()->permissions($company)->allows(\App\Enums\Activity::ApiKeys, \App\Enums\PermissionAction::Create);
     }
 
     public function loadKeys(): void

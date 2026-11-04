@@ -930,7 +930,7 @@ new #[Title('Customers')] class extends Component {
                         <div class="space-y-3 rounded-lg border border-border p-4" data-test="customer-opening-balance">
                             <flux:heading size="sm">{{ __('Opening balance') }}</flux:heading>
                             <flux:text class="text-sm text-muted-foreground">{{ __('What this customer already owed you when you started using LineLedger. Posts an opening invoice (DR Accounts Receivable / CR Opening Balance Equity) so it shows on their statement and AR Aging.') }}</flux:text>
-                            @if (\App\Models\OpeningBalanceState::for($company) !== null && auth()->user()?->ownsCompany($company))
+                            @if (\App\Models\OpeningBalanceState::for($company) !== null && (auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false))
                                 <flux:text class="text-sm" data-test="customer-opening-balance-workspace-hint">
                                     {{ __('Tip: the Opening Balances workspace edits these per customer and keeps them tied to your draft trial balance.') }}
                                     <flux:link :href="route('opening-balances.receivables', ['company' => $company->slug])" wire:navigate>{{ __('Open it') }}</flux:link>

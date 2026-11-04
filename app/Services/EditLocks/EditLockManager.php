@@ -2,8 +2,9 @@
 
 namespace App\Services\EditLocks;
 
-use App\Enums\CompanyRole;
+use App\Enums\Activity;
 use App\Enums\EditLockState;
+use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\EditLockLostException;
 use App\Exceptions\EditLocks\RecordEditLockedException;
 use App\Models\Company;
@@ -441,7 +442,7 @@ class EditLockManager
         $company = $this->company((int) $record->getAttribute('company_id'));
 
         return $company !== null
-            && in_array($user->companyRole($company), [CompanyRole::Owner, CompanyRole::Admin], true);
+            && $user->permissions($company)->allows(Activity::EditLockTakeover, PermissionAction::Modify);
     }
 
     /**

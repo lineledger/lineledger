@@ -156,6 +156,7 @@ it('migrates and runs every backfill, and a second run has nothing left to do', 
         ->expectsOutputToContain('4. Encrypted columns')
         ->expectsOutputToContain('Encrypted 0 unencrypted value(s); 0 value(s) do not decrypt with this APP_KEY.')
         ->expectsOutputToContain('5. Reversal currency memos')
+        ->expectsOutputToContain('6. Users and roles')
         ->expectsOutputToContain('copied the foreign-currency memo onto 0 line(s) of 0 reversal(s)')
         ->doesntExpectOutputToContain('Integrity check')
         ->assertSuccessful();
@@ -203,7 +204,7 @@ it('runs integrity:check with --verify and never emails ops', function () {
     upgradeTestBareDeposit($this->company);
 
     $this->artisan('app:upgrade', ['--verify' => true])
-        ->expectsOutputToContain('6. Integrity check')
+        ->expectsOutputToContain('7. Integrity check')
         ->expectsOutputToContain('Ledger integrity OK.')
         ->expectsOutputToContain('Passed.')
         ->assertSuccessful();
@@ -242,8 +243,9 @@ it('stops at the first failing step, skips the rest, and returns its exit code',
         ->expectsOutputToContain('Skipped')
         ->doesntExpectOutputToContain('4. Encrypted columns')
         ->doesntExpectOutputToContain('5. Reversal currency memos')
+        ->doesntExpectOutputToContain('6. Users and roles')
         ->doesntExpectOutputToContain('foreign-currency memo onto')
-        ->doesntExpectOutputToContain('6. Integrity check')
+        ->doesntExpectOutputToContain('7. Integrity check')
         ->doesntExpectOutputToContain('Ledger integrity')
         ->assertExitCode(3);
 
