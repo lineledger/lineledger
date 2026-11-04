@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\Access\RoutePermissionMap;
+
 /**
  * An access unit in the application, mirroring the sidebar groups plus Settings.
  *
@@ -80,44 +82,30 @@ enum Section: string
     }
 
     /**
-     * Resolve a route name to the section(s) that gate it.
+     * Resolve a route name to the section(s) that gate it: the areas of the
+     * activities it belongs to ({@see RoutePermissionMap}), so the section
+     * kill switch and the permission check read one table.
      *
      * Returns an empty array for ungated routes (e.g. the dashboard or
-     * attachment downloads). Most routes map to a single section; recurring
-     * documents are shared by sales and purchases, so access is granted when
-     * the user can reach either Customers or Vendors.
+     * attachment downloads) and for names the map doesn't know. Most routes
+     * map to a single section; recurring documents are shared by sales and
+     * purchases, so access is granted when the user can reach either
+     * Customers or Vendors.
      *
      * @return array<int, self>
      */
     public static function forRouteName(?string $name): array
     {
-        if ($name === null || $name === '') {
-            return [];
+        $sections = [];
+
+        foreach (RoutePermissionMap::activitiesFor($name) as $activity) {
+            $area = $activity->area();
+
+            if (! in_array($area, $sections, true)) {
+                $sections[] = $area;
+            }
         }
 
-        $segment = explode('.', $name)[0];
-
-        return match ($segment) {
-            'customers', 'estimates', 'sales-orders', 'invoices', 'invoice-templates', 'credit-memos', 'receipts', 'sales-receipts', 'members', 'reminders' => [self::Customers],
-            'vendors', 'bills', 'bill-payments', 'purchase-orders', 'vendor-credits', 'expenses' => [self::Vendors],
-            'donations', 'donation-receipts', 'grants' => [self::Fundraising],
-            'recurring' => [self::Customers, self::Vendors],
-            'employees', 'reimbursements' => [self::Employees],
-            'payroll', 'pay-runs', 'payroll-schedules', 'payroll-cheques', 'time-entries', 'time-off-policies', 'time-off-requests' => [self::Payroll],
-            'inventory' => [self::Inventory],
-            'accounts', 'journal', 'journal-entry-templates', 'recurring-journal', 'assets', 'opening-balances' => [self::Accounting],
-            'banking', 'cheques', 'deposits', 'transfers' => [self::Banking],
-            'inbox' => [self::Inbox],
-            'reports', 'tax-returns', 'budgets' => [self::Reports],
-            // Deliberately ungated, like the dashboard the insight card lives
-            // on — the history page shows the same aggregate data class as the
-            // dashboard widgets. An explicit arm so future insights.* routes
-            // are mapped consciously rather than falling through to default.
-            'insights' => [],
-            'lists' => [self::Lists],
-            'documents' => [self::Documents],
-            'settings', 'migration' => [self::Settings],
-            default => [],
-        };
+        return $sections;
     }
 }

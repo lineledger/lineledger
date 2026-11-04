@@ -14,9 +14,11 @@ use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
 use App\Models\Company;
 use App\Models\JournalEntry;
+use App\Models\Membership;
 use App\Models\User;
 use App\Observers\Audit\AuditableObserver;
 use App\Observers\CompanyObserver;
+use App\Services\Access\PermissionResolver;
 use App\Services\Currency\ExchangeRateProvider;
 use App\Services\Currency\Providers\FrankfurterProvider;
 use App\Services\Currency\Providers\NullExchangeRateProvider;
@@ -29,6 +31,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Events\Routing;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -69,6 +72,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(StripeClient::class, function (): StripeClient {
             return new StripeClient((string) config('services.stripe.secret'));
         });
+
+        // Who may do what, resolved once per request (and per queued job).
+        $this->app->scoped(PermissionResolver::class);
     }
 
     /**
@@ -105,6 +111,17 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         Company::observe(CompanyObserver::class);
+
+        // A changed membership changes what its member may do: drop anything
+        // resolved earlier in this request.
+        Membership::saved(fn () => app(PermissionResolver::class)->flush());
+        Membership::deleted(fn () => app(PermissionResolver::class)->flush());
+
+        // Each request starts from the database as it stands. In production a
+        // request is its own process anyway; this covers anything that keeps
+        // the container across requests (tests, long-running servers) and
+        // changes made with a bulk query, which fires no model events.
+        Event::listen(Routing::class, fn () => app(PermissionResolver::class)->flush());
 
         foreach (array_keys(AuditableObserver::ACTIONS) as $modelClass) {
             $modelClass::observe(AuditableObserver::class);

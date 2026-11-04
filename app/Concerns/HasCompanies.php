@@ -8,6 +8,8 @@ use App\Enums\Section;
 use App\Models\Company;
 use App\Models\Membership;
 use App\Models\ReportGroup;
+use App\Services\Access\PermissionResolver;
+use App\Support\Access\PermissionSet;
 use App\Support\CompanyPermissions;
 use App\Support\UserCompany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -113,11 +115,21 @@ trait HasCompanies
         return $this->companyRole($company) === CompanyRole::Owner;
     }
 
+    /**
+     * This user's membership in the company, or null. Looked up once per
+     * request (see PermissionResolver).
+     */
     public function companyMembership(Company $company): ?Membership
     {
-        return $this->companyMemberships()
-            ->where('company_id', $company->id)
-            ->first();
+        return app(PermissionResolver::class)->membership($this, $company);
+    }
+
+    /**
+     * Everything this user may do in the company.
+     */
+    public function permissions(Company $company): PermissionSet
+    {
+        return app(PermissionResolver::class)->for($this, $company);
     }
 
     public function companyRole(Company $company): ?CompanyRole
@@ -125,9 +137,12 @@ trait HasCompanies
         return $this->companyMembership($company)?->role;
     }
 
+    /**
+     * Whether the user can open anything in the area (sidebar group).
+     */
     public function canAccessSection(Company $company, Section $section): bool
     {
-        return $this->companyMembership($company)?->canAccessSection($section) ?? false;
+        return $this->permissions($company)->canAccessArea($section);
     }
 
     /**

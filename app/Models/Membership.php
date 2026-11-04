@@ -76,6 +76,30 @@ class Membership extends Pivot
     }
 
     /**
+     * The Custom role's section values, however they were stored: a pivot
+     * attach() bypasses the array cast, so a caller that JSON-encoded the
+     * list leaves it double-encoded. Unknown shapes read as no sections.
+     *
+     * @return list<string>
+     */
+    public function sectionValues(): array
+    {
+        $value = $this->getAttributeValue('sections');
+
+        while (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if ($decoded === null || $decoded === $value) {
+                break;
+            }
+
+            $value = $decoded;
+        }
+
+        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
