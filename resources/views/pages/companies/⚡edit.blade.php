@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Companies\Members\UpdateMemberAccess;
 use App\Actions\Fundraising\EnsureFundraisingAccounts;
 use App\Actions\Inventory\EnsureInventoryAccounts;
 use App\Actions\MasterData\EnsureDefaultFund;
@@ -12,13 +13,9 @@ use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
 use App\Enums\PeriodLockMode;
 use App\Enums\Section;
-use App\Enums\SecurityEvent;
 use App\Models\Company;
-use App\Models\User;
 use App\Rules\CompanyName;
 use App\Services\Audit\AccountingAuditRecorder;
-use App\Services\Audit\SecurityLogRecorder;
-use App\Services\Security\AccessRevoker;
 use App\Support\CompanyPermissions;
 use App\Support\Currency;
 use App\Support\Storage\StorageDisks;
@@ -32,6 +29,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -160,6 +158,8 @@ new class extends Component
 
     public bool $isCurrentCompany = false;
 
+    /** Locked: set only by editMember(), which checks the member belongs here. */
+    #[Locked]
     public ?int $editingMemberId = null;
 
     public string $editMemberName = '';
@@ -591,45 +591,15 @@ new class extends Component
             ]
         )->validate();
 
-        $resolvedRole = CompanyRole::from($validated['role']);
+        $member = $this->companyModel->members()->whereKey($userId)->firstOrFail();
 
-        $membership = $this->companyModel->memberships()
-            ->where('user_id', $userId)
-            ->firstOrFail();
-
-        abort_if($membership->role === CompanyRole::Owner, 403);
-
-        $previousRole = $membership->role;
-        $previousSections = $membership->sections;
-        $newSections = $resolvedRole->usesCustomSections() ? array_values($validated['sections']) : null;
-
-        $membership->update([
-            'role' => $resolvedRole,
-            'sections' => $newSections,
-        ]);
-
-        // Log only an actual privilege change, not a no-op save of the modal.
-        if ($previousRole !== $resolvedRole || $previousSections !== $newSections) {
-            app(SecurityLogRecorder::class)->record(SecurityEvent::CompanyMemberRoleChanged, Auth::user(), metadata: [
-                'company_id' => $this->companyModel->id,
-                'target_user_id' => $userId,
-                'from_role' => $previousRole->value,
-                'to_role' => $resolvedRole->value,
-                'from_sections' => $previousSections,
-                'to_sections' => $newSections,
-            ]);
-        }
-
-        // On a privilege reduction — a lower role, or a narrower set of custom
-        // sections — invalidate access provisioned under the old level so it
-        // doesn't outlive the downgrade.
-        $isDowngrade = $resolvedRole->level() < $previousRole->level()
-            || ($previousSections !== null && $newSections !== null
-                && array_diff($previousSections, $newSections) !== []);
-
-        if ($isDowngrade && ($member = User::find($userId)) !== null) {
-            app(AccessRevoker::class)->revokeForDowngrade($member, $this->companyModel);
-        }
+        app(UpdateMemberAccess::class)->handle(
+            $this->companyModel,
+            Auth::user(),
+            $member,
+            CompanyRole::from($validated['role']),
+            array_values($validated['sections'] ?? []),
+        );
 
         $this->populateCompanyData();
         Flux::modal('edit-member')->close();

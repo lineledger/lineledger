@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Collection;
 
+/**
+ * @property CompanyRole $role
+ * @property list<string>|null $sections section values, for the Custom role only
+ */
 #[Fillable(['company_id', 'user_id', 'role', 'sections'])]
 class Membership extends Pivot
 {

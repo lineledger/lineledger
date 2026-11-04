@@ -121,11 +121,7 @@ class AccessRevoker
             return;
         }
 
-        $fallback = $user->companies()
-            ->where('companies.id', '!=', $company->id)
-            ->orderByDesc('is_personal')
-            ->orderBy('companies.id')
-            ->first();
+        $fallback = $user->personalCompany() ?? $user->fallbackCompany($company);
 
         $user->forceFill(['current_company_id' => $fallback?->id])->save();
         $user->unsetRelation('currentCompany');

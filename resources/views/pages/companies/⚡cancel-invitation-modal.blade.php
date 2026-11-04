@@ -1,8 +1,7 @@
 <?php
 
-use App\Enums\SecurityEvent;
+use App\Actions\Companies\Members\CancelInvitation;
 use App\Models\Company;
-use App\Services\Audit\SecurityLogRecorder;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -30,7 +29,7 @@ new class extends Component {
         $this->modalName = $modalName ?? ($invitationCode ? "cancel-invitation-{$invitationCode}" : 'cancel-invitation');
     }
 
-    public function cancelInvitation(SecurityLogRecorder $recorder): void
+    public function cancelInvitation(CancelInvitation $cancel): void
     {
         $invitation = $this->company->invitations()->where('code', $this->invitationCode)->firstOrFail();
 
@@ -40,15 +39,7 @@ new class extends Component {
 
         Gate::authorize('cancelInvitation', $this->company);
 
-        $invitation->delete();
-
-        $recorder->record(SecurityEvent::CompanyInvitationCancelled, Auth::user(), metadata: [
-            'company_id' => $this->company->id,
-            'invitation_email' => $invitation->email,
-            'role' => $invitation->role->value,
-        ]);
-
-        $this->dispatch('close-modal', name: $this->modalName);
+        $cancel->handle($this->company, Auth::user(), $invitation);
 
         Flux::toast(variant: 'success', text: __('Invitation cancelled.'));
 
