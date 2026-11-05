@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-05
+
+**Highlights.** A security patch for organizations with Custom members, whose
+access is limited to the sections ticked for them: combined report groups,
+search, scheduled report emails and attachment downloads now respect those
+sections too. Editing a member on the organization page works again. No
+migrations, no backfills and no configuration changes; see `UPGRADING.md`.
+
+### Security
+
+- **Section access now reaches combined reports, search, report emails and
+  attachments.** Section access only guarded the organization's own pages, so a
+  member walled off from Reports could still read full statements through a
+  combined report group, and search, scheduled report emails and attachment
+  downloads ignored sections altogether.
+  - **Combined report groups** need Reports access in every member
+    organization, to view and to edit, and re-check it on every action on an
+    open page. A deleted organization drops out of every group, so its ledger no
+    longer appears in combined statements. The New group and Add company lists
+    only offer organizations whose reports you can open.
+  - **Search** only returns the kinds of records whose pages you can open: a
+    member with Customers alone sees invoices, credit memos, receipts and
+    customers, not bills or journal entries. Contacts appear for the roles you
+    can open.
+  - **Scheduled report emails** pause when the person who scheduled them is
+    removed from the organization, has their account disabled, or loses Reports
+    access. Every send also re-checks that they can still open each report in
+    it. The schedule shows as paused on Memorized Reports, and saving it again
+    resumes it.
+  - **Memorized reports** can only be filed into your own groups. A group id
+    from a colleague was accepted, which would have emailed the report under
+    their schedule.
+  - **Attachment downloads** need the section of the record the file is
+    attached to (a bill's receipt needs Vendors), or Documents, whose
+    attachment index lists every record's files.
+  - **Management report packages** only offer, and only download, reports you
+    can still open.
+  - **Reassigning an account's GIFI line** from the GIFI statement needs
+    Accounting, as editing the account does; Reports alone only reads the
+    statement.
+  - Removing a member also moves their current organization off the one they
+    left, so settings pages and search stop answering "403 Forbidden" for them.
+  - A new test fails when an organization page is added without saying which
+    section it belongs to.
+
+### Fixed
+
+- **Edit on a member opens its dialog again.** On the organization page, Edit
+  beside a member did nothing, and saving a member's access or a closing date
+  left the dialog open.
+
 ## [1.4.1] - 2026-11-02
 
 **Highlights.** A patch for one serious 1.4.0 bug: on any installation whose
@@ -1501,7 +1552,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/lineledger/lineledger/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/lineledger/lineledger/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/lineledger/lineledger/compare/v1.3.0...v1.3.1

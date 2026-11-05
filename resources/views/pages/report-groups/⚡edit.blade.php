@@ -4,6 +4,7 @@ use App\Actions\Reporting\SeedReportGroupMappings;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\CashFlowActivity;
+use App\Livewire\Attributes\AuthorizesReportGroup;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportGroup;
@@ -18,7 +19,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Edit combined report group')] class extends Component {
+new #[Title('Edit combined report group')] #[AuthorizesReportGroup('update')] class extends Component {
     public ReportGroup $reportGroup;
 
     public string $f_name = '';
@@ -58,7 +59,7 @@ new #[Title('Edit combined report group')] class extends Component {
             return;
         }
 
-        abort_unless(Auth::user()->belongsToCompany($company), 403);
+        abort_unless(ReportGroup::canReportOn(Auth::user(), $company), 403);
 
         if ($this->reportGroup->companies()->count() >= 10) {
             $this->addError('addCompanyId', __('A group can combine at most ten companies.'));
@@ -195,18 +196,21 @@ new #[Title('Edit combined report group')] class extends Component {
     }
 
     /**
-     * Companies the user belongs to that aren't members yet (currency match flagged in the view).
+     * Companies the user can report on that aren't members yet (currency match flagged in the view).
      *
      * @return Collection<int, Company>
      */
     public function eligibleCompanies(): Collection
     {
         $memberIds = $this->reportGroup->companyIds();
+        $user = Auth::user();
 
-        return Auth::user()->companies()
+        return $user->companies()
             ->whereNotIn('companies.id', $memberIds)
             ->orderByRaw('LOWER(companies.name)')
-            ->get();
+            ->get()
+            ->filter(fn (Company $company) => ReportGroup::canReportOn($user, $company))
+            ->values();
     }
 
     /**

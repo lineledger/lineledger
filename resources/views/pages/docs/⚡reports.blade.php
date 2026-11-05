@@ -459,7 +459,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
         />
 
         <flux:text>
-            {{ __('Inside a group you can rename or retype the combined lines and organize them into custom sections, and switch on By company to see each member’s figures beside the combined total — on the Cash Flow Statement that includes each member’s net cash per activity and its beginning and ending cash. Combined statements export to CSV, Excel, and PDF. A group is a straight roll-up, not a full consolidation — there are no intercompany eliminations, so balances owed between member organizations are not removed. Every organization in a group must use the same currency. A group is visible to anyone who belongs to all of its members, so a colleague on every member organization sees the combined reports too (badged Shared); only the person who created it can edit it.') }}
+            {{ __('Inside a group you can rename or retype the combined lines and organize them into custom sections, and switch on By company to see each member’s figures beside the combined total — on the Cash Flow Statement that includes each member’s net cash per activity and its beginning and ending cash. Combined statements export to CSV, Excel, and PDF. A group is a straight roll-up, not a full consolidation — there are no intercompany eliminations, so balances owed between member organizations are not removed. Every organization in a group must use the same currency. A group is visible to anyone who can open Reports in all of its members, so a colleague with Reports access on every member organization sees the combined reports too (badged Shared); only the person who created it can edit it, and only while they can still open Reports in every member. A deleted organization drops out of every group it was in.') }}
         </flux:text>
 
         {{-- ─────────────────── Saving, emailing and scheduling ─────────────────── --}}
@@ -510,7 +510,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note">
-            {{ __('A scheduled report or group shows a badge such as “Scheduled · monthly”; select the × beside it to remove the schedule. A schedule ends itself after its End date or Number of sends, and pauses — badged Schedule paused — if the report can no longer be emailed, for example because the feature it reports on was turned off. Sends go out with the daily scheduled tasks each morning, so on a self-hosted install the scheduler and queue worker must be running — see') }}
+            {{ __('A scheduled report or group shows a badge such as “Scheduled · monthly”; select the × beside it to remove the schedule. A schedule ends itself after its End date or Number of sends, and pauses — badged Schedule paused — if the report can no longer be emailed, for example because the feature it reports on was turned off, or because the person who scheduled it was removed from the organization, had their account disabled, or lost access to Reports. Sends go out with the daily scheduled tasks each morning, so on a self-hosted install the scheduler and queue worker must be running — see') }}
             <a class="underline" href="{{ route('docs.self-hosting') }}" wire:navigate>{{ __('Self-hosting') }}</a>{{ __('.') }}
         </x-docs.callout>
 

@@ -14,6 +14,7 @@ beforeEach(function () {
     $this->company = Company::factory()->create(['fiscal_year_start_month' => 1, 'organization_type' => OrganizationType::Corporation->value]);
     $this->user = User::factory()->create();
     $this->company->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
+    $this->actingAs($this->user);
 
     app()->instance('current_company', $this->company);
 

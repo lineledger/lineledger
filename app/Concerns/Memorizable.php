@@ -7,6 +7,7 @@ use App\Models\MemorizedReportGroup;
 use App\Support\Reporting\ReportSettings;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 
 /**
@@ -56,10 +57,20 @@ trait Memorizable
 
     public function memorizeReport(): void
     {
+        // The group must be one of the user's own in this company: a group is
+        // what a report email schedule sends, so filing a report into a
+        // colleague's group would mail it out under their name. `exists` skips
+        // CompanyScope, so the company is constrained by hand.
         $this->validate([
             'memorizeName' => 'required|string|max:255',
             'memorizeNewGroup' => 'nullable|string|max:255',
-            'memorizeGroupId' => 'nullable|integer',
+            'memorizeGroupId' => [
+                'nullable',
+                'integer',
+                Rule::exists('memorized_report_groups', 'id')
+                    ->where('user_id', Auth::id())
+                    ->where('company_id', app('current_company')->id),
+            ],
         ]);
 
         $groupId = $this->memorizeGroupId;

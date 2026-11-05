@@ -25,7 +25,8 @@ it('locks the books with the correct password and records an audit log', functio
         ->set('lockDate', '2026-03-31')
         ->set('lockPassword', 'password')
         ->call('confirmLockDate')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertDispatched('modal-close', name: 'lock-period');
 
     expect($this->company->fresh()->lock_date->toDateString())->toBe('2026-03-31');
 

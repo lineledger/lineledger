@@ -5,6 +5,7 @@ use App\Concerns\HasReportDateRange;
 use App\Concerns\Memorizable;
 use App\Enums\AccountSubtype;
 use App\Enums\GifiStatement;
+use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
@@ -14,6 +15,7 @@ use App\Services\Reporting\XlsxExporter;
 use App\Support\Gifi\GifiCatalog;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -71,6 +73,8 @@ new #[Title('GIFI Statement')] class extends Component {
      */
     public function reassign(int $accountId, ?string $gifiCode): void
     {
+        abort_unless($this->canReassign(), 403);
+
         $account = Account::withoutGlobalScopes()->findOrFail($accountId);
         abort_unless($account->company_id === $this->company->id, 403);
 
@@ -85,6 +89,21 @@ new #[Title('GIFI Statement')] class extends Component {
         unset($this->report);
 
         Flux::toast(variant: 'success', text: __('GIFI line updated.'));
+    }
+
+    /**
+     * Whether the viewer may move accounts between GIFI lines. The statement is
+     * a report, but reassigning edits the chart of accounts, so it needs the
+     * Accounting section (as the account editor does) — Reports alone only reads.
+     */
+    #[Computed]
+    public function canReassign(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null
+            && $this->company->sectionEnabled(Section::Accounting)
+            && $user->canAccessSection($this->company, Section::Accounting);
     }
 
     /**
@@ -179,13 +198,13 @@ new #[Title('GIFI Statement')] class extends Component {
         :memorizable="true"
     />
 
-    @php $r = $this->report; $options = $this->gifiOptions(); @endphp
+    @php $r = $this->report; $options = $this->gifiOptions(); $canReassign = $this->canReassign; @endphp
 
     @php
         // One GIFI line row with an expandable list of member accounts, each of
         // which can be moved to another line. $half scopes the reassignment.
-        $renderLine = function (array $line) use ($options) {
-            return view('partials.reports.gifi-line', ['line' => $line, 'options' => $options])->render();
+        $renderLine = function (array $line) use ($options, $canReassign) {
+            return view('partials.reports.gifi-line', ['line' => $line, 'options' => $options, 'canReassign' => $canReassign])->render();
         };
     @endphp
 
@@ -307,6 +326,7 @@ new #[Title('GIFI Statement')] class extends Component {
                                 <td class="px-4 py-2">{{ $line['name'] }}</td>
                                 <td class="px-4 py-2 text-right font-mono">{{ number_format($line['amount'] / 100, 2) }}</td>
                                 <td class="px-4 py-2 text-right">
+                                    @if ($canReassign)
                                     <select
                                         wire:change="reassign({{ $line['id'] }}, $event.target.value)"
                                         class="rounded-md border border-input bg-background px-2 py-1 text-sm"
@@ -321,6 +341,7 @@ new #[Title('GIFI Statement')] class extends Component {
                                             </optgroup>
                                         @endforeach
                                     </select>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
