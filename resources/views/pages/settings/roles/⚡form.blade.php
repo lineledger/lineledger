@@ -134,6 +134,37 @@ new #[Title('Role')] class extends Component {
     }
 
     /**
+     * Keep an activity's ticks in step with its level, so Full shows every
+     * action ticked and None shows none; switching to Partial starts from what
+     * was ticked before, or from View when nothing was.
+     */
+    public function updatedLevels(mixed $value, string $key): void
+    {
+        $activity = Activity::tryFrom($key);
+        $level = PermissionLevel::tryFrom((string) $value);
+
+        if ($activity === null || $level === null) {
+            return;
+        }
+
+        $ticks = $this->ticks[$activity->value] ?? [];
+
+        foreach ($activity->actions() as $action) {
+            $ticks[$action->value] = match ($level) {
+                PermissionLevel::Full => true,
+                PermissionLevel::None => false,
+                PermissionLevel::Partial => (bool) ($ticks[$action->value] ?? false),
+            };
+        }
+
+        if ($level === PermissionLevel::Partial && ! in_array(true, $ticks, true)) {
+            $ticks[PermissionAction::View->value] = true;
+        }
+
+        $this->ticks[$activity->value] = $ticks;
+    }
+
+    /**
      * The editor's state as grants.
      *
      * @return array<string, Grant>

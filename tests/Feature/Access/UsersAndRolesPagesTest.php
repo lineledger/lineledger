@@ -92,6 +92,20 @@ it('creates a role from the editor', function () {
         ->and($role->permissionSet()->allows(Activity::Invoices, PermissionAction::Delete))->toBeTrue();
 });
 
+it('ticks the actions to match the level chosen for an activity', function () {
+    Livewire::actingAs($this->owner)
+        ->test('pages::settings.roles.form', ['company' => $this->company])
+        ->set('levels.credit-memos', 'full')
+        ->assertSet('ticks.credit-memos', ['view' => true, 'create' => true, 'modify' => true, 'delete' => true, 'print' => true])
+        ->set('levels.credit-memos', 'partial')
+        ->assertSet('ticks.credit-memos.delete', true)
+        ->set('levels.credit-memos', 'none')
+        ->assertSet('ticks.credit-memos', ['view' => false, 'create' => false, 'modify' => false, 'delete' => false, 'print' => false])
+        ->set('levels.credit-memos', 'partial')
+        ->assertSet('ticks.credit-memos.view', true)
+        ->assertSet('ticks.credit-memos.create', false);
+});
+
 it('duplicates a role into a new draft', function () {
     $component = Livewire::actingAs($this->owner)
         ->withQueryParams(['from' => ($this->roleId)(PredefinedRole::Sales)])
