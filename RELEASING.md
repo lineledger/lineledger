@@ -83,9 +83,15 @@ release. So the release flags below matter as much as the tag.
 The same steps, with these differences:
 
 - Branch `release/X.Y.0-rc.N` from `next`, and open the pull request into `next`.
-- The version everywhere is `X.Y.0-rc.N`. The CHANGELOG gets a
-  `## [X.Y.0-rc.N] - YYYY-MM-DD` section; at the final release, fold the
-  candidates' sections into `## [X.Y.0]`.
+- Bump what names this build's own version to `X.Y.0-rc.N`: `VERSION`, the
+  `config/version.php` fallback, both MCP servers, `openapi.yaml`,
+  `docs/api-v1.md` and the API docs page (with its `fr.json` key), the
+  `install.sh` comment URL, and the README's install URLs, pins and Status
+  paragraph. Examples that explain stable pinning (the image-tag lists in the
+  README, UPGRADING's overview and the self-hosting docs page) keep the stable
+  version: a `X.Y` tag doesn't exist until the final release.
+- The CHANGELOG gets a `## [X.Y.0-rc.N] - YYYY-MM-DD` section; at the final
+  release, fold the candidates' sections into `## [X.Y.0]`.
 - `UPGRADING.md` gets a `## <stable> → X.Y.0-rc.N` section. It says how to come
   from the newest stable release and from the previous candidate, and whether
   going back to stable needs a restore.
