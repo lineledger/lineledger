@@ -40,6 +40,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Cheque')] class extends Component
 {
@@ -569,7 +570,7 @@ new #[Title('Cheque')] class extends Component
         LastBankAccount::remember($this->company, $this->bank_account_id);
 
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('cheques.edit', ['company' => $this->company->slug, 'cheque' => $this->cheque->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('cheques.edit'), ['company' => $this->company->slug, 'cheque' => $this->cheque->id], navigate: true);
     }
 
     /**

@@ -139,23 +139,29 @@ new #[Title('Expense')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($expense->status === ExpenseStatus::Draft)
+                @reaches('expenses.edit')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('expenses.edit', ['company' => $company->slug, 'expense' => $expense->id])" wire:navigate data-test="edit-expense-button">
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="expense-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($expense->status === ExpenseStatus::Draft)
+                        @reaches('expenses.edit')
                         <flux:menu.item class="lg:hidden" icon="pencil" :href="route('expenses.edit', ['company' => $company->slug, 'expense' => $expense->id])" wire:navigate data-test="edit-expense-menu-item">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($expense->status === ExpenseStatus::Posted)
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this expense? A reversing GL entry will be posted.') }}" data-test="void-expense-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -218,10 +224,12 @@ new #[Title('Expense')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="expense-att-{{ $att->id }}" data-test="expense-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="expense-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -235,9 +243,11 @@ new #[Title('Expense')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="expense-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

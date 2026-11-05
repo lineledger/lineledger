@@ -9,6 +9,9 @@ use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\ReportCalculator;
 use App\Services\Reporting\XlsxExporter;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
+use App\Support\Access\PermissionSet;
 use App\Support\Reporting\ReportDatePresets;
 use Carbon\CarbonImmutable;
 use Livewire\Attributes\Computed;
@@ -42,6 +45,9 @@ new #[Title('General Ledger')] class extends Component
 
     #[Url(as: 'per')]
     public int $perPage = 25;
+
+    /** The viewer's permissions, resolved once per request (not Livewire state). */
+    private ?PermissionSet $viewerPermissions = null;
 
     public function mount(Company $company): void
     {
@@ -115,14 +121,110 @@ new #[Title('General Ledger')] class extends Component
         $locationId = $this->effectiveLocationId();
 
         if ($this->isAllAccounts()) {
-            return app(ReportCalculator::class)->generalLedgerAllAccountsPaginated($start, $end, $this->pageSize(), $classId, $locationId);
+            $report = app(ReportCalculator::class)->generalLedgerAllAccountsPaginated($start, $end, $this->pageSize(), $classId, $locationId);
+            $report['entries'] = $report['entries']->map(fn (array $entry) => $this->withholdPayrollEntry($entry));
+
+            return $report;
         }
 
         if (! $this->account) {
             return null;
         }
 
-        return app(ReportCalculator::class)->generalLedgerPaginated($this->account, $start, $end, $this->pageSize(), $classId, $locationId);
+        $report = app(ReportCalculator::class)->generalLedgerPaginated($this->account, $start, $end, $this->pageSize(), $classId, $locationId);
+        $report['lines'] = $report['lines']->map(fn (array $line) => $this->withholdPayrollLine($line));
+
+        return $report;
+    }
+
+    private function viewer(): PermissionSet
+    {
+        return $this->viewerPermissions ??= CurrentViewer::permissions($this->company);
+    }
+
+    /**
+     * A single-account row, with its payroll detail withheld from a viewer who
+     * can't open pay runs (PayrollDetail): the memo reads "Payroll" and the
+     * row is flagged so its entry number isn't linked. Amounts and the running
+     * balance are untouched, so the ledger still foots.
+     *
+     * @param  array<string, mixed>  $line
+     * @return array<string, mixed>
+     */
+    private function withholdPayrollLine(array $line): array
+    {
+        $hidden = PayrollDetail::hides($line['source_type'] ?? null, $this->viewer());
+
+        return [
+            ...$line,
+            'memo' => $hidden ? PayrollDetail::label() : $line['memo'],
+            'payroll_hidden' => $hidden,
+        ];
+    }
+
+    /**
+     * An all-accounts entry, withheld the same way: the entry memo and every
+     * line memo read "Payroll" (a blank line memo stays blank).
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function withholdPayrollEntry(array $entry): array
+    {
+        $hidden = PayrollDetail::hides($entry['source_type'] ?? null, $this->viewer());
+
+        if (! $hidden) {
+            return [...$entry, 'payroll_hidden' => false];
+        }
+
+        return [
+            ...$entry,
+            'memo' => PayrollDetail::label(),
+            'lines' => array_map(
+                fn (array $line) => [...$line, 'memo' => $line['memo'] === null ? null : PayrollDetail::label()],
+                $entry['lines'],
+            ),
+            'payroll_hidden' => true,
+        ];
+    }
+
+    /**
+     * The export stream for the single account, payroll detail withheld.
+     *
+     * @return array<string, mixed>
+     */
+    private function singleAccountExport(CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $report = app(ReportCalculator::class)->generalLedgerStreamReport($this->account, $start, $end, $this->effectiveClassId(), $this->effectiveLocationId());
+        $report['lines'] = $this->withholdEach($report['lines'], fn (array $line) => $this->withholdPayrollLine($line));
+
+        return $report;
+    }
+
+    /**
+     * The export stream across all accounts, payroll detail withheld.
+     *
+     * @return array<string, mixed>
+     */
+    private function allAccountsExport(CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $report = app(ReportCalculator::class)->generalLedgerAllAccountsStreamReport($start, $end, $this->effectiveClassId(), $this->effectiveLocationId());
+        $report['entries'] = $this->withholdEach($report['entries'], fn (array $entry) => $this->withholdPayrollEntry($entry));
+
+        return $report;
+    }
+
+    /**
+     * Apply $withhold to each streamed row lazily, so the export stays memory-flat.
+     *
+     * @param  iterable<int, array<string, mixed>>  $rows
+     * @return \Generator<int, array<string, mixed>>
+     */
+    private function withholdEach(iterable $rows, \Closure $withhold): \Generator
+    {
+        foreach ($rows as $row) {
+            yield $withhold($row);
+        }
     }
 
     #[Computed]
@@ -137,18 +239,15 @@ new #[Title('General Ledger')] class extends Component
         $start = CarbonImmutable::parse($this->startDate);
         $end = CarbonImmutable::parse($this->endDate);
 
-        $classId = $this->effectiveClassId();
-        $locationId = $this->effectiveLocationId();
-
         if ($this->isAllAccounts()) {
-            return $this->exportAllAccountsCsv(app(ReportCalculator::class)->generalLedgerAllAccountsStreamReport($start, $end, $classId, $locationId));
+            return $this->exportAllAccountsCsv($this->allAccountsExport($start, $end));
         }
 
         if (! $this->account) {
             return null;
         }
 
-        return $this->exportSingleAccountCsv(app(ReportCalculator::class)->generalLedgerStreamReport($this->account, $start, $end, $classId, $locationId));
+        return $this->exportSingleAccountCsv($this->singleAccountExport($start, $end));
     }
 
     #[Requires(null, PermissionAction::Print)]
@@ -158,14 +257,11 @@ new #[Title('General Ledger')] class extends Component
         $end = CarbonImmutable::parse($this->endDate);
         $name = "general-ledger-{$this->startDate}-to-{$this->endDate}.xlsx";
 
-        $classId = $this->effectiveClassId();
-        $locationId = $this->effectiveLocationId();
-
         if ($this->isAllAccounts()) {
             return app(XlsxExporter::class)->generalLedgerAllAccounts(
                 $name,
                 $this->company,
-                app(ReportCalculator::class)->generalLedgerAllAccountsStreamReport($start, $end, $classId, $locationId),
+                $this->allAccountsExport($start, $end),
                 $this->startDate,
                 $this->endDate,
             );
@@ -182,7 +278,7 @@ new #[Title('General Ledger')] class extends Component
             $name,
             $this->company,
             $this->account,
-            app(ReportCalculator::class)->generalLedgerStreamReport($this->account, $start, $end, $classId, $locationId),
+            $this->singleAccountExport($start, $end),
             $this->startDate,
             $this->endDate,
         );
@@ -321,7 +417,11 @@ new #[Title('General Ledger')] class extends Component
                         <tr class="bg-muted font-medium" data-test="gl-entry-header">
                             <td class="px-4 py-2 whitespace-nowrap">{{ $entry['date'] }}</td>
                             <td class="px-4 py-2 font-mono">
-                                <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $entry['entry_no']]) }}" class="underline">{{ $entry['entry_no'] }}</a>
+                                @if ($entry['payroll_hidden'])
+                                    {{ $entry['entry_no'] }}
+                                @else
+                                    <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $entry['entry_no']]) }}" class="underline">{{ $entry['entry_no'] }}</a>
+                                @endif
                             </td>
                             <td class="px-4 py-2" colspan="3">{{ $entry['memo'] }}</td>
                             <td class="px-4 py-2"></td>
@@ -394,7 +494,11 @@ new #[Title('General Ledger')] class extends Component
                         <tr data-test="gl-row">
                             <td class="px-4 py-2 whitespace-nowrap">{{ $line['date'] }}</td>
                             <td class="px-4 py-2 font-mono">
-                                <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $line['entry_no']]) }}" class="underline">{{ $line['entry_no'] }}</a>
+                                @if ($line['payroll_hidden'])
+                                    {{ $line['entry_no'] }}
+                                @else
+                                    <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $line['entry_no']]) }}" class="underline">{{ $line['entry_no'] }}</a>
+                                @endif
                             </td>
                             <td class="px-4 py-2 text-muted-foreground">{{ $line['memo'] }}</td>
                             @if ($this->columnVisible('split'))

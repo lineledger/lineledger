@@ -1,12 +1,15 @@
 <?php
 
+use App\Enums\Activity;
 use App\Enums\InsightSource;
 use App\Models\Company;
 use App\Models\DailyInsight;
+use App\Models\User;
 use App\Services\Insights\InsightDetectorRegistry;
 use App\Services\Reporting\FinancialMetrics;
 use App\Services\Reporting\FinancialRatios;
 use App\Services\Reporting\ReportCalculator;
+use App\Support\Access\CurrentViewer;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -57,6 +60,29 @@ new #[Title('Daily insights')] class extends Component {
         ];
     }
 
+    /**
+     * The insight types this member may read (InsightDetectorRegistry::typesVisibleTo()).
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function visibleTypes(): array
+    {
+        $viewer = Auth::user();
+
+        return InsightDetectorRegistry::typesVisibleTo($this->company, $viewer instanceof User ? $viewer : null);
+    }
+
+    /**
+     * The financial health panel is the income statement and balance sheet in
+     * miniature, so it shows only to members who can see financial reports.
+     */
+    #[Computed]
+    public function seesFinancials(): bool
+    {
+        return CurrentViewer::permissions($this->company)->canView(Activity::ReportsFinancial);
+    }
+
     #[Computed]
     public function hasCurrentInsight(): bool
     {
@@ -64,6 +90,7 @@ new #[Title('Daily insights')] class extends Component {
 
         return DailyInsight::query()
             ->whereIn('insight_date', [$today->toDateString(), $today->subDay()->toDateString()])
+            ->whereIn('type', $this->visibleTypes)
             ->exists();
     }
 
@@ -71,6 +98,7 @@ new #[Title('Daily insights')] class extends Component {
     public function insights()
     {
         return DailyInsight::query()
+            ->whereIn('type', $this->visibleTypes)
             ->orderByDesc('insight_date')
             ->paginate(30);
     }
@@ -139,6 +167,7 @@ new #[Title('Daily insights')] class extends Component {
         </div>
     </div>
 
+    @if ($this->seesFinancials)
     @php
         $period = $this->health['period'];
         $ratios = $this->health['ratios'];
@@ -173,6 +202,7 @@ new #[Title('Daily insights')] class extends Component {
                 @endforeach
             </div>
         </div>
+    @endif
     @endif
 
     @php $lastMonth = null; @endphp

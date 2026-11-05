@@ -47,9 +47,11 @@ new #[Title('Bill payments')] class extends Component
             <flux:button variant="filled" :href="route('bill-payments.batch', ['company' => $company->slug])" wire:navigate data-test="batch-pay-link">
                 {{ __('Pay multiple suppliers') }}
             </flux:button>
+            @reaches('bill-payments.create')
             <flux:button variant="primary" icon="plus" :href="route('bill-payments.create', ['company' => $company->slug])" wire:navigate data-test="new-payment-button">
                 {{ __('Pay bills') }}
             </flux:button>
+            @endreaches
         </div>
     </div>
 

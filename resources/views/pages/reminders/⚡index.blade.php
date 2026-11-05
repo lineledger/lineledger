@@ -157,10 +157,16 @@ new #[Title('Payment Reminders')] class extends Component {
                         <td class="px-4 py-2 text-muted-foreground">{{ $item['tier']->renderSubject($invoice) }}</td>
                         <td class="px-4 py-2">
                             <div class="flex justify-end gap-2">
+                                @callable($this, 'sendNow')
                                 <flux:button size="xs" variant="primary" icon="paper-airplane" wire:click="sendNow({{ $invoice->id }})" data-test="reminder-send">{{ __('Send now') }}</flux:button>
+                                @endcallable
+                                @callable($this, 'snoozeInvoice')
                                 <flux:button size="xs" variant="ghost" wire:click="snoozeInvoice({{ $invoice->id }})" data-test="reminder-snooze">{{ __('Skip') }}</flux:button>
+                                @endcallable
                                 @if ($invoice->contact?->reminder_emails_enabled)
+                                    @callable($this, 'disableReminders')
                                     <flux:button size="xs" variant="ghost" wire:click="disableReminders({{ $invoice->contact_id }})" data-test="reminder-mute">{{ __('Turn off reminders') }}</flux:button>
+                                    @endcallable
                                 @endif
                             </div>
                         </td>

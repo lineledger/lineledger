@@ -31,6 +31,6 @@ class ChartOfAccountsResource extends Resource
             return $denied;
         }
 
-        return Response::text(app(ChartOfAccountsPresenter::class)->render($this->company()));
+        return Response::text(app(ChartOfAccountsPresenter::class)->render($this->company(), $this->actorSeesBalances(Activity::Accounts)));
     }
 }

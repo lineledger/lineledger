@@ -39,6 +39,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Invoice')] class extends Component
 {
@@ -698,7 +699,7 @@ new #[Title('Invoice')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $this->invoice->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company->slug, 'invoice' => $this->invoice->id], navigate: true);
     }
 
     public function postInvoice(InvoicePoster $poster): void

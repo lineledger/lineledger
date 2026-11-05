@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Activity;
 use App\Enums\BillType;
 use App\Enums\Section;
 use App\Models\Account;
@@ -18,6 +19,8 @@ use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\TaxReturn;
 use App\Models\User;
+use App\Support\Access\PayrollDetail;
+use App\Support\Access\RouteGate;
 use App\Support\Contacts\ContactLinkResolver;
 use App\Support\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,25 +64,31 @@ class GlobalSearch
 
         $like = '%'.$this->escapeLike($term).'%';
 
+        // Each group shows only when the searcher could open the page its
+        // results link to (RouteGate: the same checks the request makes).
         $groups = [
-            'invoices' => [[Section::Customers], fn () => $this->invoices($like)],
-            'credit_memos' => [[Section::Customers], fn () => $this->creditMemos($like)],
-            'bills' => [[Section::Vendors, Section::Employees], fn () => $this->bills($like)],
-            'bill_payments' => [[Section::Vendors], fn () => $this->billPayments($like)],
-            'receipts' => [[Section::Customers], fn () => $this->receipts($like)],
-            'cheques' => [[Section::Banking], fn () => $this->cheques($like)],
-            'deposits' => [[Section::Banking], fn () => $this->deposits($like)],
-            'journal_entries' => [[Section::Accounting], fn () => $this->journalEntries($like)],
+            'invoices' => [['invoices.show'], fn () => $this->invoices($like)],
+            'credit_memos' => [['credit-memos.show'], fn () => $this->creditMemos($like)],
+            'bills' => [['bills.show', 'reimbursements.show'], fn () => $this->bills($like)],
+            'bill_payments' => [['bill-payments.show'], fn () => $this->billPayments($like)],
+            'receipts' => [['receipts.show'], fn () => $this->receipts($like)],
+            'cheques' => [['cheques.show'], fn () => $this->cheques($like)],
+            'deposits' => [['deposits.show'], fn () => $this->deposits($like)],
+            'journal_entries' => [['journal.show'], fn () => $this->journalEntries($like)],
             'contacts' => [[Section::Customers, Section::Vendors, Section::Employees, Section::Lists], fn () => $this->contacts($like)],
-            'accounts' => [[Section::Accounting, Section::Reports], fn () => $this->accounts($like)],
-            'items' => [[Section::Lists], fn () => $this->items($like)],
-            'tax_returns' => [[Section::Reports], fn () => $this->taxReturns($like)],
+            'accounts' => [['accounts.index', 'reports.general-ledger'], fn () => $this->accounts($like)],
+            'items' => [['lists.items'], fn () => $this->items($like)],
+            'tax_returns' => [['tax-returns.show'], fn () => $this->taxReturns($like)],
         ];
 
         $results = [];
 
-        foreach ($groups as $key => [$sections, $query]) {
-            if ($this->reachesAny(...$sections)) {
+        foreach ($groups as $key => [$gates, $query]) {
+            $open = $gates[0] instanceof Section
+                ? $this->reachesAny(...$gates)
+                : collect($gates)->contains(fn (string $route): bool => $this->reachesRoute($route));
+
+            if ($open) {
                 $results[$key] = $query();
             }
         }
@@ -101,6 +110,18 @@ class GlobalSearch
         }
 
         return false;
+    }
+
+    /**
+     * Whether the searcher could open the route here ({@see RouteGate}).
+     */
+    private function reachesRoute(string $routeName): bool
+    {
+        if ($this->viewer === null) {
+            return true;
+        }
+
+        return $this->reachable['route:'.$routeName] ??= RouteGate::reaches($routeName, $this->company(), $this->viewer);
     }
 
     private function reaches(Section $section): bool
@@ -201,8 +222,8 @@ class GlobalSearch
         // Vendor bills open under Vendors, reimbursements under Employees: show
         // only the kinds whose page the searcher can open.
         $types = array_values(array_filter([
-            $this->reaches(Section::Vendors) ? BillType::Vendor : null,
-            $this->reaches(Section::Employees) ? BillType::Reimbursement : null,
+            $this->reachesRoute('bills.show') ? BillType::Vendor : null,
+            $this->reachesRoute('reimbursements.show') ? BillType::Reimbursement : null,
         ]));
 
         return Bill::query()
@@ -338,11 +359,17 @@ class GlobalSearch
      */
     private function journalEntries(string $like): Collection
     {
+        // Payroll entries (and their voids) carry employee names in their
+        // memos: they show only to a searcher who can open pay runs
+        // (PayrollDetail).
+        $hidesPayroll = $this->viewer !== null && ! $this->viewer->permissions($this->company())->seesPayrollDetail();
+
         return JournalEntry::query()
             ->where(fn (Builder $q) => $q
                 ->where('entry_no', 'like', $like)
                 ->orWhere('memo', 'like', $like)
             )
+            ->when($hidesPayroll, fn (Builder $q) => PayrollDetail::withoutPayroll($q))
             ->orderByDesc('entry_date')
             ->orderByDesc('id')
             ->limit(self::LIMIT_PER_GROUP)
@@ -444,7 +471,8 @@ class GlobalSearch
      */
     private function accounts(string $like): Collection
     {
-        $toLedger = $this->reaches(Section::Reports);
+        $toLedger = $this->reachesRoute('reports.general-ledger');
+        $withBalance = $this->viewer === null || $this->viewer->permissions($this->company())->canViewBalances(Activity::Accounts);
 
         return Account::query()
             ->where(fn (Builder $q) => $q
@@ -459,7 +487,7 @@ class GlobalSearch
                 label: $a->code.' — '.$a->name,
                 secondary: $a->type->value,
                 meta: null,
-                amountCents: (int) $a->balance_cents,
+                amountCents: $withBalance ? (int) $a->balance_cents : null,
                 url: $toLedger
                     ? route('reports.general-ledger', ['account' => $a->id])
                     : route('accounts.index'),

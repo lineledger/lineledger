@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Http\Middleware\EnforceTwoFactor;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsurePortalAudience;
@@ -26,6 +28,7 @@ use App\Services\Access\PermissionResolver;
 use App\Services\Currency\ExchangeRateProvider;
 use App\Services\Currency\Providers\FrankfurterProvider;
 use App\Services\Currency\Providers\NullExchangeRateProvider;
+use App\Support\Access\CurrentViewer;
 use App\Support\Http\CanonicalUrl;
 use App\Support\MailSettings;
 use Carbon\CarbonImmutable;
@@ -36,6 +39,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Events\Routing;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -102,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureRouteBindings();
         $this->configurePassport();
+        $this->configurePermissionDirectives();
 
         // Livewire's update endpoint does not run a page's route middleware: it
         // re-runs only the "persistent" ones, against the page route recorded in
@@ -197,6 +202,22 @@ class AppServiceProvider extends ServiceProvider
         // after package providers, so by now Passport's routes exist. This also
         // keeps the routes in a context captured by `route:cache`.
         Mcp::oauthRoutes();
+    }
+
+    /**
+     * Blade conditionals that show a button or link only to a member who could
+     * use it, rather than one that answers 403: permits (an activity and
+     * action), reaches (a route name) and callable (a Livewire method on the
+     * component, as MethodPermissionGate would check it).
+     */
+    protected function configurePermissionDirectives(): void
+    {
+        Blade::if('permits', fn (Activity $activity, PermissionAction $action = PermissionAction::View): bool => CurrentViewer::permits($activity, $action));
+        Blade::if('reaches', fn (string $routeName): bool => CurrentViewer::reaches($routeName));
+
+        // @callable($this, 'voidInvoice'): the member may call the Livewire
+        // method — the check MethodPermissionGate makes when it's called.
+        Blade::if('callable', fn (Component $component, string $method): bool => app(MethodPermissionGate::class)->allows($component, $method));
     }
 
     /**

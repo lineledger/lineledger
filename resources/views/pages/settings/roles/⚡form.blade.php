@@ -354,7 +354,9 @@ new #[Title('Role')] class extends Component {
 
             <div class="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-background py-3">
                 @if ($role?->system_key !== null && ! $role->followsCatalogue())
+                    @callable($this, 'resetToDefault')
                     <flux:button variant="ghost" wire:click="resetToDefault" data-test="reset-role">{{ __('Reset to default') }}</flux:button>
+                    @endcallable
                 @endif
                 <flux:button :href="route('settings.users-and-roles', ['company' => $company->slug, 'tab' => 'roles'])" wire:navigate>{{ __('Cancel') }}</flux:button>
                 <flux:button variant="primary" type="submit" data-test="save-role">{{ __('Save role') }}</flux:button>
@@ -367,7 +369,9 @@ new #[Title('Role')] class extends Component {
                 <flux:text>{{ __('These people will lose some access and be signed out, and the API keys they made here will stop working: :names', ['names' => implode(', ', $affected)]) }}</flux:text>
                 <div class="flex justify-end gap-2">
                     <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                    @callable($this, 'confirmPending')
                     <flux:button variant="danger" wire:click="confirmPending" data-test="confirm-narrowing">{{ __('Save and sign them out') }}</flux:button>
+                    @endcallable
                 </div>
             </div>
         </flux:modal>

@@ -2,8 +2,10 @@
 
 namespace App\Services\Insights;
 
+use App\Enums\Activity;
 use App\Enums\InsightCategory;
 use App\Models\Company;
+use App\Models\User;
 use App\Services\Insights\Contracts\InsightDetector;
 use App\Services\Insights\Detectors\AverageDaysToPaidDetector;
 use App\Services\Insights\Detectors\BillsDueSoonDetector;
@@ -22,6 +24,7 @@ use App\Services\Insights\Detectors\SalesTaxSetAsideDetector;
 use App\Services\Insights\Detectors\SameMonthLastYearDetector;
 use App\Services\Insights\Detectors\StaleDraftInvoicesDetector;
 use App\Services\Insights\Detectors\UnmatchedBankLinesDetector;
+use App\Support\Access\RouteGate;
 
 /**
  * The detector catalogue. Append new detectors here — keys are stored on
@@ -92,5 +95,42 @@ final class InsightDetectorRegistry
     public static function ctaFor(string $key, Company $company): ?array
     {
         return self::detectorFor($key)?->cta($company);
+    }
+
+    /**
+     * The insight types a member may read. An insight is a teaser for the
+     * report or page its call to action opens — overdue receivables for AR
+     * aging, a remittance for the PD7A report — so it shows only to someone
+     * who could open that page. Insights without one, and a retired
+     * detector's rows, go only to members who can see financial reports.
+     *
+     * @return list<string>
+     */
+    public static function typesVisibleTo(Company $company, ?User $viewer): array
+    {
+        $types = [];
+        $seesFinancials = $viewer !== null && $viewer->permissions($company)->canView(Activity::ReportsFinancial);
+
+        foreach (self::instances() as $key => $detector) {
+            $route = $detector->cta($company)['route'] ?? null;
+
+            if ($route === null ? $seesFinancials : RouteGate::reaches($route, $company, $viewer)) {
+                $types[] = $key;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Whether a member may read a stored insight of this type.
+     */
+    public static function visibleTo(string $key, Company $company, ?User $viewer): bool
+    {
+        if (self::detectorFor($key) === null) {
+            return $viewer !== null && $viewer->permissions($company)->canView(Activity::ReportsFinancial);
+        }
+
+        return in_array($key, self::typesVisibleTo($company, $viewer), true);
     }
 }

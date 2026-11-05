@@ -255,6 +255,7 @@ new #[Title('Open Bills')] class extends Component
         :exports-disabled="empty($this->report['rows'])"
         :title-editable="true"
     >
+        @callable($this, 'reconcileSettled')
         <flux:button
             variant="ghost"
             icon="check-circle"
@@ -262,6 +263,7 @@ new #[Title('Open Bills')] class extends Component
             wire:confirm="{{ __('Close every open bill whose balance was already settled by a journal entry? No new ledger entries are posted.') }}"
             data-test="reconcile-settled"
         >{{ __('Close ledger-settled') }}</flux:button>
+        @endcallable
         <x-reports.column-picker :columns="$this->columnRegistry()" />
     </x-reports.control-bar>
 

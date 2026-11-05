@@ -773,9 +773,15 @@ new #[Title('Make deposit')] class extends Component
                             {{ __('Export') }}
                         </flux:button>
                         <flux:menu>
+                            @callable($this, 'exportPdf')
                             <flux:menu.item icon="document" wire:click="exportPdf" data-test="export-receipts-pdf">{{ __('PDF') }}</flux:menu.item>
+                            @endcallable
+                            @callable($this, 'exportCsv')
                             <flux:menu.item icon="document-text" wire:click="exportCsv" data-test="export-receipts-csv">{{ __('CSV') }}</flux:menu.item>
+                            @endcallable
+                            @callable($this, 'exportXlsx')
                             <flux:menu.item icon="table-cells" wire:click="exportXlsx" data-test="export-receipts-xlsx">{{ __('Excel') }}</flux:menu.item>
+                            @endcallable
                         </flux:menu>
                     </flux:dropdown>
                 @endif

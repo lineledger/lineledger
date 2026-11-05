@@ -26,6 +26,7 @@ use App\Models\Invoice;
 use App\Models\JournalLine;
 use App\Services\Reporting\FinancialMetrics;
 use App\Services\Reporting\ReportCalculator;
+use App\Support\Access\CurrentViewer;
 use App\Support\Reporting\ChartContext;
 use App\Support\Reporting\ReportChartBuilder;
 use App\Support\Reporting\ReportDatePresets;
@@ -304,6 +305,26 @@ new #[Title('Dashboard')] class extends Component {
     }
 
     /**
+     * Which figures this member may see: each card and chart is computed and
+     * rendered only for someone allowed it, so a hidden balance never reaches
+     * the page or the component's snapshot.
+     *
+     * @return array{cash: bool, receivables: bool, payables: bool, income: bool}
+     */
+    #[Computed]
+    public function sees(): array
+    {
+        $permissions = CurrentViewer::permissions($this->company);
+
+        return [
+            'cash' => $permissions->canViewBalances(Activity::Banking),
+            'receivables' => $permissions->canViewBalances(Activity::Customers),
+            'payables' => $permissions->canViewBalances(Activity::Vendors),
+            'income' => $permissions->canView(Activity::ReportsFinancial),
+        ];
+    }
+
+    /**
      * Unified, most-recent feed across invoices, bills, cheques, payments and
      * receipts. Inflows are positive in spirit; the sign is derived from `direction`.
      *
@@ -313,8 +334,10 @@ new #[Title('Dashboard')] class extends Component {
     public function recentTransactions(): array
     {
         $limit = 8;
+        $permissions = CurrentViewer::permissions($this->company);
+        $none = fn (): Collection => Collection::make();
 
-        $invoices = Invoice::query()
+        $invoices = ! $permissions->canView(Activity::Invoices) ? $none() : Invoice::query()
             ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Void->value])
             ->with('contact')
             ->latest('invoice_date')->limit($limit)->get()
@@ -328,6 +351,8 @@ new #[Title('Dashboard')] class extends Component {
 
         $bills = Bill::query()
             ->whereNotIn('status', [BillStatus::Draft->value, BillStatus::Void->value])
+            ->when(! $permissions->canView(Activity::Bills), fn ($query) => $query->where('bill_type', '!=', BillType::Vendor->value))
+            ->when(! $permissions->canView(Activity::Reimbursements), fn ($query) => $query->where('bill_type', '!=', BillType::Reimbursement->value))
             ->with('contact')
             ->latest('bill_date')->limit($limit)->get()
             ->map(fn (Bill $b) => [
@@ -340,7 +365,7 @@ new #[Title('Dashboard')] class extends Component {
                     : route('bills.show', ['company' => $this->company->slug, 'bill' => $b->id]),
             ]);
 
-        $cheques = Cheque::query()
+        $cheques = ! $permissions->canView(Activity::Cheques) ? $none() : Cheque::query()
             ->where('status', ChequeStatus::Posted->value)
             ->with('payee')
             ->latest('cheque_date')->limit($limit)->get()
@@ -352,7 +377,7 @@ new #[Title('Dashboard')] class extends Component {
                 'url' => route('cheques.show', ['company' => $this->company->slug, 'cheque' => $c->id]),
             ]);
 
-        $payments = BillPayment::query()
+        $payments = ! $permissions->canView(Activity::BillPayments) ? $none() : BillPayment::query()
             ->where('status', BillPaymentStatus::Posted->value)
             ->with('contact')
             ->latest('payment_date')->limit($limit)->get()
@@ -364,7 +389,7 @@ new #[Title('Dashboard')] class extends Component {
                 'url' => route('bill-payments.show', ['company' => $this->company->slug, 'payment' => $p->id]),
             ]);
 
-        $receipts = CustomerReceipt::query()
+        $receipts = ! $permissions->canView(Activity::Receipts) ? $none() : CustomerReceipt::query()
             ->where('status', ReceiptStatus::Posted->value)
             ->with('contact')
             ->latest('receipt_date')->limit($limit)->get()
@@ -376,7 +401,7 @@ new #[Title('Dashboard')] class extends Component {
                 'url' => route('receipts.show', ['company' => $this->company->slug, 'receipt' => $r->id]),
             ]);
 
-        $deposits = Deposit::query()
+        $deposits = ! $permissions->canView(Activity::Deposits) ? $none() : Deposit::query()
             ->where('status', DepositStatus::Posted->value)
             ->latest('deposit_date')->limit($limit)->get()
             ->map(fn (Deposit $d) => [
@@ -447,6 +472,7 @@ new #[Title('Dashboard')] class extends Component {
                     </flux:button>
                 </div>
             </div>
+            @callable($this, 'dismissSetupBanner')
             <flux:button
                 size="sm"
                 variant="ghost"
@@ -456,6 +482,7 @@ new #[Title('Dashboard')] class extends Component {
                 :aria-label="__('Dismiss')"
                 data-test="dismiss-import-banner"
             />
+            @endcallable
         </div>
     @endif
 
@@ -468,6 +495,7 @@ new #[Title('Dashboard')] class extends Component {
     {{-- KPI cards --}}
     @php $cardClass = 'block rounded-lg bg-muted p-4 transition hover:bg-secondary'; @endphp
     <div class="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        @if ($this->sees['cash'])
         {{-- Cash on hand → cash-on-hand report --}}
         <a href="{{ route('reports.cash-on-hand', ['company' => $company->slug]) }}" wire:navigate class="{{ $cardClass }}">
             <p class="text-sm text-muted-foreground">{{ __('Cash on hand') }}</p>
@@ -482,7 +510,9 @@ new #[Title('Dashboard')] class extends Component {
                 <p class="mt-1 text-xs text-muted-foreground">{{ __('No prior data') }}</p>
             @endif
         </a>
+        @endif
 
+        @if ($this->sees['receivables'])
         {{-- Accounts receivable → open invoices list --}}
         <a href="{{ route('reports.open-invoices', ['company' => $company->slug]) }}" wire:navigate class="{{ $cardClass }}">
             <p class="text-sm text-muted-foreground">{{ __('Accounts receivable') }}</p>
@@ -491,7 +521,9 @@ new #[Title('Dashboard')] class extends Component {
                 {{ trans_choice(':count open invoice|:count open invoices', $this->accountsReceivable['count'], ['count' => $this->accountsReceivable['count']]) }}
             </p>
         </a>
+        @endif
 
+        @if ($this->sees['payables'])
         {{-- Accounts payable → AP aging --}}
         <a href="{{ route('reports.ap-aging', ['company' => $company->slug]) }}" wire:navigate class="{{ $cardClass }}">
             <p class="text-sm text-muted-foreground">{{ __('Accounts payable') }}</p>
@@ -504,7 +536,9 @@ new #[Title('Dashboard')] class extends Component {
                 <p class="mt-1 text-xs text-muted-foreground">{{ __('None due this week') }}</p>
             @endif
         </a>
+        @endif
 
+        @if ($this->sees['income'])
         {{-- Net income MTD → income statement --}}
         <a href="{{ route('reports.income-statement', ['company' => $company->slug]) }}" wire:navigate class="{{ $cardClass }}">
             <p class="text-sm text-muted-foreground">{{ __('Net income (MTD)') }}</p>
@@ -519,9 +553,11 @@ new #[Title('Dashboard')] class extends Component {
                 <p class="mt-1 text-xs text-muted-foreground">{{ __('No prior data') }}</p>
             @endif
         </a>
+        @endif
     </div>
 
     {{-- Charts --}}
+    @if ($this->sees['cash'])
     <x-reports.chart-panel
         class="mb-3"
         :charts="$this->cashFlowChart()"
@@ -530,8 +566,12 @@ new #[Title('Dashboard')] class extends Component {
         :period="__('Last 6 months')"
         :collapsible="false"
     />
+    @endif
 
-    @php $hasPl = ! empty($this->plSnapshotChart()); $hasPosition = ! empty($this->positionChart()); @endphp
+    @php
+        $hasPl = $this->sees['income'] && ! empty($this->plSnapshotChart());
+        $hasPosition = $this->sees['cash'] && $this->sees['receivables'] && $this->sees['payables'] && ! empty($this->positionChart());
+    @endphp
     @if ($hasPl || $hasPosition)
         <div class="mb-3 grid grid-cols-1 gap-3 {{ $hasPl && $hasPosition ? 'lg:grid-cols-2' : '' }}">
             @if ($hasPl)

@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Recurring schedule')] class extends Component {
     use ShowsEditLock;
@@ -68,12 +69,12 @@ new #[Title('Recurring schedule')] class extends Component {
         $this->recurring->refresh();
 
         if ($document instanceof Invoice) {
-            $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $document->id], navigate: true);
+            $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company->slug, 'invoice' => $document->id], navigate: true);
 
             return;
         }
 
-        $this->redirectRoute('bills.edit', ['company' => $this->company->slug, 'bill' => $document->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('bills.edit'), ['company' => $this->company->slug, 'bill' => $document->id], navigate: true);
     }
 
     #[Requires(null, PermissionAction::Delete)]
@@ -120,25 +121,37 @@ new #[Title('Recurring schedule')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($recurring->is_active)
+                @callable($this, 'generateNow')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" icon="bolt" wire:click="generateNow" data-test="generate-now-button">{{ __('Generate now') }}</flux:button>
+                @endcallable
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="recurring-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($recurring->is_active)
+                        @callable($this, 'generateNow')
                         <flux:menu.item class="lg:hidden" icon="bolt" wire:click="generateNow" data-test="generate-now-menu-item">{{ __('Generate now') }}</flux:menu.item>
+                        @endcallable
                     @endif
+                    @reaches('recurring.edit')
                     <flux:menu.item icon="pencil-square" :href="route('recurring.edit', ['company' => $company->slug, 'recurring' => $recurring->id])" wire:navigate data-test="edit-recurring-button">
                         {{ __('Edit') }}
                     </flux:menu.item>
+                    @endreaches
                     @if ($recurring->is_active)
+                        @callable($this, 'pauseSchedule')
                         <flux:menu.item icon="pause" wire:click="pauseSchedule" data-test="pause-button">{{ __('Pause') }}</flux:menu.item>
+                        @endcallable
                     @elseif ($this->resumable)
+                        @callable($this, 'resumeSchedule')
                         <flux:menu.item icon="play" wire:click="resumeSchedule" data-test="resume-button">{{ __('Resume') }}</flux:menu.item>
+                        @endcallable
                     @endif
                     <flux:menu.separator />
+                    @callable($this, 'deleteSchedule')
                     <flux:menu.item icon="trash" variant="danger" wire:click="deleteSchedule" wire:confirm="{{ __('Delete this recurring schedule?') }}" data-test="delete-button">{{ __('Delete') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>

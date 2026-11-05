@@ -289,9 +289,11 @@ new #[Title('Unattributed AR')] class extends Component
             @error('assignToContactId') <flux:error :message="$message" /> @enderror
         </div>
 
+        @callable($this, 'assign')
         <flux:button variant="primary" wire:click="assign" icon="arrow-right-circle" data-test="assign-button">
             {{ __('Attribute :count selected', ['count' => count(array_filter($selected))]) }}
         </flux:button>
+        @endcallable
 
         <div class="text-right">
             <div class="text-xs text-muted-foreground">{{ __('Selected') }}</div>

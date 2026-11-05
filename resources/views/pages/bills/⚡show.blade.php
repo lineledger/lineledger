@@ -158,43 +158,55 @@ new #[Title('Bill')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft && $bill->balanceCents() > 0)
+                @reaches('bill-payments.create')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('bill-payments.create', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="pay-bill-button">
                     {{ __('Pay bill') }}
                 </flux:button>
+                @endreaches
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="bill-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft && $bill->balanceCents() > 0)
+                        @reaches('bill-payments.create')
                         <flux:menu.item class="lg:hidden" icon="credit-card" :href="route('bill-payments.create', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="pay-bill-menu-item">
                             {{ __('Pay bill') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     <flux:menu.item icon="printer" :href="route('bills.print', ['company' => $company->slug, 'bill' => $bill->id])" target="_blank" data-test="print-bill-button">
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($bill->status !== BillStatus::Void)
+                        @reaches('bills.edit')
                         <flux:menu.item icon="pencil" :href="route('bills.edit', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="edit-bill-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
+                    @reaches('bills.create')
                     <flux:menu.item icon="document-duplicate" :href="route('bills.create', ['company' => $company->slug, 'from' => $bill->id])" wire:navigate data-test="duplicate-bill-button">
                         {{ __('Duplicate') }}
                     </flux:menu.item>
+                    @endreaches
                     @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft && $bill->bill_type === BillType::Vendor && $bill->balanceCents() > 0 && $this->reconcilableCents > 0)
+                        @callable($this, 'reconcile')
                         <flux:menu.item
                             icon="check-circle"
                             wire:click="reconcile"
                             wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => $this->company->currencySymbol($this->bill->currency_code).number_format($this->reconcilableCents / 100, 2)]) }}"
                             data-test="reconcile-bill-button"
                         >{{ __('Close settled balance') }}</flux:menu.item>
+                        @endcallable
                     @endif
                     @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this bill? A reversing GL entry will be posted.') }}" data-test="void-bill-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -240,6 +252,7 @@ new #[Title('Bill')] class extends Component {
                         <td class="px-4 py-2 text-right">
                             @if (optional($line->account)->subtype === AccountSubtype::FixedAsset)
                                 <flux:tooltip :content="__('Create asset record')">
+                                    @reaches('assets.create')
                                     <flux:button
                                         variant="ghost"
                                         size="sm"
@@ -248,6 +261,7 @@ new #[Title('Bill')] class extends Component {
                                         wire:navigate
                                         data-test="create-asset-from-bill-line"
                                     />
+                                    @endreaches
                                 </flux:tooltip>
                             @endif
                         </td>
@@ -326,10 +340,12 @@ new #[Title('Bill')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="bill-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="bill-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -343,9 +359,11 @@ new #[Title('Bill')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="bill-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

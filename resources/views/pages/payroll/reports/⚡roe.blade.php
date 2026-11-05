@@ -138,8 +138,12 @@ new #[Title('Record of Employment')] class extends Component {
     @if ($this->roe)
         @php($roe = $this->roe)
         <div class="mb-4 flex justify-end gap-2">
+            @callable($this, 'downloadXml')
             <flux:button variant="ghost" icon="code-bracket" wire:click="downloadXml">{{ __('ROE Web XML') }}</flux:button>
+            @endcallable
+            @callable($this, 'downloadPdf')
             <flux:button variant="primary" icon="arrow-down-tray" wire:click="downloadPdf">{{ __('Download worksheet') }}</flux:button>
+            @endcallable
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">

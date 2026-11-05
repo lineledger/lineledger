@@ -28,6 +28,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Credit memo')] class extends Component
 {
@@ -351,7 +352,7 @@ new #[Title('Credit memo')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('credit-memos.edit', ['company' => $this->company->slug, 'credit_memo' => $this->creditMemo->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('credit-memos.edit'), ['company' => $this->company->slug, 'credit_memo' => $this->creditMemo->id], navigate: true);
     }
 
     public function postCreditMemo(CreditMemoPoster $poster): void

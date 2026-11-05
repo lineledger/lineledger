@@ -80,7 +80,9 @@ new #[Title('T3010 Summary')] class extends Component
         </div>
         <div class="flex items-end gap-3">
             <flux:input type="number" wire:model.live="year" :label="__('Year')" class="w-28" data-test="t3010-year" />
+            @callable($this, 'exportCsv')
             <flux:button variant="ghost" icon="arrow-down-tray" wire:click="exportCsv">{{ __('Export CSV') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

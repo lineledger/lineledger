@@ -5,6 +5,7 @@ use App\Actions\Accounting\PostAccountOpeningBalance;
 use App\Actions\Accounting\SaveAccount;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\Activity;
 use App\Enums\CashFlowActivity;
 use App\Enums\JurisdictionCapability;
 use App\Enums\PermissionAction;
@@ -22,6 +23,7 @@ use App\Services\Migration\Importers\ChartOfAccountsImporter;
 use App\Services\Reporting\ReportCalculator;
 use App\Support\Gifi\GifiCatalog;
 use App\Support\Money;
+use App\Support\Access\CurrentViewer;
 use Flux\Flux;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -600,6 +602,17 @@ new #[Title('Chart of Accounts')] class extends Component {
     }
 
     /**
+     * Whether this member may see account balances (View balance on Accounts).
+     * Without it the balance column, its roll-ups and the column toggle are
+     * left out and no balance is computed.
+     */
+    #[Computed]
+    public function seesBalances(): bool
+    {
+        return CurrentViewer::canViewBalances(Activity::Accounts);
+    }
+
+    /**
      * Roll-up balances (own balance + all visible descendants) in cents, keyed
      * by account id — only for accounts that have at least one visible child,
      * so presence doubles as the "has visible children" flag. A pure array
@@ -611,7 +624,7 @@ new #[Title('Chart of Accounts')] class extends Component {
     #[Computed]
     public function rollups(): array
     {
-        if ($this->search !== '') {
+        if ($this->search !== '' || ! $this->seesBalances) {
             return [];
         }
 
@@ -656,6 +669,10 @@ new #[Title('Chart of Accounts')] class extends Component {
     #[Computed]
     public function balances(): array
     {
+        if (! $this->seesBalances) {
+            return [];
+        }
+
         $calculator = app(ReportCalculator::class);
         $asOf = $this->company->currentDateTime();
 
@@ -941,7 +958,9 @@ new #[Title('Chart of Accounts')] class extends Component {
                     @if ($company->isMulticurrencyEnabled())
                         <flux:menu.checkbox value="currency" keep-open data-test="accounts-column-currency">{{ __('Currency') }}</flux:menu.checkbox>
                     @endif
-                    <flux:menu.checkbox value="balance" keep-open data-test="accounts-column-balance">{{ __('Balance') }}</flux:menu.checkbox>
+                    @if ($this->seesBalances)
+                        <flux:menu.checkbox value="balance" keep-open data-test="accounts-column-balance">{{ __('Balance') }}</flux:menu.checkbox>
+                    @endif
                     {{-- Off by default: only useful when wiring up /api/v1, where
                          `account_id` is this numeric id (see docs/api-v1.md). --}}
                     <flux:menu.checkbox value="id" keep-open data-test="accounts-column-id">{{ __('Account ID (API)') }}</flux:menu.checkbox>
@@ -955,7 +974,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         $showDescriptionColumn = in_array('description', $visibleColumns, true);
         $showGifiColumn = in_array('gifi', $visibleColumns, true) && $company->mapsGifiCodes();
         $showCurrencyColumn = in_array('currency', $visibleColumns, true) && $company->isMulticurrencyEnabled();
-        $showBalanceColumn = in_array('balance', $visibleColumns, true);
+        $showBalanceColumn = in_array('balance', $visibleColumns, true) && $this->seesBalances;
         $showIdColumn = in_array('id', $visibleColumns, true);
     @endphp
 
@@ -1069,9 +1088,11 @@ new #[Title('Chart of Accounts')] class extends Component {
                                                 <flux:menu.item icon="document-text" :href="$ledgerUrl" wire:navigate>{{ __('View ledger') }}</flux:menu.item>
                                                 <flux:menu.item icon="pencil" wire:click="openEdit({{ $account->id }})" data-test="account-edit">{{ __('Edit') }}</flux:menu.item>
                                                 @unless ($account->is_system)
+                                                    @callable($this, 'toggleActive')
                                                     <flux:menu.item icon="{{ $account->is_active ? 'eye-slash' : 'eye' }}" wire:click="toggleActive({{ $account->id }})">
                                                         {{ $account->is_active ? __('Deactivate') : __('Activate') }}
                                                     </flux:menu.item>
+                                                    @endcallable
                                                     <flux:menu.item icon="arrows-pointing-in" wire:click="openMerge({{ $account->id }})" data-test="merge-account-button">
                                                         {{ __('Merge…') }}
                                                     </flux:menu.item>
@@ -1371,10 +1392,13 @@ new #[Title('Chart of Accounts')] class extends Component {
                     <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 @if ($importPreviewRows === null)
+                    @callable($this, 'previewImport')
                     <flux:button variant="primary" wire:click="previewImport" :disabled="! $importFile" data-test="accounts-import-preview-button">
                         {{ __('Preview') }}
                     </flux:button>
+                    @endcallable
                 @else
+                    @callable($this, 'runImport')
                     <flux:button
                         variant="primary"
                         wire:click="runImport"
@@ -1383,6 +1407,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                     >
                         {{ __('Import') }}
                     </flux:button>
+                    @endcallable
                 @endif
             </div>
         </div>

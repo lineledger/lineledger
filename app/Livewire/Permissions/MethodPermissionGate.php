@@ -43,28 +43,44 @@ final class MethodPermissionGate
             $method = $this->listenerFor($component, $params[0] ?? null);
         }
 
-        if ($method === null || $method === '' || str_starts_with($method, '$') || ! method_exists($component, $method)) {
-            return;
+        abort_unless($this->allows($component, (string) $method), 403);
+    }
+
+    /**
+     * Whether the signed-in member may call the method — what authorize()
+     * enforces, without throwing, so a page can leave out a button whose
+     * action would be refused (@callable('voidInvoice')).
+     */
+    public function allows(Component $component, string $method): bool
+    {
+        if ($method === '' || str_starts_with($method, '$') || ! method_exists($component, $method)) {
+            return true;
         }
 
         $declarations = $this->declarationsFor($component, $method);
 
         if ($declarations === []) {
-            return;
+            return true;
         }
 
         $user = Auth::user();
         $company = $this->company($component);
 
-        abort_unless($user instanceof User && $company instanceof Company, 403);
+        if (! $user instanceof User || ! $company instanceof Company) {
+            return false;
+        }
 
         $permissions = $user->permissions($company);
 
         foreach ($declarations as $declaration) {
             $requirements = $this->requirements($component, $declaration);
 
-            abort_unless($requirements !== [] && $permissions->allowsAny($requirements), 403);
+            if ($requirements === [] || ! $permissions->allowsAny($requirements)) {
+                return false;
+            }
         }
+
+        return true;
     }
 
     /**

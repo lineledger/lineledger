@@ -267,13 +267,19 @@ new #[Title('Other names')] class extends Component {
                                             <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" data-test="other-name-actions-button" />
                                             <flux:menu>
                                                 @if ($canConvertVendor)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="building-storefront" wire:click="convert({{ $c->id }}, 'is_vendor')" wire:confirm="{{ __('Convert “:name” to a vendor? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-vendor">{{ __('Convert to vendor') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                                 @if ($canConvertCustomer)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="user" wire:click="convert({{ $c->id }}, 'is_customer')" wire:confirm="{{ __('Convert “:name” to a customer? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-customer">{{ __('Convert to customer') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                                 @if ($canConvertEmployee)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="identification" wire:click="convert({{ $c->id }}, 'is_employee')" wire:confirm="{{ __('Convert “:name” to an employee? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-employee">{{ __('Convert to employee') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                             </flux:menu>
                                         </flux:dropdown>

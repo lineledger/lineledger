@@ -388,7 +388,9 @@ new #[Title('Memorized Reports')] class extends Component {
                         @endif
                         @if ($this->groupExportable($group))
                             <flux:button size="xs" variant="ghost" icon="clock" wire:click="openGroupSchedule({{ $group->id }})" data-test="schedule-group">{{ __('Schedule') }}</flux:button>
+                            @callable($this, 'exportGroup')
                             <flux:button size="xs" variant="ghost" icon="arrow-down-tray" wire:click="exportGroup({{ $group->id }})" data-test="export-group">{{ __('Download group') }}</flux:button>
+                            @endcallable
                         @endif
                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="deleteGroup({{ $group->id }})" wire:confirm="{{ __('Delete this group? Its reports move to Ungrouped.') }}">{{ __('Delete group') }}</flux:button>
                     </div>

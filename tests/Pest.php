@@ -5,6 +5,7 @@ use App\Actions\Payroll\SavePayRun;
 use App\Actions\Sales\SaveInvoice;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
+use App\Enums\PredefinedRole;
 use App\Enums\Section;
 use App\Models\Account;
 use App\Models\BankReconciliation;
@@ -15,9 +16,11 @@ use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\MembershipRole;
 use App\Models\PaymentMethod;
 use App\Models\PayrollSchedule;
 use App\Models\PayRun;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\InvoicePoster;
@@ -136,6 +139,26 @@ function customSectionsMember(Company $company, array $sections): User
         'role' => CompanyRole::Custom,
         'sections' => array_map(fn (Section $section) => $section->value, $sections),
     ]);
+
+    return $user;
+}
+
+/**
+ * A member of $company holding the given predefined roles (seeded with the
+ * company), for tests that check what a role can and can't see.
+ */
+function predefinedRoleMember(Company $company, PredefinedRole ...$roles): User
+{
+    $user = User::factory()->create(['email_verified_at' => now()]);
+    $membership = $company->memberships()->create(['user_id' => $user->id, 'role' => CompanyRole::Custom, 'sections' => []]);
+
+    foreach ($roles as $role) {
+        MembershipRole::query()->create([
+            'company_id' => $company->id,
+            'company_member_id' => $membership->id,
+            'role_id' => Role::query()->withoutGlobalScopes()->where('company_id', $company->id)->where('system_key', $role->value)->value('id'),
+        ]);
+    }
 
     return $user;
 }

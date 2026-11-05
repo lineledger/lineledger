@@ -254,7 +254,9 @@ new #[Title('Deposits in transit')] class extends Component {
                             <td class="py-1.5 pr-3 text-right tabular-nums">{{ $this->money((int) $deposit->amount_cents) }}</td>
                             <td class="py-1.5 text-right">
                                 <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="openEdit({{ $deposit->id }})" :disabled="$obState->isFinalized()" data-test="ob-deposit-edit-{{ $deposit->id }}" />
+                                @callable($this, 'remove')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="remove({{ $deposit->id }})" wire:confirm="{{ __('Remove this deposit in transit? Its posting will be voided and the bank re-netted.') }}" :disabled="$obState->isFinalized()" data-test="ob-deposit-remove-{{ $deposit->id }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @endforeach
@@ -292,7 +294,9 @@ new #[Title('Deposits in transit')] class extends Component {
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                @callable($this, 'save')
                 <flux:button variant="primary" wire:click="save" data-test="ob-deposit-save">{{ __('Save') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>

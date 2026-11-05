@@ -50,9 +50,11 @@ new #[Title('Invoices')] class extends Component {
             <flux:button variant="ghost" icon="bell-alert" :href="route('reminders.index', ['company' => $company->slug])" wire:navigate data-test="reminders-link">
                 {{ __('Reminders') }}
             </flux:button>
+            @reaches('invoices.create')
             <flux:button variant="primary" icon="plus" :href="route('invoices.create', ['company' => $company->slug])" wire:navigate data-test="new-invoice-button">
                 {{ __('New invoice') }}
             </flux:button>
+            @endreaches
         </div>
     </div>
 

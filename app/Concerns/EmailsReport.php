@@ -98,6 +98,7 @@ trait EmailsReport
             resolvePresets: false,
             replyToAddress: Auth::user()?->email,
             senderName: Auth::user()?->name,
+            senderUserId: Auth::id() !== null ? (int) Auth::id() : null,
         ));
 
         $this->reset('emailRecipients', 'emailSubject', 'emailBody', 'emailAttachXlsx');

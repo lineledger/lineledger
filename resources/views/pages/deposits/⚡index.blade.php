@@ -39,9 +39,11 @@ new #[Title('Deposits')] class extends Component {
             <flux:subheading>{{ __('Bank deposits combining undeposited receipts and other funds.') }}</flux:subheading>
         </div>
 
+        @reaches('deposits.create')
         <flux:button variant="primary" icon="plus" :href="route('deposits.create', ['company' => $company->slug])" wire:navigate data-test="new-deposit-button">
             {{ __('Make deposit') }}
         </flux:button>
+        @endreaches
     </div>
 
     <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search deposit #…') }}" icon="magnifying-glass" class="mb-4 max-w-md" />

@@ -24,6 +24,7 @@ use App\Models\TaxAgency;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Models\VendorCredit;
+use App\Support\Access\PayrollDetail;
 use App\Support\Reporting\CashFlowBucket;
 use App\Support\Reporting\SectionPartitioner;
 use Carbon\CarbonImmutable;
@@ -639,6 +640,9 @@ class ReportCalculator
      * Single-account general ledger, paginated for on-screen display. Running balances
      * stay globally correct: each page's first row continues from the period opening plus
      * the signed delta of every line before it, so paging never resets the balance.
+     * Each row carries its entry's effective source_type (a void's is the source of
+     * the entry it reverses, PayrollDetail::sourceTypeOf()), so the page can withhold
+     * payroll detail from a member who can't open pay runs.
      *
      * @return array{lines: Collection, paginator: LengthAwarePaginator, opening: int, page_opening: int, closing: int}
      */
@@ -685,6 +689,7 @@ class ReportCalculator
             $lines[] = [
                 'date' => $line->journalEntry->entry_date->toDateString(),
                 'entry_no' => $line->journalEntry->entry_no,
+                'source_type' => PayrollDetail::sourceTypeOf($line->journalEntry),
                 'memo' => $line->memo ?? $line->journalEntry->memo,
                 'split' => $this->contraLabel($line, $account),
                 'debit' => (int) $line->debit_cents,
@@ -728,7 +733,8 @@ class ReportCalculator
     /**
      * All-accounts general ledger, paginated by journal entry for on-screen display.
      * Grand totals and counts are computed by aggregate query over the whole range so
-     * they stay correct regardless of which page is shown.
+     * they stay correct regardless of which page is shown. Each entry carries its
+     * source_type, as the single-account rows do.
      *
      * @return array{entries: Collection, paginator: LengthAwarePaginator, total_debit: int, total_credit: int, entry_count: int, line_count: int}
      */
@@ -773,6 +779,7 @@ class ReportCalculator
             return [
                 'entry_no' => (string) $entry->entry_no,
                 'date' => $entry->entry_date->toDateString(),
+                'source_type' => PayrollDetail::sourceTypeOf($entry),
                 'memo' => $entry->memo,
                 'total_debit' => $entryDebit,
                 'total_credit' => $entryCredit,
@@ -822,7 +829,7 @@ class ReportCalculator
      * so a 30-year account streams to the export writer without ever materialising. Scalars
      * (opening, closing) are computed up front by cheap aggregates.
      *
-     * @return array{lines: \Generator<int, array{date: string, entry_no: string, memo: ?string, debit: int, credit: int, running: int}>, opening: int, closing: int}
+     * @return array{lines: \Generator<int, array{date: string, entry_no: string, source_type: ?string, memo: ?string, debit: int, credit: int, running: int}>, opening: int, closing: int}
      */
     public function generalLedgerStreamReport(Account $account, CarbonInterface $start, CarbonInterface $end, ?int $classId = null, ?int $locationId = null): array
     {
@@ -845,7 +852,7 @@ class ReportCalculator
     }
 
     /**
-     * @return \Generator<int, array{date: string, entry_no: string, memo: ?string, debit: int, credit: int, running: int}>
+     * @return \Generator<int, array{date: string, entry_no: string, source_type: ?string, memo: ?string, debit: int, credit: int, running: int}>
      */
     private function streamGeneralLedgerLines(Account $account, CarbonInterface $start, CarbonInterface $end, int $opening, int $signMultiplier, ?int $classId = null, ?int $locationId = null): \Generator
     {
@@ -875,6 +882,7 @@ class ReportCalculator
                 yield [
                     'date' => $line->journalEntry->entry_date->toDateString(),
                     'entry_no' => $line->journalEntry->entry_no,
+                    'source_type' => PayrollDetail::sourceTypeOf($line->journalEntry),
                     'memo' => $line->memo ?? $line->journalEntry->memo,
                     'debit' => (int) $line->debit_cents,
                     'credit' => (int) $line->credit_cents,
@@ -923,7 +931,7 @@ class ReportCalculator
     }
 
     /**
-     * @return \Generator<int, array{entry_no: string, date: string, memo: ?string, total_debit: int, total_credit: int, lines: array<int, array{account_code: string, account_name: string, memo: ?string, debit: int, credit: int}>}>
+     * @return \Generator<int, array{entry_no: string, date: string, source_type: ?string, memo: ?string, total_debit: int, total_credit: int, lines: array<int, array{account_code: string, account_name: string, memo: ?string, debit: int, credit: int}>}>
      */
     private function streamGeneralLedgerEntries(CarbonInterface $start, CarbonInterface $end, ?int $classId = null, ?int $locationId = null): \Generator
     {
@@ -973,6 +981,7 @@ class ReportCalculator
                 yield [
                     'entry_no' => (string) $entry->entry_no,
                     'date' => $entry->entry_date->toDateString(),
+                    'source_type' => PayrollDetail::sourceTypeOf($entry),
                     'memo' => $entry->memo,
                     'total_debit' => $entryDebit,
                     'total_credit' => $entryCredit,

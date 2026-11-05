@@ -29,7 +29,10 @@ class ChartOfAccountsPresenter
 {
     public function __construct(private ReportCalculator $calculator) {}
 
-    public function render(Company $company): string
+    /**
+     * @param  bool  $withBalances  false for a reader who may not see account balances
+     */
+    public function render(Company $company, bool $withBalances = true): string
     {
         $asOf = $company->currentDateTime();
 
@@ -39,11 +42,17 @@ class ChartOfAccountsPresenter
             return "{$company->name} has no chart of accounts.";
         }
 
-        $lines = [
-            "Chart of accounts for {$company->name} (balances as of {$asOf->toFormattedDateString()}, in {$company->currency_code}):",
-            'Each line reads: code  name  (subtype, flags, API id)  balance. '.ApiIdNote::forWritable('account_id'),
-            '',
-        ];
+        $lines = $withBalances
+            ? [
+                "Chart of accounts for {$company->name} (balances as of {$asOf->toFormattedDateString()}, in {$company->currency_code}):",
+                'Each line reads: code  name  (subtype, flags, API id)  balance. '.ApiIdNote::forWritable('account_id'),
+                '',
+            ]
+            : [
+                "Chart of accounts for {$company->name} (balances are not shown: this connection may not see account balances):",
+                'Each line reads: code  name  (subtype, flags, API id). '.ApiIdNote::forWritable('account_id'),
+                '',
+            ];
 
         foreach (AccountType::cases() as $type) {
             $group = $accounts->filter(fn (Account $account): bool => $account->type === $type);
@@ -54,7 +63,7 @@ class ChartOfAccountsPresenter
 
             $lines[] = $type->label();
             foreach ($group as $account) {
-                $lines[] = '  '.$this->line($company, $account, $asOf);
+                $lines[] = '  '.$this->line($company, $account, $asOf, $withBalances);
             }
             $lines[] = '';
         }
@@ -62,7 +71,7 @@ class ChartOfAccountsPresenter
         return rtrim(implode("\n", $lines));
     }
 
-    private function line(Company $company, Account $account, CarbonInterface $asOf): string
+    private function line(Company $company, Account $account, CarbonInterface $asOf, bool $withBalance): string
     {
         $meta = [$account->subtype->label()];
 
@@ -80,6 +89,10 @@ class ChartOfAccountsPresenter
         }
 
         $meta[] = "API id {$account->id}";
+
+        if (! $withBalance) {
+            return "{$account->code}  {$account->name}  (".implode(', ', $meta).')';
+        }
 
         $balance = Money::fromCents(
             $this->calculator->reportingBalanceAsOf($company, $account, $asOf),

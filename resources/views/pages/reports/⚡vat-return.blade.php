@@ -147,7 +147,9 @@ new #[Title('VAT Return')] class extends Component {
                     <flux:menu.item wire:click="useQuarter(0)" data-test="vat-return-this-quarter">{{ __('This quarter') }}</flux:menu.item>
                 </flux:menu>
             </flux:dropdown>
+            @callable($this, 'exportCsv')
             <flux:button variant="primary" icon="arrow-down-tray" wire:click="exportCsv" data-test="vat-return-csv">{{ __('CSV') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

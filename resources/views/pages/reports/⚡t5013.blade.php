@@ -217,7 +217,9 @@ new #[Title('T5013 Partnership')] class extends Component {
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($partner->share_bps / 100, 2) }}%</td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($row['amount'] / 100, 2) }}</td>
                             <td class="px-4 py-2 text-right">
+                                @callable($this, 'deletePartner')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="deletePartner({{ $partner->id }})" wire:confirm="{{ __('Remove this partner?') }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @empty

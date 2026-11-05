@@ -166,23 +166,33 @@ new #[Title('Asset')] class extends Component {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            @reaches('assets.edit')
             <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('assets.edit', ['company' => $company->slug, 'asset' => $asset->id])" wire:navigate data-test="edit-asset-button">
                 {{ __('Edit') }}
             </flux:button>
+            @endreaches
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="asset-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
+                    @reaches('assets.edit')
                     <flux:menu.item class="lg:hidden" icon="pencil" :href="route('assets.edit', ['company' => $company->slug, 'asset' => $asset->id])" wire:navigate data-test="edit-asset-menu-item">
                         {{ __('Edit') }}
                     </flux:menu.item>
+                    @endreaches
                     @if ($asset->is_active)
+                        @callable($this, 'archive')
                         <flux:menu.item icon="archive-box" wire:click="archive" wire:confirm="{{ __('Archive this asset?') }}" data-test="archive-asset-button">{{ __('Archive') }}</flux:menu.item>
+                        @endcallable
                     @else
+                        @callable($this, 'restore')
                         <flux:menu.item icon="arrow-uturn-left" wire:click="restore" data-test="restore-asset-button">{{ __('Restore') }}</flux:menu.item>
+                        @endcallable
                     @endif
                     <flux:menu.separator />
+                    @callable($this, 'delete')
                     <flux:menu.item icon="trash" variant="danger" wire:click="delete" wire:confirm="{{ __('Delete this asset? This cannot be undone via the UI.') }}" data-test="delete-asset-button">{{ __('Delete') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -347,10 +357,12 @@ new #[Title('Asset')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="asset-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="asset-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -364,9 +376,11 @@ new #[Title('Asset')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="asset-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

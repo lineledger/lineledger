@@ -225,7 +225,9 @@ new #[Title('Currencies')] class extends Component {
                                     </flux:table.cell>
                                     <flux:table.cell>
                                         @if ($currency->is_active)
+                                            @callable($this, 'deactivate')
                                             <flux:button size="xs" variant="ghost" wire:click="deactivate({{ $currency->id }})" wire:confirm="{{ __('Deactivate :code? Existing transactions are unaffected.', ['code' => $currency->currency_code]) }}">{{ __('Deactivate') }}</flux:button>
+                                            @endcallable
                                         @endif
                                     </flux:table.cell>
                                 </flux:table.row>

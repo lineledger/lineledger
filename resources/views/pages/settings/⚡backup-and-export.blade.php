@@ -166,6 +166,7 @@ new #[Title('Backup & Export')] class extends Component {
             </flux:text>
 
             <div class="flex justify-start">
+                @callable($this, 'createBackup')
                 <flux:button
                     variant="primary"
                     size="sm"
@@ -174,6 +175,7 @@ new #[Title('Backup & Export')] class extends Component {
                 >
                     {{ __('Create backup') }}
                 </flux:button>
+                @endcallable
             </div>
 
             <div class="border rounded-lg border-border overflow-hidden">
@@ -222,6 +224,7 @@ new #[Title('Backup & Export')] class extends Component {
                                     {{ __('Download') }}
                                 </flux:button>
                             @endif
+                            @callable($this, 'deleteBackup')
                             <flux:button
                                 variant="ghost"
                                 size="sm"
@@ -232,6 +235,7 @@ new #[Title('Backup & Export')] class extends Component {
                                 class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                                 data-test="backup-delete"
                             />
+                            @endcallable
                         </div>
                     </div>
                 @empty

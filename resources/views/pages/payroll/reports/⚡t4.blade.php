@@ -225,6 +225,7 @@ new #[Title('T4 slips')] class extends Component {
             <flux:input type="number" wire:model.live="year" :label="__('Tax year')" class="max-w-[120px]" />
             @if ($this->filing)
                 <flux:badge color="green" data-test="t4-finalized-badge">{{ __('Finalized') }}</flux:badge>
+                @callable($this, 'unlock')
                 <flux:button
                     variant="ghost"
                     icon="lock-open"
@@ -234,8 +235,10 @@ new #[Title('T4 slips')] class extends Component {
                 >
                     {{ __('Unlock') }}
                 </flux:button>
+                @endcallable
             @else
                 <flux:badge color="zinc" data-test="t4-draft-badge">{{ __('Draft') }}</flux:badge>
+                @callable($this, 'finalize')
                 <flux:button
                     variant="ghost"
                     icon="lock-closed"
@@ -245,14 +248,23 @@ new #[Title('T4 slips')] class extends Component {
                 >
                     {{ __('Finalize :year', ['year' => $this->year]) }}
                 </flux:button>
+                @endcallable
             @endif
             <flux:dropdown align="end">
                 <flux:button variant="primary" icon="arrow-down-tray" icon:trailing="chevron-down" :disabled="empty($this->slips)">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'printAllSlips')
                     <flux:menu.item icon="document-duplicate" wire:click="printAllSlips" data-test="t4-all-slips">{{ __('All slips (PDF)') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('Slips CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportSummaryPdf')
                     <flux:menu.item icon="document" wire:click="exportSummaryPdf">{{ __('T4 Summary PDF') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportXml')
                     <flux:menu.item icon="code-bracket" wire:click="exportXml">{{ __('CRA XML (e-file)') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -351,7 +363,9 @@ new #[Title('T4 slips')] class extends Component {
                         <td class="px-3 py-2 text-right font-mono">{{ $this->money($slip['box24']) }}</td>
                         <td class="px-3 py-2 text-right font-mono">{{ $this->money($slip['box26']) }}</td>
                         <td class="px-3 py-2 text-right">
+                            @callable($this, 'printSlip')
                             <flux:button size="xs" variant="ghost" icon="printer" wire:click="printSlip({{ $slip['contact_id'] }})">{{ __('T4 PDF') }}</flux:button>
+                            @endcallable
                         </td>
                     </tr>
                 @empty

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Accounting\SaveAccount;
+use App\Enums\Activity;
 use App\Http\Concerns\AppliesApiListFilters;
 use App\Http\Requests\Api\V1\StoreAccountRequest;
 use App\Http\Requests\Api\V1\UpdateAccountRequest;
 use App\Http\Resources\Api\V1\AccountResource;
 use App\Models\Account;
+use App\Support\Access\ApiViewer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -23,7 +25,9 @@ class AccountController extends ApiController
         $this->applyApiListFilters($query, $request, [
             'status_column' => null,
             'search' => ['code', 'name'],
-            'sortable' => ['code', 'name', 'balance_cents', 'id'],
+            // Sorting by balance would give away the order of balances the
+            // key's creator may not see.
+            'sortable' => ApiViewer::canViewBalances(Activity::Accounts) ? ['code', 'name', 'balance_cents', 'id'] : ['code', 'name', 'id'],
             'default_sort' => ['code', 'asc'],
         ]);
 

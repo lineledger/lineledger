@@ -441,9 +441,11 @@ new #[Title('Customer statement')] class extends Component {
         <div class="grow"></div>
 
         @if ($this->canSaveDefault && $this->columnsDifferFromDefault())
+            @callable($this, 'saveDefaultColumns')
             <flux:button size="sm" variant="ghost" icon="bookmark" wire:click="saveDefaultColumns" data-test="statement-save-default-columns">
                 {{ __('Save as default columns') }}
             </flux:button>
+            @endcallable
         @endif
 
         <flux:button

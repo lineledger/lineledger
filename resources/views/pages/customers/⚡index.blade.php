@@ -772,9 +772,11 @@ new #[Title('Customers')] class extends Component {
                                     <flux:menu.item icon="arrows-pointing-in" wire:click="openMerge({{ $customer->id }})" data-test="customer-merge-button">
                                         {{ __('Merge…') }}
                                     </flux:menu.item>
+                                    @callable($this, 'toggleActive')
                                     <flux:menu.item icon="{{ $customer->is_active ? 'eye-slash' : 'eye' }}" wire:click="toggleActive({{ $customer->id }})" data-test="customer-toggle-active">
                                         {{ $customer->is_active ? __('Deactivate') : __('Activate') }}
                                     </flux:menu.item>
+                                    @endcallable
                                 </flux:menu>
                             </flux:dropdown>
                         </td>
@@ -972,10 +974,12 @@ new #[Title('Customers')] class extends Component {
                             @forelse ($this->attachments as $att)
                                 <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="customer-attachment-row">
                                     <x-attachment-link :attachment="$att" :company="$company" />
+                                    @callable($this, 'removeAttachment')
                                     <flux:button variant="ghost" size="sm" icon="x-mark"
                                         wire:click="removeAttachment({{ $att->id }})"
                                         wire:confirm="{{ __('Remove this attachment?') }}"
                                         data-test="customer-attachment-remove" />
+                                    @endcallable
                                 </div>
                             @empty
                                 <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -990,9 +994,11 @@ new #[Title('Customers')] class extends Component {
                         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
                         @if ($editingId && count($newAttachments) > 0)
+                            @callable($this, 'uploadAttachments')
                             <flux:button variant="filled" wire:click="uploadAttachments" data-test="customer-attachment-upload">
                                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
                             </flux:button>
+                            @endcallable
                         @elseif (! $editingId && count($newAttachments) > 0)
                             <flux:text class="text-sm text-muted-foreground">{{ __(':count file(s) will be attached when you save.', ['count' => count($newAttachments)]) }}</flux:text>
                         @endif

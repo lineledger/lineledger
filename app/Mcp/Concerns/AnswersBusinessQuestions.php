@@ -92,6 +92,30 @@ trait AnswersBusinessQuestions
     }
 
     /**
+     * Whether this connection may see balances in the activity (View
+     * balance): tools that list accounts or contacts leave balances out
+     * otherwise rather than refusing the whole answer.
+     */
+    protected function actorSeesBalances(Activity $activity): bool
+    {
+        $permissions = $this->actorPermissions();
+
+        return $permissions === null || $permissions->canViewBalances($activity);
+    }
+
+    /**
+     * Whether this connection may see payroll detail (employee names and
+     * memos on payroll ledger lines): only one that can open pay runs, as in
+     * the web app (PayrollDetail). Others read such lines as "Payroll".
+     */
+    protected function actorSeesPayrollDetail(): bool
+    {
+        $permissions = $this->actorPermissions();
+
+        return $permissions === null || $permissions->seesPayrollDetail();
+    }
+
+    /**
      * The permissions this connection acts with, or null when nothing beyond
      * the key's scopes applies (a key with no recorded creator).
      */

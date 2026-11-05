@@ -668,9 +668,11 @@ new #[Title('Vendors')] class extends Component
                                     <flux:menu.item icon="arrows-pointing-in" wire:click="openMerge({{ $vendor->id }})" data-test="vendor-merge-button">
                                         {{ __('Merge…') }}
                                     </flux:menu.item>
+                                    @callable($this, 'toggleActive')
                                     <flux:menu.item icon="{{ $vendor->is_active ? 'eye-slash' : 'eye' }}" wire:click="toggleActive({{ $vendor->id }})" data-test="vendor-toggle-active">
                                         {{ $vendor->is_active ? __('Deactivate') : __('Activate') }}
                                     </flux:menu.item>
+                                    @endcallable
                                 </flux:menu>
                             </flux:dropdown>
                         </td>
@@ -788,10 +790,12 @@ new #[Title('Vendors')] class extends Component
                     @forelse ($this->attachments as $att)
                         <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="vendor-attachment-row">
                             <x-attachment-link :attachment="$att" :company="$company" />
+                            @callable($this, 'removeAttachment')
                             <flux:button variant="ghost" size="sm" icon="x-mark"
                                 wire:click="removeAttachment({{ $att->id }})"
                                 wire:confirm="{{ __('Remove this attachment?') }}"
                                 data-test="vendor-attachment-remove" />
+                            @endcallable
                         </div>
                     @empty
                         <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -805,9 +809,11 @@ new #[Title('Vendors')] class extends Component
                     @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
                     @if (count($newAttachments) > 0)
+                        @callable($this, 'uploadAttachments')
                         <flux:button variant="filled" wire:click="uploadAttachments" data-test="vendor-attachment-upload">
                             {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
                         </flux:button>
+                        @endcallable
                     @endif
                 </div>
             @endif

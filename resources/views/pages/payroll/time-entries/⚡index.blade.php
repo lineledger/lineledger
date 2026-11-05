@@ -21,6 +21,7 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Time entries')] class extends Component {
     public Company $company;
@@ -312,7 +313,7 @@ new #[Title('Time entries')] class extends Component {
         $invoice = $action->handle($customer, $entries);
 
         Flux::toast(variant: 'success', text: __('Draft invoice created from time.'));
-        $this->redirectRoute('invoices.edit', ['company' => $this->company, 'invoice' => $invoice], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company, 'invoice' => $invoice], navigate: true);
     }
 
     /**
@@ -399,15 +400,19 @@ new #[Title('Time entries')] class extends Component {
         </flux:select>
 
         @if ($filterCustomer && $this->billableForCustomer > 0)
+            @callable($this, 'createInvoice')
             <flux:button variant="primary" size="sm" icon="document-plus" wire:click="createInvoice" data-test="create-invoice-from-time">
                 {{ __('Create invoice (:n)', ['n' => $this->billableForCustomer]) }}
             </flux:button>
+            @endcallable
         @endif
 
         @if (count($selected) > 0)
+            @callable($this, 'approveSelected')
             <flux:button variant="primary" size="sm" icon="check" wire:click="approveSelected" data-test="approve-selected">
                 {{ __('Approve selected (:n)', ['n' => count($selected)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 
@@ -485,8 +490,12 @@ new #[Title('Time entries')] class extends Component {
                         </td>
                         <td class="px-4 py-2 text-right whitespace-nowrap">
                             @if ($entry->status === \App\Enums\TimeEntryStatus::Pending && ! $entry->pay_run_id && ! $entry->invoice_id)
+                                @callable($this, 'approve')
                                 <flux:button variant="ghost" size="sm" icon="check" wire:click="approve({{ $entry->id }})" data-test="approve-entry" />
+                                @endcallable
+                                @callable($this, 'reject')
                                 <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="reject({{ $entry->id }})" data-test="reject-entry" />
+                                @endcallable
                             @endif
                             @if (! $entry->pay_run_id && ! $entry->invoice_id)
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $entry->id }})" />

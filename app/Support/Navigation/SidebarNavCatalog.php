@@ -7,6 +7,7 @@ use App\Enums\Country;
 use App\Enums\Section;
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Access\RouteGate;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -17,7 +18,8 @@ use Illuminate\Support\Facades\Route;
  * Visibility mirrors the gating that previously lived inline in the sidebar:
  * a group is included only when the user can access its {@see Section}, and
  * individual links are gated by company feature flags, registered-route checks,
- * and jurisdiction. The Dashboard (always-visible home) and the Reports
+ * jurisdiction, and whether the user's roles let them open the link's page
+ * ({@see RouteGate}). The Dashboard (always-visible home) and the Reports
  * favorites list (its own Livewire island) are intentionally excluded.
  *
  * Each item carries a stable string key (e.g. "banking.import_statement") used
@@ -25,7 +27,7 @@ use Illuminate\Support\Facades\Route;
  * must remain stable. Group keys reuse the existing `data-sidebar-group` tokens
  * (e.g. "customers", "vendors") so saved expand/collapse cookies keep working.
  *
- * @phpstan-type NavItem array{key: string, label: string, icon: string, href: string, current: list<string>, section?: bool}
+ * @phpstan-type NavItem array{key: string, label: string, icon: string, href: string, current: list<string>, route?: string, section?: bool}
  * @phpstan-type NavGroup array{key: string, label: string, items: list<NavItem>}
  */
 class SidebarNavCatalog
@@ -201,7 +203,42 @@ class SidebarNavCatalog
             ]);
         }
 
-        return array_values(array_filter($groups, fn (array $group): bool => $group['items'] !== []));
+        return array_values(array_filter(
+            array_map(fn (array $group): array => self::withReachableItems($group, $company, $user), $groups),
+            fn (array $group): bool => $group['items'] !== [],
+        ));
+    }
+
+    /**
+     * Drop the links the user can't open — a role may reach an area but not
+     * every page in it (Sales sees invoices, not credit memos) — and any
+     * divider left with no links under it.
+     *
+     * @param  NavGroup  $group
+     * @return NavGroup
+     */
+    private static function withReachableItems(array $group, Company $company, User $user): array
+    {
+        $items = array_values(array_filter(
+            $group['items'],
+            fn (array $item): bool => ($item['section'] ?? false) || ! isset($item['route']) || RouteGate::reaches($item['route'], $company, $user),
+        ));
+
+        $kept = [];
+
+        foreach ($items as $index => $item) {
+            $next = $items[$index + 1] ?? null;
+
+            if (($item['section'] ?? false) && ($next === null || ($next['section'] ?? false))) {
+                continue;
+            }
+
+            $kept[] = $item;
+        }
+
+        $group['items'] = $kept;
+
+        return $group;
     }
 
     /**
@@ -249,6 +286,7 @@ class SidebarNavCatalog
             'icon' => $icon,
             'href' => route($route, $params),
             'current' => $current,
+            'route' => $route,
         ];
     }
 

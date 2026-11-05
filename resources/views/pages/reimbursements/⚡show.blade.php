@@ -97,37 +97,47 @@ new #[Title('Reimbursement')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft && $bill->balanceCents() > 0)
+                @reaches('bill-payments.create')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('bill-payments.create', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="pay-employee-button">
                     {{ __('Pay employee') }}
                 </flux:button>
+                @endreaches
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="reimbursement-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft && $bill->balanceCents() > 0)
+                        @reaches('bill-payments.create')
                         <flux:menu.item class="lg:hidden" icon="credit-card" :href="route('bill-payments.create', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="pay-employee-menu-item">
                             {{ __('Pay employee') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     <flux:menu.item icon="printer" :href="route('reimbursements.print', ['company' => $company->slug, 'bill' => $bill->id])" target="_blank" data-test="print-reimbursement-button">
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($bill->status !== BillStatus::Void)
+                        @reaches('reimbursements.edit')
                         <flux:menu.item icon="pencil" :href="route('reimbursements.edit', ['company' => $company->slug, 'bill' => $bill->id])" wire:navigate data-test="edit-reimbursement-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($bill->status !== BillStatus::Void && $bill->status !== BillStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this reimbursement?') }}" data-test="void-reimbursement-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @elseif ($bill->status === BillStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'deleteDraft')
                         <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft reimbursement?') }}" data-test="delete-reimbursement-button">
                             {{ __('Delete draft') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>

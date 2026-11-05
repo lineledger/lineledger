@@ -165,15 +165,19 @@ new #[Title('Receipt')] class extends Component {
                     </flux:menu.item>
                     {{-- A refund is removed and recorded again rather than edited. --}}
                     @if ($receipt->status !== ReceiptStatus::Void && ! $receipt->isRefund())
+                        @reaches('receipts.edit')
                         <flux:menu.item icon="pencil" :href="route('receipts.edit', ['company' => $company->slug, 'receipt' => $receipt->id])" wire:navigate data-test="edit-receipt-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($receipt->status === ReceiptStatus::Posted)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this receipt? It will be unapplied from invoices and a reversing GL entry posted.') }}" data-test="void-receipt-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>

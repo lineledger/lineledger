@@ -436,7 +436,9 @@ new #[Title('Users and roles')] class extends Component {
                                 </flux:table.cell>
                                 <flux:table.cell class="text-end">
                                     @if ($this->can(Activity::Invitations, PermissionAction::Delete))
+                                        @callable($this, 'cancelInvitation')
                                         <flux:button size="sm" variant="ghost" wire:click="cancelInvitation('{{ $invitation['code'] }}')" wire:confirm="{{ __('Cancel this invitation?') }}" data-test="cancel-invitation">{{ __('Cancel') }}</flux:button>
+                                        @endcallable
                                     @endif
                                 </flux:table.cell>
                             </flux:table.row>
@@ -450,7 +452,9 @@ new #[Title('Users and roles')] class extends Component {
                 <div class="flex gap-2">
                     <flux:button :href="route('reports.role-permissions', ['company' => $company->slug])" wire:navigate icon="table-cells">{{ __('View permissions') }}</flux:button>
                     @if ($this->can(Activity::Roles, PermissionAction::Create))
+                        @reaches('settings.roles.create')
                         <flux:button variant="primary" icon="plus" :href="route('settings.roles.create', ['company' => $company->slug])" wire:navigate data-test="new-role">{{ __('New role') }}</flux:button>
+                        @endreaches
                     @endif
                 </div>
             </div>
@@ -476,10 +480,14 @@ new #[Title('Users and roles')] class extends Component {
                             <flux:table.cell>{{ $role->memberships_count }}</flux:table.cell>
                             <flux:table.cell class="text-end whitespace-nowrap">
                                 @if ($this->can(Activity::Roles, PermissionAction::Modify))
+                                    @reaches('settings.roles.edit')
                                     <flux:button size="sm" variant="ghost" icon="pencil-square" :href="route('settings.roles.edit', ['company' => $company->slug, 'role' => $role->id])" wire:navigate data-test="edit-role">{{ __('Edit') }}</flux:button>
+                                    @endreaches
                                 @endif
                                 @if ($this->can(Activity::Roles, PermissionAction::Create))
+                                    @reaches('settings.roles.create')
                                     <flux:button size="sm" variant="ghost" icon="document-duplicate" :href="route('settings.roles.create', ['company' => $company->slug, 'from' => $role->id])" wire:navigate data-test="duplicate-role">{{ __('Duplicate') }}</flux:button>
+                                    @endreaches
                                 @endif
                                 @if ($role->system_key === null && $this->can(Activity::Roles, PermissionAction::Delete))
                                     <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDeleteRole({{ $role->id }})" :aria-label="__('Delete role')" data-test="delete-role" />
@@ -539,7 +547,9 @@ new #[Title('Users and roles')] class extends Component {
             <flux:text>{{ __('They lose access to this organization at once: they are signed out, and the API keys they made here stop working.') }}</flux:text>
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                @callable($this, 'removeUser')
                 <flux:button variant="danger" wire:click="removeUser" data-test="remove-user-confirm">{{ __('Remove') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>
@@ -560,9 +570,13 @@ new #[Title('Users and roles')] class extends Component {
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
                 @if ($affected !== [])
+                    @callable($this, 'deleteRole')
                     <flux:button variant="danger" wire:click="deleteRole(true)" data-test="delete-role-confirm">{{ __('Delete and sign them out') }}</flux:button>
+                    @endcallable
                 @else
+                    @callable($this, 'deleteRole')
                     <flux:button variant="danger" wire:click="deleteRole" data-test="delete-role-submit">{{ __('Delete role') }}</flux:button>
+                    @endcallable
                 @endif
             </div>
         </div>

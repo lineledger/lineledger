@@ -90,11 +90,13 @@ new #[Title('Remittance history')] class extends Component {
                         </td>
                         <td class="px-4 py-2 text-right">
                             @if ($remittance->status === \App\Enums\RemittanceStatus::Paid)
+                                @callable($this, 'voidRemittance')
                                 <flux:button
                                     variant="ghost" size="sm" icon="x-circle"
                                     wire:click="voidRemittance({{ $remittance->id }})"
                                     wire:confirm="{{ __('Void this remittance? The journal entry will be reversed.') }}"
                                 >{{ __('Void') }}</flux:button>
+                                @endcallable
                             @endif
                         </td>
                     </tr>

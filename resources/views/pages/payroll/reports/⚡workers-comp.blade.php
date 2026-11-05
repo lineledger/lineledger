@@ -194,7 +194,9 @@ new #[Title("Workers' compensation remittance")] class extends Component {
                     <flux:select.option value="{{ $period['key'] }}">{{ $period['label'] }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @callable($this, 'exportCsv')
             <flux:button variant="ghost" icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

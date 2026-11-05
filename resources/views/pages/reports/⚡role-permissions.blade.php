@@ -122,7 +122,9 @@ new #[Title('Permission access by roles')] class extends Component {
             <flux:subheading>{{ __('What each role can do in every area. Full means every action the activity offers.') }}</flux:subheading>
         </div>
         <div class="flex gap-2 print:hidden">
+            @callable($this, 'exportCsv')
             <flux:button icon="arrow-down-tray" wire:click="exportCsv" data-test="export-csv">{{ __('Export CSV') }}</flux:button>
+            @endcallable
             <flux:button icon="printer" x-on:click="window.print()">{{ __('Print') }}</flux:button>
         </div>
     </div>

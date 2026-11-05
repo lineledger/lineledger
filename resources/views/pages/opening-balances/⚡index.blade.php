@@ -184,17 +184,23 @@ new #[Title('Opening balances')] class extends Component {
             <flux:text>{{ __('The date your balances are carried over as of — usually your last fiscal year-end in the old system.') }}</flux:text>
             <div class="flex items-end gap-2">
                 <flux:input type="date" wire:model="asOfDate" :label="__('As of')" :disabled="$obState->isFinalized()" data-test="ob-as-of" />
+                @callable($this, 'saveAsOf')
                 <flux:button wire:click="saveAsOf" :disabled="$obState->isFinalized()" data-test="ob-save-as-of">{{ __('Save') }}</flux:button>
+                @endcallable
             </div>
 
             @if ($obState->isFinalized())
+                @callable($this, 'unfinalize')
                 <flux:button variant="filled" wire:click="unfinalize" wire:confirm="{{ __('Re-open opening balances for editing? This lifts the period lock this workspace set.') }}" data-test="ob-unfinalize">
                     {{ __('Un-finalize') }}
                 </flux:button>
+                @endcallable
             @else
+                @callable($this, 'finalize')
                 <flux:button variant="filled" wire:click="finalize" wire:confirm="{{ __('Finalize opening balances? This locks the books through the as-of date. You can un-finalize later.') }}" data-test="ob-finalize">
                     {{ __('Finalize & lock') }}
                 </flux:button>
+                @endcallable
             @endif
         </flux:card>
 

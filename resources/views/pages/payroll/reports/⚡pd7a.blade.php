@@ -225,8 +225,12 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
             <flux:dropdown align="end">
                 <flux:button variant="ghost" icon="arrow-down-tray" icon:trailing="chevron-down">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportPdf')
                     <flux:menu.item icon="document" wire:click="exportPdf">{{ __('PDF') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>

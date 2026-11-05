@@ -102,20 +102,26 @@ new #[Title('Sales receipt')] class extends Component {
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($receipt->status !== SalesReceiptStatus::Void)
+                        @reaches('sales-receipts.edit')
                         <flux:menu.item icon="pencil" :href="route('sales-receipts.edit', ['company' => $company->slug, 'receipt' => $receipt->id])" wire:navigate data-test="edit-sales-receipt-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($receipt->status === SalesReceiptStatus::Posted)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this sales receipt? A reversing GL entry will be posted.') }}" data-test="void-sales-receipt-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @elseif ($receipt->status === SalesReceiptStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'deleteDraft')
                         <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft sales receipt?') }}" data-test="delete-sales-receipt-button">
                             {{ __('Delete draft') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>

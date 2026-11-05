@@ -359,7 +359,9 @@ new #[Title('Management Reports')] class extends Component {
                             </td>
                             <td class="px-4 py-2">
                                 <div class="flex justify-end gap-1">
+                                    @callable($this, 'download')
                                     <flux:button size="xs" variant="ghost" icon="arrow-down-tray" wire:click="download({{ $package->id }})" data-test="download-package">{{ __('Download') }}</flux:button>
+                                    @endcallable
                                     <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="openEdit({{ $package->id }})" data-test="edit-package">{{ __('Edit') }}</flux:button>
                                     <flux:button size="xs" variant="ghost" icon="trash" wire:click="delete({{ $package->id }})" wire:confirm="{{ __('Delete this package?') }}" data-test="delete-package">{{ __('Delete') }}</flux:button>
                                 </div>

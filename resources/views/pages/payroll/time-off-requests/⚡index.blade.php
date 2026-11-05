@@ -330,14 +330,26 @@ new #[Title('Time-off requests')] class extends Component {
 
                     <div class="flex flex-wrap justify-end gap-2">
                         @if ($request->status === TimeOffRequestStatus::Pending)
+                            @callable($this, 'deny')
                             <flux:button variant="ghost" wire:click="deny" data-test="deny-request">{{ __('Deny') }}</flux:button>
+                            @endcallable
+                            @callable($this, 'managerApprove')
                             <flux:button variant="filled" wire:click="managerApprove" data-test="manager-approve-request">{{ __('Approve absence') }}</flux:button>
+                            @endcallable
+                            @callable($this, 'approve')
                             <flux:button variant="primary" wire:click="approve" data-test="approve-request">{{ __('Approve + confirm pay') }}</flux:button>
+                            @endcallable
                         @elseif ($request->status === TimeOffRequestStatus::ManagerApproved)
+                            @callable($this, 'deny')
                             <flux:button variant="ghost" wire:click="deny" data-test="deny-request">{{ __('Deny') }}</flux:button>
+                            @endcallable
+                            @callable($this, 'approve')
                             <flux:button variant="primary" wire:click="approve" data-test="approve-request">{{ __('Confirm pay treatment') }}</flux:button>
+                            @endcallable
                         @elseif ($request->status === TimeOffRequestStatus::Approved)
+                            @callable($this, 'cancel')
                             <flux:button variant="danger" wire:click="cancel" data-test="cancel-request">{{ __('Cancel request') }}</flux:button>
+                            @endcallable
                         @endif
                     </div>
                 @elseif ($request->decision_note)

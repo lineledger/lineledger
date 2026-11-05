@@ -50,7 +50,7 @@ it('renders children indented directly beneath their parent, before later roots'
 
     // Tree order: parent (1700), its child (1790), then the next root (1750)
     // would sort between them by raw code — the child still wins its spot.
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->assertSeeInOrder(['Vehicles Fleet', 'Fleet Trailers', 'Standalone Machinery']);
 });
 
@@ -59,7 +59,7 @@ it('walks grandchildren at increasing depth', function () {
     $child = makeAccount('1710', 'Fleet Vans', AccountSubtype::FixedAsset, ['parent_id' => $parent->id]);
     $grandchild = makeAccount('1711', 'Fleet Van Tooling', AccountSubtype::FixedAsset, ['parent_id' => $child->id]);
 
-    $rows = Livewire::test('pages::accounts.index', ['company' => $this->company])
+    $rows = Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->instance()
         ->treeRows
         ->flatten(1);
@@ -84,7 +84,7 @@ it('rolls up a parent balance including posted activity on visible descendants',
         [$income->id, 0, 7000],
     ]);
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $this->company]);
+    $component = Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company]);
 
     // Own balance + visible descendants: 20.00 + 50.00.
     expect($component->instance()->rollups[$parent->id])->toBe(7000);
@@ -101,7 +101,7 @@ it('renders flat without roll-ups while searching', function () {
     $parent = makeAccount('1050', 'Cash Floats', AccountSubtype::Bank);
     $child = makeAccount('1060', 'Register Float', AccountSubtype::Bank, ['parent_id' => $parent->id]);
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $this->company])
+    $component = Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->set('search', 'Float');
 
     $rows = $component->instance()->treeRows->flatten(1);
@@ -116,7 +116,7 @@ it('surfaces the child of a hidden inactive parent as a root', function () {
     $parent = makeAccount('1050', 'Cash Floats', AccountSubtype::Bank, ['is_active' => false]);
     $child = makeAccount('1060', 'Register Float', AccountSubtype::Bank, ['parent_id' => $parent->id]);
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $this->company]);
+    $component = Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company]);
 
     $rows = $component->instance()->treeRows->flatten(1)->keyBy(fn (array $row) => $row['account']->id);
 

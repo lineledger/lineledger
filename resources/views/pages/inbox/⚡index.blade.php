@@ -189,10 +189,12 @@ new #[Title('Inbox')] class extends Component {
                                         {{ __('Review') }}
                                     </flux:button>
                                 @endif
+                                @callable($this, 'dismiss')
                                 <flux:button size="sm" variant="ghost" icon="x-mark"
                                     wire:click="dismiss({{ $item->id }})" data-test="inbox-dismiss">
                                     {{ __('Dismiss') }}
                                 </flux:button>
+                                @endcallable
                             </div>
                         </td>
                     </tr>

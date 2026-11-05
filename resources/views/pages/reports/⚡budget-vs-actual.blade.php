@@ -195,7 +195,9 @@ new #[Title('Budget vs. Actual')] class extends Component {
         </flux:select>
 
         @if ($this->report['has_budget'])
+            @callable($this, 'exportCsv')
             <flux:button icon="arrow-down-tray" variant="ghost" wire:click="exportCsv">{{ __('CSV') }}</flux:button>
+            @endcallable
         @endif
     </x-reports.control-bar>
 

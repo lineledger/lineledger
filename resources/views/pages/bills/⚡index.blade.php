@@ -49,9 +49,11 @@ new #[Title('Bills')] class extends Component
             <flux:subheading>{{ __('Vendor bills you owe and will pay later (accounts payable). Paying at the time of purchase? Record an Expense or Cheque instead.') }}</flux:subheading>
         </div>
 
+        @reaches('bills.create')
         <flux:button variant="primary" icon="plus" :href="route('bills.create', ['company' => $company->slug])" wire:navigate data-test="new-bill-button">
             {{ __('New bill') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

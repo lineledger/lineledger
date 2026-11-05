@@ -82,14 +82,18 @@ new #[Title('Transfer')] class extends Component {
 
         <div class="flex gap-2">
             @if ($transfer->status === TransferStatus::Draft)
+                @reaches('transfers.edit')
                 <flux:button variant="filled" :href="route('transfers.edit', ['company' => $company->slug, 'transfer' => $transfer->id])" wire:navigate>
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
             @endif
             @if ($transfer->status === TransferStatus::Posted)
+                @callable($this, 'void')
                 <flux:button variant="danger" wire:click="void" wire:confirm="{{ __('Void this transfer? A reversing GL entry will be posted.') }}" data-test="void-transfer-button">
                     {{ __('Void') }}
                 </flux:button>
+                @endcallable
             @endif
         </div>
     </div>

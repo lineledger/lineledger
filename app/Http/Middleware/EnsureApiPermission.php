@@ -6,6 +6,8 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\User;
 use App\Support\Access\ApiRoutePermissionMap;
+use App\Support\Access\ApiViewer;
+use App\Support\Access\PermissionSet;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +31,8 @@ class EnsureApiPermission
      */
     public function handle(Request $request, Closure $next): Response
     {
+        app()->forgetInstance(ApiViewer::BINDING);
+
         $requirements = ApiRoutePermissionMap::for($request->route()?->getName());
 
         $key = app()->bound('current_api_key') ? app('current_api_key') : null;
@@ -40,6 +44,10 @@ class EnsureApiPermission
 
         $creator = User::query()->find($key->created_by_user_id);
         $permissions = $creator?->permissions($company);
+
+        // What the key may see, for responses that carry figures its creator
+        // might not be allowed (an account's balance): ApiViewer reads it.
+        app()->instance(ApiViewer::BINDING, $permissions ?? PermissionSet::none());
 
         foreach ($requirements as $anyOf) {
             if ($permissions === null || ! $permissions->allowsAny($anyOf)) {
