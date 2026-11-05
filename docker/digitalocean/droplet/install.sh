@@ -12,13 +12,16 @@
 # customer's first boot (the lineledger-setup systemd service).
 #
 # Environment:
-#   LINELEDGER_VERSION   release to install (default: the newest release)
+#   LINELEDGER_VERSION   release to install (default: the newest on the channel)
+#   LINELEDGER_CHANNEL   stable (default), or next to include release candidates;
+#                        `lineledger upgrade` keeps following it
 #   LINELEDGER_SRC       local copy of the repo's docker/ directory to install
 #                        from instead of downloading (Packer uploads one)
 
 set -euo pipefail
 
 RELEASE=${LINELEDGER_VERSION:-}
+CHANNEL=${LINELEDGER_CHANNEL:-stable}
 SRC=${LINELEDGER_SRC:-}
 DIR=/opt/lineledger
 image_mode=
@@ -30,19 +33,40 @@ os_id=$(. /etc/os-release && echo "${ID:-}")
 codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
 [ "$os_id" = ubuntu ] || echo "WARNING: built for Ubuntu 24.04; this is $(. /etc/os-release && echo "${PRETTY_NAME:-unknown}")." >&2
 
-exec > >(tee -a /var/log/lineledger-install.log) 2>&1
+case $CHANNEL in
+    stable | next) ;;
+    *) echo "LINELEDGER_CHANNEL must be stable or next, not $CHANNEL." >&2; exit 1 ;;
+esac
 
-if [ -z "$RELEASE" ]; then
-    RELEASE=$(curl -fsSL https://api.github.com/repos/lineledger/lineledger/releases/latest \
-        | grep -m 1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
-    [ -n "$RELEASE" ] || { echo "Couldn't look up the newest release; set LINELEDGER_VERSION." >&2; exit 1; }
-fi
-RELEASE=${RELEASE#v}
-echo "==> Installing LineLedger $RELEASE ($(date -u +%FT%TZ))"
+exec > >(tee -a /var/log/lineledger-install.log) 2>&1
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -yq ca-certificates curl gnupg jq ufw unattended-upgrades
+
+# Semver precedence for release tags, in jq. Kept identical in
+# .github/scripts/image-channels.sh, docker/digitalocean/droplet/install.sh and
+# docker/digitalocean/droplet/lineledger; ReleaseChannelsTest checks that.
+SEMVER_JQ='
+def valid: test("^v?[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$");
+def semver: ltrimstr("v") | capture("^(?<core>[0-9]+\\.[0-9]+\\.[0-9]+)(-(?<pre>.+))?$")
+    | [(.core | split(".") | map(tonumber)), (.pre == null), ((.pre // "") | split(".") | map(tonumber? // .))];
+'
+
+# The newest release on the channel: the one GitHub marks Latest on stable,
+# the highest version of any published release on next. Same rule as
+# `lineledger upgrade`.
+if [ -z "$RELEASE" ]; then
+    if [ "$CHANNEL" = next ]; then
+        RELEASE=$(curl -fsSL "https://api.github.com/repos/lineledger/lineledger/releases?per_page=100" \
+            | jq -r "$SEMVER_JQ"'[.[] | select(.draft | not) | .tag_name | select(valid)] | max_by(semver) // empty')
+    else
+        RELEASE=$(curl -fsSL https://api.github.com/repos/lineledger/lineledger/releases/latest | jq -r '.tag_name // empty')
+    fi
+    [ -n "$RELEASE" ] || { echo "Couldn't look up the newest release; set LINELEDGER_VERSION." >&2; exit 1; }
+fi
+RELEASE=${RELEASE#v}
+echo "==> Installing LineLedger $RELEASE from the $CHANNEL channel ($(date -u +%FT%TZ))"
 
 # Docker Engine and the Compose plugin, from Docker's own repository.
 install -m 0755 -d /etc/apt/keyrings
@@ -115,5 +139,5 @@ EOF
     systemctl enable lineledger-setup.service
     echo "==> Image ready; LineLedger sets itself up on each Droplet's first boot."
 else
-    /usr/local/bin/lineledger setup 2>&1 | tee -a /var/log/lineledger-setup.log
+    LINELEDGER_CHANNEL=$CHANNEL /usr/local/bin/lineledger setup 2>&1 | tee -a /var/log/lineledger-setup.log
 fi

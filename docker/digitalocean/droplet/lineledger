@@ -4,7 +4,8 @@
 #
 #   lineledger setup                    first-boot setup: secrets, address, start (runs once)
 #   lineledger domain books.example.com use your own domain, with automatic HTTPS
-#   lineledger upgrade [1.2.3]          back up, then move to the newest (or a given) release
+#   lineledger upgrade [1.2.3]          back up, then move to the newest release on the channel (or a given one)
+#   lineledger channel [stable|next]    show or pick the channel: stable, or next for release candidates too
 #   lineledger backup                   database + files + .env into /opt/lineledger/backups
 #   lineledger status                   what's running and where
 #   lineledger logs [service]           follow the logs (default: app)
@@ -24,6 +25,38 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 cd "$DIR"
 
 compose() { docker compose "$@"; }
+
+# Semver precedence for release tags, in jq. Kept identical in
+# .github/scripts/image-channels.sh, docker/digitalocean/droplet/install.sh and
+# docker/digitalocean/droplet/lineledger; ReleaseChannelsTest checks that.
+SEMVER_JQ='
+def valid: test("^v?[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$");
+def semver: ltrimstr("v") | capture("^(?<core>[0-9]+\\.[0-9]+\\.[0-9]+)(-(?<pre>.+))?$")
+    | [(.core | split(".") | map(tonumber)), (.pre == null), ((.pre // "") | split(".") | map(tonumber? // .))];
+'
+
+# The newest release on a channel. stable: the release GitHub marks Latest,
+# which a release candidate never is. next: the highest version of any
+# published release, release candidates included.
+newest_release() {
+    case $1 in
+        stable)
+            curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name // empty'
+            ;;
+        next)
+            curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=100" \
+                | jq -r "$SEMVER_JQ"'[.[] | select(.draft | not) | .tag_name | select(valid)] | max_by(semver) // empty'
+            ;;
+        *) die "unknown channel: $1 (use stable or next)" ;;
+    esac | sed 's/^v//'
+}
+
+# Whether version $1 comes before version $2. False when either isn't a version.
+version_lt() {
+    [ "$(jq -nr --arg a "$1" --arg b "$2" "$SEMVER_JQ"'($a | valid) and ($b | valid) and ($a | semver) < ($b | semver)')" = true ]
+}
+
+channel_get() { local c; c=$(env_get LINELEDGER_CHANNEL); printf '%s' "${c:-stable}"; }
 
 env_get() { [ -f .env ] && grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
 
@@ -81,6 +114,7 @@ cmd_setup() {
         env_set DB_ROOT_PASSWORD "$(openssl rand -hex 24)"
         env_set DB_QUEUE_RETRY_AFTER 3700
         env_set LINELEDGER_VERSION "$(cat VERSION)"
+        env_set LINELEDGER_CHANNEL "${LINELEDGER_CHANNEL:-stable}"
         local ip='' i
         for i in $(seq 1 15); do
             ip=$(public_ip || true)
@@ -150,11 +184,19 @@ EOF
 }
 
 cmd_upgrade() {
-    local target=${1:-} current
+    local target=${1:-} current channel
     current=$(env_get LINELEDGER_VERSION)
+    channel=$(channel_get)
     if [ -z "$target" ]; then
-        target=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name // empty' | sed 's/^v//')
+        target=$(newest_release "$channel")
         [ -n "$target" ] || die "couldn't look up the newest release; pass one: lineledger upgrade 1.2.3"
+        # Never move backwards on its own: after `lineledger channel stable`,
+        # a release candidate stays put until stable catches up.
+        if version_lt "$target" "$current"; then
+            say "Already on $current, newer than the newest $channel release ($target)."
+            say "To go back, follow the rollback steps for $current in UPGRADING.md, then: lineledger upgrade $target"
+            return 0
+        fi
     fi
     target=${target#v}
     if [ "$target" = "$current" ]; then
@@ -162,6 +204,10 @@ cmd_upgrade() {
         return 0
     fi
 
+    if version_lt "$target" "$current"; then
+        say "Moving back from $current to $target. Follow the rollback steps for $current first:"
+        say "  https://github.com/$REPO/blob/v$current/UPGRADING.md"
+    fi
     say "Upgrading $current -> $target. Read the release notes first:"
     say "  https://github.com/$REPO/blob/v$target/UPGRADING.md"
     say "Backing up ..."
@@ -188,8 +234,26 @@ cmd_upgrade() {
     say "Now on $target."
 }
 
+cmd_channel() {
+    local channel=${1:-}
+    if [ -z "$channel" ]; then
+        say "Channel: $(channel_get)"
+        return 0
+    fi
+    case $channel in
+        stable | next) ;;
+        *) die "usage: lineledger channel stable|next" ;;
+    esac
+    env_set LINELEDGER_CHANNEL "$channel"
+    say "Channel: $channel. lineledger upgrade now moves to the newest $channel release."
+    if [ "$channel" = next ]; then
+        say "next includes release candidates. Back up before each upgrade, and read each one's notes on going back."
+    fi
+}
+
 cmd_status() {
     say "Version: $(env_get LINELEDGER_VERSION)"
+    say "Channel: $(channel_get)"
     say "Address: $(env_get APP_URL)"
     compose ps
 }
@@ -198,6 +262,7 @@ case "${1:-help}" in
     setup) shift; cmd_setup "$@" ;;
     domain) shift; cmd_domain "$@" ;;
     upgrade) shift; cmd_upgrade "$@" ;;
+    channel) shift; cmd_channel "$@" ;;
     backup) shift; ./backup.sh "$@" ;;
     status) cmd_status ;;
     logs) shift; compose logs -f --tail=100 "${@:-app}" ;;
