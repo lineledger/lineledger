@@ -7,15 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.1] - 2026-11-05
+
+**Highlights.** The first release candidate for 1.5.0, on the next channel
+only. It adds users and roles in the manner of QuickBooks Desktop Enterprise:
+predefined and custom roles that grant each activity None, Full or Partial
+access, people who hold several roles, and API keys and MCP connections held to
+the same permissions. Four new tables, and `app:upgrade` converts every member
+so nobody's page access changes; see `UPGRADING.md`.
+
 ### Added
 
-- **A next channel for release candidates.** Release candidates such as
-  `1.5.0-rc.1` go to a `next` channel only. A Docker install joins it with
-  `LINELEDGER_VERSION=next`, a Droplet with `lineledger channel next` (or
-  `LINELEDGER_CHANNEL=next` for the installer), App Platform with
-  `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
-  installs never see a release candidate. README → Release channels explains
-  both channels, and the new `RELEASING.md` is the maintainer's runbook.
 - **Users and roles.** Settings → Users and roles replaces the member list on
   the organization page, in the manner of QuickBooks Desktop Enterprise:
   - **Roles** say what people may do, area by area and activity by activity:
@@ -51,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   than the person who created it may do now, and stops working for anything
   they lose. MCP connections made with an API key are held to their creator's
   permissions too; until now they skipped section checks.
+- **A next channel for release candidates.** Release candidates such as
+  `1.5.0-rc.1` go to a `next` channel only. A Docker install joins it with
+  `LINELEDGER_VERSION=next`, a Droplet with `lineledger channel next` (or
+  `LINELEDGER_CHANNEL=next` for the installer), App Platform with
+  `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
+  installs never see a release candidate. README → Release channels explains
+  both channels, and the new `RELEASING.md` is the maintainer's runbook.
 
 ### Changed
 
@@ -1636,7 +1645,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.3...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...HEAD
+[1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
 [1.4.3]: https://github.com/lineledger/lineledger/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/lineledger/lineledger/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1

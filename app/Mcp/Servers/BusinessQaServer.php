@@ -47,7 +47,7 @@ class BusinessQaServer extends Server
     /**
      * The MCP server's version.
      */
-    protected string $version = '1.4.3';
+    protected string $version = '1.5.0-rc.1';
 
     /**
      * The MCP server's instructions for the LLM.
