@@ -544,7 +544,7 @@ new class extends Component
         $this->lockDate = $newLock ?? '';
         $this->lockMode = $newMode->value;
         $this->populateCompanyData();
-        $this->dispatch('close-modal', name: 'lock-period');
+        Flux::modal('lock-period')->close();
 
         Flux::toast(variant: 'success', text: $newLock !== null
             ? __('Books locked through :date.', ['date' => $newLock])
@@ -567,7 +567,7 @@ new class extends Component
         $this->editSections = $membership->sections ?? [];
 
         $this->resetValidation();
-        $this->dispatch('open-modal', name: 'edit-member');
+        Flux::modal('edit-member')->show();
     }
 
     public function saveMemberAccess(): void
@@ -632,7 +632,7 @@ new class extends Component
         }
 
         $this->populateCompanyData();
-        $this->dispatch('close-modal', name: 'edit-member');
+        Flux::modal('edit-member')->close();
 
         Flux::toast(variant: 'success', text: __('Member access updated.'));
     }
