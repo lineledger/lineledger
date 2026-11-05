@@ -14,7 +14,7 @@ newest first.
   release's *Before you start*.
 - **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0 → 1.4.0, running each
   release's steps in turn. Skipping a release skips its backfills and its behaviour notes.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.1` is one exact
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.2` is one exact
   release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest tagged
   release; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
@@ -24,7 +24,7 @@ newest first.
   migrations, then every backfill the release needs (since 1.1.0:
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
-  `currency:backfill-reversal-memos`; 1.4.1 adds none). Each
+  `currency:backfill-reversal-memos`; 1.4.1 and 1.4.2 add none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -35,6 +35,79 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.1 → 1.4.2
+
+Released 2026-11-05. A security patch for organizations with **Custom** members, whose
+access is limited to the sections ticked for them. Section access only guarded the
+organization's own pages, so such a member could still read figures through a combined
+report group, find other sections' records in search, keep scheduled report emails
+going after losing Reports access, and download any attachment by its link. It also
+fixes Edit on a member, which did nothing on the organization page. Owners and Admins
+see no change. Upgrade soon if you have Custom members.
+
+PHP `^8.5`, Laravel 13 and every dependency are unchanged. **No migrations, no
+backfills, no config or env changes.** `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.4.1.
+
+**Coming from 1.4.0?** Go straight to 1.4.2: it contains everything in 1.4.1.
+**Coming from 1.3.1?** Follow the 1.3.1 → 1.4.0 steps below, but pin
+`LINELEDGER_VERSION=1.4.2` or check out `v1.4.2`.
+
+### What your members will notice
+
+- **Search** returns only what a Custom member's sections let them open: with
+  Customers alone, invoices, credit memos, receipts and customers, but no bills or
+  journal entries.
+- **Combined report groups** open only for someone with Reports in every
+  organization in the group. A deleted organization drops out of every group.
+- **Scheduled report emails** pause on their next run when the person who scheduled
+  them was removed, has a disabled account, or can no longer open Reports or one of the
+  reports in the schedule. The reason goes to the application log. The schedule's
+  owner sees "Schedule paused" on Reports → Memorized Reports, and saving the
+  schedule again resumes it once they have access back.
+- **Attachment downloads** need the section of the record the file belongs to (a
+  bill's receipt needs Vendors), or Documents.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.4.2` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.4.2 (or stay on 1.4, which moves to 1.4.2 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+Run `lineledger upgrade`. It backs up, moves to 1.4.2 and runs `app:upgrade --verify`.
+
+### DigitalOcean App Platform
+
+Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy picks up
+1.4.2 and the pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script. Then run `php artisan app:upgrade --verify`
+and `php artisan queue:restart`.
+
+### Check it worked
+
+On an organization's page, click Edit beside a member: the member's dialog opens. If
+you have a Custom member without Vendors, search for a bill number while signed in
+as them: no bills come back.
+
+### Rolling back
+
+Nothing in the database's shape changed, so you can deploy 1.4.1 again
+(`LINELEDGER_VERSION=1.4.1`, or `v1.4.1`) without a restore, but that reopens the gaps.
+Schedules 1.4.2 paused stay paused until someone resumes them.
 
 ## 1.4.0 → 1.4.1
 
