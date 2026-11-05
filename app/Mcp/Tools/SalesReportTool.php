@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Services\Reporting\SalesPurchaseReportBuilder;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -42,7 +42,7 @@ class SalesReportTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsSales)) {
             return $denied;
         }
 

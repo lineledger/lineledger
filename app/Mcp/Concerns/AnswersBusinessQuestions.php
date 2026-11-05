@@ -2,11 +2,14 @@
 
 namespace App\Mcp\Concerns;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\User;
 use App\Services\Reporting\ReportCalculator;
+use App\Support\Access\PermissionSet;
+use App\Support\Access\Requirement;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
@@ -54,51 +57,60 @@ trait AnswersBusinessQuestions
     }
 
     /**
-     * Returns an error Response when an OAuth-authenticated member lacks access to
-     * the given company Section (mirroring the web app's EnsureSectionAccess), or
-     * null when permitted.
+     * Returns an error Response unless whoever is calling may take the action
+     * in the activity (any one of several activities), in the same terms as
+     * the web app; null when permitted.
      *
-     * On the API-key connection path there is no per-user Section concept —
-     * authorization there is handled by {@see requireAbility()} and the key's
-     * ability scopes — so this is a no-op when no OAuth user is bound. This is the
-     * authorization gate for the OAuth path: bare company membership is NOT enough,
-     * the member must also be granted the relevant section.
+     * An OAuth connection acts as the signed-in member. An API-key connection
+     * acts with the permissions of the person who created the key (keys with
+     * no recorded creator keep their ability scopes as the only limit), so a
+     * key never reads or writes more than its creator could — the same cap
+     * EnsureApiPermission applies to /api/v1.
+     *
+     * @param  Activity|list<Activity>  $activity
      */
-    protected function requireSection(Section $section): ?Response
+    protected function requirePermission(Activity|array $activity, PermissionAction $action = PermissionAction::View): ?Response
     {
-        return $this->denyUnlessAnySection($section);
-    }
+        $permissions = $this->actorPermissions();
 
-    /**
-     * Like {@see requireSection()} but passes when the member has access to ANY of
-     * the given sections — for tools whose data spans more than one area (e.g. a
-     * contact lookup that covers both customers and vendors).
-     */
-    protected function requireAnySection(Section ...$sections): ?Response
-    {
-        return $this->denyUnlessAnySection(...$sections);
-    }
-
-    private function denyUnlessAnySection(Section ...$sections): ?Response
-    {
-        $user = Auth::guard('api')->user();
-
-        // No OAuth user → API-key path; section access does not apply there.
-        if (! $user instanceof User) {
+        if ($permissions === null) {
             return null;
         }
 
-        $company = $this->company();
+        $activities = is_array($activity) ? $activity : [$activity];
+        $requirements = array_map(fn (Activity $a): Requirement => new Requirement($a, $action), $activities);
 
-        foreach ($sections as $section) {
-            if ($user->canAccessSection($company, $section)) {
-                return null;
-            }
+        if ($permissions->allowsAny($requirements)) {
+            return null;
         }
 
-        $labels = implode('" or "', array_map(fn (Section $s): string => $s->label(), $sections));
+        $labels = implode('" or "', array_map(fn (Activity $a): string => $a->label(), $activities));
 
-        return Response::error("You do not have access to the \"{$labels}\" section of this company.");
+        $verb = mb_strtolower($action->label());
+
+        return Response::error("You do not have access to {$verb} \"{$labels}\" in this company.");
+    }
+
+    /**
+     * The permissions this connection acts with, or null when nothing beyond
+     * the key's scopes applies (a key with no recorded creator).
+     */
+    private function actorPermissions(): ?PermissionSet
+    {
+        $company = $this->company();
+        $user = Auth::guard('api')->user();
+
+        if ($user instanceof User) {
+            return $user->permissions($company);
+        }
+
+        $key = app()->bound('current_api_key') ? app('current_api_key') : null;
+
+        if ($key instanceof CompanyApiKey && $key->created_by_user_id !== null) {
+            return User::query()->find($key->created_by_user_id)?->permissions($company) ?? PermissionSet::none();
+        }
+
+        return null;
     }
 
     /**

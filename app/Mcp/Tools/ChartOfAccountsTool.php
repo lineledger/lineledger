@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\ChartOfAccountsPresenter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -24,7 +24,7 @@ class ChartOfAccountsTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Accounting)) {
+        if ($denied = $this->requirePermission(Activity::Accounts)) {
             return $denied;
         }
 

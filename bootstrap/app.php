@@ -7,6 +7,7 @@ use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\BindMcpCompany;
 use App\Http\Middleware\CheckSiteMaintenance;
 use App\Http\Middleware\EnsureApiAbility;
+use App\Http\Middleware\EnsureApiPermission;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsureLegalAcceptance;
 use App\Http\Middleware\EnsurePortalAudience;
@@ -90,6 +91,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.api_key' => AuthenticateApiKey::class,
             'api.ability' => EnsureApiAbility::class,
+            'api.permission' => EnsureApiPermission::class,
             'portal.company' => ResolvePortalCompany::class,
             'portal.audience' => EnsurePortalAudience::class,
             'mcp.company' => BindMcpCompany::class,
@@ -108,6 +110,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
             EnsureApiAbility::class,
+        );
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            EnsureApiPermission::class,
         );
 
         // Same reason on the web side: EnsureCompanyMembership binds

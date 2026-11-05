@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Resources;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\PaymentMethodsPresenter;
 use Laravel\Mcp\Request;
@@ -29,7 +29,7 @@ class PaymentMethodsResource extends Resource
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Lists)) {
+        if ($denied = $this->requirePermission(Activity::OtherLists)) {
             return $denied;
         }
 

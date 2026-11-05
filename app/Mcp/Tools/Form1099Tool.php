@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Enums\Activity;
 use App\Enums\JurisdictionCapability;
-use App\Enums\Section;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Services\Reporting\Form1099Calculator;
 use App\Support\Money;
@@ -30,7 +30,7 @@ class Form1099Tool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsPurchases)) {
             return $denied;
         }
 

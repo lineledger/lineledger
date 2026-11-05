@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Resources;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Company;
 use App\Models\Item;
@@ -39,7 +39,7 @@ class ItemsResource extends Resource
             return $denied;
         }
 
-        if ($denied = $this->requireAnySection(Section::Lists, Section::Inventory)) {
+        if ($denied = $this->requirePermission([Activity::Items, Activity::Inventory])) {
             return $denied;
         }
 

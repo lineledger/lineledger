@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Tools;
 
 use App\Enums\AccountType;
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Services\Reporting\ReportCalculator;
 use Carbon\CarbonImmutable;
@@ -28,7 +28,7 @@ class BalanceSheetTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsFinancial)) {
             return $denied;
         }
 

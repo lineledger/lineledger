@@ -2,7 +2,8 @@
 
 namespace App\Mcp\Tools\Write;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Mcp\Concerns\ProposesWrites;
 use App\Models\Account;
 use Carbon\CarbonImmutable;
@@ -34,7 +35,7 @@ class ProposeInvoiceTool extends Tool
         if ($denied = $this->requireAbility('invoices:write')) {
             return $denied;
         }
-        if ($denied = $this->requireSection(Section::Customers)) {
+        if ($denied = $this->requirePermission(Activity::Invoices, PermissionAction::Create)) {
             return $denied;
         }
 

@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Services\Reporting\InventoryReportBuilder;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -25,7 +25,7 @@ class InventoryStatusTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Inventory)) {
+        if ($denied = $this->requirePermission(Activity::Inventory)) {
             return $denied;
         }
 

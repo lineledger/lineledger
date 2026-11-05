@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Resources;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\CompanyProfilePresenter;
 use Laravel\Mcp\Request;
@@ -27,7 +27,7 @@ class CompanyProfileResource extends Resource
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Settings)) {
+        if ($denied = $this->requirePermission(Activity::Preferences)) {
             return $denied;
         }
 

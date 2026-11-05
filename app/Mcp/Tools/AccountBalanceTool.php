@@ -2,7 +2,8 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Account;
 use App\Services\Reporting\ReportCalculator;
@@ -25,7 +26,7 @@ class AccountBalanceTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Accounting)) {
+        if ($denied = $this->requirePermission(Activity::Accounts, PermissionAction::ViewBalance)) {
             return $denied;
         }
 

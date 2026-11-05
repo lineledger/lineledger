@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Prompts;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Tax\FilingProfile;
 use Laravel\Mcp\Request;
@@ -22,7 +22,7 @@ class YearEndTaxPrepChecklistPrompt extends Prompt
     {
         // Embeds the company's filing profile, so gate on Reports (where tax
         // returns live) for OAuth-authenticated members.
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsFinancial)) {
             return $denied;
         }
 

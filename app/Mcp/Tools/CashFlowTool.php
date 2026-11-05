@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Services\Reporting\ReportCalculator;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -24,7 +24,7 @@ class CashFlowTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsFinancial)) {
             return $denied;
         }
 

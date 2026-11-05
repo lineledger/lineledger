@@ -4,7 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Account;
 use App\Models\Contact;
@@ -28,7 +28,7 @@ class FinancialSummaryTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsFinancial)) {
             return $denied;
         }
 

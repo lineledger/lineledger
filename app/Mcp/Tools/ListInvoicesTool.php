@@ -2,8 +2,8 @@
 
 namespace App\Mcp\Tools;
 
+use App\Enums\Activity;
 use App\Enums\InvoiceStatus;
-use App\Enums\Section;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Invoice;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -25,7 +25,7 @@ class ListInvoicesTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Customers)) {
+        if ($denied = $this->requirePermission(Activity::Invoices)) {
             return $denied;
         }
 

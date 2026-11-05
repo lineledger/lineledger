@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\CompanyProfilePresenter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -24,7 +24,7 @@ class CompanyProfileTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Settings)) {
+        if ($denied = $this->requirePermission(Activity::Preferences)) {
             return $denied;
         }
 
