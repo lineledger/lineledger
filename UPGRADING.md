@@ -14,9 +14,16 @@ newest first.
   release's *Before you start*.
 - **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0 → 1.4.0, running each
   release's steps in turn. Skipping a release skips its backfills and its behaviour notes.
+- **Channels.** Stable gets final releases. The next channel also gets release
+  candidates (`1.5.0-rc.1`, `-rc.2` …), which have a section here like any release.
+  On next, take each candidate in turn and back up before each one; a candidate's
+  section says what to do coming from the stable release before it, and whether you
+  can go back without a restore. `README.md` → Release channels says how to join or
+  leave each.
 - **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.3` is one exact
-  release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest tagged
-  release; `edge` follows `main` between releases. Release tags are built for
+  release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest final
+  release; `next` follows the newest release of any kind, release candidates
+  included; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
   `LINELEDGER_VERSION` in `.env` to the exact release, so an upgrade happens when you
   change that line and not whenever a `docker compose pull` happens to run.

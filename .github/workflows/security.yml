@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - next
   pull_request:
     branches:
       - main
+      - next
   # Re-run weekly so newly-disclosed CVEs in unchanged dependencies are caught
   # even without a code change. The run history is SOC 2 (CC7.1) evidence that
   # we continuously track vulnerabilities.

@@ -111,7 +111,7 @@ docker compose logs -f app        # wait for "LineLedger ready (role: app)"
 docker compose exec app php artisan app:upgrade --verify</code></pre>
 
         <flux:text>
-            {{ __('Pinning matters. The image tag 1.4.3 is one exact release; 1.4 follows the newest patch on that line; latest follows the newest tagged release; and edge follows the development branch. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
+            {{ __('Pinning matters. The image tag 1.4.3 is one exact release; 1.4 follows the newest patch on that line; latest follows the newest final release; next follows the newest release of any kind, release candidates included; and edge follows the main branch between releases. With an exact pin, an upgrade happens when you change that line — not whenever a docker compose pull happens to run.') }}
         </flux:text>
 
         <x-docs.callout type="tip" heading="{{ __('Run the upgrade step yourself') }}">

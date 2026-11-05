@@ -19,7 +19,8 @@
 #   --region SLUG          datacenter for the app, database and buckets (default: tor1)
 #   --spaces-region SLUG   put the buckets elsewhere, if Spaces isn't offered in --region
 #   --country CA|US|GB     the country this install serves (default: CA)
-#   --tag TAG              image tag of ghcr.io/lineledger/lineledger, first run only (default: latest)
+#   --tag TAG              image tag of ghcr.io/lineledger/lineledger, first run only (default: latest;
+#                          next follows release candidates too)
 #   --yes                  don't ask before creating billable resources
 #
 # Mail settings can come from the environment instead of prompts: MAIL_HOST,

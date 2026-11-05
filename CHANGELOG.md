@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A next channel for release candidates.** Release candidates such as
+  `1.5.0-rc.1` go to a `next` channel only. A Docker install joins it with
+  `LINELEDGER_VERSION=next`, a Droplet with `lineledger channel next` (or
+  `LINELEDGER_CHANNEL=next` for the installer), App Platform with
+  `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
+  installs never see a release candidate. README → Release channels explains
+  both channels, and the new `RELEASING.md` is the maintainer's runbook.
+
+### Changed
+
+- **The `latest` image follows the newest final release by version.** It used
+  to move to whichever release tag was pushed last. A release candidate would
+  have moved it, and so would a patch to an older line.
+- **`lineledger upgrade` never moves a Droplet backwards on its own.** With no
+  version given, it leaves the install alone when the channel's newest release
+  is older than the one installed. Naming a release still works, and points at
+  the rollback steps first.
+
 ## [1.4.3] - 2026-11-05
 
 **Highlights.** A security patch that updates the Symfony components LineLedger
