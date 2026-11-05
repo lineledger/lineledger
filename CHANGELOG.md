@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-11-05
+
+**Highlights.** A security patch that updates the Symfony components LineLedger
+runs on to 8.1.11, for eleven advisories Symfony published on November 4, 2026.
+LineLedger's own code is unchanged. No migrations, no backfills and no
+configuration changes; see `UPGRADING.md`.
+
+### Security
+
+- **Symfony components updated to 8.1.11**, and the Symfony contracts to 3.8.1.
+  Only `composer.lock` changed. The advisories they fix:
+  - `symfony/http-foundation`: generated URLs could point to a host chosen by the
+    client; the `private_ranges` trusted-proxies shortcut (`PRIVATE_SUBNETS` in
+    `TRUSTED_PROXIES`) trusted clients presenting an IPv4-mapped, 6to4, Teredo
+    or NAT64 address as reverse proxies; path rules enforced in front of PHP
+    could be bypassed by appending the path to the script name; HEAD requests
+    bypassed the `methods` option of access-control rules (CVE-2026-118514).
+  - `symfony/http-kernel`: inline fragments let untrusted forwarded headers set
+    the host, scheme and port of URLs generated for the main request.
+  - `symfony/routing`: host placeholders could match the start of the path in
+    compiled URL matchers (CVE-2026-118516).
+  - `symfony/serializer`, which passkey sign-in uses to read what the browser
+    sends: the serializer built uploaded-file objects from request data
+    (CVE-2026-118515); `DataUriNormalizer` opened data URIs with a non-lowercase
+    scheme as local files; dotted keys got past `#[Ignore]` on nested objects.
+  - `symfony/filesystem`: `Path` treated any prefix before `://` as a root.
+  - `symfony/yaml`: some documents took exponential or quadratic time to parse.
+    LineLedger only parses its own API spec.
+
 ## [1.4.2] - 2026-11-05
 
 **Highlights.** A security patch for organizations with Custom members, whose
@@ -1552,7 +1581,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/lineledger/lineledger/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/lineledger/lineledger/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/lineledger/lineledger/compare/v1.3.1...v1.4.0

@@ -14,7 +14,7 @@ newest first.
   release's *Before you start*.
 - **One release at a time.** Go 1.0.0 → 1.1.0 → 1.2.0 → 1.3.0 → 1.4.0, running each
   release's steps in turn. Skipping a release skips its backfills and its behaviour notes.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.2` is one exact
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.3` is one exact
   release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest tagged
   release; `edge` follows `main` between releases. Release tags are built for
   linux/amd64 and linux/arm64; `edge` and other `main` builds are amd64 only. Pin
@@ -24,7 +24,7 @@ newest first.
   migrations, then every backfill the release needs (since 1.1.0:
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
-  `currency:backfill-reversal-memos`; 1.4.1 and 1.4.2 add none). Each
+  `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -35,6 +35,70 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.2 → 1.4.3
+
+Released 2026-11-05. A security patch for the Symfony components LineLedger runs on.
+Symfony published eleven advisories on November 4, 2026, and 1.4.3 moves every
+`symfony/*` package to its fixed release: 8.1.11 for the components, 3.8.1 for the
+contracts. LineLedger's own code is unchanged. Upgrade soon: `symfony/http-foundation`
+handles every request, passkey sign-in reads what the browser sends through
+`symfony/serializer`, and one advisory covers the `PRIVATE_SUBNETS` keyword that
+`TRUSTED_PROXIES` accepts. The full list is in `CHANGELOG.md`.
+
+PHP `^8.5` and Laravel 13 are unchanged; only `composer.lock` moved. **No migrations,
+no backfills, no config or env changes.** `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.4.2.
+
+**Coming from 1.4.1 or 1.4.0?** Go straight to 1.4.3, but read the 1.4.1 → 1.4.2
+section below first: what your Custom members will notice applies to you too.
+**Coming from 1.3.1?** Follow the 1.3.1 → 1.4.0 steps below, but pin
+`LINELEDGER_VERSION=1.4.3` or check out `v1.4.3`.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.4.3` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.4.3 (or stay on 1.4, which moves to 1.4.3 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+Run `lineledger upgrade`. It backs up, moves to 1.4.3 and runs `app:upgrade --verify`.
+
+### DigitalOcean App Platform
+
+Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy picks up
+1.4.3 and the pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script: its `composer install` installs the new
+versions from `composer.lock`. Then run `php artisan app:upgrade --verify` and
+`php artisan queue:restart`. Don't skip the restart: a queue worker keeps the old
+Symfony code loaded until it restarts.
+
+### Check it worked
+
+The footer of every page shows `v1.4.3`. To check Symfony itself, run this in the app's
+directory (Docker: prefix it with `docker compose exec app`). It prints `v8.1.11`:
+
+```bash
+php -r 'require "vendor/autoload.php"; echo Composer\InstalledVersions::getPrettyVersion("symfony/http-foundation"), PHP_EOL;'
+```
+
+### Rolling back
+
+Nothing in the database changed, so you can deploy 1.4.2 again
+(`LINELEDGER_VERSION=1.4.2`, or `v1.4.2`) without a restore, but that brings back the
+vulnerable Symfony releases.
 
 ## 1.4.1 → 1.4.2
 
