@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\CompanyRole;
+use App\Enums\PredefinedRole;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Security\AccessRevoker;
 use Illuminate\Support\Facades\DB;
@@ -144,28 +146,34 @@ it('removeMember wires the revoker so the removed member is deprovisioned', func
     expect((int) DB::table('oauth_access_tokens')->where('id', $ids['token_id'])->value('revoked'))->toBe(1);
 });
 
-it('updateMember deprovisions on a role downgrade but not a promotion', function () {
+it('changing roles deprovisions on a downgrade but not a promotion', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
     $this->company->members()->attach($owner, ['role' => CompanyRole::Owner->value]);
     $this->company->members()->attach($member, ['role' => CompanyRole::Admin->value]);
+    $role = fn (PredefinedRole $key): int => Role::query()->where('system_key', $key->value)->value('id');
 
     $ids = seedAccess($member->id, $this->company);
 
     $this->actingAs($owner);
+    session(['auth.password_confirmed_at' => time()]);
 
-    // Downgrade Admin -> Accountant: sessions + API keys revoked.
-    Livewire::test('pages::companies.edit', ['company' => $this->company])
-        ->call('updateMember', $member->id, CompanyRole::Accountant->value)
+    // Full Access -> Accountant loses settings: sessions + API keys revoked.
+    Livewire::test('pages::settings.users-and-roles', ['company' => $this->company])
+        ->call('editRoles', $member->id)
+        ->set('editRoleIds', [$role(PredefinedRole::Accountant)])
+        ->call('saveRoles')
         ->assertHasNoErrors();
 
     expect(DB::table('sessions')->where('id', $ids['session_id'])->exists())->toBeFalse();
     expect(CompanyApiKey::withoutGlobalScopes()->find($ids['key_id'])->revoked_at)->not->toBeNull();
 
-    // Re-seed and promote Accountant -> Admin: nothing is revoked.
+    // Re-seed and promote back to Full Access: nothing is revoked.
     $ids2 = seedAccess($member->id, $this->company);
-    Livewire::test('pages::companies.edit', ['company' => $this->company])
-        ->call('updateMember', $member->id, CompanyRole::Admin->value)
+    Livewire::test('pages::settings.users-and-roles', ['company' => $this->company])
+        ->call('editRoles', $member->id)
+        ->set('editRoleIds', [$role(PredefinedRole::FullAccess)])
+        ->call('saveRoles')
         ->assertHasNoErrors();
 
     expect(DB::table('sessions')->where('id', $ids2['session_id'])->exists())->toBeTrue();

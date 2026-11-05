@@ -165,6 +165,9 @@ final class RoutePermissionMap
         'settings.backup' => Activity::Backup,
         'settings.stripe' => Activity::CompanySettings,
         'migration' => Activity::DataImport,
+        'settings.users-and-roles' => [Activity::Users, Activity::Invitations, Activity::Roles],
+        'settings.roles' => Activity::Roles,
+        'reports.role-permissions' => Activity::Roles,
     ];
 
     /**

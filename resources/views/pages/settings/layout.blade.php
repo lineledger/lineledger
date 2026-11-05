@@ -23,7 +23,11 @@
                     ->where('company_id', $listsCompany->id)
                     ->where('status', \App\Enums\DataMigrationStatus::InProgress->value)
                     ->exists())
+                @php($listsPermissions = auth()->user()?->permissions($listsCompany))
                 <flux:navlist.group :heading="__('Company')" class="mt-4">
+                    @if ($listsPermissions?->canView(\App\Enums\Activity::Users) || $listsPermissions?->canView(\App\Enums\Activity::Invitations) || $listsPermissions?->canView(\App\Enums\Activity::Roles))
+                        <flux:navlist.item :href="route('settings.users-and-roles', ['company' => $listsCompany])" :current="request()->routeIs('settings.users-and-roles', 'settings.roles.*')" wire:navigate data-test="nav-users-and-roles">{{ __('Users and roles') }}</flux:navlist.item>
+                    @endif
                     <flux:navlist.item :href="route('settings.invoices', ['company' => $listsCompany])" :current="request()->routeIs('settings.invoices')" wire:navigate>{{ __('Invoices') }}</flux:navlist.item>
                     @if ($listsCompany?->supports(\App\Enums\JurisdictionCapability::CraTaxFiling))
                         <flux:navlist.item :href="route('settings.tax-and-filing', ['company' => $listsCompany])" :current="request()->routeIs('settings.tax-and-filing')" wire:navigate>{{ __('Tax & filing') }}</flux:navlist.item>

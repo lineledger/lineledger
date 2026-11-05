@@ -49,6 +49,9 @@ $oldReach = fn (CompanyRole $role, ?array $sections): array => match ($role) {
     CompanyRole::Custom => array_values(array_filter(array_map(fn (string $v) => Section::tryFrom($v), $sections ?? []))),
 };
 
+/** Routes added with roles: they had no "before" to compare with. */
+$newWithRoles = ['settings.users-and-roles', 'settings.roles.create', 'settings.roles.edit', 'reports.role-permissions'];
+
 $memberships = [
     'owner' => [CompanyRole::Owner, null],
     'admin' => [CompanyRole::Admin, null],
@@ -60,10 +63,11 @@ $memberships = [
     ...collect(Section::cases())->mapWithKeys(fn (Section $s) => ["custom, {$s->value} only" => [CompanyRole::Custom, [$s->value]]])->all(),
 ];
 
-it('derives the same sections for every route as the old table', function () use ($oldSectionsFor) {
+it('derives the same sections for every route as the old table', function () use ($oldSectionsFor, $newWithRoles) {
     $diffs = collect(Route::getRoutes()->getRoutes())
         ->map(fn (RoutingRoute $route) => $route->getName())
         ->filter()
+        ->reject(fn (string $name) => in_array($name, $newWithRoles, true))
         ->reject(fn (string $name) => Section::forRouteName($name) == $oldSectionsFor($name))
         ->values()
         ->all();
@@ -71,7 +75,7 @@ it('derives the same sections for every route as the old table', function () use
     expect($diffs)->toBe([]);
 });
 
-it('lets a membership open exactly the company pages it could before', function (CompanyRole $role, ?array $sections) use ($oldSectionsFor, $oldReach) {
+it('lets a membership open exactly the company pages it could before', function (CompanyRole $role, ?array $sections) use ($oldSectionsFor, $oldReach, $newWithRoles) {
     $permissions = LegacyRoleGrants::for($role, $sections);
     $reach = $oldReach($role, $sections);
 
@@ -85,6 +89,11 @@ it('lets a membership open exactly the company pages it could before', function 
         }
 
         $name = (string) $route->getName();
+
+        if (in_array($name, $newWithRoles, true)) {
+            continue;
+        }
+
         // Owner-only before roles, through the route's `:owner` middleware
         // (frozen: those routes now gate through reserved activities instead).
         $ownerOnly = $name === 'reports.audit-log'

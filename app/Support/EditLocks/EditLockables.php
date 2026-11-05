@@ -39,6 +39,7 @@ use App\Models\PayRun;
 use App\Models\PurchaseOrder;
 use App\Models\RecurringDocument;
 use App\Models\RecurringJournalEntry;
+use App\Models\Role;
 use App\Models\SalesOrder;
 use App\Models\SalesReceipt;
 use App\Models\TaxAgency;
@@ -102,6 +103,7 @@ final class EditLockables
             PurchaseOrder::class => 'purchase order',
             RecurringDocument::class => 'recurring transaction',
             RecurringJournalEntry::class => 'recurring journal entry',
+            Role::class => 'role',
             SalesOrder::class => 'sales order',
             SalesReceipt::class => 'sales receipt',
             TaxAgency::class => 'tax agency',

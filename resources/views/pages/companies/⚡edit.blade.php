@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Companies\Members\UpdateMemberAccess;
 use App\Actions\Fundraising\EnsureFundraisingAccounts;
 use App\Actions\Inventory\EnsureInventoryAccounts;
 use App\Actions\MasterData\EnsureDefaultFund;
@@ -27,11 +26,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -159,17 +156,6 @@ new class extends Component
     public array $availableRoles = [];
 
     public bool $isCurrentCompany = false;
-
-    /** Locked: set only by editMember(), which checks the member belongs here. */
-    #[Locked]
-    public ?int $editingMemberId = null;
-
-    public string $editMemberName = '';
-
-    public string $editRole = '';
-
-    /** @var array<int, string> */
-    public array $editSections = [];
 
     public function mount(Company $company): void
     {
@@ -553,62 +539,6 @@ new class extends Component
             : __('Period lock removed.'));
     }
 
-    public function editMember(int $userId): void
-    {
-        Gate::authorize('updateMember', $this->companyModel);
-
-        $membership = $this->companyModel->memberships()
-            ->where('user_id', $userId)
-            ->firstOrFail();
-
-        abort_if($membership->role === CompanyRole::Owner, 403);
-
-        $this->editingMemberId = $userId;
-        $this->editMemberName = $this->companyModel->members()->whereKey($userId)->value('name') ?? '';
-        $this->editRole = $membership->role->value;
-        $this->editSections = $membership->sections ?? [];
-
-        $this->resetValidation();
-        Flux::modal('edit-member')->show();
-    }
-
-    public function saveMemberAccess(): void
-    {
-        $this->updateMember($this->editingMemberId, $this->editRole, $this->editSections);
-    }
-
-    /**
-     * @param  array<int, string>  $sections
-     */
-    public function updateMember(int $userId, string $role, array $sections = []): void
-    {
-        Gate::authorize('updateMember', $this->companyModel);
-
-        $validated = Validator::make(
-            ['role' => $role, 'sections' => $sections],
-            [
-                'role' => ['required', 'string', Rule::enum(CompanyRole::class)->except(CompanyRole::Owner)],
-                'sections' => [Rule::requiredIf(fn () => $role === CompanyRole::Custom->value), 'array'],
-                'sections.*' => [Rule::in(Section::values())],
-            ]
-        )->validate();
-
-        $member = $this->companyModel->members()->whereKey($userId)->firstOrFail();
-
-        app(UpdateMemberAccess::class)->handle(
-            $this->companyModel,
-            Auth::user(),
-            $member,
-            CompanyRole::from($validated['role']),
-            array_values($validated['sections'] ?? []),
-        );
-
-        $this->populateCompanyData();
-        Flux::modal('edit-member')->close();
-
-        Flux::toast(variant: 'success', text: __('Member access updated.'));
-    }
-
     /**
      * Home currencies the picker offers: the two-decimal currencies Money
      * supports, plus the company's own code if it was saved before that rule,
@@ -629,14 +559,6 @@ new class extends Component
         return $options;
     }
 
-    /**
-     * @return array<int, Section>
-     */
-    #[Computed]
-    public function sectionOptions(): array
-    {
-        return Section::cases();
-    }
 
     private function populateCompanyData(): void
     {
@@ -1292,124 +1214,18 @@ new class extends Component
                 </div>
             @endif
 
-            <div class="space-y-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <flux:heading>{{ __('Company members') }}</flux:heading>
-                        @if ($this->permissions->canAddMember || $this->permissions->canUpdateMember || $this->permissions->canRemoveMember)
-                            <flux:subheading>{{ __('Manage who belongs to this company') }}</flux:subheading>
+            <div class="space-y-3" data-test="users-summary">
+                <flux:heading>{{ __('Users and roles') }}</flux:heading>
+                <flux:card class="flex flex-wrap items-center justify-between gap-4">
+                    <flux:text>
+                        {{ __('Users: :count', ['count' => count($members)]) }}
+                        @if (count($invitations) > 0)
+                            · {{ __('Pending invitations: :count', ['count' => count($invitations)]) }}
                         @endif
-                    </div>
-
-                    @if ($this->permissions->canCreateInvitation)
-                        <flux:modal.trigger name="invite-member">
-                            <flux:button variant="primary" icon="user-plus" data-test="invite-member-button">
-                                {{ __('Invite member') }}
-                            </flux:button>
-                        </flux:modal.trigger>
-                    @endif
-                </div>
-
-                <div class="space-y-3">
-                    @foreach ($members as $member)
-                        <div class="flex items-center justify-between rounded-lg border border-border bg-card p-4" data-test="member-row">
-                            <div class="flex items-center gap-4">
-                                <flux:avatar :name="$member['name']" :initials="strtoupper(substr($member['name'], 0, 1))" />
-                                <div>
-                                    <div class="font-medium">{{ $member['name'] }}</div>
-                                    <flux:text class="text-sm text-muted-foreground">{{ $member['email'] }}</flux:text>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-2">
-                                <flux:badge color="zinc">{{ $member['role_label'] }}</flux:badge>
-
-                                @if ($member['role'] !== 'owner' && $this->permissions->canUpdateMember)
-                                    <flux:button
-                                        variant="outline"
-                                        size="sm"
-                                        icon="pencil-square"
-                                        wire:click="editMember({{ $member['id'] }})"
-                                        data-test="member-edit-button"
-                                    >
-                                        {{ __('Edit') }}
-                                    </flux:button>
-                                @endif
-
-                                @if ($member['role'] !== 'owner' && $this->permissions->canRemoveMember)
-                                    <flux:modal.trigger name="remove-member-{{ $member['id'] }}">
-                                        <flux:tooltip :content="__('Remove member')">
-                                            <flux:button
-                                                variant="ghost"
-                                                size="sm"
-                                                icon="x-mark"
-                                                data-test="member-remove-button"
-                                            />
-                                        </flux:tooltip>
-                                    </flux:modal.trigger>
-                                @endif
-                            </div>
-                        </div>
-
-                        @if ($member['role'] !== 'owner' && $this->permissions->canRemoveMember)
-                            <livewire:pages::companies.remove-member-modal
-                                :company="$companyModel"
-                                :member-id="$member['id']"
-                                :member-name="$member['name']"
-                                :modal-name="'remove-member-'.$member['id']"
-                                :key="'remove-member-modal-'.$member['id']"
-                            />
-                        @endif
-                    @endforeach
-                </div>
+                    </flux:text>
+                    <flux:button icon="users" :href="route('settings.users-and-roles', ['company' => $companyModel->slug])" wire:navigate data-test="manage-users-and-roles">{{ __('Manage users and roles') }}</flux:button>
+                </flux:card>
             </div>
-
-            @if (count($invitations) > 0)
-                <div class="space-y-6">
-                    <div>
-                        <flux:heading>{{ __('Pending invitations') }}</flux:heading>
-                        <flux:subheading>{{ __('Invitations that have not been accepted yet') }}</flux:subheading>
-                    </div>
-
-                    <div class="space-y-3">
-                        @foreach ($invitations as $invitation)
-                            <div class="flex items-center justify-between rounded-lg border border-border bg-card p-4" data-test="invitation-row">
-                                <div class="flex items-center gap-4">
-                                    <div class="flex size-10 items-center justify-center rounded-full bg-muted">
-                                        <flux:icon name="envelope" class="text-muted-foreground" />
-                                    </div>
-                                    <div>
-                                        <div class="font-medium">{{ $invitation['email'] }}</div>
-                                        <flux:text class="text-sm text-muted-foreground">{{ $invitation['role_label'] }}</flux:text>
-                                    </div>
-                                </div>
-
-                                @if ($this->permissions->canCancelInvitation)
-                                    <flux:modal.trigger name="cancel-invitation-{{ $invitation['code'] }}">
-                                        <flux:tooltip :content="__('Cancel invitation')">
-                                            <flux:button
-                                                variant="ghost"
-                                                size="sm"
-                                                icon="x-mark"
-                                                data-test="invitation-cancel-button"
-                                            />
-                                        </flux:tooltip>
-                                    </flux:modal.trigger>
-                                @endif
-                            </div>
-                            @if ($this->permissions->canCancelInvitation)
-                                <livewire:pages::companies.cancel-invitation-modal
-                                    :company="$companyModel"
-                                    :invitation-code="$invitation['code']"
-                                    :invitation-email="$invitation['email']"
-                                    :modal-name="'cancel-invitation-'.$invitation['code']"
-                                    :key="'cancel-invitation-modal-'.$invitation['code']"
-                                />
-                            @endif
-                        @endforeach
-                    </div>
-                </div>
-            @endif
 
             @if ($this->permissions->canDeleteCompany && ! $companyData['is_personal'])
                 <div class="space-y-6">
@@ -1434,10 +1250,6 @@ new class extends Component
             @endif
         </div>
     </x-pages::settings.layout>
-
-    @if ($this->permissions->canCreateInvitation)
-        <livewire:pages::companies.invite-member-modal :company="$companyModel" />
-    @endif
 
     @if (auth()->user()->permissions($companyModel)->allows(Activity::ClosingDate, PermissionAction::Modify))
         <flux:modal name="lock-period" focusable class="max-w-md">
@@ -1481,50 +1293,6 @@ new class extends Component
                         <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="primary" type="submit" data-test="lock-period-submit">{{ __('Confirm') }}</flux:button>
-                </div>
-            </form>
-        </flux:modal>
-    @endif
-
-    @if ($this->permissions->canUpdateMember)
-        <flux:modal name="edit-member" focusable class="max-w-lg">
-            <form wire:submit="saveMemberAccess" class="space-y-6">
-                <div>
-                    <flux:heading size="lg">{{ __('Edit member access') }}</flux:heading>
-                    <flux:subheading>{{ $editMemberName }}</flux:subheading>
-                </div>
-
-                <div class="space-y-4">
-                    <flux:select wire:model.live="editRole" :label="__('Role')" data-test="edit-member-role">
-                        @foreach ($availableRoles as $role)
-                            <flux:select.option value="{{ $role['value'] }}">{{ $role['label'] }} — {{ $role['description'] }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-
-                    @if ($editRole === \App\Enums\CompanyRole::Custom->value)
-                        <flux:fieldset>
-                            <flux:legend>{{ __('Sections') }}</flux:legend>
-                            <flux:description>{{ __('Choose which sections this member can access.') }}</flux:description>
-                            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                @foreach ($this->sectionOptions as $section)
-                                    <flux:checkbox
-                                        wire:model="editSections"
-                                        value="{{ $section->value }}"
-                                        :label="$section->label()"
-                                        data-test="edit-section-{{ $section->value }}"
-                                    />
-                                @endforeach
-                            </div>
-                            <flux:error name="sections" />
-                        </flux:fieldset>
-                    @endif
-                </div>
-
-                <div class="flex justify-end space-x-2 rtl:space-x-reverse">
-                    <flux:modal.close>
-                        <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button variant="primary" type="submit" data-test="edit-member-submit">{{ __('Save') }}</flux:button>
                 </div>
             </form>
         </flux:modal>

@@ -492,6 +492,15 @@ Route::prefix('{company}')
             ->where('step', '[a-z_]+')
             ->name('opening-balances.template');
 
+        // Users and roles (QuickBooks-style Role List). Step-up confirmation
+        // first, as for the organization's own settings page.
+        Route::middleware('2fa.confirm')->group(function () {
+            Route::livewire('settings/users-and-roles', 'pages::settings.users-and-roles')->name('settings.users-and-roles');
+            Route::livewire('settings/roles/create', 'pages::settings.roles.form')->name('settings.roles.create');
+            Route::livewire('settings/roles/{role}/edit', 'pages::settings.roles.form')->name('settings.roles.edit');
+        });
+        Route::livewire('reports/role-permissions', 'pages::reports.role-permissions')->name('reports.role-permissions');
+
         // Per-company settings
         Route::livewire('settings/inventory', 'pages::settings.inventory')->name('settings.inventory');
         Route::livewire('settings/invoices', 'pages::settings.invoices')->name('settings.invoices');

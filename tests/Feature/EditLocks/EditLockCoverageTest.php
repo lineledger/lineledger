@@ -44,7 +44,7 @@ it('locks every full-page edit form under {company}', function () use ($componen
         $checked[] = $route->getName();
     }
 
-    expect($checked)->toHaveCount(29);
+    expect($checked)->toHaveCount(30);
 });
 
 it('makes every show page that has an edit page aware of the lock, with at least one guarded action', function () use ($componentFor) {
