@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\TaxCodesPresenter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -28,7 +28,7 @@ class TaxCodesTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireAnySection(Section::Lists, Section::Reports)) {
+        if ($denied = $this->requirePermission([Activity::TaxCodes, Activity::TaxReturns])) {
             return $denied;
         }
 

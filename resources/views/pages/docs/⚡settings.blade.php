@@ -15,7 +15,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         </flux:text>
 
         <flux:text>
-            {{ __('The menu on the left of every Settings page lists your personal pages first — Profile, Security, Organizations, Combined reports, Appearance, Sidebar, and Legal — then a Company group for the organization you are working in (Invoices, Tax & filing, Payroll, Currencies, Inventory, and, for Owners, Backup & Export) and a Lists group. Combined reports, Tax & filing, Payroll, and the lists have their own pages:') }}
+            {{ __('The menu on the left of every Settings page lists your personal pages first — Profile, Security, Organizations, Combined reports, Appearance, Sidebar, and Legal — then a Company group for the organization you are working in (Users and roles, Invoices, Tax & filing, Payroll, Currencies, Inventory, and, for Owners, Backup & Export) and a Lists group. Combined reports, Tax & filing, Payroll, and the lists have their own pages:') }}
             <a class="underline" href="{{ route('docs.reports') }}" wire:navigate>{{ __('Reports') }}</a>{{ __(',') }} <a class="underline" href="{{ route('docs.tax-returns') }}" wire:navigate>{{ __('Tax returns') }}</a>{{ __(',') }} <a class="underline" href="{{ route('docs.payroll') }}" wire:navigate>{{ __('Payroll') }}</a>{{ __(', and') }} <a class="underline" href="{{ route('docs.lists') }}" wire:navigate>{{ __('Lists') }}</a>{{ __('.') }}
         </flux:text>
 
@@ -97,13 +97,13 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Require two-factor for an organization') }}</flux:heading>
         <flux:text>
-            {{ __('Owners and Admins can make two-factor authentication mandatory for an organization. On its edit page, turn on “Require two-factor authentication for owners & admins” and save. Every Owner and Admin is then prompted to set up 2FA before they can use that organization; lower-privilege roles such as Accountant and Custom members are unaffected.') }}
+            {{ __('The Owner, or anyone whose role can change organization settings, can make two-factor authentication mandatory for an organization. On its edit page, turn on “Require two-factor authentication for the owner and administrators” and save. The Owner and everyone whose roles include administrative permissions — such as organization settings, the closing date, API keys, invitations, users or roles — are then prompted to set up 2FA before they can use that organization; everyone else is unaffected.') }}
         </flux:text>
 
         {{-- ─────────────────────────── Organizations ──────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Organizations') }}</flux:heading>
         <flux:text>
-            {{ __('Settings → Organizations lists every organization you belong to, and a New organization button that asks for an Organization name, Country, province or state, Base currency, and Timezone. Each organization keeps its own books, contacts, and reports; organizations never share data. The button at the end of each row opens the edit page: Edit organization for Owners and Admins, View organization (read-only) for everyone else. See') }}
+            {{ __('Settings → Organizations lists every organization you belong to, and a New organization button that asks for an Organization name, Country, province or state, Base currency, and Timezone. Each organization keeps its own books, contacts, and reports; organizations never share data. The button at the end of each row opens the edit page: Edit organization for the Owner and anyone whose role can change organization settings, View organization (read-only) for everyone else. See') }}
             <a class="underline" href="{{ route('docs.creating-a-company') }}" wire:navigate>{{ __('Creating a company') }}</a>
             {{ __('for the full setup wizard and for restoring an organization from a backup.') }}
         </flux:text>
@@ -133,47 +133,18 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <a class="underline" href="{{ route('docs.site-administration') }}" wire:navigate>{{ __('Site administration') }}</a>{{ __('). An organization badged Personal on the Organizations list cannot be deleted.') }}
         </flux:text>
 
-        {{-- ──────────────────── Team and permissions ──────────────────────── --}}
-        <flux:heading size="lg" class="mt-8">{{ __('Team and permissions') }}</flux:heading>
+        {{-- ──────────────────────── Users and roles ──────────────────────── --}}
+        <flux:heading size="lg" class="mt-8">{{ __('Users and roles') }}</flux:heading>
         <flux:text>
-            {{ __('Invite teammates to an organization and control what each can reach. Beyond the role, every member has section access: an Owner or Admin sees everything, an Accountant sees the books, and a Custom member is granted only the specific areas you choose — Customers, Vendors, Banking, Reports, and so on. People only see the sidebar sections they have access to, and the app blocks the rest even by direct link.') }}
+            {{ __('Settings → Users and roles is where you invite people to the organization and decide what each of them can do. The Owner always has full access; everyone else holds one or more roles, and each role grants None, Full, or Partial access to every activity in the app, from invoices to pay runs. Fifteen predefined roles come with every organization, from Full Access and Accountant to Sales and View-only, and you can edit them or build your own. People only see the pages their roles open, and the app blocks the rest even by direct link.') }}
         </flux:text>
-
-        <p><strong>{{ __('The roles:') }}</strong></p>
-        <ul class="list-disc ps-6 space-y-1">
-            <li>{{ __('Owner — full access, including company settings and ownership.') }}</li>
-            <li>{{ __('Admin — full access to every section, including settings.') }}</li>
-            <li>{{ __('Accountant — access to every section except settings.') }}</li>
-            <li>{{ __('Custom — access only to the sections you select.') }}</li>
-        </ul>
-
         <flux:text>
-            {{ __('The sections you can grant a Custom member are: Customers, Vendors, Employees, Payroll, Inventory, Accounting, Banking, Inbox, Fundraising, Reports, Lists, Documents, and Settings. Owners and Admins can invite people and cancel invitations; only the Owner can change a member’s role or remove a member, and the Owner’s own row has no Edit or remove control.') }}
+            {{ __('The page asks for your password, or a fresh two-factor code, before it opens. Its Users tab lists each person with their roles, Invite user, and the pending invitations; its Roles tab lists every role with the role editor and the Permission access by roles report. For the full walkthrough, see') }}
+            <a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a>{{ __('.') }}
         </flux:text>
-
-        <p><strong>{{ __('To invite a teammate:') }}</strong></p>
-        <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('Open the organization’s edit page (Settings → Organizations → Edit organization).') }}</li>
-            <li>{{ __('In the Company members section, select Invite member.') }}</li>
-            <li>{{ __('Enter their Email address and choose a Role — Admin, Accountant, or Custom.') }}</li>
-            <li>{{ __('For Custom, tick the Sections they should be able to reach.') }}</li>
-            <li>{{ __('Select Send invitation.') }}</li>
-        </ol>
-
-        <p><strong>{{ __('To change a member’s role or remove them (Owner only):') }}</strong></p>
-        <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('In the Company members section, select Edit next to the member, pick a new Role — and, for Custom, adjust the Sections they can reach — then select Save.') }}</li>
-            <li>{{ __('To remove someone instead, select the remove (×) button next to the member and confirm.') }}</li>
-        </ol>
-
-        <x-docs.figure
-            src="{{ asset('docs/screenshots/settings/team-members.png') }}"
-            alt="{{ __('The Company members section listing each member with their role badge, Edit and remove controls, an Invite member button, and the Pending invitations list below') }}"
-            caption="{{ __('The Company members section. Each member shows their role; the Owner uses Edit to change it or the × to remove them. Pending invitations sit just below with a cancel control.') }}"
-        />
 
         <x-docs.callout type="note">
-            {{ __('Lowering someone’s role or removing them takes effect immediately — their active sessions and API keys for the organization are revoked on the spot, so access never outlives the change. Pending invitations expire after 3 days; you can cancel one any time before it is accepted.') }}
+            {{ __('Taking access away takes effect immediately: the app asks first, then signs out whoever loses access and stops the API keys they made for the organization. Pending invitations expire after 3 days; you can cancel one any time before it is accepted.') }}
         </x-docs.callout>
 
         {{-- ─────────────────── Edit locks (one editor at a time) ─────────────────── --}}
@@ -190,7 +161,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <li>{{ __('If a record changes after you opened it — a teammate took it over, or it was updated from somewhere else — your page says so and asks you to reload rather than saving over the newer version.') }}</li>
         </ul>
 
-        <p><strong>{{ __('To take over a record someone else is editing (Owners and Admins only):') }}</strong></p>
+        <p><strong>{{ __('To take over a record someone else is editing (Full Access, or the Owner):') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open the record, or its edit page or dialog.') }}</li>
             <li>{{ __('Select Take over editing and confirm.') }}</li>
@@ -257,12 +228,12 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         {{-- ──────────────────────────── Period lock ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Period lock (closing the books)') }}</flux:heading>
         <flux:text>
-            {{ __('Owners and Admins can set a closing date that freezes every transaction on or before it, so a finished period cannot be changed by accident. The control lives in the Close the books section of the edit page: select Close the books (or Change lock date once one is set), pick a Lock date — a click anywhere in the field opens the calendar, and leaving it blank removes the lock — enter Your account password, and select Confirm. Every change is recorded in the audit log. See') }}
+            {{ __('The Owner, and anyone whose role includes Closing date (Full Access), can set a closing date that freezes every transaction on or before it, so a finished period cannot be changed by accident. The control lives in the Close the books section of the edit page: select Close the books (or Change lock date once one is set), pick a Lock date — a click anywhere in the field opens the calendar, and leaving it blank removes the lock — enter Your account password, and select Confirm. Every change is recorded in the audit log. See') }}
             <a class="underline" href="{{ route('docs.accounting') }}" wire:navigate>{{ __('Accounting → Period locking') }}</a>
             {{ __('for exactly what it protects.') }}
         </flux:text>
         <flux:text>
-            {{ __('A period lock is not the same as an edit lock: the period lock freezes every transaction dated on or before the closing date for everyone until an Owner or Admin moves the date, while an edit lock only stops two people changing the same record at the same moment and clears itself when the editor is done.') }}
+            {{ __('A period lock is not the same as an edit lock: the period lock freezes every transaction dated on or before the closing date for everyone until someone allowed to set the closing date moves it, while an edit lock only stops two people changing the same record at the same moment and clears itself when the editor is done.') }}
         </flux:text>
 
         {{-- ──────────── Country, organization type and jurisdiction ──────────── --}}
@@ -352,7 +323,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             {{ __('for the review queue itself.') }}
         </flux:text>
         <flux:text>
-            {{ __('The page is not listed in the Settings menu. Go to /settings/inbox-email directly, or select Open inbox settings in the Auto-fill is off notice on an Inbox review screen — that link appears only while Read receipts automatically is off for your organization. Only Owners and Admins can open the page, and it applies to the organization you are working in.') }}
+            {{ __('The page is not listed in the Settings menu. Go to /settings/inbox-email directly, or select Open inbox settings in the Auto-fill is off notice on an Inbox review screen — that link appears only while Read receipts automatically is off for your organization. Only the Owner and anyone whose role can change organization settings can open the page, and it applies to the organization you are working in.') }}
         </flux:text>
 
         <p><strong>{{ __('To turn on inbound email:') }}</strong></p>
@@ -512,7 +483,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         {{-- ──────────────────────────── API keys ──────────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('API keys') }}</flux:heading>
         <flux:text>
-            {{ __('API keys grant programs and integrations access to your organization’s data through the /api/v1 REST API. Owners and Admins manage them in the API keys panel near the bottom of Settings → Security, for the organization you are working in. Select Create API key, give it a Label, choose when it Expires (Never, In 30 days, In 90 days, or In 1 year), and tick Scopes — leave all unchecked for full access, or grant read or write per domain and refine by resource for a narrower key. The key is shown once, at creation; copy it then, because you cannot retrieve it later. Each row shows whether the key is Active, Expires soon, Expired, or Revoked, plus when it was last used, with Edit (label and scopes only), Rotate (a new value, the old one stops at once), and Revoke.') }}
+            {{ __('API keys grant programs and integrations access to your organization’s data through the /api/v1 REST API. The Owner, and anyone whose role can manage API keys (Full Access), manage them in the API keys panel near the bottom of Settings → Security, for the organization you are working in. A key can never do more than the person who created it may do now. Select Create API key, give it a Label, choose when it Expires (Never, In 30 days, In 90 days, or In 1 year), and tick Scopes — leave all unchecked for full access, or grant read or write per domain and refine by resource for a narrower key. The key is shown once, at creation; copy it then, because you cannot retrieve it later. Each row shows whether the key is Active, Expires soon, Expired, or Revoked, plus when it was last used, with Edit (label and scopes only), Rotate (a new value, the old one stops at once), and Revoke.') }}
         </flux:text>
         <flux:text>
             {{ __('See the') }}
@@ -541,7 +512,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('AI assistant writes (MCP)') }}</flux:heading>
         <flux:text>
-            {{ __('A separate, write-enabled mode lets a connected assistant draft invoices, bills, expenses, and journal entries for an organization. It is deliberately gated twice. The site operator must first turn on writes on the server (MCP_WRITE_ENABLED); then an Owner or Admin opens the organization’s edit page (Settings → Organizations → Edit organization), finds the AI assistant writes (MCP) block, and turns on Allow AI assistant writes — it applies to this organization only and saves immediately. Until the operator has enabled writes, the switch is greyed out with a note that it cannot be turned on yet.') }}
+            {{ __('A separate, write-enabled mode lets a connected assistant draft invoices, bills, expenses, and journal entries for an organization. It is deliberately gated twice. The site operator must first turn on writes on the server (MCP_WRITE_ENABLED); then the Owner, or someone whose role can change organization settings, opens the organization’s edit page (Settings → Organizations → Edit organization), finds the AI assistant writes (MCP) block, and turns on Allow AI assistant writes — it applies to this organization only and saves immediately. Until the operator has enabled writes, the switch is greyed out with a note that it cannot be turned on yet.') }}
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('Nothing is saved until you confirm') }}">

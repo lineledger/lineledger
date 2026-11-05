@@ -2,7 +2,8 @@
 
 namespace App\Mcp\Tools\Write;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Mcp\Concerns\ProposesWrites;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -32,7 +33,7 @@ class ProposeBillTool extends Tool
         if ($denied = $this->requireAbility('bills:write')) {
             return $denied;
         }
-        if ($denied = $this->requireSection(Section::Vendors)) {
+        if ($denied = $this->requirePermission(Activity::Bills, PermissionAction::Create)) {
             return $denied;
         }
 

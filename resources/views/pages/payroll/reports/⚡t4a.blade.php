@@ -2,7 +2,9 @@
 
 use App\Actions\Payroll\FinalizeSlipFiling;
 use App\Actions\Payroll\UnlockSlipFiling;
+use App\Enums\PermissionAction;
 use App\Enums\SlipType;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollSlipFiling;
 use App\Services\Reporting\Cra\CraFilingReadiness;
@@ -73,6 +75,7 @@ new #[Title('T4A slips')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function finalize(): void
     {
         app(FinalizeSlipFiling::class)->handle($this->company, SlipType::T4a, $this->year);
@@ -80,6 +83,7 @@ new #[Title('T4A slips')] class extends Component {
         $this->resetSnapshot();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unlock(): void
     {
         $filing = $this->filing;
@@ -106,6 +110,7 @@ new #[Title('T4A slips')] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -121,6 +126,7 @@ new #[Title('T4A slips')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t4a', [
@@ -164,6 +170,7 @@ new #[Title('T4A slips')] class extends Component {
         return app(T4AXmlGenerator::class)->readiness($this->company, $this->year, $this->filingSlips['slips']);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXml()
     {
         if (! $this->xmlReadiness->isReady()) {
@@ -194,6 +201,7 @@ new #[Title('T4A slips')] class extends Component {
             <flux:input type="number" wire:model.live="year" :label="__('Year')" class="max-w-[120px]" />
             @if ($this->filing)
                 <flux:badge color="green" data-test="t4a-finalized-badge">{{ __('Finalized') }}</flux:badge>
+                @callable($this, 'unlock')
                 <flux:button
                     variant="ghost"
                     icon="lock-open"
@@ -203,8 +211,10 @@ new #[Title('T4A slips')] class extends Component {
                 >
                     {{ __('Unlock') }}
                 </flux:button>
+                @endcallable
             @else
                 <flux:badge color="zinc" data-test="t4a-draft-badge">{{ __('Draft') }}</flux:badge>
+                @callable($this, 'finalize')
                 <flux:button
                     variant="ghost"
                     icon="lock-closed"
@@ -214,14 +224,21 @@ new #[Title('T4A slips')] class extends Component {
                 >
                     {{ __('Finalize :year', ['year' => $this->year]) }}
                 </flux:button>
+                @endcallable
                 <flux:switch wire:model.live="showAll" :label="__('Show below $500')" />
             @endif
             <flux:dropdown align="end">
                 <flux:button variant="primary" icon="arrow-down-tray" icon:trailing="chevron-down" :disabled="empty($this->rows)">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportPdf')
                     <flux:menu.item icon="document" wire:click="exportPdf">{{ __('PDF') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportXml')
                     <flux:menu.item icon="code-bracket" wire:click="exportXml">{{ __('CRA XML (e-file)') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>

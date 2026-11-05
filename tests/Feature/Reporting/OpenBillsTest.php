@@ -22,6 +22,9 @@ beforeEach(function () {
     $this->vendor = Contact::create(['company_id' => $this->company->id, 'display_name' => 'Open Bills Vendor', 'is_vendor' => true, 'is_active' => true]);
     $this->ap = Account::query()->where('subtype', AccountSubtype::AccountsPayable->value)->first();
     $this->expense = Account::query()->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->first();
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->owner = actAsCompanyOwner($this->company);
 });
 
 afterEach(fn () => app()->forgetInstance('current_company'));

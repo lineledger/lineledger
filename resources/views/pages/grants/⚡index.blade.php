@@ -56,9 +56,11 @@ new #[Title('Grants')] class extends Component {
             <flux:heading size="xl" level="1" data-test="page-title">{{ __('Grants') }}</flux:heading>
             <flux:subheading>{{ __('Track grants from funders, restrictions, and revenue recognition.') }}</flux:subheading>
         </div>
+        @reaches('grants.create')
         <flux:button variant="primary" icon="plus" :href="route('grants.create', ['company' => $company])" wire:navigate data-test="new-grant-button">
             {{ __('New grant') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">

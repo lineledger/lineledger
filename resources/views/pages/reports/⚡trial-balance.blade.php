@@ -6,6 +6,8 @@ use App\Concerns\HasReportAsOfDate;
 use App\Concerns\HasReportNumberFormat;
 use App\Concerns\Memorizable;
 use App\Enums\NormalBalance;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
@@ -100,6 +102,7 @@ new #[Title('Trial Balance')] class extends Component {
         return ['rows' => $rows, 'totals' => ['debit' => $totalDr, 'credit' => $totalCr]];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -115,6 +118,7 @@ new #[Title('Trial Balance')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->trialBalance(
@@ -126,6 +130,7 @@ new #[Title('Trial Balance')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.trial-balance', [

@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\InvoiceTemplate;
@@ -29,6 +31,7 @@ new #[Title('Invoice templates')] class extends Component {
             ->paginate(25);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function delete(int $id): void
     {
         $template = InvoiceTemplate::findOrFail($id);
@@ -50,9 +53,11 @@ new #[Title('Invoice templates')] class extends Component {
             <flux:subheading>{{ __('Reusable sets of line items to auto-fill new invoices.') }}</flux:subheading>
         </div>
 
+        @reaches('invoice-templates.create')
         <flux:button variant="primary" icon="plus" :href="route('invoice-templates.create', ['company' => $company->slug])" wire:navigate data-test="new-invoice-template-button">
             {{ __('New template') }}
         </flux:button>
+        @endreaches
     </div>
 
     {{-- Mobile: stacked cards --}}
@@ -71,9 +76,11 @@ new #[Title('Invoice templates')] class extends Component {
                 </div>
                 <div class="mt-2 flex items-center justify-between gap-2">
                     <span class="text-sm text-muted-foreground">{{ trans_choice(':count line|:count lines', $template->lines_count, ['count' => $template->lines_count]) }}</span>
+                    @callable($this, 'delete')
                     <flux:button variant="ghost" size="sm" icon="trash" wire:click="delete({{ $template->id }})" wire:confirm="{{ __('Delete this template?') }}">
                         {{ __('Delete') }}
                     </flux:button>
+                    @endcallable
                 </div>
             </div>
         @empty
@@ -108,7 +115,9 @@ new #[Title('Invoice templates')] class extends Component {
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right">
+                            @callable($this, 'delete')
                             <flux:button variant="ghost" size="sm" icon="trash" wire:click="delete({{ $template->id }})" wire:confirm="{{ __('Delete this template?') }}" data-test="delete-invoice-template" />
+                            @endcallable
                         </td>
                     </tr>
                 @empty

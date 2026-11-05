@@ -2,7 +2,8 @@
 
 namespace App\Mcp\Tools\Write;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Mcp\Concerns\ProposesWrites;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -32,7 +33,7 @@ class ProposeJournalEntryTool extends Tool
         if ($denied = $this->requireAbility('journal-entries:write')) {
             return $denied;
         }
-        if ($denied = $this->requireSection(Section::Accounting)) {
+        if ($denied = $this->requirePermission(Activity::Journal, PermissionAction::Create)) {
             return $denied;
         }
 

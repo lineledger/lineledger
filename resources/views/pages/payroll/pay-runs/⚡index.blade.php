@@ -59,9 +59,11 @@ new #[Title('Pay runs')] class extends Component {
             <flux:heading size="xl" level="1">{{ __('Pay runs') }}</flux:heading>
             <flux:subheading>{{ __('Run payroll, review the calculated deductions and write cheques.') }}</flux:subheading>
         </div>
+        @reaches('pay-runs.create')
         <flux:button variant="primary" icon="plus" :href="route('pay-runs.create')" wire:navigate data-test="new-pay-run-button">
             {{ __('New pay run') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4">

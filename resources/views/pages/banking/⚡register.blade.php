@@ -6,6 +6,9 @@ use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Banking\AccountCurrencyAmounts;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
+use App\Support\Access\PermissionSet;
 use App\Support\Banking\LastBankAccount;
 use App\Support\Preferences\UserPreferences;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +44,9 @@ new #[Title('Bank register')] class extends Component {
     public ?int $account_id = null;
 
     public bool $showCleared = true;
+
+    /** The viewer's permissions, resolved once per request (not Livewire state). */
+    private ?PermissionSet $viewerPermissions = null;
 
     public function mount(Company $company): void
     {
@@ -211,6 +217,24 @@ new #[Title('Bank register')] class extends Component {
             : "CASE WHEN {$signed} > 0 THEN {$signed} ELSE 0 END";
 
         $query->orderByRaw("{$amount} {$dir}", [...$bindings, ...$bindings]);
+    }
+
+    /**
+     * Whether the line's payroll detail is withheld from this viewer
+     * (PayrollDetail): a payroll cheque or remittance leg then reads
+     * "Payroll", with no link to its entry. Its amount stays.
+     */
+    public function hidesLine(JournalLine $line): bool
+    {
+        $this->viewerPermissions ??= CurrentViewer::permissions($this->company);
+
+        return PayrollDetail::hidesEntry($line->journalEntry, $this->viewerPermissions);
+    }
+
+    /** The line's memo as this viewer may see it. */
+    public function lineMemo(JournalLine $line): ?string
+    {
+        return $this->hidesLine($line) ? PayrollDetail::label() : ($line->memo ?? $line->journalEntry?->memo);
     }
 
     /**
@@ -389,9 +413,13 @@ new #[Title('Bank register')] class extends Component {
                         </td>
                         <td class="px-3 py-2 whitespace-nowrap">{{ $line->journalEntry->entry_date->toDateString() }}</td>
                         <td class="px-3 py-2 font-mono">
-                            <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $line->journalEntry->id]) }}" wire:navigate class="underline">{{ $line->journalEntry->entry_no }}</a>
+                            @if ($this->hidesLine($line))
+                                {{ $line->journalEntry->entry_no }}
+                            @else
+                                <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $line->journalEntry->id]) }}" wire:navigate class="underline">{{ $line->journalEntry->entry_no }}</a>
+                            @endif
                         </td>
-                        <td class="px-3 py-2 text-muted-foreground">{{ $line->memo ?? $line->journalEntry->memo }}</td>
+                        <td class="px-3 py-2 text-muted-foreground">{{ $this->lineMemo($line) }}</td>
                         @if ($foreignCurrency)
                             @foreach (['payments', 'deposits'] as $side)
                                 <td class="px-3 py-2 text-right font-mono whitespace-nowrap">

@@ -3,9 +3,11 @@
 use App\Actions\Payroll\RecordPayrollRemittance;
 use App\Enums\AccountSubtype;
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceAgency;
 use App\Enums\RemittanceFrequency;
 use App\Enums\RemittanceStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
@@ -123,6 +125,7 @@ new #[Title("Workers' compensation remittance")] class extends Component {
         Flux::modal('record-remittance')->show();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function record(RecordPayrollRemittance $action): void
     {
         $validated = $this->validate([
@@ -160,6 +163,7 @@ new #[Title("Workers' compensation remittance")] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -190,7 +194,9 @@ new #[Title("Workers' compensation remittance")] class extends Component {
                     <flux:select.option value="{{ $period['key'] }}">{{ $period['label'] }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @callable($this, 'exportCsv')
             <flux:button variant="ghost" icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

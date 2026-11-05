@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Asset;
 use App\Models\Attachment;
 use App\Models\Bill;
@@ -49,6 +51,7 @@ new #[Title('Attachment index')] class extends Component {
         Flux::modal('attachment-description-modal')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveDescription(AttachmentService $service): void
     {
         $this->validate(['editDescription' => ['nullable', 'string', 'max:500']]);

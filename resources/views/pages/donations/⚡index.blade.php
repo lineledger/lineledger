@@ -57,9 +57,11 @@ new #[Title('Donations')] class extends Component {
             <flux:heading size="xl" level="1" data-test="page-title">{{ __('Donations') }}</flux:heading>
             <flux:subheading>{{ __('Record donation income and track restricted gifts.') }}</flux:subheading>
         </div>
+        @reaches('donations.create')
         <flux:button variant="primary" icon="plus" :href="route('donations.create', ['company' => $company])" wire:navigate data-test="new-donation-button">
             {{ __('Record donation') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">

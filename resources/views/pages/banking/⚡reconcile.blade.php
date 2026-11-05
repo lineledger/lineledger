@@ -4,7 +4,9 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\BankReconciliationStatus;
 use App\Enums\BankStatementFormat;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\ReconciliationOutOfBalanceException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Attachment;
 use App\Models\BankReconciliation;
@@ -423,6 +425,7 @@ new #[Title('Reconcile')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function startReconciliation(): void
     {
         if (! $this->account_id) {
@@ -515,6 +518,7 @@ new #[Title('Reconcile')] class extends Component {
         Flux::modal('edit-reconciliation')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveDetails(): void
     {
         $rec = $this->current;
@@ -591,6 +595,7 @@ new #[Title('Reconcile')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function markAll(string $side): void
     {
         if (! $this->current) {
@@ -607,6 +612,7 @@ new #[Title('Reconcile')] class extends Component {
         unset($this->current);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unmarkAll(string $side): void
     {
         if (! $this->current) {
@@ -623,6 +629,7 @@ new #[Title('Reconcile')] class extends Component {
         unset($this->current);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function reconcileNow(AttachmentService $attachmentService): void
     {
         if (! $this->current) {
@@ -668,6 +675,7 @@ new #[Title('Reconcile')] class extends Component {
         return $this->current?->attachments()->get() ?? collect();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         if (! $this->current) {
@@ -684,6 +692,7 @@ new #[Title('Reconcile')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         if (! $this->current) {
@@ -1115,7 +1124,9 @@ new #[Title('Reconcile')] class extends Component {
                     <flux:modal.close>
                         <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
+                    @callable($this, 'startReconciliation')
                     <flux:button variant="primary" wire:click="startReconciliation" wire:loading.attr="disabled" wire:target="statementForFill">{{ __('Continue') }}</flux:button>
+                    @endcallable
                 </div>
             </div>
         </flux:modal>
@@ -1181,8 +1192,12 @@ new #[Title('Reconcile')] class extends Component {
                 <div class="flex items-center justify-between border-b border-border bg-muted px-3 py-2">
                     <flux:heading size="sm">{{ $company->jurisdiction->chequeLabel('section') }}</flux:heading>
                     <div class="flex gap-1">
+                        @callable($this, 'markAll')
                         <flux:button size="xs" variant="ghost" wire:click="markAll('payments')">{{ __('Mark all') }}</flux:button>
+                        @endcallable
+                        @callable($this, 'unmarkAll')
                         <flux:button size="xs" variant="ghost" wire:click="unmarkAll('payments')">{{ __('Unmark all') }}</flux:button>
+                        @endcallable
                     </div>
                 </div>
                 <table class="w-full text-sm">
@@ -1234,8 +1249,12 @@ new #[Title('Reconcile')] class extends Component {
                 <div class="flex items-center justify-between border-b border-border bg-muted px-3 py-2">
                     <flux:heading size="sm">{{ __('Deposits and Other Credits') }}</flux:heading>
                     <div class="flex gap-1">
+                        @callable($this, 'markAll')
                         <flux:button size="xs" variant="ghost" wire:click="markAll('deposits')">{{ __('Mark all') }}</flux:button>
+                        @endcallable
+                        @callable($this, 'unmarkAll')
                         <flux:button size="xs" variant="ghost" wire:click="unmarkAll('deposits')">{{ __('Unmark all') }}</flux:button>
+                        @endcallable
                     </div>
                 </div>
                 <table class="w-full text-sm">
@@ -1318,6 +1337,7 @@ new #[Title('Reconcile')] class extends Component {
                             {{ number_format($diff / 100, 2) }}
                         </div>
                     </div>
+                    @callable($this, 'reconcileNow')
                     <flux:button
                         variant="primary"
                         icon="check-circle"
@@ -1329,6 +1349,7 @@ new #[Title('Reconcile')] class extends Component {
                     >
                         {{ __('Reconcile now') }}
                     </flux:button>
+                    @endcallable
                 </div>
             </div>
         </div>
@@ -1340,10 +1361,12 @@ new #[Title('Reconcile')] class extends Component {
             @forelse ($this->attachments as $att)
                 <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="rec-att-{{ $att->id }}" data-test="reconciliation-attachment-row">
                     <x-attachment-link :attachment="$att" :company="$company" />
+                    @callable($this, 'removeAttachment')
                     <flux:button variant="ghost" size="sm" icon="x-mark"
                         wire:click="removeAttachment({{ $att->id }})"
                         wire:confirm="{{ __('Remove this attachment?') }}"
                         data-test="reconciliation-attachment-remove" />
+                    @endcallable
                 </div>
             @empty
                 <flux:text class="text-sm text-muted-foreground">{{ __('Attach the bank statement or other supporting files for this reconciliation.') }}</flux:text>
@@ -1361,9 +1384,11 @@ new #[Title('Reconcile')] class extends Component {
                     <flux:text class="text-sm text-muted-foreground">
                         {{ __(':count file(s) will be attached when you reconcile.', ['count' => count($newAttachments)]) }}
                     </flux:text>
+                    @callable($this, 'uploadAttachments')
                     <flux:button variant="ghost" size="sm" wire:click="uploadAttachments" data-test="reconciliation-attachment-upload">
                         {{ __('Upload now') }}
                     </flux:button>
+                    @endcallable
                 </div>
             @endif
         </div>
@@ -1417,7 +1442,9 @@ new #[Title('Reconcile')] class extends Component {
                     <flux:modal.close>
                         <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
+                    @callable($this, 'saveDetails')
                     <flux:button variant="primary" wire:click="saveDetails">{{ __('Save changes') }}</flux:button>
+                    @endcallable
                 </div>
             </div>
         </flux:modal>

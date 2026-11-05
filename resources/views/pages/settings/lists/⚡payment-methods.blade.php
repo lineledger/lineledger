@@ -2,6 +2,7 @@
 
 use App\Actions\MasterData\SavePaymentMethod;
 use App\Enums\JurisdictionCapability;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\PaymentMethod;
@@ -54,6 +55,7 @@ new #[Title('Payment methods')] class extends Component {
         Flux::modal('payment-methods-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(PaymentMethod::class, $this->editingId)) {

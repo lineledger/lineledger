@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Enums\TaxReturnPaymentStatus;
 use App\Enums\TaxReturnStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Cheque;
@@ -126,6 +128,7 @@ new #[Title('Tax return')] class extends Component {
         unset($this->draftFigures, $this->vatBoxes);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(TaxReturnFiler $filer): void
     {
@@ -206,9 +209,11 @@ new #[Title('Tax return')] class extends Component {
             @if ($taxReturn->status === TaxReturnStatus::Draft)
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" wire:click="file" wire:confirm="{{ __('File this return? The snapshot is permanent and the period will be locked for this agency.') }}" data-test="file-return-button">{{ __('File return') }}</flux:button>
             @elseif ($taxReturn->status === TaxReturnStatus::Filed && ! $hasOpenPayment)
+                @reaches('tax-returns.payments.create')
                 <flux:button variant="primary" icon="banknotes" class="!hidden lg:!inline-flex" :href="route('tax-returns.payments.create', ['company' => $company->slug, 'tax_return' => $taxReturn->id])" wire:navigate data-test="record-payment-link">
                     {{ $taxReturn->net_cents >= 0 ? __('Record payment') : __('Record refund') }}
                 </flux:button>
+                @endreaches
             @endif
 
             <flux:dropdown align="end">
@@ -216,13 +221,17 @@ new #[Title('Tax return')] class extends Component {
                 <flux:menu>
                     @if ($taxReturn->status === TaxReturnStatus::Draft)
                         <flux:menu.item class="lg:hidden" icon="document-check" wire:click="file" wire:confirm="{{ __('File this return? The snapshot is permanent and the period will be locked for this agency.') }}" data-test="file-return-menu-item">{{ __('File return') }}</flux:menu.item>
+                        @reaches('tax-returns.edit')
                         <flux:menu.item icon="pencil" :href="route('tax-returns.edit', ['company' => $company->slug, 'tax_return' => $taxReturn->id])" wire:navigate data-test="edit-tax-return-button">{{ __('Edit') }}</flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($taxReturn->status === TaxReturnStatus::Filed)
                         @unless ($hasOpenPayment)
+                            @reaches('tax-returns.payments.create')
                             <flux:menu.item class="lg:hidden" icon="banknotes" :href="route('tax-returns.payments.create', ['company' => $company->slug, 'tax_return' => $taxReturn->id])" wire:navigate data-test="record-payment-menu-item">
                                 {{ $taxReturn->net_cents >= 0 ? __('Record payment') : __('Record refund') }}
                             </flux:menu.item>
+                            @endreaches
                         @endunless
                         <flux:menu.separator />
                         <flux:modal.trigger name="void-tax-return">
@@ -415,7 +424,9 @@ new #[Title('Tax return')] class extends Component {
             <flux:textarea wire:model="voidReason" :label="__('Reason')" rows="3" data-test="void-reason-input" />
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="ghost">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                @callable($this, 'void')
                 <flux:button variant="danger" wire:click="void" data-test="confirm-void-button">{{ __('Confirm void') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>

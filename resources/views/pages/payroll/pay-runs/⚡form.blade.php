@@ -22,6 +22,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Pay run')] class extends Component {
     use GuardsEditLockedForm;
@@ -408,7 +409,7 @@ new #[Title('Pay run')] class extends Component {
             Flux::toast(variant: 'success', text: __('Pulled :hours hours from :entries time entries for :n employee(s).', ['hours' => rtrim(rtrim(number_format($summary['hours'], 2), '0'), '.'), 'entries' => $summary['entries'], 'n' => $summary['employees']]).($breakdown !== '' ? ' ('.$breakdown.')' : '').$outsideNote.$salariedNote);
         }
 
-        $this->redirectRoute('pay-runs.edit', ['company' => $this->company, 'payRun' => $run], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('pay-runs.edit'), ['company' => $this->company, 'payRun' => $run], navigate: true);
     }
 }; ?>
 

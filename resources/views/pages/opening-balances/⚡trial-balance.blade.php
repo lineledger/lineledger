@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
 use App\Models\Account;
@@ -38,7 +40,7 @@ new #[Title('Opening trial balance')] class extends Component {
 
     public function mount(Company $company): void
     {
-        abort_unless(auth()->user()?->ownsCompany($company), 403);
+        abort_unless(auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false, 403);
 
         $this->company = $company;
         $this->resolveObState();
@@ -146,6 +148,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals);
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function addRow(): void
     {
         if (! $this->obEditable()) {
@@ -184,6 +187,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals, $this->availableAccounts);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeRow(int $accountId): void
     {
         if (! $this->obEditable()) {
@@ -197,6 +201,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals, $this->availableAccounts);
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();
@@ -274,7 +279,9 @@ new #[Title('Opening trial balance')] class extends Component {
                                 <x-amount-input model="c.{{ $row->account_id }}" modifiers=".live.blur" placeholder="0.00" class="text-right" :disabled="$obState->isFinalized()" data-test="ob-tb-credit-{{ $row->account?->code }}" />
                             </td>
                             <td class="py-1.5 text-right">
+                                @callable($this, 'removeRow')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeRow({{ $row->account_id }})" wire:confirm="{{ __('Remove this target? The books will be re-netted without it.') }}" :disabled="$obState->isFinalized()" data-test="ob-tb-remove-{{ $row->account?->code }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @endforeach
@@ -321,7 +328,9 @@ new #[Title('Opening trial balance')] class extends Component {
             </flux:select>
             <x-amount-input model="newDebit" modifiers="" :label="__('Debit')" class="w-36 text-right" data-test="ob-tb-new-debit" />
             <x-amount-input model="newCredit" modifiers="" :label="__('Credit')" class="w-36 text-right" data-test="ob-tb-new-credit" />
+            @callable($this, 'addRow')
             <flux:button wire:click="addRow" :disabled="$obState->isFinalized()" data-test="ob-tb-add">{{ __('Add') }}</flux:button>
+            @endcallable
         </div>
     </flux:card>
 

@@ -31,7 +31,8 @@ newest first.
   migrations, then every backfill the release needs (since 1.1.0:
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
-  `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none). Each
+  `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none; 1.5.0 adds
+  `access:sync-roles`). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -42,6 +43,114 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.3 → 1.5.0-rc.1
+
+Released 2026-11-05, on the **next channel** only (see How upgrades work → Channels).
+The first release candidate for 1.5.0: users and roles in the manner of QuickBooks
+Desktop Enterprise. Run it on an install you can restore from a backup.
+
+PHP `^8.5`, Laravel 13 and every dependency are unchanged from 1.4.3. **Four new tables
+and one new upgrade step, both run by `app:upgrade`; no config or env changes.**
+`docker-compose.yml`, `backup.sh` and `restore.sh` are unchanged from 1.4.3. The
+Droplet's `lineledger` command gains `lineledger channel`.
+
+**Coming from 1.4.2 or earlier?** 1.5.0-rc.1 contains everything in 1.4.3. Read the
+sections below for each release you skip, then come straight here.
+
+### What happens
+
+- **Four new tables** hold roles and who holds them (`roles`, `role_permissions`,
+  `company_member_roles`, `company_invitation_roles`). `app:upgrade` creates them, then
+  runs a new step, **`access:sync-roles`**, which gives every organization the 15
+  predefined roles and converts every member and pending invitation:
+  - Admin → **Full Access**; Accountant → **Accountant**;
+  - each Custom member gets a role generated for their set of sections, named
+    "Custom: Customers, Vendors" and so on; members with the same sections share one.
+  Nobody's access to pages changes. The step is idempotent, and
+  `php artisan access:sync-roles --dry-run` prints, per organization, what it would add.
+- The old `role` and `sections` columns on memberships are kept, and still read for a
+  member with no roles. A later release drops them; until then you can go back to 1.4.3
+  without a restore (see Rolling back).
+
+### What people will notice
+
+- The member list on the organization page becomes a link to **Settings → Users and
+  roles**, which asks for the password or a two-factor code before it opens.
+- **Balances follow View balance.** A Custom member converted from sections sees cash,
+  receivables and payables on the dashboard only if their sections included Banking,
+  Customers or Vendors, and net income only with Reports. Before, every member saw all
+  four.
+- **Payroll names and wages** on the general ledger, the transactions report, the bank
+  register and the journal show only to people who can open pay runs.
+- **API keys** are held to their creator's current permissions. Keys created before
+  this release by an Admin (now Full Access) keep working as before; a key with no
+  recorded creator is limited by its scopes alone, as today.
+
+### Before you start
+
+- Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+  `storage/` commands under 1.1.0 → 1.2.0, with `1.5.0-rc.1` in the filenames. Keep it
+  until you know you're staying on 1.5: it is the only way back to exactly the access
+  everyone had.
+- Note who can reach what (the member list on each organization's page), so you can
+  compare it with Settings → Users and roles afterwards.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.5.0-rc.1, or LINELEDGER_VERSION=next to take each
+# release candidate (and then 1.5.0) as it ships.
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+```bash
+lineledger upgrade 1.5.0-rc.1   # backs up, and installs the new lineledger command
+lineledger channel next         # optional: later candidates arrive with lineledger upgrade
+```
+
+### DigitalOcean App Platform
+
+In the app's spec (Settings → App Spec, or `doctl apps spec get` and
+`doctl apps update --spec`), change every component's image tag from `latest` to `next`,
+then deploy. The pre-deploy job runs `app:upgrade`. A new app: `./deploy.sh --tag next`.
+
+### Forge / bare metal
+
+Check out `v1.5.0-rc.1`, or point the site at the `next` branch, and deploy with the
+unchanged deploy script. Then run `php artisan app:upgrade --verify` and
+`php artisan queue:restart`.
+
+### Check it worked
+
+- `php artisan access:sync-roles --dry-run` (Docker: prefix it with
+  `docker compose exec app`) prints, for each organization, `would add 0 predefined
+  role(s), 0 member(s) and 0 invitation(s) converted`: everyone already holds roles.
+- **Settings → Users and roles** lists every member: Admins as Full Access, Accountants
+  as Accountant, and each Custom member with the "Custom: …" role named after their
+  sections. A Custom member can still open every page they could before.
+
+### Rolling back
+
+Going back to 1.4.3 doesn't need a restore: 1.4.3 ignores the four new tables and reads
+the access each member had before. Set `LINELEDGER_VERSION=1.4.3`; on a Droplet, run
+`lineledger channel stable` and then `lineledger upgrade 1.4.3`; on Forge, check out
+`v1.4.3`. What carries back:
+
+- **Members keep their 1.4.3 access.** Changes made on the candidate don't apply: an
+  edited or new role means nothing to 1.4.3.
+- **Members whose roles you set on the candidate**, and people who accepted an
+  invitation sent from it, **have no access on 1.4.3** until someone ticks their
+  sections again on the organization page. Nobody gains access by going back.
+- **Coming forward again later,** members who held roles on the candidate get those
+  roles back, whatever was ticked for them on 1.4.3 in between. Everyone else is
+  converted as on the first upgrade.
+
+To put everything back exactly as it was, restore the backup you took before upgrading.
 
 ## 1.4.2 → 1.4.3
 

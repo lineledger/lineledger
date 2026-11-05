@@ -54,9 +54,11 @@ new #[Title('Estimates')] class extends Component {
             <flux:subheading>{{ __('Customer quotes and estimates.') }}</flux:subheading>
         </div>
 
+        @reaches('estimates.create')
         <flux:button variant="primary" icon="plus" :href="route('estimates.create', ['company' => $company->slug])" wire:navigate data-test="new-estimate-button">
             {{ __('New estimate') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

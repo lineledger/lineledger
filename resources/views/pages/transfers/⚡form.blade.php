@@ -20,6 +20,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Transfer')] class extends Component
 {
@@ -134,7 +135,7 @@ new #[Title('Transfer')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('transfers.edit', ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('transfers.edit'), ['company' => $this->company->slug, 'transfer' => $this->transfer->id], navigate: true);
     }
 
     public function postTransfer(TransferPoster $poster): void

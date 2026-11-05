@@ -40,12 +40,16 @@ new #[Title('Recurring')] class extends Component {
         </div>
 
         <div class="flex gap-2">
+            @reaches('recurring.create')
             <flux:button variant="filled" icon="plus" :href="route('recurring.create', ['company' => $company->slug, 'type' => 'invoice'])" wire:navigate data-test="new-recurring-invoice-button">
                 {{ __('New invoice schedule') }}
             </flux:button>
+            @endreaches
+            @reaches('recurring.create')
             <flux:button variant="primary" icon="plus" :href="route('recurring.create', ['company' => $company->slug, 'type' => 'bill'])" wire:navigate data-test="new-recurring-bill-button">
                 {{ __('New bill schedule') }}
             </flux:button>
+            @endreaches
         </div>
     </div>
 

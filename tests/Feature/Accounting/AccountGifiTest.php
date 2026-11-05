@@ -28,7 +28,7 @@ it('backfills a GIFI line from the subtype when an account is created', function
 it('saves the GIFI line chosen on the account form', function () {
     $account = Account::query()->where('subtype', AccountSubtype::CurrentAsset->value)->orderBy('code')->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->call('openEdit', $account->id)
         ->set('form_gifi_code', '1484')
         ->call('save')
@@ -51,13 +51,13 @@ it('clears an unrecognised GIFI code rather than storing it', function () {
 });
 
 it('shows the GIFI field only for Canadian companies', function () {
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->assertSeeHtml('account-gifi-select');
 
     $us = Company::factory()->create(['address_country' => 'US']);
     $us->members()->attach($this->user, ['role' => CompanyRole::Owner->value]);
     app()->instance('current_company', $us);
 
-    Livewire::test('pages::accounts.index', ['company' => $us])
+    Livewire::actingAs(actAsCompanyOwner($us))->test('pages::accounts.index', ['company' => $us])
         ->assertDontSeeHtml('account-gifi-select');
 });

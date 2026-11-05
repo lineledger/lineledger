@@ -3,12 +3,15 @@
 use App\Actions\Sales\RecordCustomerRefund;
 use App\Actions\Sales\SaveInvoicePaymentRequests;
 use App\Actions\Sales\SendInvoiceToCustomer;
+use App\Enums\Activity;
 use App\Enums\ChequeStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentRequestType;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
@@ -149,6 +152,7 @@ new #[Title('Invoice')] class extends Component {
         $this->milestones = array_values($this->milestones);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function savePaymentSchedule(SaveInvoicePaymentRequests $action): void
     {
@@ -215,6 +219,7 @@ new #[Title('Invoice')] class extends Component {
             + (int) ($this->fieldVisibility['unit_column'] ?? true);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendToClient(SendInvoiceToCustomer $action): void
     {
         $this->validate([
@@ -269,6 +274,7 @@ new #[Title('Invoice')] class extends Component {
         return $emails->all();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(InvoicePoster $poster): void
     {
@@ -301,6 +307,7 @@ new #[Title('Invoice')] class extends Component {
         return min($this->invoice->balanceCents(), $available);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function reconcile(InvoiceReconciler $reconciler): void
     {
@@ -445,21 +452,25 @@ new #[Title('Invoice')] class extends Component {
     // The refund spends a payment's credit and leaves the invoice untouched, so
     // these aren't #[GuardsEditLock]: that would re-version the invoice and turn
     // away whoever is editing it. The payment's own lock is checked instead.
+    #[Requires([Activity::Cheques, Activity::Receipts], PermissionAction::Create)]
     public function submitRefund(RecordCustomerRefund $action): void
     {
         $this->processRefund($action);
     }
 
+    #[Requires(Activity::Cheques, PermissionAction::Delete)]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
         $this->removeRefundCheque($chequeId, $poster);
     }
 
+    #[Requires(Activity::Receipts, PermissionAction::Delete)]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
         $this->removeRefundReceipt($receiptId, $poster);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -472,6 +483,7 @@ new #[Title('Invoice')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->invoice);
@@ -531,9 +543,11 @@ new #[Title('Invoice')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft && $invoice->balanceCents() > 0)
+                @reaches('receipts.create')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('receipts.create', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="receive-payment-button">
                     {{ __('Receive payment') }}
                 </flux:button>
+                @endreaches
             @elseif ($this->canRefund)
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" icon="banknotes" wire:click="openRefund" data-test="refund-invoice-button">
                     {{ __('Refund to client') }}
@@ -559,9 +573,11 @@ new #[Title('Invoice')] class extends Component {
                 <flux:button icon:trailing="chevron-down" data-test="invoice-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft && $invoice->balanceCents() > 0)
+                        @reaches('receipts.create')
                         <flux:menu.item class="lg:hidden" icon="banknotes" :href="route('receipts.create', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="receive-payment-menu-item">
                             {{ __('Receive payment') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($this->canRefund)
                         {{-- On a paid invoice the header button carries it on wide screens. --}}
@@ -582,28 +598,36 @@ new #[Title('Invoice')] class extends Component {
                         </flux:modal.trigger>
                     @endif
                     @if ($invoice->status !== InvoiceStatus::Void)
+                        @reaches('invoices.edit')
                         <flux:menu.item icon="pencil" :href="route('invoices.edit', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="edit-invoice-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft)
+                        @reaches('credit-memos.create')
                         <flux:menu.item icon="receipt-refund" :href="route('credit-memos.create', ['company' => $company->slug, 'invoice' => $invoice->id])" wire:navigate data-test="credit-memo-invoice-button">
                             {{ __('Credit Memo') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft && $invoice->balanceCents() > 0 && $this->reconcilableCents > 0)
+                        @callable($this, 'reconcile')
                         <flux:menu.item
                             icon="check-circle"
                             wire:click="reconcile"
                             wire:confirm="{{ __('Close the remaining :amount? It was already settled by a journal entry, so no new ledger entry is posted.', ['amount' => $this->company->currencySymbol($this->invoice->currency_code).number_format($this->reconcilableCents / 100, 2)]) }}"
                             data-test="reconcile-invoice-button"
                         >{{ __('Close settled balance') }}</flux:menu.item>
+                        @endcallable
                     @endif
                     @if ($invoice->status !== InvoiceStatus::Void && $invoice->status !== InvoiceStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this invoice? A reversing GL entry will be posted.') }}" data-test="void-invoice-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -844,7 +868,9 @@ new #[Title('Invoice')] class extends Component {
                     @endforeach
                     <div class="flex items-center gap-2">
                         <flux:button size="sm" variant="ghost" icon="plus" wire:click="addMilestone" data-test="add-milestone">{{ __('Add milestone') }}</flux:button>
+                        @callable($this, 'savePaymentSchedule')
                         <flux:button size="sm" variant="primary" wire:click="savePaymentSchedule" data-test="save-schedule">{{ __('Save schedule') }}</flux:button>
+                        @endcallable
                     </div>
                 </div>
             @endif
@@ -881,10 +907,12 @@ new #[Title('Invoice')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="invoice-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="invoice-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -898,9 +926,11 @@ new #[Title('Invoice')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="invoice-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 

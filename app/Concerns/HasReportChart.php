@@ -2,6 +2,9 @@
 
 namespace App\Concerns;
 
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Services\Reporting\PdfExporter;
 use App\Support\Reporting\ChartContext;
 use App\Support\Reporting\ComparisonPeriod;
@@ -27,6 +30,7 @@ trait HasReportChart
      * the user's own data round-tripped to their own PDF, but we still validate
      * it: PNG prefix, strict base64, a 3MB ceiling, and a real-PNG content sniff.
      */
+    #[Requires(Activity::ReportsFinancial, PermissionAction::Print)]
     public function exportChartPdf(string $image, string $title = '', string $period = '')
     {
         $binary = $this->decodeChartImage($image);

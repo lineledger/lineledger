@@ -9,7 +9,7 @@
             <flux:heading size="lg">
                 {{ $pending ? __(':name is editing this :noun', ['name' => $pending['name'], 'noun' => $pending['noun']]) : __('Someone is editing this record') }}
             </flux:heading>
-            <flux:text class="mt-2">{{ __('As an owner or admin you can take over editing. Anything the other person has not saved will be lost.') }}</flux:text>
+            <flux:text class="mt-2">{{ __('Your access lets you take over editing. Anything the other person has not saved will be lost.') }}</flux:text>
         </div>
 
         <div class="flex justify-end gap-2">

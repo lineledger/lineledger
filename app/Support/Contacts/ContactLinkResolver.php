@@ -6,6 +6,7 @@ use App\Enums\Section;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\User;
+use App\Support\Access\RouteGate;
 use App\Support\Reporting\ReportDatePresets;
 use App\Support\Reporting\SourceLinkResolver;
 use Illuminate\Support\Facades\Route;
@@ -102,31 +103,14 @@ class ContactLinkResolver
     }
 
     /**
-     * Whether a viewer may open a company route, judged by the sections that
-     * gate it: the section must be enabled for the company (site-admin kill
-     * switch) AND the viewer must hold it — any one of the route's sections
-     * suffices, mirroring EnsureSectionEnabled + EnsureSectionAccess (the same
-     * pair SidebarNavCatalog checks before rendering a nav link). Memoised per
-     * viewer/company/route because canAccessSection() queries memberships on
-     * every call and index pages resolve one link per row.
+     * Whether a viewer may open a company route ({@see RouteGate}). Memoised
+     * per viewer/company/route because index pages resolve one link per row.
      */
     public function viewerCanReach(string $routeName, Company $company, ?User $viewer): bool
     {
-        $sections = Section::forRouteName($routeName);
+        $key = ($viewer?->getKey() ?? 0).':'.$company->getKey().':'.$routeName;
 
-        if ($sections === []) {
-            return true;
-        }
-
-        if ($viewer === null) {
-            return false;
-        }
-
-        $key = $viewer->getKey().':'.$company->getKey().':'.$routeName;
-
-        return $this->reachable[$key] ??= collect($sections)->contains(
-            fn (Section $section) => $company->sectionEnabled($section) && $viewer->canAccessSection($company, $section),
-        );
+        return $this->reachable[$key] ??= RouteGate::reaches($routeName, $company, $viewer);
     }
 
     /**

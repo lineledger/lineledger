@@ -3,9 +3,12 @@
 use App\Actions\Sales\SaveInvoice;
 use App\Actions\Sales\SaveInvoiceTemplate;
 use App\Enums\AccountType;
+use App\Enums\Activity;
 use App\Enums\InvoiceStatus;
 use App\Enums\ItemType;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
@@ -36,6 +39,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Invoice')] class extends Component
 {
@@ -594,6 +598,7 @@ new #[Title('Invoice')] class extends Component
      * Capture the current line items as a reusable invoice template. Reuses the
      * same SaveInvoiceTemplate action as the dedicated management page.
      */
+    #[Requires(Activity::InvoiceTemplates, PermissionAction::Create)]
     public function saveAsTemplate(): void
     {
         $validated = $this->validate(
@@ -694,7 +699,7 @@ new #[Title('Invoice')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $this->invoice->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company->slug, 'invoice' => $this->invoice->id], navigate: true);
     }
 
     public function postInvoice(InvoicePoster $poster): void

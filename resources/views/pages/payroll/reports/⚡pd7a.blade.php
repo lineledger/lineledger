@@ -2,9 +2,11 @@
 
 use App\Actions\Payroll\RecordPayrollRemittance;
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceAgency;
 use App\Enums\RemittanceFrequency;
 use App\Enums\RemittanceStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
@@ -126,6 +128,7 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
         Flux::modal('record-remittance')->show();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function record(RecordPayrollRemittance $action): void
     {
         $validated = $this->validate([
@@ -168,6 +171,7 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
         return 'pd7a-'.$this->selectedPeriod()['key'];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -189,6 +193,7 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.payroll-remittance-pd7a', [
@@ -220,8 +225,12 @@ new #[Title('PD7A — Payroll remittance')] class extends Component {
             <flux:dropdown align="end">
                 <flux:button variant="ghost" icon="arrow-down-tray" icon:trailing="chevron-down">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportPdf')
                     <flux:menu.item icon="document" wire:click="exportPdf">{{ __('PDF') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>

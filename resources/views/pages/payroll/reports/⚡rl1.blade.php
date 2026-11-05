@@ -2,8 +2,10 @@
 
 use App\Actions\Payroll\FinalizeSlipFiling;
 use App\Actions\Payroll\UnlockSlipFiling;
+use App\Enums\PermissionAction;
 use App\Enums\SlipType;
 use App\Exceptions\Payroll\Rl1ExportBlockedException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollSlipFiling;
 use App\Services\Reporting\CsvExporter;
@@ -75,6 +77,7 @@ new #[Title('RL-1 slips')] class extends Component {
         return $this->filing !== null && ! array_key_exists('boxBA', (array) $this->summary);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function finalize(): void
     {
         app(FinalizeSlipFiling::class)->handle($this->company, SlipType::Rl1, $this->year);
@@ -82,6 +85,7 @@ new #[Title('RL-1 slips')] class extends Component {
         $this->resetSnapshot();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unlock(): void
     {
         $filing = $this->filing;
@@ -103,6 +107,7 @@ new #[Title('RL-1 slips')] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function printSlip(int $contactId)
     {
         $slip = collect($this->slips)->firstWhere('contact_id', $contactId);
@@ -116,6 +121,7 @@ new #[Title('RL-1 slips')] class extends Component {
         ], 'rl1-'.$contactId.'-'.$this->year.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportSummaryPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.rl1-summary', [
@@ -126,6 +132,7 @@ new #[Title('RL-1 slips')] class extends Component {
         ], 'rl1-summary-'.$this->year.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXml()
     {
         try {
@@ -143,6 +150,7 @@ new #[Title('RL-1 slips')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         // A slip finalized before boxes B.A, B.B and C had its one box B: it
@@ -175,6 +183,7 @@ new #[Title('RL-1 slips')] class extends Component {
             <flux:input type="number" wire:model.live="year" :label="__('Tax year')" class="max-w-[120px]" />
             @if ($this->filing)
                 <flux:badge color="green" data-test="rl1-finalized-badge">{{ __('Finalized') }}</flux:badge>
+                @callable($this, 'unlock')
                 <flux:button
                     variant="ghost"
                     icon="lock-open"
@@ -184,8 +193,10 @@ new #[Title('RL-1 slips')] class extends Component {
                 >
                     {{ __('Unlock') }}
                 </flux:button>
+                @endcallable
             @else
                 <flux:badge color="zinc" data-test="rl1-draft-badge">{{ __('Draft') }}</flux:badge>
+                @callable($this, 'finalize')
                 <flux:button
                     variant="ghost"
                     icon="lock-closed"
@@ -195,13 +206,20 @@ new #[Title('RL-1 slips')] class extends Component {
                 >
                     {{ __('Finalize :year', ['year' => $this->year]) }}
                 </flux:button>
+                @endcallable
             @endif
             <flux:dropdown align="end">
                 <flux:button variant="primary" icon="arrow-down-tray" icon:trailing="chevron-down" :disabled="empty($this->slips)">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('Slips CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportSummaryPdf')
                     <flux:menu.item icon="document" wire:click="exportSummaryPdf">{{ __('RL-1 Summary PDF') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportXml')
                     <flux:menu.item icon="code-bracket" wire:click="exportXml">{{ __('Revenu Québec XML (e-file)') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -271,7 +289,9 @@ new #[Title('RL-1 slips')] class extends Component {
                         <td class="px-3 py-2 text-right font-mono">{{ $this->money($slip['boxH']) }}</td>
                         <td class="px-3 py-2 text-right font-mono">{{ $this->money($slip['boxI']) }}</td>
                         <td class="px-3 py-2 text-right">
+                            @callable($this, 'printSlip')
                             <flux:button size="xs" variant="ghost" icon="printer" wire:click="printSlip({{ $slip['contact_id'] }})">{{ __('RL-1 PDF') }}</flux:button>
+                            @endcallable
                         </td>
                     </tr>
                 @empty

@@ -37,6 +37,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('docs/inbox', 'pages::docs.inbox')->name('docs.inbox');
     Route::livewire('docs/lists', 'pages::docs.lists')->name('docs.lists');
     Route::livewire('docs/settings', 'pages::docs.settings')->name('docs.settings');
+    Route::livewire('docs/users-and-roles', 'pages::docs.users-and-roles')->name('docs.users-and-roles');
     Route::livewire('docs/migration', 'pages::docs.migration')->name('docs.migration');
     Route::livewire('docs/api', 'pages::docs.api')->name('docs.api');
     Route::livewire('docs/self-hosting', 'pages::docs.self-hosting')->name('docs.self-hosting');

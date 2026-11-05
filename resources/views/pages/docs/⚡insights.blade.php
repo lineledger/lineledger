@@ -171,7 +171,7 @@ new #[Title('Documentation — Insights')] class extends Component {}; ?>
             {{ __('By default every insight uses LineLedger’s own built-in wording — the sentences in the list above — and nothing leaves your server. Optionally, an organization can have the wording written by Claude, Anthropic’s AI model, which picks the most useful of the top-ranked candidates and phrases it in plain language. The figures never change: they are computed by the app before anything is sent, and the AI is only allowed to quote them.') }}
         </flux:text>
         <flux:text>
-            {{ __('The option is doubly opt-in, and off on both sides until someone acts. The site operator first enables it server-wide by setting INSIGHTS_AI_ENABLED=true and an Anthropic API key (ANTHROPIC_API_KEY) in the server’s environment, as described in the README that ships with LineLedger; only then does the switch appear on the organization’s edit page. Then an Owner or Admin turns it on for the organization.') }}
+            {{ __('The option is doubly opt-in, and off on both sides until someone acts. The site operator first enables it server-wide by setting INSIGHTS_AI_ENABLED=true and an Anthropic API key (ANTHROPIC_API_KEY) in the server’s environment, as described in the README that ships with LineLedger; only then does the switch appear on the organization’s edit page. Then the Owner, or someone whose role can change organization settings, turns it on for the organization.') }}
         </flux:text>
 
         <p><strong>{{ __('To have AI write your organization’s daily insight:') }}</strong></p>
@@ -188,9 +188,8 @@ new #[Title('Documentation — Insights')] class extends Component {}; ?>
         {{-- ───────────────────────── Who can see it ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Who can see insights') }}</flux:heading>
         <flux:text>
-            {{ __('Insights show the same class of aggregate figures as the Dashboard, so they follow the same rule: every member of the organization can see the Daily insight card, the Insights page, and the Financial health panel, whatever their role or section access — a Custom member limited to, say, Customers still sees them. The buttons on an insight are a different matter: they open ordinary pages, so a member without access to Banking or Reports is stopped at the page itself. Only an Owner or Admin can change the Write my daily insight with AI switch, and the Show daily insights on my dashboard switch is personal to each user. Roles and section access are described on the') }}
-            <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>
-            {{ __('page.') }}
+            {{ __('Insights show the same kind of aggregate figures as the Dashboard and the reports, so they follow your roles. Each insight is a teaser for the page its button opens and shows only to people who can open that page — a note on overdue invoices to someone who can open sales and receivables reports, a remittance reminder to someone who can open payroll reports. An insight with no button, and the Financial health panel, show only to people who can see financial reports; the Owner sees them all. Only the Owner, or someone whose role can change organization settings, can change the Write my daily insight with AI switch, and the Show daily insights on my dashboard switch is personal to each user. Roles are described in') }}
+            <a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a>{{ __('.') }}
         </flux:text>
 
         {{-- ───────────────────────── Reports ───────────────────────── --}}

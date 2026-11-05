@@ -1,7 +1,10 @@
 <?php
 
 use App\Actions\Inventory\SaveStockAdjustment;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\StockAdjustmentReason;
+use App\Livewire\Attributes\Requires;
 use App\Models\Classification;
 use App\Models\Company;
 use App\Models\Item;
@@ -62,6 +65,7 @@ new #[Title('Stock adjustments')] class extends Component
         Flux::modal('adjustment-form')->show();
     }
 
+    #[Requires(Activity::InventoryAdjustments, PermissionAction::Create)]
     public function save(): void
     {
         $companyId = $this->company->id;
@@ -107,6 +111,7 @@ new #[Title('Stock adjustments')] class extends Component
         Flux::toast(variant: 'success', text: __('Stock adjustment posted.'));
     }
 
+    #[Requires(Activity::InventoryAdjustments, PermissionAction::Delete)]
     public function void(int $id): void
     {
         $adj = StockAdjustment::findOrFail($id);
@@ -237,8 +242,10 @@ new #[Title('Stock adjustments')] class extends Component
                         </td>
                         <td class="px-4 py-2 text-right">
                             @if ($adj->posted_at && ! $adj->voided_at)
+                                @callable($this, 'void')
                                 <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="void({{ $adj->id }})"
                                     wire:confirm="{{ __('Void this adjustment?') }}" />
+                                @endcallable
                             @endif
                         </td>
                     </tr>

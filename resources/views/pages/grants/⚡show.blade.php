@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Grant;
@@ -49,6 +51,7 @@ new #[Title('Grant')] class extends Component {
             && $this->grant->deferredBalanceCents() > 0;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function postAward(): void
     {
@@ -70,6 +73,7 @@ new #[Title('Grant')] class extends Component {
         Flux::modal('recognize-grant')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function recognize(): void
     {
@@ -95,6 +99,7 @@ new #[Title('Grant')] class extends Component {
         Flux::toast(variant: 'success', text: __('Grant revenue recognized.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {
@@ -128,14 +133,20 @@ new #[Title('Grant')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($grant->isDraft())
+                @reaches('grants.edit')
                 <flux:button variant="ghost" icon="pencil" :href="route('grants.edit', ['company' => $company, 'grant' => $grant])" wire:navigate data-test="grant-edit-button">{{ __('Edit') }}</flux:button>
+                @endreaches
+                @callable($this, 'postAward')
                 <flux:button variant="primary" icon="check" wire:click="postAward" data-test="grant-post-button">{{ __('Post award') }}</flux:button>
+                @endcallable
             @else
                 @if ($this->canRecognize)
                     <flux:button variant="primary" icon="arrow-trending-up" wire:click="openRecognize" data-test="grant-recognize-button">{{ __('Recognize revenue') }}</flux:button>
                 @endif
                 @if ($grant->status->value !== 'void')
+                    @callable($this, 'void')
                     <flux:button variant="danger" icon="x-mark" wire:click="void" wire:confirm="{{ __('Void this grant? The award and all recognitions will be reversed.') }}" data-test="grant-void-button">{{ __('Void') }}</flux:button>
+                    @endcallable
                 @endif
             @endif
         </div>

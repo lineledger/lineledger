@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Resources;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\ChartOfAccountsPresenter;
 use Laravel\Mcp\Request;
@@ -27,10 +27,10 @@ class ChartOfAccountsResource extends Resource
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Accounting)) {
+        if ($denied = $this->requirePermission(Activity::Accounts)) {
             return $denied;
         }
 
-        return Response::text(app(ChartOfAccountsPresenter::class)->render($this->company()));
+        return Response::text(app(ChartOfAccountsPresenter::class)->render($this->company(), $this->actorSeesBalances(Activity::Accounts)));
     }
 }

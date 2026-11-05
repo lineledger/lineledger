@@ -83,7 +83,7 @@ new #[Title('Documentation — Budgets')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a budget at a time') }}">
-            {{ __('Opening a budget for editing holds it until you save or leave. A teammate who opens the same budget sees who is editing instead of the grid, with Try again and — for Owners and Admins — Take over editing. Deleting a budget from the list is refused while someone else has it open. See') }}
+            {{ __('Opening a budget for editing holds it until you save or leave. A teammate who opens the same budget sees who is editing instead of the grid, with Try again and — for anyone whose role can take over edit locks — Take over editing. Deleting a budget from the list is refused while someone else has it open. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

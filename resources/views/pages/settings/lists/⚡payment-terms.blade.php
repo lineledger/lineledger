@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\MasterData\SavePaymentTerm;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\PaymentTerm;
@@ -51,6 +52,7 @@ new #[Title('Payment terms')] class extends Component {
         Flux::modal('terms-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(PaymentTerm::class, $this->editingId)) {

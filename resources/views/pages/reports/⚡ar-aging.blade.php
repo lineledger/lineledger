@@ -5,6 +5,8 @@ use App\Concerns\HasColumnToggles;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportAsOfDate;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\OpenDocumentAgingBuilder;
 use App\Services\Reporting\PdfExporter;
@@ -193,6 +195,7 @@ new #[Title('AR Aging')] class extends Component
             || array_sum(array_map(fn (array $bucket) => count($bucket['rows']), $report['buckets'])) > 0;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         if ($this->view === 'detail') {
@@ -217,6 +220,7 @@ new #[Title('AR Aging')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         if ($this->view === 'detail') {

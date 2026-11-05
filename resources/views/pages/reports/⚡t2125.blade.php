@@ -4,6 +4,8 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\Memorizable;
 use App\Enums\CcaClass;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\CcaPool;
 use App\Services\Reporting\CsvExporter;
@@ -80,6 +82,7 @@ new #[Title('T2125 Business Activities')] class extends Component {
         return $schedule;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveOpeningUcc(string $class): void
     {
         $ccaClass = CcaClass::tryFrom($class);
@@ -132,6 +135,7 @@ new #[Title('T2125 Business Activities')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         return app(CsvExporter::class)->stream(
@@ -141,6 +145,7 @@ new #[Title('T2125 Business Activities')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t2125', [

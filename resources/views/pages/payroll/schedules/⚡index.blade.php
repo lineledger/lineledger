@@ -2,6 +2,7 @@
 
 use App\Actions\Payroll\SavePayrollSchedule;
 use App\Enums\PayFrequency;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\PayrollSchedule;
@@ -61,6 +62,7 @@ new #[Title('Pay schedules')] class extends Component {
         Flux::modal('schedule-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(SavePayrollSchedule $action): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(PayrollSchedule::class, $this->editingId)) {

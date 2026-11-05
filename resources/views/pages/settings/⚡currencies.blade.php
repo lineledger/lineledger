@@ -2,6 +2,9 @@
 
 use App\Actions\Accounting\EnableCompanyCurrency;
 use App\Actions\Accounting\RunHomeCurrencyAdjustment;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\CompanyCurrency;
 use App\Models\CurrencyRevaluation;
@@ -38,6 +41,7 @@ new #[Title('Currencies')] class extends Component {
         $this->r_date = $company->currentDateTime()->toDateString();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function enable(EnableCompanyCurrency $action): void
     {
         $validated = $this->validate([
@@ -52,6 +56,7 @@ new #[Title('Currencies')] class extends Component {
         Flux::toast(variant: 'success', text: __(':code enabled.', ['code' => $validated['f_currency_code']]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function deactivate(int $companyCurrencyId): void
     {
         $currency = CompanyCurrency::query()->where('id', $companyCurrencyId)->where('is_home', false)->firstOrFail();
@@ -62,6 +67,7 @@ new #[Title('Currencies')] class extends Component {
         Flux::toast(variant: 'success', text: __(':code deactivated.', ['code' => $currency->currency_code]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveRate(ExchangeRateService $service): void
     {
         $validated = $this->validate([
@@ -83,6 +89,7 @@ new #[Title('Currencies')] class extends Component {
         Flux::toast(variant: 'success', text: __('Exchange rate saved.'));
     }
 
+    #[Requires(Activity::Journal, PermissionAction::Create)]
     public function runRevaluation(RunHomeCurrencyAdjustment $action): void
     {
         $validated = $this->validate(['reval_date' => ['required', 'date']]);
@@ -218,7 +225,9 @@ new #[Title('Currencies')] class extends Component {
                                     </flux:table.cell>
                                     <flux:table.cell>
                                         @if ($currency->is_active)
+                                            @callable($this, 'deactivate')
                                             <flux:button size="xs" variant="ghost" wire:click="deactivate({{ $currency->id }})" wire:confirm="{{ __('Deactivate :code? Existing transactions are unaffected.', ['code' => $currency->currency_code]) }}">{{ __('Deactivate') }}</flux:button>
+                                            @endcallable
                                         @endif
                                     </flux:table.cell>
                                 </flux:table.row>

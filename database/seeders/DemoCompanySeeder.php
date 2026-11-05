@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Access\AssignMemberRoles;
+use App\Actions\Access\SaveRole;
 use App\Actions\Accounting\EnableCompanyCurrency;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Accounting\SaveRecurringJournalEntry;
@@ -9,6 +11,7 @@ use App\Actions\Banking\SaveCheque;
 use App\Actions\Banking\SaveTransfer;
 use App\Actions\Charity\SaveDonationReceipt;
 use App\Actions\Companies\CreateCompany;
+use App\Actions\Companies\Members\InviteMember;
 use App\Actions\Fundraising\SaveDonation;
 use App\Actions\Fundraising\SaveGrant;
 use App\Actions\Inventory\SaveStockAdjustment;
@@ -33,8 +36,10 @@ use App\Actions\Sales\SaveInvoice;
 use App\Actions\Sales\SaveReceipt;
 use App\Actions\Sales\SaveSalesOrder;
 use App\Enums\AccountSubtype;
+use App\Enums\Activity;
 use App\Enums\BankStatementFormat;
 use App\Enums\BankStatementImportStatus;
+use App\Enums\CompanyRole;
 use App\Enums\ContributionMethod;
 use App\Enums\Country;
 use App\Enums\FundType;
@@ -42,6 +47,8 @@ use App\Enums\GiftType;
 use App\Enums\Industry;
 use App\Enums\LegalStructure;
 use App\Enums\OrganizationType;
+use App\Enums\PermissionAction;
+use App\Enums\PredefinedRole;
 use App\Enums\RecurrenceFrequency;
 use App\Enums\StatementLineMatchStatus;
 use App\Enums\TaxAppliesTo;
@@ -53,6 +60,7 @@ use App\Models\BankStatementLine;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Item;
+use App\Models\Role;
 use App\Models\TaxCode;
 use App\Models\User;
 use App\Models\WorkersCompSetting;
@@ -70,6 +78,7 @@ use App\Services\Posting\PayRunPoster;
 use App\Services\Posting\ReceiptPoster;
 use App\Services\Posting\StockAdjustmentPoster;
 use App\Services\Posting\TransferPoster;
+use App\Support\Access\Grant;
 use App\Support\Defaults\ChartTemplateBuilder;
 use App\Support\Legal\LegalDocuments;
 use Illuminate\Database\Seeder;
@@ -662,6 +671,8 @@ class DemoCompanySeeder extends Seeder
         $importLine(now()->subDays(3)->toDateString(), 'MONTHLY BANK FEE', -3200, StatementLineMatchStatus::Created, null, $expense?->id);
         $importLine(now()->subDays(2)->toDateString(), 'INTERAC E-TRANSFER - RIVERSIDE', 36000, StatementLineMatchStatus::Suggested, __('Likely matches an open invoice'));
 
+        $this->seedTeam($company, $user);
+
         $this->command?->info("Demo company ready at slug 'demo' (login test@example.com / password).");
 
         // A second company — a Canadian registered charity — so the docs can
@@ -920,6 +931,68 @@ class DemoCompanySeeder extends Seeder
             'revenue_account_id' => $donationIncome?->id,
         ]);
 
+        $this->seedSocietyTeam($company, $user);
+
         $this->command?->info("Demo charity ready at slug 'demo-society' (same login).");
+    }
+
+    /**
+     * People for Settings → Users and roles: three users on predefined roles
+     * (Marc works in French), a custom "Front desk" role, and an invitation not
+     * yet accepted. Each signs in with `password`.
+     */
+    private function seedTeam(Company $company, User $owner): void
+    {
+        $predefined = fn (PredefinedRole $key): int => (int) Role::query()->where('system_key', $key->value)->value('id');
+
+        $frontDesk = app(SaveRole::class)->handle($company, $owner, null, 'Front desk', 'Takes payments at the counter and looks up customers and items, without changing invoices.', [
+            Activity::Customers->value => Grant::partial(PermissionAction::View, PermissionAction::Create),
+            Activity::Invoices->value => Grant::partial(PermissionAction::View, PermissionAction::Print),
+            Activity::Receipts->value => Grant::partial(PermissionAction::View, PermissionAction::Create, PermissionAction::Print),
+            Activity::SalesReceipts->value => Grant::partial(PermissionAction::View, PermissionAction::Create, PermissionAction::Print),
+            Activity::Items->value => Grant::partial(PermissionAction::View),
+        ]);
+
+        $this->seedMembers($company, $owner, [
+            ['priya@example.com', 'Priya Natarajan', 'en', [$predefined(PredefinedRole::AccountsReceivable)]],
+            ['marc@example.com', 'Marc Tremblay', 'fr', [$predefined(PredefinedRole::Bookkeeper)]],
+            ['dana@example.com', 'Dana Whitfield', 'en', [$predefined(PredefinedRole::Sales), $frontDesk->id]],
+        ]);
+
+        app(InviteMember::class)->handle($company, $owner, 'sam@example.com', CompanyRole::Custom, [], [$predefined(PredefinedRole::Banking)]);
+    }
+
+    /**
+     * The charity's team: a treasurer on the Accountant role and a volunteer
+     * on a custom "Gift entry" role that records donations and nothing else.
+     */
+    private function seedSocietyTeam(Company $company, User $owner): void
+    {
+        $giftEntry = app(SaveRole::class)->handle($company, $owner, null, 'Gift entry', 'Records donations and looks up donors, for volunteers at events.', [
+            Activity::Donations->value => Grant::partial(PermissionAction::View, PermissionAction::Create),
+            Activity::Customers->value => Grant::partial(PermissionAction::View, PermissionAction::Create),
+        ]);
+
+        $this->seedMembers($company, $owner, [
+            ['treasurer@example.com', 'Alex Morgan', 'en', [(int) Role::query()->where('system_key', PredefinedRole::Accountant->value)->value('id')]],
+            ['volunteer@example.com', 'Jordan Lee', 'en', [$giftEntry->id]],
+        ]);
+    }
+
+    /**
+     * @param  list<array{0: string, 1: string, 2: string, 3: list<int>}>  $people  email, name, locale, role ids
+     */
+    private function seedMembers(Company $company, User $owner, array $people): void
+    {
+        foreach ($people as [$email, $name, $locale, $roleIds]) {
+            $member = User::firstOrCreate(
+                ['email' => $email],
+                ['name' => $name, 'password' => 'password', 'locale' => $locale],
+            );
+            $member->forceFill(['email_verified_at' => $member->email_verified_at ?? now()])->save();
+
+            $company->memberships()->create(['user_id' => $member->id, 'role' => CompanyRole::Custom, 'sections' => []]);
+            app(AssignMemberRoles::class)->handle($company, $owner, $member, $roleIds);
+        }
     }
 }

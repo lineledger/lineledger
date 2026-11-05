@@ -66,9 +66,11 @@ new #[Title('Purchase Orders')] class extends Component {
             <flux:subheading>{{ __('Orders placed with vendors, received by billing over time.') }}</flux:subheading>
         </div>
 
+        @reaches('purchase-orders.create')
         <flux:button variant="primary" icon="plus" :href="route('purchase-orders.create', ['company' => $company->slug])" wire:navigate data-test="new-purchase-order-button">
             {{ __('New purchase order') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

@@ -2,10 +2,13 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Account;
+use App\Models\JournalEntry;
 use App\Services\Reporting\ReportCalculator;
+use App\Support\Access\PayrollDetail;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -25,7 +28,7 @@ class AccountBalanceTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Accounting)) {
+        if ($denied = $this->requirePermission(Activity::Accounts, PermissionAction::ViewBalance)) {
             return $denied;
         }
 
@@ -68,6 +71,7 @@ class AccountBalanceTool extends Tool
         $ledger = $calculator->generalLedger($account, $period['start'], $period['end']);
 
         $recent = collect($ledger['lines'])->reverse()->take(10);
+        $payrollEntries = $this->actorSeesPayrollDetail() ? [] : $this->payrollEntryNumbers($recent->pluck('entry_no')->all());
 
         $lines = [];
         $lines[] = "Account: {$account->code} — {$account->name} ({$account->type->label()})";
@@ -83,7 +87,10 @@ class AccountBalanceTool extends Tool
             $lines[] = 'Recent ledger lines (most recent first):';
 
             foreach ($recent as $line) {
-                $memo = $line['memo'] !== null && $line['memo'] !== '' ? " — {$line['memo']}" : '';
+                // A payroll line's memo names the employee: "Payroll" instead,
+                // unless this connection may open pay runs (PayrollDetail).
+                $text = in_array($line['entry_no'], $payrollEntries, true) ? PayrollDetail::label() : $line['memo'];
+                $memo = $text !== null && $text !== '' ? " — {$text}" : '';
                 $debit = $this->money($line['debit']);
                 $credit = $this->money($line['credit']);
                 $running = $this->money($line['running']);
@@ -92,6 +99,28 @@ class AccountBalanceTool extends Tool
         }
 
         return Response::text(implode("\n", $lines));
+    }
+
+    /**
+     * The numbers of the listed entries that are payroll entries, or voids of
+     * one (PayrollDetail::sourceTypeOf()).
+     *
+     * @param  list<string>  $entryNumbers
+     * @return list<string>
+     */
+    private function payrollEntryNumbers(array $entryNumbers): array
+    {
+        if ($entryNumbers === []) {
+            return [];
+        }
+
+        return JournalEntry::query()
+            ->whereIn('entry_no', array_unique($entryNumbers))
+            ->get(['id', 'entry_no', 'source_type', 'reverses_entry_id'])
+            ->filter(fn (JournalEntry $entry): bool => PayrollDetail::isPayroll(PayrollDetail::sourceTypeOf($entry)))
+            ->map(fn (JournalEntry $entry): string => (string) $entry->entry_no)
+            ->values()
+            ->all();
     }
 
     /**

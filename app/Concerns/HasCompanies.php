@@ -8,6 +8,8 @@ use App\Enums\Section;
 use App\Models\Company;
 use App\Models\Membership;
 use App\Models\ReportGroup;
+use App\Services\Access\PermissionResolver;
+use App\Support\Access\PermissionSet;
 use App\Support\CompanyPermissions;
 use App\Support\UserCompany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -113,11 +115,21 @@ trait HasCompanies
         return $this->companyRole($company) === CompanyRole::Owner;
     }
 
+    /**
+     * This user's membership in the company, or null. Looked up once per
+     * request (see PermissionResolver).
+     */
     public function companyMembership(Company $company): ?Membership
     {
-        return $this->companyMemberships()
-            ->where('company_id', $company->id)
-            ->first();
+        return app(PermissionResolver::class)->membership($this, $company);
+    }
+
+    /**
+     * Everything this user may do in the company.
+     */
+    public function permissions(Company $company): PermissionSet
+    {
+        return app(PermissionResolver::class)->for($this, $company);
     }
 
     public function companyRole(Company $company): ?CompanyRole
@@ -125,9 +137,12 @@ trait HasCompanies
         return $this->companyMembership($company)?->role;
     }
 
+    /**
+     * Whether the user can open anything in the area (sidebar group).
+     */
     public function canAccessSection(Company $company, Section $section): bool
     {
-        return $this->companyMembership($company)?->canAccessSection($section) ?? false;
+        return $this->permissions($company)->canAccessArea($section);
     }
 
     /**
@@ -158,21 +173,20 @@ trait HasCompanies
             role: $role?->value,
             roleLabel: $role?->label(),
             isCurrent: $this->isCurrentCompany($company),
+            canEdit: $this->hasCompanyPermission($company, CompanyPermission::UpdateCompany),
         );
     }
 
     public function toCompanyPermissions(Company $company): CompanyPermissions
     {
-        $role = $this->companyRole($company);
-
         return new CompanyPermissions(
-            canUpdateCompany: $role?->hasPermission(CompanyPermission::UpdateCompany) ?? false,
-            canDeleteCompany: $role?->hasPermission(CompanyPermission::DeleteCompany) ?? false,
-            canAddMember: $role?->hasPermission(CompanyPermission::AddMember) ?? false,
-            canUpdateMember: $role?->hasPermission(CompanyPermission::UpdateMember) ?? false,
-            canRemoveMember: $role?->hasPermission(CompanyPermission::RemoveMember) ?? false,
-            canCreateInvitation: $role?->hasPermission(CompanyPermission::CreateInvitation) ?? false,
-            canCancelInvitation: $role?->hasPermission(CompanyPermission::CancelInvitation) ?? false,
+            canUpdateCompany: $this->hasCompanyPermission($company, CompanyPermission::UpdateCompany),
+            canDeleteCompany: $this->hasCompanyPermission($company, CompanyPermission::DeleteCompany),
+            canAddMember: $this->hasCompanyPermission($company, CompanyPermission::AddMember),
+            canUpdateMember: $this->hasCompanyPermission($company, CompanyPermission::UpdateMember),
+            canRemoveMember: $this->hasCompanyPermission($company, CompanyPermission::RemoveMember),
+            canCreateInvitation: $this->hasCompanyPermission($company, CompanyPermission::CreateInvitation),
+            canCancelInvitation: $this->hasCompanyPermission($company, CompanyPermission::CancelInvitation),
         );
     }
 
@@ -184,8 +198,17 @@ trait HasCompanies
             ->first();
     }
 
+    /**
+     * Whether the user may manage the organization this way: through the
+     * administrative or reserved activity it maps to, or as the Owner.
+     */
     public function hasCompanyPermission(Company $company, CompanyPermission $permission): bool
     {
-        return $this->companyRole($company)?->hasPermission($permission) ?? false;
+        $permissions = $this->permissions($company);
+        $requirement = $permission->requirement();
+
+        return $requirement === null
+            ? $permissions->isOwner()
+            : $permissions->allows($requirement->activity, $requirement->action);
     }
 }

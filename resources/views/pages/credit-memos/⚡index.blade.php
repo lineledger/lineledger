@@ -46,9 +46,11 @@ new #[Title('Credit memos')] class extends Component {
             <flux:subheading>{{ __('Customer credit memos.') }}</flux:subheading>
         </div>
 
+        @reaches('credit-memos.create')
         <flux:button variant="primary" icon="plus" :href="route('credit-memos.create', ['company' => $company->slug])" wire:navigate data-test="new-credit-memo-button">
             {{ __('New credit memo') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

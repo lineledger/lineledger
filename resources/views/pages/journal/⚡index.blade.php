@@ -2,6 +2,9 @@
 
 use App\Models\Company;
 use App\Models\JournalEntry;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
+use App\Support\Access\PermissionSet;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -19,6 +22,9 @@ new #[Title('Journal')] class extends Component {
     #[Url(as: 'q')]
     public string $search = '';
 
+    /** The viewer's permissions, resolved once per request (not Livewire state). */
+    private ?PermissionSet $viewerPermissions = null;
+
     public function mount(Company $company): void
     {
         $this->company = $company;
@@ -34,11 +40,36 @@ new #[Title('Journal')] class extends Component {
             ->when($this->statusFilter === 'voided', fn ($q) => $q->whereNotNull('voided_at'))
             ->when($this->search !== '', fn ($q) => $q->where(function ($q) {
                 $q->where('entry_no', 'like', '%'.$this->search.'%')
-                    ->orWhere('memo', 'like', '%'.$this->search.'%');
+                    ->orWhere(fn ($memo) => $memo
+                        ->where('memo', 'like', '%'.$this->search.'%')
+                        // A memo the viewer can't read can't be searched either
+                        // (a payroll memo names the employee).
+                        ->when(! $this->viewer()->seesPayrollDetail(), fn ($m) => PayrollDetail::withoutPayroll($m)));
             }))
             ->orderByDesc('entry_date')
             ->orderByDesc('id')
             ->paginate(25);
+    }
+
+    private function viewer(): PermissionSet
+    {
+        return $this->viewerPermissions ??= CurrentViewer::permissions($this->company);
+    }
+
+    /**
+     * Whether the entry's payroll detail is withheld from this viewer
+     * (PayrollDetail): its memo reads "Payroll" and it isn't linked, since
+     * the entry page refuses them. Its amount stays.
+     */
+    public function hidesEntry(JournalEntry $entry): bool
+    {
+        return PayrollDetail::hidesEntry($entry, $this->viewer());
+    }
+
+    /** The entry's memo as this viewer may see it. */
+    public function entryMemo(JournalEntry $entry): ?string
+    {
+        return $this->hidesEntry($entry) ? PayrollDetail::label() : $entry->memo;
     }
 }; ?>
 
@@ -67,7 +98,9 @@ new #[Title('Journal')] class extends Component {
     {{-- Mobile: stacked cards --}}
     <div class="space-y-3 lg:hidden">
         @forelse ($this->entries as $entry)
-            <a href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $entry->id]) }}" wire:navigate class="block rounded-lg border border-border p-4" data-test="journal-card">
+            @php($opens = ! $this->hidesEntry($entry))
+            {{-- Without an href the card is plain text: the entry page would refuse them. --}}
+            <a @if ($opens) href="{{ route('journal.show', ['company' => $company->slug, 'entry' => $entry->id]) }}" wire:navigate @endif class="block rounded-lg border border-border p-4" data-test="journal-card">
                 <div class="flex items-center justify-between gap-2">
                     <span class="font-mono font-medium">{{ $entry->entry_no }}</span>
                     @if ($entry->isVoided())
@@ -78,7 +111,7 @@ new #[Title('Journal')] class extends Component {
                         <flux:badge color="amber" size="sm">{{ __('Draft') }}</flux:badge>
                     @endif
                 </div>
-                <div class="mt-1 truncate text-sm text-muted-foreground">{{ $entry->memo }}</div>
+                <div class="mt-1 truncate text-sm text-muted-foreground">{{ $this->entryMemo($entry) }}</div>
                 <div class="mt-3 flex items-end justify-between gap-2">
                     <div class="text-xs text-muted-foreground">{{ $entry->entry_date->toDateString() }}</div>
                     <div class="text-right"><div class="font-mono font-semibold">{{ number_format($entry->totalDebitsCents() / 100, 2) }}</div></div>
@@ -106,7 +139,7 @@ new #[Title('Journal')] class extends Component {
                     <tr data-test="journal-row">
                         <td class="px-4 py-2 whitespace-nowrap">{{ $entry->entry_date->toDateString() }}</td>
                         <td class="px-4 py-2 font-mono">{{ $entry->entry_no }}</td>
-                        <td class="px-4 py-2 max-w-md truncate">{{ $entry->memo }}</td>
+                        <td class="px-4 py-2 max-w-md truncate">{{ $this->entryMemo($entry) }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($entry->totalDebitsCents() / 100, 2) }}</td>
                         <td class="px-4 py-2">
                             @if ($entry->isVoided())
@@ -118,14 +151,16 @@ new #[Title('Journal')] class extends Component {
                             @endif
                         </td>
                         <td class="px-4 py-2 text-right">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="eye"
-                                :href="route('journal.show', ['company' => $company->slug, 'entry' => $entry->id])"
-                                wire:navigate
-                                data-test="journal-view"
-                            />
+                            @unless ($this->hidesEntry($entry))
+                                <flux:button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="eye"
+                                    :href="route('journal.show', ['company' => $company->slug, 'entry' => $entry->id])"
+                                    wire:navigate
+                                    data-test="journal-view"
+                                />
+                            @endunless
                         </td>
                     </tr>
                 @empty

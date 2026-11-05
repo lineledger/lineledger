@@ -28,6 +28,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Sales receipt')] class extends Component {
     use GuardsEditLockedForm;
@@ -316,7 +317,7 @@ new #[Title('Sales receipt')] class extends Component {
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('sales-receipts.edit', ['company' => $this->company->slug, 'receipt' => $this->receipt->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('sales-receipts.edit'), ['company' => $this->company->slug, 'receipt' => $this->receipt->id], navigate: true);
     }
 
     public function post(SalesReceiptPoster $poster): void

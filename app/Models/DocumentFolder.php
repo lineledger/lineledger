@@ -3,8 +3,9 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
-use App\Enums\CompanyRole;
-use App\Enums\Section;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Services\Access\PermissionResolver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -64,16 +65,19 @@ class DocumentFolder extends Model
     /**
      * Whether the given membership may view this folder (and download its files).
      *
-     * Owner/Admin always pass. Any other member must hold the Documents section
-     * and either be the creator or be on the explicit viewer allow-list.
+     * A member whose roles open every folder (the Owner, Full Access) always
+     * passes. Anyone else must be able to open Documents and either be the
+     * creator or be on the explicit viewer allow-list.
      */
     public function isVisibleTo(Membership $membership): bool
     {
-        if ($membership->role === CompanyRole::Owner || $membership->role === CompanyRole::Admin) {
+        $permissions = app(PermissionResolver::class)->forMembership($membership);
+
+        if ($permissions->canView(Activity::DocumentsAllFolders)) {
             return true;
         }
 
-        if (! $membership->canAccessSection(Section::Documents)) {
+        if (! $permissions->canView(Activity::Documents)) {
             return false;
         }
 
@@ -86,11 +90,12 @@ class DocumentFolder extends Model
 
     /**
      * Whether the given membership may rename, move, share or delete this folder.
-     * Limited to Owner/Admin and the folder's creator.
+     * Limited to members whose roles manage every folder (the Owner, Full
+     * Access) and the folder's creator.
      */
     public function isManageableBy(Membership $membership): bool
     {
-        if ($membership->role === CompanyRole::Owner || $membership->role === CompanyRole::Admin) {
+        if (app(PermissionResolver::class)->forMembership($membership)->allows(Activity::DocumentsAllFolders, PermissionAction::Modify)) {
             return true;
         }
 

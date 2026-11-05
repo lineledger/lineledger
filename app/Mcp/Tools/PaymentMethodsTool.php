@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\PaymentMethodsPresenter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -30,7 +30,7 @@ class PaymentMethodsTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Lists)) {
+        if ($denied = $this->requirePermission(Activity::OtherLists)) {
             return $denied;
         }
 

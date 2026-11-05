@@ -17,7 +17,7 @@ new #[Title('Documentation — API')] class extends Component {}; ?>
         {{-- ───────────────────────── Create an API key ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Create an API key') }}</flux:heading>
         <flux:text>
-            {{ __('Every request needs a valid API key. Each key belongs to a single organization, can be limited to specific scopes, and can be given an expiry date. Keys live in the API keys section of Settings → Security, just above Authorized applications. Only Owners and Admins can create, edit, rotate, or revoke keys — other members see a notice instead of the Create API key button.') }}
+            {{ __('Every request needs a valid API key. Each key belongs to a single organization, can be limited to specific scopes, and can be given an expiry date. Keys live in the API keys section of Settings → Security, just above Authorized applications. Only the Owner and people whose role can manage API keys (Full Access) can create, edit, rotate, or revoke keys — others see a notice instead of the Create API key button. A key can never do more than the person who created it may do now.') }}
         </flux:text>
 
         <p><strong>{{ __('To create an API key:') }}</strong></p>
@@ -81,7 +81,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
         </ul>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('The 423 is the API side of the app\'s edit locks: whoever opens a record to edit it in the web app holds a short lease, other members see who is editing instead of the form, and Owners and Admins can take over. See') }}
+            {{ __('The 423 is the API side of the app\'s edit locks: whoever opens a record to edit it in the web app holds a short lease, other members see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>
@@ -90,7 +90,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
         <flux:heading size="lg" class="mt-8">{{ __('Base URL & spec') }}</flux:heading>
         <pre class="bg-muted rounded p-4 overflow-x-auto text-sm"><code>{{ url('/api/v1') }}</code></pre>
         <flux:text>
-            {{ __('The full machine-readable OpenAPI spec (version 1.4.3, covering every resource) is available without a key at') }}
+            {{ __('The full machine-readable OpenAPI spec (version 1.5.0-rc.1, covering every resource) is available without a key at') }}
             <a href="{{ url('/api/v1/openapi.json') }}" class="underline" target="_blank" rel="noopener">{{ url('/api/v1/openapi.json') }}</a>{{ __('.') }}
             {{ __('Import it into Postman, Insomnia, or your code generator. The interactive reference at the bottom of this page is generated from it.') }}
         </flux:text>

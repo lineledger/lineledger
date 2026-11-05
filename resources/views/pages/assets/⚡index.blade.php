@@ -109,9 +109,11 @@ new #[Title('Fixed assets')] class extends Component {
             <flux:subheading>{{ __('Asset register.') }}</flux:subheading>
         </div>
 
+        @reaches('assets.create')
         <flux:button variant="primary" icon="plus" :href="route('assets.create', ['company' => $company->slug])" wire:navigate data-test="new-asset-button">
             {{ __('New asset') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">

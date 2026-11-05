@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\RecurrenceDayAnchor;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurrenceFrequency;
+use App\Livewire\Attributes\PermissionExempt;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\MemorizedReport;
 use App\Models\MemorizedReportGroup;
@@ -101,12 +104,14 @@ new #[Title('Memorized Reports')] class extends Component {
         return $this->catalog[$report->report_key]['label'] ?? $report->report_key;
     }
 
+    #[PermissionExempt('A memorized report is the user’s own saved view of a report.')]
     public function delete(int $id): void
     {
         MemorizedReport::query()->where('user_id', Auth::id())->where('id', $id)->delete();
         unset($this->groups, $this->ungrouped, $this->schedules);
     }
 
+    #[PermissionExempt('A memorized report group is the user’s own folder of saved reports.')]
     public function deleteGroup(int $id): void
     {
         // Reports in the group fall back to ungrouped (nullOnDelete).
@@ -200,6 +205,7 @@ new #[Title('Memorized Reports')] class extends Component {
         Flux::modal('schedule-report-email')->show();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function saveSchedule(): void
     {
         $validated = $this->validate([
@@ -293,6 +299,7 @@ new #[Title('Memorized Reports')] class extends Component {
         Flux::modal('schedule-report-email')->close();
     }
 
+    #[PermissionExempt('Stops the user’s own email schedule; it sends nothing.')]
     public function deleteSchedule(int $id): void
     {
         ReportEmailSchedule::query()->where('user_id', Auth::id())->where('id', $id)->delete();
@@ -314,6 +321,7 @@ new #[Title('Memorized Reports')] class extends Component {
     /**
      * Download every renderable report in the group as a single ZIP of PDFs.
      */
+    #[Requires(null, PermissionAction::Print)]
     public function exportGroup(int $groupId): ?BinaryFileResponse
     {
         $group = MemorizedReportGroup::query()
@@ -380,7 +388,9 @@ new #[Title('Memorized Reports')] class extends Component {
                         @endif
                         @if ($this->groupExportable($group))
                             <flux:button size="xs" variant="ghost" icon="clock" wire:click="openGroupSchedule({{ $group->id }})" data-test="schedule-group">{{ __('Schedule') }}</flux:button>
+                            @callable($this, 'exportGroup')
                             <flux:button size="xs" variant="ghost" icon="arrow-down-tray" wire:click="exportGroup({{ $group->id }})" data-test="export-group">{{ __('Download group') }}</flux:button>
+                            @endcallable
                         @endif
                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="deleteGroup({{ $group->id }})" wire:confirm="{{ __('Delete this group? Its reports move to Ungrouped.') }}">{{ __('Delete group') }}</flux:button>
                     </div>

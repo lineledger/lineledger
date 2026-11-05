@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\DonationReceiptStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\DonationReceipt;
@@ -36,6 +38,7 @@ new #[Title('Donation receipt')] class extends Component {
         $this->receipt = $donationReceipt->load('contact', 'journalEntry', 'reissuedFrom', 'donation');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function issue(): void
     {
@@ -51,6 +54,7 @@ new #[Title('Donation receipt')] class extends Component {
         Flux::toast(variant: 'success', text: __('Receipt issued.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {
@@ -64,6 +68,8 @@ new #[Title('Donation receipt')] class extends Component {
         Flux::toast(variant: 'success', text: __('Receipt voided.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function reissue(): void
     {
@@ -104,11 +110,17 @@ new #[Title('Donation receipt')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($receipt->isDraft())
+                @reaches('donation-receipts.edit')
                 <flux:button variant="ghost" icon="pencil" :href="route('donation-receipts.edit', ['company' => $company, 'donationReceipt' => $receipt])" wire:navigate data-test="donation-receipt-edit-button">{{ __('Edit') }}</flux:button>
+                @endreaches
+                @callable($this, 'issue')
                 <flux:button variant="primary" icon="check" wire:click="issue" data-test="donation-receipt-issue-button">{{ __('Issue receipt') }}</flux:button>
+                @endcallable
             @elseif ($receipt->isIssued())
                 <flux:button variant="ghost" icon="printer" :href="route('donation-receipts.print', ['company' => $company, 'donationReceipt' => $receipt])" target="_blank" data-test="donation-receipt-print-button">{{ __('Print') }}</flux:button>
+                @callable($this, 'reissue')
                 <flux:button variant="ghost" icon="arrow-path" wire:click="reissue" data-test="donation-receipt-reissue-button">{{ __('Reissue') }}</flux:button>
+                @endcallable
                 <flux:modal.trigger name="void-receipt">
                     <flux:button variant="danger" icon="x-mark" data-test="donation-receipt-void-button">{{ __('Void') }}</flux:button>
                 </flux:modal.trigger>

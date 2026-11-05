@@ -1,7 +1,10 @@
 <?php
 
 use App\Actions\Payroll\DecideTimeOffRequest;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\TimeOffRequestStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\TimeOffPolicy;
@@ -62,6 +65,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::modal('staff-day')->show();
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function managerApprove(int $id, DecideTimeOffRequest $action): void
     {
         $action->managerApprove(TimeOffRequest::findOrFail($id), auth()->user());
@@ -69,6 +73,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::toast(variant: 'success', text: __('Absence approved — payroll confirmation is next.'));
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function approve(int $id, DecideTimeOffRequest $action): void
     {
         $action->approve(TimeOffRequest::findOrFail($id), auth()->user());
@@ -76,6 +81,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::toast(variant: 'success', text: __('Approved — time entries were scheduled.'));
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function deny(int $id, DecideTimeOffRequest $action): void
     {
         $action->deny(TimeOffRequest::findOrFail($id), auth()->user());
@@ -307,11 +313,19 @@ new #[Title('Staff calendar')] class extends Component {
                         </div>
                         <div class="shrink-0 whitespace-nowrap">
                             @if ($request->status === \App\Enums\TimeOffRequestStatus::Pending)
+                                @callable($this, 'managerApprove')
                                 <flux:button variant="ghost" size="sm" icon="check" wire:click="managerApprove({{ $request->id }})" data-test="cal-manager-approve" :aria-label="__('Approve absence')" />
+                                @endcallable
+                                @callable($this, 'deny')
                                 <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="deny({{ $request->id }})" data-test="cal-deny" :aria-label="__('Deny')" />
+                                @endcallable
                             @elseif ($request->status === \App\Enums\TimeOffRequestStatus::ManagerApproved)
+                                @callable($this, 'approve')
                                 <flux:button variant="ghost" size="sm" icon="check-badge" wire:click="approve({{ $request->id }})" data-test="cal-approve" :aria-label="__('Confirm pay treatment')" />
+                                @endcallable
+                                @callable($this, 'deny')
                                 <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="deny({{ $request->id }})" data-test="cal-deny" :aria-label="__('Deny')" />
+                                @endcallable
                             @endif
                         </div>
                     </li>

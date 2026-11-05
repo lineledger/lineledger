@@ -57,7 +57,7 @@ it('round-trips a default tax code through the COA modal for an expense account'
 
     $taxCode = accountTaxCode($company, 'PTAX', TaxAppliesTo::PurchaseOnly);
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_code', '69001')
         ->set('form_name', 'Office Supplies')
@@ -77,7 +77,7 @@ it('drops the default tax code when the subtype is not an income or expense type
 
     $taxCode = accountTaxCode($company, 'PTAX2', TaxAppliesTo::PurchaseOnly);
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $company])
+    $component = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_subtype', AccountSubtype::Expense->value)
         ->set('form_default_tax_code_id', $taxCode->id)
@@ -103,7 +103,7 @@ it('filters tax code options by applies_to for the chosen account type', functio
     $both = accountTaxCode($company, 'BOTH1', TaxAppliesTo::Both);
 
     // Income accounts: sales-applicable codes only.
-    $incomeIds = Livewire::test('pages::accounts.index', ['company' => $company])
+    $incomeIds = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->set('form_subtype', AccountSubtype::Income->value)
         ->instance()->taxCodeOptions->pluck('id');
 
@@ -112,7 +112,7 @@ it('filters tax code options by applies_to for the chosen account type', functio
         ->not->toContain($purchase->id);
 
     // Expense accounts: purchase-applicable codes only.
-    $expenseIds = Livewire::test('pages::accounts.index', ['company' => $company])
+    $expenseIds = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->set('form_subtype', AccountSubtype::Expense->value)
         ->instance()->taxCodeOptions->pluck('id');
 
@@ -131,7 +131,7 @@ it('rejects another company\'s tax code in the COA modal', function () {
 
     app()->instance('current_company', $company);
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_code', '69002')
         ->set('form_name', 'Supplies')

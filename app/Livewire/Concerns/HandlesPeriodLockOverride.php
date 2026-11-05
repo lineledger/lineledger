@@ -2,15 +2,18 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Enums\Activity;
 use App\Enums\AuditAction;
 use App\Enums\PeriodLockMode;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Permissions\MethodPermissionGate;
 use App\Models\Company;
+use App\Models\User;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Posting\PeriodLockOverride;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
 
@@ -57,7 +60,7 @@ trait HandlesPeriodLockOverride
 
         $company = $this->periodLockCompany();
 
-        if ($company->lockMode() === PeriodLockMode::Block && ! Gate::allows('update', $company)) {
+        if ($company->lockMode() === PeriodLockMode::Block && ! $this->mayChangeClosedPeriod($company)) {
             return false;
         }
 
@@ -83,7 +86,7 @@ trait HandlesPeriodLockOverride
         $mode = $company->lockMode();
 
         if ($mode === PeriodLockMode::Block) {
-            Gate::authorize('update', $company);
+            abort_unless($this->mayChangeClosedPeriod($company), 403);
 
             if (! Hash::check($this->periodLockPassword, (string) Auth::user()?->password)) {
                 $this->addError('periodLockPassword', __('The password is incorrect.'));
@@ -96,6 +99,10 @@ trait HandlesPeriodLockOverride
         $this->periodLockPassword = '';
         $this->resetErrorBag();
         Flux::modal('period-lock-override')->close();
+
+        // The re-run calls the method directly, so it skips Livewire's call
+        // hook: check what it declares it needs here instead.
+        app(MethodPermissionGate::class)->authorize($this, $action, []);
 
         [, $crossed] = PeriodLockOverride::run($company, fn () => app()->call([$this, $action]));
 
@@ -122,5 +129,17 @@ trait HandlesPeriodLockOverride
     protected function periodLockCompany(): Company
     {
         return $this->company;
+    }
+
+    /**
+     * Whether the signed-in member may post into a period closed in Block
+     * mode (their roles carry "Changes in a closed period").
+     */
+    private function mayChangeClosedPeriod(Company $company): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User
+            && $user->permissions($company)->allows(Activity::ClosedPeriodChanges, PermissionAction::Modify);
     }
 }

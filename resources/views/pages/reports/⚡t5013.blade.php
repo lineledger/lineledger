@@ -3,6 +3,8 @@
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Partner;
 use App\Services\Reporting\CsvExporter;
@@ -88,6 +90,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         return ['rows' => $rows, 'net_income' => $net, 'total_bps' => $totalBps];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function addPartner(): void
     {
         $validated = $this->validate([
@@ -107,6 +110,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         Flux::toast(variant: 'success', text: __('Partner added.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function deletePartner(int $id): void
     {
         $partner = Partner::query()->where('company_id', $this->company->id)->findOrFail($id);
@@ -150,6 +154,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         return app(CsvExporter::class)->stream(
@@ -159,6 +164,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t5013', [
@@ -211,7 +217,9 @@ new #[Title('T5013 Partnership')] class extends Component {
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($partner->share_bps / 100, 2) }}%</td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format($row['amount'] / 100, 2) }}</td>
                             <td class="px-4 py-2 text-right">
+                                @callable($this, 'deletePartner')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="deletePartner({{ $partner->id }})" wire:confirm="{{ __('Remove this partner?') }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @empty

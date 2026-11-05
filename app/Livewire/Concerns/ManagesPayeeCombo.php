@@ -3,6 +3,9 @@
 namespace App\Livewire\Concerns;
 
 use App\Actions\Contacts\SaveContact;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Contact;
 use App\Support\Contacts\ContactLinkResolver;
 use Flux\Flux;
@@ -157,6 +160,9 @@ trait ManagesPayeeCombo
      * any role with the same name (case-insensitively) is selected instead —
      * never a duplicate.
      */
+    // Whoever may write the cheque or expense may quick-add its payee as an
+    // other name, as before roles; so may anyone who keeps the other-names list.
+    #[Requires([Activity::OtherLists, Activity::Cheques, Activity::Expenses], PermissionAction::Create)]
     public function createOtherName(?string $typed = null): void
     {
         $this->new_payee_name = trim($typed ?? $this->new_payee_name);

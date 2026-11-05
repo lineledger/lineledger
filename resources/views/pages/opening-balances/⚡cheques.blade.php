@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
@@ -47,7 +50,7 @@ new #[Title('Outstanding cheques')] class extends Component {
 
     public function mount(Company $company): void
     {
-        abort_unless(auth()->user()?->ownsCompany($company), 403);
+        abort_unless(auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false, 403);
 
         $this->company = $company;
         $this->resolveObState();
@@ -111,6 +114,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::modal('ob-cheque')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Cheque::class, $this->editingId)) {
@@ -159,6 +163,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::toast(variant: 'success', text: __('Outstanding cheque saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function remove(int $id): void
     {
         if (! $this->obEditable()) {
@@ -184,6 +189,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::toast(variant: 'success', text: __('Cheque removed (voided).'));
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();
@@ -247,7 +253,9 @@ new #[Title('Outstanding cheques')] class extends Component {
                             <td class="py-1.5 pr-3 text-right tabular-nums">{{ $this->money((int) $cheque->amount_cents) }}</td>
                             <td class="py-1.5 text-right">
                                 <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="openEdit({{ $cheque->id }})" :disabled="$obState->isFinalized()" data-test="ob-cheque-edit-{{ $cheque->cheque_no }}" />
+                                @callable($this, 'remove')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="remove({{ $cheque->id }})" wire:confirm="{{ __('Remove this outstanding cheque? Its posting will be voided and the bank re-netted.') }}" :disabled="$obState->isFinalized()" data-test="ob-cheque-remove-{{ $cheque->cheque_no }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @endforeach
@@ -319,7 +327,9 @@ new #[Title('Outstanding cheques')] class extends Component {
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                @callable($this, 'save')
                 <flux:button variant="primary" wire:click="save" data-test="ob-cheque-save">{{ __('Save') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>

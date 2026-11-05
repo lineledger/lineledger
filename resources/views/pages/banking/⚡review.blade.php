@@ -8,9 +8,11 @@ use App\Actions\Banking\RecordStatementLine;
 use App\Actions\Banking\SplitStatementLine;
 use App\Enums\AccountSubtype;
 use App\Enums\BillType;
+use App\Enums\PermissionAction;
 use App\Enums\StatementLineMatchStatus;
 use App\Enums\StatementSuggestionSource;
 use App\Exceptions\Posting\PostingValidationException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ManagesStatementLineContacts;
 use App\Livewire\Concerns\ManagesStatementLineTax;
 use App\Models\Account;
@@ -264,6 +266,7 @@ new #[Title('For Review')] class extends Component {
         return (int) collect($this->payBillsRows)->sum(fn (array $row): int => Money::tryFromString(trim((string) $row['apply']))?->cents ?? 0);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function savePayBills(): void
     {
         $line = $this->payBillsLineId ? $this->lineForReview($this->payBillsLineId) : null;
@@ -422,6 +425,7 @@ new #[Title('For Review')] class extends Component {
      * "Always do this": write a bank rule for this payee with the row's
      * category (and vendor).
      */
+    #[Requires(null, PermissionAction::Create)]
     public function createRule(int $lineId): void
     {
         $line = $this->lineForReview($lineId);
@@ -472,6 +476,7 @@ new #[Title('For Review')] class extends Component {
         return app(TransferPairMatcher::class)->candidates($this->company);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function recordTransfer(int $outId, int $inId, PairStatementTransfer $action): void
     {
         $out = $this->lineForReview($outId);
@@ -505,6 +510,7 @@ new #[Title('For Review')] class extends Component {
         $this->selected = [];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkCategorize(BulkCategorizeStatementLines $action): void
     {
         if (! $this->bulkCategory || $this->selected === []) {
@@ -523,6 +529,7 @@ new #[Title('For Review')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkExclude(BulkSetStatementLineStatus $action): void
     {
         $action->exclude($this->selected);
@@ -530,6 +537,7 @@ new #[Title('For Review')] class extends Component {
         unset($this->rows);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkInclude(BulkSetStatementLineStatus $action): void
     {
         $action->include($this->selected);
@@ -537,6 +545,7 @@ new #[Title('For Review')] class extends Component {
         unset($this->rows);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function includeLine(int $lineId, BulkSetStatementLineStatus $action): void
     {
         $action->include([$lineId]);
@@ -583,6 +592,7 @@ new #[Title('For Review')] class extends Component {
         return Contact::query()->where('is_active', true)->orderBy('display_name')->get(['id', 'display_name']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function accept(int $lineId, RecordStatementLine $action): void
     {
         $line = $this->lineForReview($lineId);
@@ -625,6 +635,7 @@ new #[Title('For Review')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function exclude(int $lineId): void
     {
         BankStatementLine::query()
@@ -670,6 +681,7 @@ new #[Title('For Review')] class extends Component {
         $this->splits = array_values($this->splits);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveSplit(SplitStatementLine $action): void
     {
         $line = $this->splittingLineId ? $this->lineForReview($this->splittingLineId) : null;
@@ -750,7 +762,9 @@ new #[Title('For Review')] class extends Component {
                             </td>
                             <td class="px-4 py-2 text-right font-mono">{{ number_format(abs($pair['out']->amount_cents) / 100, 2) }}</td>
                             <td class="px-4 py-2 text-right">
+                                @callable($this, 'recordTransfer')
                                 <flux:button size="xs" variant="primary" wire:click="recordTransfer({{ $pair['out']->id }}, {{ $pair['in']->id }})" data-test="record-transfer">{{ __('Record transfer') }}</flux:button>
+                                @endcallable
                             </td>
                         </tr>
                     @endforeach
@@ -766,7 +780,9 @@ new #[Title('For Review')] class extends Component {
             <flux:button size="xs" variant="ghost" wire:click="clearSelection">{{ __('Clear') }}</flux:button>
             <div class="ml-auto flex flex-wrap items-center gap-2">
                 @if ($showExcluded)
+                    @callable($this, 'bulkInclude')
                     <flux:button size="sm" variant="primary" wire:click="bulkInclude" data-test="bulk-include">{{ __('Include') }}</flux:button>
+                    @endcallable
                 @else
                     <flux:select wire:model="bulkCategory" size="sm" class="min-w-[200px]" data-test="bulk-category">
                         <flux:select.option value="">{{ __('Categorize as…') }}</flux:select.option>
@@ -780,8 +796,12 @@ new #[Title('For Review')] class extends Component {
                             <flux:select.option :value="$contact->id">{{ $contact->display_name }}</flux:select.option>
                         @endforeach
                     </flux:select>
+                    @callable($this, 'bulkCategorize')
                     <flux:button size="sm" variant="primary" wire:click="bulkCategorize" :disabled="! $bulkCategory" data-test="bulk-categorize">{{ __('Categorize') }}</flux:button>
+                    @endcallable
+                    @callable($this, 'bulkExclude')
                     <flux:button size="sm" variant="ghost" wire:click="bulkExclude" data-test="bulk-exclude">{{ __('Exclude') }}</flux:button>
+                    @endcallable
                 @endif
             </div>
         </div>
@@ -890,7 +910,9 @@ new #[Title('For Review')] class extends Component {
                         <td class="px-3 py-2 align-top">
                             <div class="flex justify-end gap-1">
                                 @if ($showExcluded)
+                                    @callable($this, 'includeLine')
                                     <flux:button size="xs" variant="ghost" wire:click="includeLine({{ $line->id }})" data-test="row-include">{{ __('Include') }}</flux:button>
+                                    @endcallable
                                 @else
                                     @if ($line->isOutflow() && $contactId && ($this->openBillCounts[$contactId] ?? 0) > 0)
                                         <flux:tooltip :content="__('Pay one or more open bills with this transaction')">
@@ -904,13 +926,19 @@ new #[Title('For Review')] class extends Component {
                                             </flux:tooltip>
                                         @else
                                             <flux:tooltip :content="__('Always do this — create a rule for this payee')">
+                                                @callable($this, 'createRule')
                                                 <flux:button size="xs" variant="ghost" icon="bolt" wire:click="createRule({{ $line->id }})" data-test="review-make-rule" />
+                                                @endcallable
                                             </flux:tooltip>
                                         @endif
                                     @endif
+                                    @callable($this, 'accept')
                                     <flux:button size="xs" variant="primary" wire:click="accept({{ $line->id }})" data-test="review-accept">{{ $suggested ? __('Confirm') : __('Accept') }}</flux:button>
+                                    @endcallable
                                     <flux:button size="xs" variant="ghost" wire:click="openSplit({{ $line->id }})" data-test="review-split">{{ __('Split') }}</flux:button>
+                                    @callable($this, 'exclude')
                                     <flux:button size="xs" variant="ghost" wire:click="exclude({{ $line->id }})" data-test="review-exclude">{{ __('Exclude') }}</flux:button>
+                                    @endcallable
                                 @endif
                             </div>
                         </td>
@@ -977,7 +1005,9 @@ new #[Title('For Review')] class extends Component {
 
             <div class="flex justify-end gap-2">
                 <flux:button variant="ghost" wire:click="cancelSplit">{{ __('Cancel') }}</flux:button>
+                @callable($this, 'saveSplit')
                 <flux:button variant="primary" wire:click="saveSplit" :disabled="$splitSum !== $splitTargetCents" data-test="split-save">{{ __('Add split') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>
@@ -1030,7 +1060,9 @@ new #[Title('For Review')] class extends Component {
                 </span>
                 <div class="flex gap-2">
                     <flux:button variant="ghost" wire:click="cancelPayBills" data-test="pay-bills-cancel">{{ __('Cancel') }}</flux:button>
+                    @callable($this, 'savePayBills')
                     <flux:button variant="primary" wire:click="savePayBills" :disabled="$this->payBillsTotal() !== $payBillsTargetCents" data-test="pay-bills-save">{{ __('Save') }}</flux:button>
+                    @endcallable
                 </div>
             </div>
         </div>

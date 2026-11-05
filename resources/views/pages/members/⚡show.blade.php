@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Membership\BillMemberDues;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\RecurrenceFrequency;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Member;
@@ -13,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Member')] class extends Component {
     use ShowsEditLock;
@@ -42,6 +46,7 @@ new #[Title('Member')] class extends Component {
         return $this->member->invoices()->orderByDesc('invoice_date')->orderByDesc('id')->get();
     }
 
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     public function billDues()
     {
         try {
@@ -56,9 +61,10 @@ new #[Title('Member')] class extends Component {
 
         // Drop the user straight into the editable draft so they can adjust lines
         // before posting, rather than the read-only show page.
-        $this->redirectRoute('invoices.edit', ['company' => $this->company, 'invoice' => $invoice], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company, 'invoice' => $invoice], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function renew(): void
     {
@@ -98,9 +104,15 @@ new #[Title('Member')] class extends Component {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            @reaches('members.edit')
             <flux:button variant="ghost" icon="pencil" :href="route('members.edit', ['company' => $company, 'member' => $member])" wire:navigate data-test="member-edit-button">{{ __('Edit') }}</flux:button>
+            @endreaches
+            @callable($this, 'renew')
             <flux:button variant="ghost" icon="arrow-path" wire:click="renew" data-test="member-renew-button">{{ __('Renew') }}</flux:button>
+            @endcallable
+            @callable($this, 'billDues')
             <flux:button variant="primary" icon="document-plus" wire:click="billDues" data-test="member-bill-dues-button">{{ __('Bill dues now') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

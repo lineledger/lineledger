@@ -1,7 +1,9 @@
 <?php
 
 use App\Actions\Sales\SendInvoiceReminder;
+use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\RecordEditLockedException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Invoice;
@@ -49,6 +51,7 @@ new #[Title('Payment Reminders')] class extends Component {
             });
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendNow(int $invoiceId, SendInvoiceReminder $sender): void
     {
         $item = $this->dueItems->firstWhere('invoice.id', $invoiceId);
@@ -66,6 +69,7 @@ new #[Title('Payment Reminders')] class extends Component {
         unset($this->dueItems);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function disableReminders(int $contactId): void
     {
         $contact = Contact::query()->find($contactId);
@@ -93,6 +97,7 @@ new #[Title('Payment Reminders')] class extends Component {
         Flux::toast(variant: 'success', text: __('Automated reminders turned off for this customer.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function snoozeInvoice(int $invoiceId): void
     {
         Invoice::query()->whereKey($invoiceId)->update(['reminders_enabled' => false]);
@@ -152,10 +157,16 @@ new #[Title('Payment Reminders')] class extends Component {
                         <td class="px-4 py-2 text-muted-foreground">{{ $item['tier']->renderSubject($invoice) }}</td>
                         <td class="px-4 py-2">
                             <div class="flex justify-end gap-2">
+                                @callable($this, 'sendNow')
                                 <flux:button size="xs" variant="primary" icon="paper-airplane" wire:click="sendNow({{ $invoice->id }})" data-test="reminder-send">{{ __('Send now') }}</flux:button>
+                                @endcallable
+                                @callable($this, 'snoozeInvoice')
                                 <flux:button size="xs" variant="ghost" wire:click="snoozeInvoice({{ $invoice->id }})" data-test="reminder-snooze">{{ __('Skip') }}</flux:button>
+                                @endcallable
                                 @if ($invoice->contact?->reminder_emails_enabled)
+                                    @callable($this, 'disableReminders')
                                     <flux:button size="xs" variant="ghost" wire:click="disableReminders({{ $invoice->contact_id }})" data-test="reminder-mute">{{ __('Turn off reminders') }}</flux:button>
+                                    @endcallable
                                 @endif
                             </div>
                         </td>

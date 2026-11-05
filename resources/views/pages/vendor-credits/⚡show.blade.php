@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\VendorCreditStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Company;
@@ -38,6 +40,7 @@ new #[Title('Vendor credit')] class extends Component {
         $this->vendorCredit = $vendor_credit->load('lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'contact', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(VendorCreditPoster $poster): void
     {
@@ -53,6 +56,7 @@ new #[Title('Vendor credit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Vendor credit posted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(VendorCreditPoster $poster): void
     {
@@ -68,6 +72,7 @@ new #[Title('Vendor credit')] class extends Component {
         $this->redirectRoute('vendor-credits.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -80,6 +85,7 @@ new #[Title('Vendor credit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->vendorCredit);
@@ -125,32 +131,40 @@ new #[Title('Vendor credit')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($vendorCredit->status === VendorCreditStatus::Draft)
+                @callable($this, 'post')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" icon="check-circle" wire:click="post" data-test="post-vendor-credit-button">
                     {{ __('Post') }}
                 </flux:button>
+                @endcallable
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="vendor-credit-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($vendorCredit->status === VendorCreditStatus::Draft)
+                        @callable($this, 'post')
                         <flux:menu.item class="lg:hidden" icon="check-circle" wire:click="post" data-test="post-vendor-credit-menu-item">
                             {{ __('Post') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                     <flux:menu.item icon="printer" :href="route('vendor-credits.print', ['company' => $company->slug, 'vendor_credit' => $vendorCredit->id])" target="_blank" data-test="print-vendor-credit-button">
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($vendorCredit->status !== VendorCreditStatus::Void)
+                        @reaches('vendor-credits.edit')
                         <flux:menu.item icon="pencil" :href="route('vendor-credits.edit', ['company' => $company->slug, 'vendor_credit' => $vendorCredit->id])" wire:navigate data-test="edit-vendor-credit-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($vendorCredit->status === VendorCreditStatus::Posted)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this vendor credit? A reversing GL entry will be posted.') }}" data-test="void-vendor-credit-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -221,10 +235,12 @@ new #[Title('Vendor credit')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="vendor-credit-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="vendor-credit-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -238,9 +254,11 @@ new #[Title('Vendor credit')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="vendor-credit-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

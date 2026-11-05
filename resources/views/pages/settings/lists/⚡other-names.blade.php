@@ -2,7 +2,10 @@
 
 use App\Actions\Contacts\ConvertOtherName;
 use App\Actions\Contacts\SaveOtherName;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\Contact;
@@ -66,6 +69,7 @@ new #[Title('Other names')] class extends Component {
         Flux::modal('other-names-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Contact::class, $this->editingId)) {
@@ -98,6 +102,7 @@ new #[Title('Other names')] class extends Component {
      * every cheque, expense and journal line written to it stays linked; it
      * simply leaves this list for the Vendors / Customers / Employees page.
      */
+    #[Requires(null, PermissionAction::Modify)]
     public function convert(int $id, string $role): void
     {
         $this->resetErrorBag('convert');
@@ -262,13 +267,19 @@ new #[Title('Other names')] class extends Component {
                                             <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" data-test="other-name-actions-button" />
                                             <flux:menu>
                                                 @if ($canConvertVendor)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="building-storefront" wire:click="convert({{ $c->id }}, 'is_vendor')" wire:confirm="{{ __('Convert “:name” to a vendor? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-vendor">{{ __('Convert to vendor') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                                 @if ($canConvertCustomer)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="user" wire:click="convert({{ $c->id }}, 'is_customer')" wire:confirm="{{ __('Convert “:name” to a customer? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-customer">{{ __('Convert to customer') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                                 @if ($canConvertEmployee)
+                                                    @callable($this, 'convert')
                                                     <flux:menu.item icon="identification" wire:click="convert({{ $c->id }}, 'is_employee')" wire:confirm="{{ __('Convert “:name” to an employee? This can’t be undone; its cheques and expenses stay linked.', ['name' => $c->display_name]) }}" data-test="other-name-convert-employee">{{ __('Convert to employee') }}</flux:menu.item>
+                                                    @endcallable
                                                 @endif
                                             </flux:menu>
                                         </flux:dropdown>

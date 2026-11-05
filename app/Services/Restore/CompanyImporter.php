@@ -7,6 +7,8 @@ use App\Enums\CompanyRole;
 use App\Models\Company;
 use App\Models\CompanyRestore;
 use App\Models\Membership;
+use App\Services\Access\LegacyRoleConverter;
+use App\Services\Access\PredefinedRoleSeeder;
 use App\Services\Audit\AccountingAuditRecorder;
 use App\Services\Audit\AuditMute;
 use App\Services\Audit\CanonicalJson;
@@ -74,6 +76,7 @@ final class CompanyImporter
         private readonly JsonlTableReader $reader,
         private readonly UserRemapBuilder $userRemap,
         private readonly AttachmentImporter $attachments,
+        private readonly LegacyRoleConverter $roleConverter,
     ) {}
 
     /**
@@ -424,6 +427,14 @@ final class CompanyImporter
                     $extractedDir,
                 );
                 $stepResults['_document_logo'] = ['path' => $newDocumentLogoPath];
+
+                // ---- Roles: a bundle made before roles existed carries none.
+                //      Give the copy its predefined roles and convert its
+                //      members, exactly as `access:sync-roles` does on upgrade. ----
+                if (! DB::table('roles')->where('company_id', $newCompany->id)->exists()) {
+                    $this->roleConverter->convertCompany($newCompany);
+                }
+                app(PredefinedRoleSeeder::class)->seed($newCompany);
 
                 // ---- Owner Membership: dead last so a failed restore never
                 //      leaves the user holding a partial company. ----

@@ -6,6 +6,8 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -14,6 +16,9 @@ use App\Models\JournalLine;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
 use App\Services\Reporting\XlsxExporter;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
+use App\Support\Access\PermissionSet;
 use App\Support\Reporting\SourceLinkResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -55,6 +60,9 @@ new #[Title('Transactions')] class extends Component {
 
     /** Per-request memo for groupLabelFor(); not Livewire state. @var array<string, string> */
     protected array $groupLabelCache = [];
+
+    /** The viewer's permissions, resolved once per request (not Livewire state). */
+    private ?PermissionSet $viewerPermissions = null;
 
     public function mount(Company $company): void
     {
@@ -163,14 +171,13 @@ new #[Title('Transactions')] class extends Component {
                 ->orderBy('journal_lines.account_id')
                 ->orderBy('journal_lines.entry_date')
                 ->orderBy('journal_lines.id'),
-            'contact' => $query
-                ->leftJoin('contacts as group_contacts', 'group_contacts.id', '=', 'journal_lines.contact_id')
+            'contact' => $this->joinGroupContacts($query)
                 ->select('journal_lines.*')
                 // (display_name IS NULL) sorts the no-contact group last on both
                 // SQLite and MySQL, without COALESCE-sentinel collation surprises.
                 ->orderByRaw('(group_contacts.display_name IS NULL)')
                 ->orderBy('group_contacts.display_name')
-                ->orderBy('journal_lines.contact_id')
+                ->orderBy($this->hidesPayrollDetail() ? 'group_contacts.id' : 'journal_lines.contact_id')
                 ->orderBy('journal_lines.entry_date')
                 ->orderBy('journal_lines.id'),
             'source' => $query
@@ -185,6 +192,28 @@ new #[Title('Transactions')] class extends Component {
                 ->orderBy('journal_lines.entry_date')
                 ->orderBy('journal_lines.id'),
         };
+    }
+
+    /**
+     * Join each line's contact for grouping by name. A payroll line whose
+     * detail the viewer can't see joins no contact, so it falls in the
+     * no-name group instead of under the employee's name.
+     *
+     * @param  Builder<JournalLine>  $query
+     * @return Builder<JournalLine>
+     */
+    private function joinGroupContacts(Builder $query): Builder
+    {
+        if (! $this->hidesPayrollDetail()) {
+            return $query->leftJoin('contacts as group_contacts', 'group_contacts.id', '=', 'journal_lines.contact_id');
+        }
+
+        return $query
+            ->leftJoin('journal_entries as contact_entries', 'contact_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->leftJoin('contacts as group_contacts', fn ($join) => PayrollDetail::withoutPayroll(
+                $join->on('group_contacts.id', '=', 'journal_lines.contact_id'),
+                'contact_entries',
+            ));
     }
 
     /**
@@ -206,6 +235,9 @@ new #[Title('Transactions')] class extends Component {
             ->whereBetween('journal_lines.entry_date', [$this->startDate, $this->endDate])
             ->when($this->accountId !== null, fn ($q) => $q->where('journal_lines.account_id', $this->accountId))
             ->when($this->contactId !== null, fn ($q) => $q->where('journal_lines.contact_id', $this->contactId))
+            // A payroll line whose detail the viewer can't see carries no name
+            // for them, so filtering to a name never finds it (nor its amount).
+            ->when($this->contactId !== null && $this->hidesPayrollDetail(), fn ($q) => $q->whereHas('journalEntry', fn ($jq) => PayrollDetail::withoutPayroll($jq)))
             ->when($this->effectiveClassId() !== null, fn ($q) => $q->where('journal_lines.class_id', $this->effectiveClassId()))
             ->when($this->effectiveLocationId() !== null, fn ($q) => $q->where('journal_lines.location_id', $this->effectiveLocationId()))
             ->when($this->effectiveFundId() !== null, fn ($q) => $q->where('journal_lines.fund_id', $this->effectiveFundId()))
@@ -241,13 +273,15 @@ new #[Title('Transactions')] class extends Component {
         // store entry_date as a plain Y-m-d date (see JournalLine's creating hook).
         $keyExpr = match ($this->groupBy) {
             'account' => 'journal_lines.account_id',
-            'contact' => 'journal_lines.contact_id',
+            // The joined contact, so hidden payroll lines total under no name.
+            'contact' => $this->hidesPayrollDetail() ? 'group_contacts.id' : 'journal_lines.contact_id',
             'month' => 'SUBSTR(journal_lines.entry_date, 1, 7)',
             default => 'group_entries.source_type',
         };
 
         $rows = $this->baseQuery()
             ->when($this->groupBy === 'source', fn ($q) => $q->join('journal_entries as group_entries', 'group_entries.id', '=', 'journal_lines.journal_entry_id'))
+            ->when($this->groupBy === 'contact' && $this->hidesPayrollDetail(), fn ($q) => $this->joinGroupContacts($q))
             ->selectRaw("{$keyExpr} AS group_key, SUM(journal_lines.debit_cents) AS debit_total, SUM(journal_lines.credit_cents) AS credit_total, COUNT(*) AS line_count")
             ->groupByRaw($keyExpr)
             ->toBase()
@@ -270,7 +304,7 @@ new #[Title('Transactions')] class extends Component {
     {
         return match ($this->groupBy) {
             'account' => (string) $line->account_id,
-            'contact' => (string) ($line->contact_id ?? ''),
+            'contact' => $this->hidesLine($line) ? '' : (string) ($line->contact_id ?? ''),
             'month' => substr((string) $line->entry_date?->toDateString(), 0, 7),
             'source' => (string) ($line->journalEntry?->source_type ?? ''),
             default => '',
@@ -299,7 +333,43 @@ new #[Title('Transactions')] class extends Component {
 
     public function sourceUrl(JournalEntry $entry): ?string
     {
+        if (PayrollDetail::hidesEntry($entry, $this->viewer())) {
+            return null;
+        }
+
         return app(SourceLinkResolver::class)->urlFor($entry, $this->company);
+    }
+
+    private function viewer(): PermissionSet
+    {
+        return $this->viewerPermissions ??= CurrentViewer::permissions($this->company);
+    }
+
+    private function hidesPayrollDetail(): bool
+    {
+        return ! $this->viewer()->seesPayrollDetail();
+    }
+
+    /**
+     * Whether the line's payroll detail is withheld from this viewer
+     * (PayrollDetail): it shows "Payroll" for its memo and name, with no
+     * links, and keeps its amounts.
+     */
+    public function hidesLine(JournalLine $line): bool
+    {
+        return PayrollDetail::hidesEntry($line->journalEntry, $this->viewer());
+    }
+
+    /** The line's memo as this viewer may see it — what the page and every export show. */
+    public function lineMemo(JournalLine $line): ?string
+    {
+        return $this->hidesLine($line) ? PayrollDetail::label() : ($line->memo ?? $line->journalEntry?->memo);
+    }
+
+    /** The line's name as this viewer may see it — what the page and every export show. */
+    public function lineName(JournalLine $line): ?string
+    {
+        return $this->hidesLine($line) ? PayrollDetail::label() : $line->contact?->display_name;
     }
 
     /**
@@ -319,8 +389,8 @@ new #[Title('Transactions')] class extends Component {
                 'date' => $line->entry_date?->toDateString(),
                 'entry_no' => $line->journalEntry?->entry_no,
                 'account' => trim(($line->account?->code ?? '').' — '.($line->account?->displayName() ?? ''), ' —'),
-                'name' => $line->contact?->display_name,
-                'memo' => $line->memo ?? $line->journalEntry?->memo,
+                'name' => $this->lineName($line),
+                'memo' => $this->lineMemo($line),
                 'debit' => (int) $line->debit_cents,
                 'credit' => (int) $line->credit_cents,
             ];
@@ -338,6 +408,7 @@ new #[Title('Transactions')] class extends Component {
         return "transactions-{$this->startDate}-to-{$this->endDate}.{$extension}";
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $grouped = $this->groupBy !== 'none';
@@ -371,6 +442,7 @@ new #[Title('Transactions')] class extends Component {
         return app(CsvExporter::class)->stream($this->exportFilename('csv'), $headers, $rows);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->transactions(
@@ -384,6 +456,7 @@ new #[Title('Transactions')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         // The PDF export stays ungrouped (flat rows; extra 'group' keys are
@@ -504,15 +577,15 @@ new #[Title('Transactions')] class extends Component {
                         @if ($this->columnVisible('name'))
                             <td class="px-4 py-2">
                                 {{-- Drill to that name's own transactions, unless the report is already filtered to it. --}}
-                                @if ($line->contact_id && (int) $line->contact_id !== (int) $contactId)
-                                    <a href="{{ route('reports.transactions', ['company' => $company->slug, 'contact' => $line->contact_id, 'start' => $startDate, 'end' => $endDate]) }}" wire:navigate class="hover:underline" data-test="drill-contact">{{ $line->contact?->display_name }}</a>
+                                @if ($line->contact_id && (int) $line->contact_id !== (int) $contactId && ! $this->hidesLine($line))
+                                    <a href="{{ route('reports.transactions', ['company' => $company->slug, 'contact' => $line->contact_id, 'start' => $startDate, 'end' => $endDate]) }}" wire:navigate class="hover:underline" data-test="drill-contact">{{ $this->lineName($line) }}</a>
                                 @else
-                                    {{ $line->contact?->display_name }}
+                                    {{ $this->lineName($line) }}
                                 @endif
                             </td>
                         @endif
                         @if ($this->columnVisible('memo'))
-                            <td class="px-4 py-2 text-muted-foreground">{{ $line->memo ?? $line->journalEntry?->memo }}</td>
+                            <td class="px-4 py-2 text-muted-foreground">{{ $this->lineMemo($line) }}</td>
                         @endif
                         <td class="px-4 py-2 text-right font-mono">{{ $line->debit_cents ? number_format($line->debit_cents / 100, 2) : '' }}</td>
                         <td class="px-4 py-2 text-right font-mono">{{ $line->credit_cents ? number_format($line->credit_cents / 100, 2) : '' }}</td>

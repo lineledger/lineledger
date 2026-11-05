@@ -5,7 +5,9 @@ use App\Concerns\HasReportAsOfDate;
 use App\Concerns\Memorizable;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\PermissionAction;
 use App\Enums\ReportStatement;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportSection;
@@ -240,6 +242,7 @@ new #[Title('Statement of Financial Position')] class extends Component {
         ];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -317,6 +320,7 @@ new #[Title('Statement of Financial Position')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->balanceSheet(
@@ -328,6 +332,7 @@ new #[Title('Statement of Financial Position')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.balance-sheet', [

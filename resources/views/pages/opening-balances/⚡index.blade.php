@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\Activity;
 use App\Enums\AuditAction;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
 use App\Models\Company;
@@ -32,7 +35,7 @@ new #[Title('Opening balances')] class extends Component {
 
     public function mount(Company $company): void
     {
-        abort_unless(auth()->user()?->ownsCompany($company), 403);
+        abort_unless(auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false, 403);
 
         $this->company = $company;
         $this->resolveObState();
@@ -45,6 +48,7 @@ new #[Title('Opening balances')] class extends Component {
         return app(OpeningBalanceStatusBuilder::class)->build($this->obState->refresh());
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveAsOf(): void
     {
         if (! $this->obEditable()) {
@@ -64,6 +68,8 @@ new #[Title('Opening balances')] class extends Component {
         Flux::toast(variant: 'success', text: __('As-of date moved to :date. The opening entry was re-dated; existing detail documents keep their own dates.', ['date' => $this->asOfDate]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::ClosingDate, PermissionAction::Modify)]
     public function finalize(): void
     {
         $this->obState->refresh();
@@ -89,6 +95,8 @@ new #[Title('Opening balances')] class extends Component {
         Flux::toast(variant: 'success', text: __('Opening balances finalized — books locked through :date.', ['date' => $newLock]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::ClosingDate, PermissionAction::Modify)]
     public function unfinalize(): void
     {
         $this->obState->refresh();
@@ -176,17 +184,23 @@ new #[Title('Opening balances')] class extends Component {
             <flux:text>{{ __('The date your balances are carried over as of — usually your last fiscal year-end in the old system.') }}</flux:text>
             <div class="flex items-end gap-2">
                 <flux:input type="date" wire:model="asOfDate" :label="__('As of')" :disabled="$obState->isFinalized()" data-test="ob-as-of" />
+                @callable($this, 'saveAsOf')
                 <flux:button wire:click="saveAsOf" :disabled="$obState->isFinalized()" data-test="ob-save-as-of">{{ __('Save') }}</flux:button>
+                @endcallable
             </div>
 
             @if ($obState->isFinalized())
+                @callable($this, 'unfinalize')
                 <flux:button variant="filled" wire:click="unfinalize" wire:confirm="{{ __('Re-open opening balances for editing? This lifts the period lock this workspace set.') }}" data-test="ob-unfinalize">
                     {{ __('Un-finalize') }}
                 </flux:button>
+                @endcallable
             @else
+                @callable($this, 'finalize')
                 <flux:button variant="filled" wire:click="finalize" wire:confirm="{{ __('Finalize opening balances? This locks the books through the as-of date. You can un-finalize later.') }}" data-test="ob-finalize">
                     {{ __('Finalize & lock') }}
                 </flux:button>
+                @endcallable
             @endif
         </flux:card>
 

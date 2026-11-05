@@ -3,8 +3,10 @@
 use App\Enums\AccountSubtype;
 use App\Enums\PayrollChequeStatus;
 use App\Enums\PayRunStatus;
+use App\Enums\PermissionAction;
 use App\Exceptions\Payroll\MissingPayrollConstantsException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -104,6 +106,7 @@ new #[Title('Pay run')] class extends Component {
         return null;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(PayRunPoster $poster): void
     {
@@ -123,6 +126,8 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Pay run posted.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function writeCheques(\App\Actions\Payroll\IssuePayrollCheques $issuer): void
     {
@@ -145,6 +150,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Cheques written.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function voidRun(PayRunPoster $poster): void
     {
@@ -160,6 +166,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Pay run voided.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function recalculate(CalculatePayRun $calculate): void
     {
@@ -196,6 +203,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::modal('adjust-line')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function saveAdjust(): void
     {
@@ -238,6 +246,7 @@ new #[Title('Pay run')] class extends Component {
         $line->{$component.'_override_cents'} = $cents === (int) $line->{$component.'_computed_cents'} ? null : $cents;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function resetAdjust(): void
     {
@@ -260,6 +269,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Reset to calculated amounts.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function voidCheque(int $chequeId, PayrollChequePoster $poster): void
     {
@@ -304,17 +314,25 @@ new #[Title('Pay run')] class extends Component {
 
         <div class="flex flex-wrap gap-2">
             @if ($payRun->status->isEditable())
+                @reaches('pay-runs.edit')
                 <flux:button variant="ghost" icon="pencil" :href="route('pay-runs.edit', $payRun)" wire:navigate>{{ __('Edit') }}</flux:button>
+                @endreaches
+                @callable($this, 'recalculate')
                 <flux:button variant="ghost" icon="calculator" wire:click="recalculate">{{ __('Recalculate') }}</flux:button>
+                @endcallable
             @endif
             @if ($payRun->status === \App\Enums\PayRunStatus::Calculated)
+                @callable($this, 'post')
                 <flux:button variant="primary" icon="check" wire:click="post" wire:confirm="{{ __('Post this pay run to the general ledger?') }}">{{ __('Post pay run') }}</flux:button>
+                @endcallable
             @endif
             @if ($payRun->status === \App\Enums\PayRunStatus::Posted)
                 <flux:button variant="primary" icon="banknotes" wire:click="$set('startingChequeNumber', ''); $flux.modal('write-cheques').show()">{{ __('Write cheques') }}</flux:button>
             @endif
             @if (in_array($payRun->status, [\App\Enums\PayRunStatus::Posted, \App\Enums\PayRunStatus::Paid], true))
+                @callable($this, 'voidRun')
                 <flux:button variant="ghost" icon="x-mark" wire:click="voidRun" wire:confirm="{{ __('Void this pay run? Its journal entry will be reversed.') }}">{{ __('Void') }}</flux:button>
+                @endcallable
             @endif
         </div>
     </div>
@@ -420,7 +438,9 @@ new #[Title('Pay run')] class extends Component {
                                     <div class="flex items-center justify-end gap-1">
                                         <flux:button size="xs" variant="ghost" icon="printer" :href="route('payroll-cheques.print', $cheque)" target="_blank">{{ __('Print') }}</flux:button>
                                         @if ($cheque->status === PayrollChequeStatus::Posted)
+                                            @callable($this, 'voidCheque')
                                             <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="voidCheque({{ $cheque->id }})" wire:confirm="{{ __('Void cheque #:no for :payee? This reverses the bank entry.', ['no' => $cheque->cheque_no, 'payee' => $cheque->payee_name]) }}">{{ __('Void') }}</flux:button>
+                                            @endcallable
                                         @endif
                                     </div>
                                 </td>
@@ -466,10 +486,14 @@ new #[Title('Pay run')] class extends Component {
             </div>
 
             <div class="flex justify-between gap-2">
+                @callable($this, 'resetAdjust')
                 <flux:button variant="ghost" wire:click="resetAdjust">{{ __('Reset to calculated') }}</flux:button>
+                @endcallable
                 <div class="flex gap-2">
                     <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                    @callable($this, 'saveAdjust')
                     <flux:button variant="primary" wire:click="saveAdjust">{{ __('Save') }}</flux:button>
+                    @endcallable
                 </div>
             </div>
         </div>

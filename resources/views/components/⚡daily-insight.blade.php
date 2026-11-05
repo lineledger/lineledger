@@ -3,6 +3,7 @@
 use App\Enums\InsightSource;
 use App\Models\Company;
 use App\Models\DailyInsight;
+use App\Models\User;
 use App\Services\Insights\InsightDetectorRegistry;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -38,8 +39,11 @@ new class extends Component
 
         $today = $this->company->currentDateTime();
 
+        $viewer = Auth::user();
+
         return DailyInsight::query()
             ->whereIn('insight_date', [$today->toDateString(), $today->subDay()->toDateString()])
+            ->whereIn('type', InsightDetectorRegistry::typesVisibleTo($this->company, $viewer instanceof User ? $viewer : null))
             ->orderByDesc('insight_date')
             ->first();
     }

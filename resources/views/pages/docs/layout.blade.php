@@ -66,6 +66,7 @@
             <flux:navlist.group :heading="__('Settings & administration')" class="mt-4">
                 <flux:navlist.item :href="route('docs.lists')" :current="request()->routeIs('docs.lists')" wire:navigate>{{ __('Lists') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('docs.settings')" :current="request()->routeIs('docs.settings')" wire:navigate>{{ __('Settings') }}</flux:navlist.item>
+                <flux:navlist.item :href="route('docs.users-and-roles')" :current="request()->routeIs('docs.users-and-roles')" wire:navigate>{{ __('Users and roles') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('docs.migration')" :current="request()->routeIs('docs.migration')" wire:navigate>{{ __('Import from QuickBooks') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('docs.api')" :current="request()->routeIs('docs.api')" wire:navigate>{{ __('API') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('docs.self-hosting')" :current="request()->routeIs('docs.self-hosting')" wire:navigate>{{ __('Self-hosting & upgrades') }}</flux:navlist.item>

@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\DepositStatus;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Deposit;
@@ -30,6 +32,7 @@ new #[Title('Deposit')] class extends Component {
         $this->deposit = $deposit->load('lines.customerReceipt.contact', 'lines.account', 'lines.contact', 'bankAccount', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(DepositPoster $poster): void
     {
@@ -45,6 +48,7 @@ new #[Title('Deposit')] class extends Component {
         $this->redirectRoute('deposits.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(DepositPoster $poster): void
     {
@@ -90,6 +94,7 @@ new #[Title('Deposit')] class extends Component {
 
         <div class="flex gap-2">
             @if ($deposit->status === DepositStatus::Draft)
+                @reaches('deposits.edit')
                 <flux:button
                     variant="filled"
                     :href="route('deposits.edit', ['company' => $company->slug, 'deposit' => $deposit->id])"
@@ -98,10 +103,14 @@ new #[Title('Deposit')] class extends Component {
                 >
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
+                @callable($this, 'post')
                 <flux:button variant="primary" wire:click="post" data-test="post-deposit-button">{{ __('Post') }}</flux:button>
+                @endcallable
             @endif
 
             @if ($deposit->status === DepositStatus::Posted)
+                @reaches('deposits.edit')
                 <flux:button
                     variant="primary"
                     :href="route('deposits.edit', ['company' => $company->slug, 'deposit' => $deposit->id])"
@@ -110,8 +119,10 @@ new #[Title('Deposit')] class extends Component {
                 >
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
             @endif
 
+            @reaches('deposits.create')
             <flux:button
                 variant="filled"
                 icon="document-duplicate"
@@ -121,11 +132,14 @@ new #[Title('Deposit')] class extends Component {
             >
                 {{ __('Duplicate') }}
             </flux:button>
+            @endreaches
 
             @if ($deposit->status === DepositStatus::Posted)
+                @callable($this, 'void')
                 <flux:button variant="danger" wire:click="void" wire:confirm="{{ __('Void this deposit? A reversing GL entry will be posted and undeposited receipts will be released.') }}" data-test="void-deposit-button">
                     {{ __('Void') }}
                 </flux:button>
+                @endcallable
             @endif
         </div>
     </div>

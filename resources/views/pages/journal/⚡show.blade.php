@@ -3,15 +3,19 @@
 use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\ReverseJournalEntry;
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\PostedDocumentDeletionException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\TaxCode;
 use App\Services\Posting\JournalPoster;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
 use App\Support\Reporting\SourceLinkResolver;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -19,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Journal entry')] class extends Component {
     use ShowsEditLock;
@@ -43,7 +48,10 @@ new #[Title('Journal entry')] class extends Component {
     public function mount(Company $company, JournalEntry $entry): void
     {
         $this->company = $company;
-        $this->entry = $entry->load('lines.account', 'reversedBy', 'reverses');
+        $this->entry = $entry;
+        $this->ensurePayrollDetailVisible();
+
+        $this->entry->load('lines.account', 'reversedBy', 'reverses');
 
         if ($this->isSourceLinked()) {
             $resolver = app(SourceLinkResolver::class);
@@ -61,6 +69,26 @@ new #[Title('Journal entry')] class extends Component {
             ->startOfMonth()
             ->addMonth()
             ->toDateString();
+    }
+
+    /**
+     * mount() runs once; every later update re-checks, so a member who loses
+     * pay-run access mid-session can't keep acting on an open payroll entry.
+     */
+    public function hydrate(): void
+    {
+        $this->ensurePayrollDetailVisible();
+    }
+
+    /**
+     * A payroll entry (pay run, payroll cheque, remittance, or the void of
+     * one) names employees and their pay: only a member who can open pay
+     * runs may open it (PayrollDetail). Everyone else sees it on the ledger
+     * as "Payroll".
+     */
+    private function ensurePayrollDetailVisible(): void
+    {
+        abort_if(PayrollDetail::hidesEntry($this->entry, CurrentViewer::permissions($this->company)), 403);
     }
 
     /**
@@ -93,6 +121,7 @@ new #[Title('Journal entry')] class extends Component {
         return TaxCode::query()->whereIn('id', $ids)->pluck('code', 'id')->all();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(JournalPoster $poster): void
     {
@@ -114,6 +143,7 @@ new #[Title('Journal entry')] class extends Component {
      * Permanently remove a draft. It never reached the ledger, so unlike void
      * there is no reversing entry — the entry and its lines are simply gone.
      */
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteDraft(DeleteDraftJournalEntry $action): void
     {
@@ -133,6 +163,7 @@ new #[Title('Journal entry')] class extends Component {
      * Create a draft accrual reversal of this posted entry and open it for review.
      * The original stays posted (this is not a void).
      */
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function reverse(ReverseJournalEntry $action): void
     {
@@ -144,7 +175,7 @@ new #[Title('Journal entry')] class extends Component {
         $reversal = $action->handle($this->entry, CarbonImmutable::parse($this->reverseDate));
 
         Flux::toast(variant: 'success', text: __('Draft reversal :no created. Review and post it.', ['no' => $reversal->entry_no]));
-        $this->redirectRoute('journal.edit', ['company' => $this->company->slug, 'entry' => $reversal->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('journal.edit'), ['company' => $this->company->slug, 'entry' => $reversal->id], navigate: true);
     }
 }; ?>
 

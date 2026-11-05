@@ -33,6 +33,7 @@ beforeEach(function () {
     // become null instead of violating the company_members FK.
     $this->quirkHandled = [
         'document_folders.created_by_member_id',
+        'company_member_roles.company_member_id',
     ];
 
     // Plain values that merely end in `_id` — external handles, not row ids.

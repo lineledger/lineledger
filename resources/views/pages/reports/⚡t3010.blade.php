@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Models\Company;
 use App\Services\Charity\T3010Calculator;
 use App\Services\Reporting\CsvExporter;
@@ -61,6 +63,7 @@ new #[Title('T3010 Summary')] class extends Component
         ];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->lines())->map(fn (int $v, string $label) => [$label, CsvExporter::cents($v)])->values();
@@ -77,7 +80,9 @@ new #[Title('T3010 Summary')] class extends Component
         </div>
         <div class="flex items-end gap-3">
             <flux:input type="number" wire:model.live="year" :label="__('Year')" class="w-28" data-test="t3010-year" />
+            @callable($this, 'exportCsv')
             <flux:button variant="ghost" icon="arrow-down-tray" wire:click="exportCsv">{{ __('Export CSV') }}</flux:button>
+            @endcallable
         </div>
     </div>
 

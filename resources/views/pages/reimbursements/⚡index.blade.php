@@ -47,9 +47,11 @@ new #[Title('Reimbursements')] class extends Component {
             <flux:subheading>{{ __('Expenses paid by employees that you owe back.') }}</flux:subheading>
         </div>
 
+        @reaches('reimbursements.create')
         <flux:button variant="primary" icon="plus" :href="route('reimbursements.create', ['company' => $company->slug])" wire:navigate data-test="new-reimbursement-button">
             {{ __('New reimbursement') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

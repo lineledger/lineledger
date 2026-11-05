@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property CompanyRole $role
+ * @property list<string>|null $sections section values, for the Custom role only
+ */
 #[Fillable(['company_id', 'email', 'role', 'sections', 'invited_by', 'expires_at', 'accepted_at'])]
 class CompanyInvitation extends Model
 {

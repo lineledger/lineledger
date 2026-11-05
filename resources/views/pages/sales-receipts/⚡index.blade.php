@@ -42,9 +42,11 @@ new #[Title('Sales receipts')] class extends Component {
             <flux:subheading>{{ __('Paid-in-full sales — revenue and cash booked in one step.') }}</flux:subheading>
         </div>
 
+        @reaches('sales-receipts.create')
         <flux:button variant="primary" icon="plus" :href="route('sales-receipts.create', ['company' => $company->slug])" wire:navigate data-test="new-sales-receipt-button">
             {{ __('New sales receipt') }}
         </flux:button>
+        @endreaches
     </div>
 
     <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search receipt # or customer…') }}" icon="magnifying-glass" class="mb-4 max-w-md" />

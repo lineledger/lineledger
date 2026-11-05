@@ -29,7 +29,7 @@ new #[Title('Documentation — Vendors')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('Every form in this area — the vendor dialog, bills, bill payments, vendor credits, and expenses — is held by whoever opens it first. Anyone else who opens the same record sees who is editing instead of the form, and actions such as posting or voiding wait until they are done. Owners and Admins can take over. See') }}
+            {{ __('Every form in this area — the vendor dialog, bills, bill payments, vendor credits, and expenses — is held by whoever opens it first. Anyone else who opens the same record sees who is editing instead of the form, and actions such as posting or voiding wait until they are done. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for the details.') }}
         </x-docs.callout>

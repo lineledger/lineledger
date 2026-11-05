@@ -28,6 +28,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Vendor credit')] class extends Component
 {
@@ -314,7 +315,7 @@ new #[Title('Vendor credit')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('vendor-credits.edit', ['company' => $this->company->slug, 'vendor_credit' => $this->vendorCredit->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('vendor-credits.edit'), ['company' => $this->company->slug, 'vendor_credit' => $this->vendorCredit->id], navigate: true);
     }
 
     public function postVendorCredit(VendorCreditPoster $poster): void

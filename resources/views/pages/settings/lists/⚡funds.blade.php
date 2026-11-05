@@ -2,6 +2,7 @@
 
 use App\Actions\MasterData\SaveFund;
 use App\Enums\FundType;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\Fund;
@@ -53,6 +54,7 @@ new #[Title('Funds')] class extends Component {
         Flux::modal('funds-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Fund::class, $this->editingId)) {

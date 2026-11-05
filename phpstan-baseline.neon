@@ -1099,24 +1099,6 @@ parameters:
 			path: app/Models/CustomerReceipt.php
 
 		-
-			message: '#^Result of \|\| is always false\.$#'
-			identifier: booleanOr.alwaysFalse
-			count: 2
-			path: app/Models/DocumentFolder.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CompanyRole\:\:Admin will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
-			path: app/Models/DocumentFolder.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CompanyRole\:\:Owner will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
-			path: app/Models/DocumentFolder.php
-
-		-
 			message: '#^Cannot call method isExpirable\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1165,26 +1147,8 @@ parameters:
 			path: app/Models/Member.php
 
 		-
-			message: '#^Cannot call method sections\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Models/Membership.php
-
-		-
-			message: '#^Cannot call method usesCustomSections\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Models/Membership.php
-
-		-
 			message: '#^Method App\\Models\\Membership\:\:user\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Illuminate\\Database\\Eloquent\\Model, \$this\(App\\Models\\Membership\)\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<App\\Models\\User, \$this\(App\\Models\\Membership\)\>\.$#'
 			identifier: return.type
-			count: 1
-			path: app/Models/Membership.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CompanyRole\:\:Owner will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Models/Membership.php
 
@@ -1349,18 +1313,6 @@ parameters:
 			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Models/Transfer.php
-
-		-
-			message: '#^Method App\\Models\\User\:\:companyRole\(\) should return App\\Enums\\CompanyRole\|null but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Notifications/Companies/CompanyInvitation.php
 
 		-
 			message: '#^Parameter \#1 \$subtype of static method App\\Support\\Gifi\\GifiCatalog\:\:defaultForSubtype\(\) expects App\\Enums\\AccountSubtype, string given\.$#'

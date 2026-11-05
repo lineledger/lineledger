@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Tools;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Support\Mcp\ItemsPresenter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -29,7 +29,7 @@ class ItemsCatalogTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireAnySection(Section::Lists, Section::Inventory)) {
+        if ($denied = $this->requirePermission([Activity::Items, Activity::Inventory])) {
             return $denied;
         }
 

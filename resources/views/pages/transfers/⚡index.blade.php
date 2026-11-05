@@ -41,9 +41,11 @@ new #[Title('Transfers')] class extends Component {
             <flux:subheading>{{ __('Move money between bank and cash accounts.') }}</flux:subheading>
         </div>
 
+        @reaches('transfers.create')
         <flux:button variant="primary" icon="plus" :href="route('transfers.create', ['company' => $company->slug])" wire:navigate data-test="new-transfer-button">
             {{ __('New transfer') }}
         </flux:button>
+        @endreaches
     </div>
 
     <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search transfer #…') }}" icon="magnifying-glass" class="mb-4 max-w-md" />

@@ -66,9 +66,11 @@ new #[Title('Donation receipts')] class extends Component {
             <flux:heading size="xl" level="1" data-test="page-title">{{ __('Donation receipts') }}</flux:heading>
             <flux:subheading>{{ __('Issue and manage official CRA donation receipts.') }}</flux:subheading>
         </div>
+        @reaches('donation-receipts.create')
         <flux:button variant="primary" icon="plus" :href="route('donation-receipts.create', ['company' => $company])" wire:navigate data-test="new-donation-receipt-button">
             {{ __('New receipt') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">

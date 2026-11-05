@@ -84,7 +84,7 @@ new #[Title('Documentation — Sales receipts')] class extends Component {}; ?>
             {{ __('Save & post checks a few things before it writes anything. If one fails, nothing is posted and the reason appears in red under the line grid so you can fix it and try again:') }}
         </flux:text>
         <ul class="list-disc ps-6 space-y-1">
-            <li>{{ __('The receipt is dated on or before the organization’s lock date. Closed periods stay closed — move the date forward, or ask an owner or admin to change the lock date.') }}</li>
+            <li>{{ __('The receipt is dated on or before the organization’s lock date. Closed periods stay closed — move the date forward, or ask someone whose role can set the closing date (Full Access, or the Owner) to change it.') }}</li>
             <li>{{ __('A sales tax return has already been filed for the period the receipt date falls in, and a line uses one of that agency’s tax codes. Void the return first if the receipt genuinely belongs in that period.') }}</li>
             <li>{{ __('The receipt has no lines, or its total is zero or less.') }}</li>
             <li>{{ __('A line sells more of an inventory-tracked item than you have on hand. The message names the item, the quantity requested, and the quantity available; receive the stock first, or reduce the quantity.') }}</li>
@@ -127,7 +127,7 @@ new #[Title('Documentation — Sales receipts')] class extends Component {}; ?>
         </ul>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a receipt at a time') }}">
-            {{ __('When a teammate has a sales receipt open for editing, its page says who is editing and Void and Delete draft wait until they are done; anyone else opening the edit page sees who has it instead of the form. Owners and Admins can take over. How locks are released is explained under Edit locks on the') }}
+            {{ __('When a teammate has a sales receipt open for editing, its page says who is editing and Void and Delete draft wait until they are done; anyone else opening the edit page sees who has it instead of the form. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. How locks are released is explained under Edit locks on the') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>{{ __(' page.') }}
         </x-docs.callout>
 

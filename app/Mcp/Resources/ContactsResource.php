@@ -2,7 +2,7 @@
 
 namespace App\Mcp\Resources;
 
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\CompanyApiKey;
 use App\Support\Mcp\ContactsDirectoryPresenter;
@@ -31,7 +31,7 @@ class ContactsResource extends Resource
             return Response::error('This API key is not permitted to read contacts.');
         }
 
-        if ($denied = $this->requireAnySection(Section::Customers, Section::Vendors)) {
+        if ($denied = $this->requirePermission([Activity::Customers, Activity::Vendors])) {
             return $denied;
         }
 

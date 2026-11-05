@@ -7,8 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.1] - 2026-11-05
+
+**Highlights.** The first release candidate for 1.5.0, on the next channel
+only. It adds users and roles in the manner of QuickBooks Desktop Enterprise:
+predefined and custom roles that grant each activity None, Full or Partial
+access, people who hold several roles, and API keys and MCP connections held to
+the same permissions. Four new tables, and `app:upgrade` converts every member
+so nobody's page access changes; see `UPGRADING.md`.
+
 ### Added
 
+- **Users and roles.** Settings → Users and roles replaces the member list on
+  the organization page, in the manner of QuickBooks Desktop Enterprise:
+  - **Roles** say what people may do, area by area and activity by activity:
+    None, Full, or Partial with View, Create, Modify, Delete, Print and View
+    balance ticked. Fifteen predefined roles come with every organization
+    (Full Access, Accountant, External Accountant, Bookkeeper, Accounts
+    Receivable, Sales, Accounts Payable, Purchasing, Banking, Inventory, Payroll
+    Manager, Payroll Processor, Time Tracking, Fundraising and View-only). Their
+    permissions can be edited and reset to the default; their names can't. New
+    roles can start blank or as a copy of another.
+  - **Users** hold one or more roles, and may do whatever any of them allows.
+    Invitations name the roles too. The Owner keeps full access and isn't
+    assigned roles.
+  - **Permission access by roles** (Reports → Accountant & Taxes) sets every
+    activity against the roles you pick, with a CSV export.
+  - Narrowing a role, or a user's roles, asks first and signs out whoever loses
+    access. Nobody but the Owner can hand out more than they hold, change their
+    own roles or edit a role they hold.
+  - What a role can't do isn't offered: the sidebar leaves out pages it can't
+    open, and New, Edit, Void and Delete buttons are hidden instead of
+    answering "403". Someone who may create but not change a record lands on
+    its page after saving rather than its edit form.
+  - Balances need **View balance**: cash, receivables and payables on the
+    dashboard, the chart of accounts' balance column, account balances in
+    search, the API (`balance_cents` is `null`) and the MCP chart of accounts
+    and contact lookups. Net income and the dashboard charts need financial
+    reports, and each daily insight shows only to people who can open the
+    report it points to.
+  - Payroll detail on the general ledger (employee names on payroll cheques and
+    net-pay lines, and the link to the pay run) shows only to people who can
+    open pay runs; everyone else sees "Payroll" with the amount.
+- **The API and MCP follow the same permissions.** An API key can do no more
+  than the person who created it may do now, and stops working for anything
+  they lose. MCP connections made with an API key are held to their creator's
+  permissions too; until now they skipped section checks.
 - **A next channel for release candidates.** Release candidates such as
   `1.5.0-rc.1` go to a `next` channel only. A Docker install joins it with
   `LINELEDGER_VERSION=next`, a Droplet with `lineledger channel next` (or
@@ -1601,7 +1645,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.4.3...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...HEAD
+[1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
 [1.4.3]: https://github.com/lineledger/lineledger/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/lineledger/lineledger/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1

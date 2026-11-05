@@ -2,6 +2,8 @@
 
 use App\Actions\MasterData\SaveTaxAgency;
 use App\Enums\AccountType;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\InvoiceSetting;
@@ -88,6 +90,7 @@ new #[Title('Invoice settings')] class extends Component {
         $this->paymentInstructions = (string) ($settings->payment_instructions ?? '');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function save(): void
     {
         Gate::authorize('update', $this->company);

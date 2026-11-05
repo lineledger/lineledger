@@ -31,14 +31,14 @@ new #[Title('Documentation — Documents')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('Who sees the Documents group') }}">
-            {{ __('Owners, Admins, and Accountants get the Documents section automatically. A Custom member only sees the Documents group in the sidebar — and can only open a folder you share with them — when the Documents section is part of their access. Section access is set per member under Settings → Organizations; see') }}
-            <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>{{ __('.') }}
+            {{ __('The Owner gets the Documents section automatically; anyone else sees the Documents group in the sidebar — and can open a folder you share with them — only when one of their roles can open Documents. Roles are given out under Settings → Users and roles; see') }}
+            <a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a>{{ __('.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Create a folder ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Create a folder') }}</flux:heading>
         <flux:text>
-            {{ __('Folders organize what you upload. They are private to you by default — only you, plus Owners and Admins, can see a folder until you explicitly share it with other team members.') }}
+            {{ __('Folders organize what you upload. They are private to you by default — only you, the Owner, and anyone whose role can see every folder (Full Access) can see a folder until you explicitly share it with other team members.') }}
         </flux:text>
 
         <p><strong>{{ __('To create a folder:') }}</strong></p>
@@ -84,37 +84,37 @@ new #[Title('Documentation — Documents')] class extends Component {}; ?>
         {{-- ───────────────────────── Share a folder ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Share a folder with teammates') }}</flux:heading>
         <flux:text>
-            {{ __('New folders are visible only to their creator plus Owners and Admins. Share a folder when you want a specific bookkeeper or accountant to be able to open it. Sharing is read-only: the people you share with can open the folder and read or download its files, but they see no New subfolder button, no Actions menu, no dropzone, and no pencil or X next to a file.') }}
+            {{ __('New folders are visible only to their creator, the Owner, and anyone whose role can see every folder (Full Access). Share a folder when you want a specific bookkeeper or accountant to be able to open it. Sharing is read-only: the people you share with can open the folder and read or download its files, but they see no New subfolder button, no Actions menu, no dropzone, and no pencil or X next to a file.') }}
         </flux:text>
 
         <p><strong>{{ __('To share a folder:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open the folder.') }}</li>
             <li>{{ __('Open the Actions menu in the top-right corner and choose Share.') }}</li>
-            <li>{{ __('Tick the members who should be able to view this folder and its files. The dialog lists every other member and reminds you that Owners and admins always have access, so ticking them gives them no extra access.') }}</li>
+            <li>{{ __('Tick the members who should be able to view this folder and its files. The dialog lists every other member and reminds you that the Owner and anyone whose role can see every folder always have access, so ticking them gives them no extra access.') }}</li>
             <li>{{ __('Select Save. The folder card now carries a Shared badge.') }}</li>
         </ol>
 
         <x-docs.figure
             src="{{ asset('docs/screenshots/documents/share-modal.png') }}"
-            alt="{{ __('The Share folder dialog with a checkbox per member, the note that Owners and admins always have access, and Cancel and Save buttons') }}"
-            caption="{{ __('The Share folder dialog. Tick each member who should be able to view the folder; Owners and Admins can already see everything, so ticking them gives them no extra access.') }}"
+            alt="{{ __('The Share folder dialog with a checkbox per member, the note that the owner and anyone whose role can see every folder always have access, and Cancel and Save buttons') }}"
+            caption="{{ __('The Share folder dialog. Tick each member who should be able to view the folder; the Owner and Full Access can already see every folder, so ticking them gives them no extra access.') }}"
         />
 
         <x-docs.callout type="warning" heading="{{ __('Sharing needs the Documents section too') }}">
-            {{ __('Ticking a member is not enough on its own. A Custom member whose access does not include the Documents section cannot open a folder you share with them — the Documents group does not appear in their sidebar and the folder link is refused. Grant the section under Settings → Organizations first, then share the folder. Sharing also does not cascade: each subfolder has its own list, so a member shared on “Incorporation” only sees “Articles” inside it if you share that subfolder as well.') }}
+            {{ __('Ticking a member is not enough on its own. Someone whose roles cannot open Documents cannot open a folder you share with them — the Documents group does not appear in their sidebar and the folder link is refused. Give them a role that can under Settings → Users and roles first, then share the folder. Sharing also does not cascade: each subfolder has its own list, so a member shared on “Incorporation” only sees “Articles” inside it if you share that subfolder as well.') }}
         </x-docs.callout>
 
         <p><strong>{{ __('Who can do what:') }}</strong></p>
         <ul class="list-disc ps-6 space-y-1">
-            <li>{{ __('Owners and Admins — open, upload to, rename, share, and delete every folder in the organization.') }}</li>
+            <li>{{ __('The Owner, and anyone whose role can see every folder (Full Access) — open, upload to, rename, share, and delete every folder in the organization.') }}</li>
             <li>{{ __('The folder’s creator — the same, for the folders they created.') }}</li>
             <li>{{ __('A member the folder is shared with — open the folder and read or download its files, nothing more.') }}</li>
             <li>{{ __('Everyone else — cannot see the folder at all.') }}</li>
         </ul>
 
         <x-docs.callout type="tip">
-            {{ __('The Actions menu — shown only to Owners, Admins, and the folder’s creator — is also where you Rename a folder or choose Delete folder. Deleting a folder removes everything inside it, including subfolders and files, and the files are purged from storage, not just hidden — there is no undo, so use Share rather than Delete folder if you only want to limit access.') }}
+            {{ __('The Actions menu — shown only to the Owner, people whose role can see every folder, and the folder’s creator — is also where you Rename a folder or choose Delete folder. Deleting a folder removes everything inside it, including subfolders and files, and the files are purged from storage, not just hidden — there is no undo, so use Share rather than Delete folder if you only want to limit access.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Attachment index ───────────────────────── --}}
@@ -174,7 +174,7 @@ new #[Title('Documentation — Documents')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('Attaching is not editing') }}">
-            {{ __('One person edits a record at a time. If a teammate has a cheque, expense, or bill open for editing, its edit form shows you who is editing instead, and Owners and Admins can take over — but attaching or removing a file from the record’s own page still works, so you can file the receipt while they finish. See') }}
+            {{ __('One person edits a record at a time. If a teammate has a cheque, expense, or bill open for editing, its edit form shows you who is editing instead, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over — but attaching or removing a file from the record’s own page still works, so you can file the receipt while they finish. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>
@@ -195,7 +195,7 @@ new #[Title('Documentation — Documents')] class extends Component {}; ?>
         <ul class="list-disc ps-6 space-y-1">
             <li><a class="underline" href="{{ route('docs.inbox') }}" wire:navigate>{{ __('Inbox') }}</a> {{ __('— email or drop a receipt to have it read and turned into a draft bill or expense, instead of just filing the raw image here.') }}</li>
             <li><a class="underline" href="{{ route('docs.banking') }}" wire:navigate>{{ __('Banking') }}</a> {{ __('— reconciling an account, including dropping a statement onto the Begin reconciliation panel to auto-fill the ending balance.') }}</li>
-            <li><a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a> {{ __('— the Company members section under Settings → Organizations is where you see who is an Owner or Admin (they can see every folder) and give a Custom member the Documents section before you share with them.') }}</li>
+            <li><a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a> {{ __('— Settings → Users and roles is where you see who holds which roles (Full Access can see every folder) and give someone a role that opens Documents before you share with them.') }}</li>
             <li><a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Backup & export') }}</a> {{ __('— folder contents and per-record attachments are included in your backup ZIP.') }}</li>
         </ul>
     </x-pages::docs.layout>

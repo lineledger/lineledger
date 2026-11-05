@@ -32,7 +32,7 @@ it('rejects a parent account of a different type', function () {
 
     $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_code', '6500')
         ->set('form_name', 'Subscriptions')
@@ -50,7 +50,7 @@ it('allows a same-type parent account', function () {
 
     $parent = Account::query()->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_code', '6510')
         ->set('form_name', 'Software')
@@ -69,7 +69,7 @@ it('creates a foreign-currency bank account from the form when multi-currency is
     app()->instance('current_company', $company);
     app(EnableCompanyCurrency::class)->handle($company, 'USD');
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate')
         ->set('form_subtype', AccountSubtype::Bank->value)
         ->assertSeeHtml('data-test="account-currency-select"') // shows for Bank under multi-currency
@@ -123,7 +123,7 @@ it('allows saving an edit without changing the code', function () {
 
     $account = Account::query()->where('code', '1000')->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openEdit', $account->id)
         ->set('form_description', 'Primary chequing')
         ->call('save')
@@ -145,7 +145,7 @@ it('prevents editing accounts from a different company', function () {
         ->where('code', '1000')
         ->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $companyA])
+    Livewire::actingAs(actAsCompanyOwner($companyA))->test('pages::accounts.index', ['company' => $companyA])
         ->call('openEdit', $foreignAccount->id)
         ->assertStatus(404);
 
@@ -171,7 +171,7 @@ it('shows income accounts at their current-fiscal-year balance, not lifetime', f
     $post('2025-06-01', 30000);
     $post('2026-02-01', 10000);
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $company]);
+    $component = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company]);
     $balances = $component->instance()->balances;
 
     // Income: only the current fiscal year's $100, not the lifetime $400.
@@ -191,7 +191,7 @@ it('allows changing the code of a system account', function () {
 
     expect($system)->not->toBeNull();
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openEdit', $system->id)
         ->set('form_code', '1234')
         ->call('save')
@@ -236,7 +236,7 @@ it('persists and clears a cash-flow activity override on a balance-sheet account
 
     $fixedAsset = Account::query()->where('subtype', AccountSubtype::FixedAsset->value)->first();
 
-    $component = Livewire::test('pages::accounts.index', ['company' => $company])
+    $component = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openEdit', $fixedAsset->id)
         ->set('form_cash_flow_activity', 'operating')
         ->call('save')
@@ -306,7 +306,7 @@ it('links each account code and name to its General Ledger report', function () 
     $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->first();
     $ledgerUrl = route('reports.general-ledger', ['company' => $company->slug, 'account' => $bank->id]);
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->assertSeeHtml('data-test="account-ledger-link"')
         ->assertSeeHtml('href="'.$ledgerUrl.'"')
         ->assertSeeHtml('>'.$bank->code.'</a>')
@@ -325,7 +325,7 @@ it('persists the Include in transfers switch', function () {
         'normal_balance' => AccountSubtype::CurrentLiability->type()->normalBalance()->value,
     ]);
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openEdit', $loc->id)
         ->set('form_use_in_transfers', true)
         ->call('save')
@@ -333,7 +333,7 @@ it('persists the Include in transfers switch', function () {
 
     expect($loc->fresh()->use_in_transfers)->toBeTrue();
 
-    Livewire::test('pages::accounts.index', ['company' => $company])
+    Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openEdit', $loc->id)
         ->assertSet('form_use_in_transfers', true)
         ->set('form_use_in_transfers', false)

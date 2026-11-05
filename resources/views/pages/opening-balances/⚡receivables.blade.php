@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
 use App\Models\Company;
@@ -45,7 +47,7 @@ new #[Title('Opening customer balances')] class extends Component {
 
     public function mount(Company $company): void
     {
-        abort_unless(auth()->user()?->ownsCompany($company), 403);
+        abort_unless(auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false, 403);
 
         $this->company = $company;
         $this->resolveObState();
@@ -203,6 +205,7 @@ new #[Title('Opening customer balances')] class extends Component {
         unset($this->customers, $this->footer);
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();

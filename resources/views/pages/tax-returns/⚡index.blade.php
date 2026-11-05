@@ -46,9 +46,11 @@ new #[Title('Tax returns')] class extends Component {
             <flux:subheading>{{ __('Filed :label and other tax returns. Each filing is a frozen audit-ready snapshot of the transactions that contributed to the return.', ['label' => $company->jurisdiction->taxLabel()]) }}</flux:subheading>
         </div>
 
+        @reaches('tax-returns.create')
         <flux:button variant="primary" icon="plus" :href="route('tax-returns.create', ['company' => $company->slug])" wire:navigate data-test="new-tax-return-button">
             {{ __('File new return') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

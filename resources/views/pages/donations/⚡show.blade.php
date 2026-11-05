@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\RecordEditLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Donation;
@@ -37,6 +39,7 @@ new #[Title('Donation')] class extends Component {
         $this->donation = $donation->load('contact', 'fund', 'journalEntry', 'depositToAccount', 'donationReceipt');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(): void
     {
@@ -52,6 +55,7 @@ new #[Title('Donation')] class extends Component {
         Flux::toast(variant: 'success', text: __('Donation posted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {
@@ -109,10 +113,16 @@ new #[Title('Donation')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($donation->isDraft())
+                @reaches('donations.edit')
                 <flux:button variant="ghost" icon="pencil" :href="route('donations.edit', ['company' => $company, 'donation' => $donation])" wire:navigate data-test="donation-edit-button">{{ __('Edit') }}</flux:button>
+                @endreaches
+                @callable($this, 'post')
                 <flux:button variant="primary" icon="check" wire:click="post" data-test="donation-post-button">{{ __('Post') }}</flux:button>
+                @endcallable
             @elseif ($donation->isPosted())
+                @callable($this, 'void')
                 <flux:button variant="danger" icon="x-mark" wire:click="void" wire:confirm="{{ $donation->donationReceipt && ! $donation->donationReceipt->isVoid() ? __('Void this donation? Its journal entry will be reversed and its official receipt :number voided.', ['number' => $donation->donationReceipt->receipt_no]) : __('Void this donation? Its journal entry will be reversed.') }}" data-test="donation-void-button">{{ __('Void') }}</flux:button>
+                @endcallable
             @endif
         </div>
     </div>

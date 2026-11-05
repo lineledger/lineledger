@@ -3,10 +3,13 @@
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Accounting\SaveJournalEntryTemplate;
 use App\Actions\Accounting\UpdateJournalEntryHeader;
+use App\Enums\Activity;
 use App\Enums\AuditAction;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesLineContacts;
@@ -28,6 +31,8 @@ use App\Services\Posting\EntryNumberGenerator;
 use App\Services\Posting\JournalPoster;
 use App\Services\Posting\PeriodLockOverride;
 use App\Services\Reconciliation\BankReconciliationLockGuard;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
 use App\Support\Accounting\ForeignJournalLines;
 use App\Support\Currency;
 use App\Support\Reporting\SourceLinkResolver;
@@ -45,6 +50,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Journal entry')] class extends Component
 {
@@ -196,8 +202,9 @@ new #[Title('Journal entry')] class extends Component
 
     /**
      * Copy a source entry's memo and lines into a fresh, unsaved draft. Ignores
-     * sources from another company. The new entry keeps the today's date and
-     * generated entry number set up for a blank draft.
+     * sources from another company, and payroll entries the viewer can't open
+     * (PayrollDetail). The new entry keeps the today's date and generated
+     * entry number set up for a blank draft.
      */
     protected function prefillFrom(int $sourceId): void
     {
@@ -206,7 +213,7 @@ new #[Title('Journal entry')] class extends Component
             ->with('lines')
             ->find($sourceId);
 
-        if (! $source) {
+        if (! $source || PayrollDetail::hidesEntry($source, CurrentViewer::permissions($this->company))) {
             return;
         }
 
@@ -771,6 +778,7 @@ new #[Title('Journal entry')] class extends Component
      * Capture the current lines as a reusable journal-entry template. Reuses the
      * same SaveJournalEntryTemplate action as the dedicated management page.
      */
+    #[Requires(Activity::JournalEntryTemplates, PermissionAction::Create)]
     public function saveAsTemplate(): void
     {
         $validated = $this->validate(
@@ -887,7 +895,7 @@ new #[Title('Journal entry')] class extends Component
 
         $this->persist(post: false);
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('journal.edit', ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('journal.edit'), ['company' => $this->company->slug, 'entry' => $this->entry->id], navigate: true);
     }
 
     public function postEntry(JournalPoster $poster): void

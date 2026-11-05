@@ -2,6 +2,7 @@
 
 namespace App\Support\Reporting;
 
+use App\Enums\Activity;
 use App\Enums\Country;
 use App\Enums\JurisdictionCapability;
 use App\Enums\Section;
@@ -15,7 +16,7 @@ use App\Support\SiteSettings;
  *
  * Each report entry is keyed by its route name and carries display metadata
  * plus a resolved URL. Visibility mirrors the gating that previously lived in
- * the sidebar (US-only 1099, owner-only audit log, payroll behind the same
+ * the sidebar (US-only 1099, the audit log for roles that carry it, payroll behind the same
  * usesPayroll + Payroll-section gate the sidebar uses).
  *
  * Only param-less routes belong here. Contact Statement is intentionally
@@ -35,7 +36,8 @@ class ReportCatalog
     public static function for(Company $company, User $user): array
     {
         $isCanada = $company->jurisdiction === Country::Canada;
-        $isOwner = $user->ownsCompany($company);
+        $seesAuditLog = $user->permissions($company)->canView(Activity::AuditLog);
+        $seesRoles = $user->permissions($company)->canView(Activity::Roles);
         $hasInventory = (bool) $company->features_inventory;
         $hasPurchaseOrders = (bool) $company->features_purchase_orders;
         $isNonProfit = $company->organization_type?->isNonProfit() ?? false;
@@ -48,7 +50,7 @@ class ReportCatalog
             && $user->canAccessSection($company, Section::Payroll);
 
         return collect(self::definitions())
-            ->map(function (array $category) use ($company, $isOwner, $hasInventory, $hasPurchaseOrders, $isNonProfit, $isCharity, $hasMembership, $hasFundraising, $tracksFunds, $hasPayrollReports): array {
+            ->map(function (array $category) use ($company, $seesAuditLog, $seesRoles, $hasInventory, $hasPurchaseOrders, $isNonProfit, $isCharity, $hasMembership, $hasFundraising, $tracksFunds, $hasPayrollReports): array {
                 $category['reports'] = collect($category['reports'])
                     ->filter(fn (array $report): bool => match ($report['key']) {
                         'reports.form-1099' => $company->supports(JurisdictionCapability::Form1099),
@@ -57,7 +59,8 @@ class ReportCatalog
                         'reports.gifi' => $company->usesGifi(),
                         'reports.t5013' => $company->filesT5013(),
                         'reports.t2125' => $company->filesT2125(),
-                        'reports.audit-log' => $isOwner,
+                        'reports.audit-log' => $seesAuditLog,
+                        'reports.role-permissions' => $seesRoles,
                         'reports.inventory-stock-status', 'reports.inventory-valuation' => $hasInventory,
                         'reports.open-purchase-orders' => $hasPurchaseOrders,
                         'reports.statement-of-financial-position', 'reports.statement-of-operations', 'reports.statement-of-changes-in-net-assets' => $isNonProfit,
@@ -241,6 +244,7 @@ class ReportCatalog
                     ['key' => 'reports.t3010', 'label' => __('T3010 Summary'), 'description' => __('Registered-charity information return figures: receipted donations, revenue, expenditures, and balance-sheet totals.'), 'icon' => 'document-chart-bar', 'route' => 'reports.t3010', 'companyScoped' => true],
                     ['key' => 'reports.general-ledger', 'label' => __('General Ledger'), 'description' => __('Every posted transaction, account by account, with running balances.'), 'icon' => 'book-open', 'route' => 'reports.general-ledger', 'companyScoped' => true],
                     ['key' => 'reports.audit-log', 'label' => __('Audit Logs'), 'description' => __('A tamper-evident trail of accounting and security activity.'), 'icon' => 'shield-check', 'route' => 'reports.audit-log', 'companyScoped' => true],
+                    ['key' => 'reports.role-permissions', 'label' => __('Permission access by roles'), 'description' => __('What each role can do in every area. Full means every action the activity offers.'), 'icon' => 'user-group', 'route' => 'reports.role-permissions', 'companyScoped' => true],
                 ],
             ],
             [

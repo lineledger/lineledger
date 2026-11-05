@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Member;
 use App\Services\Reporting\PdfExporter;
@@ -63,6 +65,7 @@ new #[Title('Membership Roster')] class extends Component {
         return array_sum(array_column($this->exportRows(), 'open_dues'));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->listTable(
@@ -82,6 +85,7 @@ new #[Title('Membership Roster')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.list-table', [

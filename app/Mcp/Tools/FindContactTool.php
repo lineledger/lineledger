@@ -3,7 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Enums\AccountSubtype;
-use App\Enums\Section;
+use App\Enums\Activity;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
@@ -32,7 +32,7 @@ class FindContactTool extends Tool
         // A contact may be a customer or a vendor, so access to either the
         // Customers or Vendors section is sufficient for an OAuth-authenticated
         // member (mirroring the web app's section gating).
-        if ($denied = $this->requireAnySection(Section::Customers, Section::Vendors)) {
+        if ($denied = $this->requirePermission([Activity::Customers, Activity::Vendors])) {
             return $denied;
         }
 
@@ -91,16 +91,25 @@ class FindContactTool extends Tool
             $out .= " ({$roles})";
         }
         $out .= "\n";
-        $out .= 'AR balance: '.$this->money((int) $contact->ar_balance_cents)."\n";
-        $out .= 'AP balance: '.$this->money((int) $contact->ap_balance_cents);
+        // Balances and the running statement show only to a connection that
+        // may see that side's balances (View balance on Customers / Vendors).
+        $seesReceivables = $this->actorSeesBalances(Activity::Customers);
+        $seesPayables = $this->actorSeesBalances(Activity::Vendors);
+
+        $out .= $seesReceivables ? 'AR balance: '.$this->money((int) $contact->ar_balance_cents)."\n" : '';
+        $out .= $seesPayables ? 'AP balance: '.$this->money((int) $contact->ap_balance_cents) : '';
+
+        if (! $seesReceivables && ! $seesPayables) {
+            $out .= 'Balances are not shown: this connection may not see customer or vendor balances.';
+        }
 
         $period = $this->resolvePeriod($request);
 
-        if ($contact->is_customer) {
+        if ($contact->is_customer && $seesReceivables) {
             $out .= "\n".$this->statementSummary($contact, AccountSubtype::AccountsReceivable, 'Receivable', $period);
         }
 
-        if ($contact->is_vendor) {
+        if ($contact->is_vendor && $seesPayables) {
             $out .= "\n".$this->statementSummary($contact, AccountSubtype::AccountsPayable, 'Payable', $period);
         }
 

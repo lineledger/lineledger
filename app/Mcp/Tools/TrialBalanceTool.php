@@ -2,8 +2,8 @@
 
 namespace App\Mcp\Tools;
 
+use App\Enums\Activity;
 use App\Enums\NormalBalance;
-use App\Enums\Section;
 use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\Account;
 use App\Services\Reporting\ReportCalculator;
@@ -27,7 +27,7 @@ class TrialBalanceTool extends Tool
             return $denied;
         }
 
-        if ($denied = $this->requireSection(Section::Reports)) {
+        if ($denied = $this->requirePermission(Activity::ReportsFinancial)) {
             return $denied;
         }
 

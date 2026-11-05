@@ -169,7 +169,7 @@ new #[Title('Documentation — Recurring')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a schedule at a time') }}">
-            {{ __('Opening a schedule to edit takes a short lease on it. Anyone else who opens the same schedule sees who is editing instead of the form, and Pause, Resume, Generate now, and Delete wait until they are done. Owners and Admins can take over. See ') }}<a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>{{ __(' for the full picture.') }}
+            {{ __('Opening a schedule to edit takes a short lease on it. Anyone else who opens the same schedule sees who is editing instead of the form, and Pause, Resume, Generate now, and Delete wait until they are done. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See ') }}<a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>{{ __(' for the full picture.') }}
         </x-docs.callout>
 
         <flux:heading size="md" class="mt-6">{{ __('Pausing and auto-pause') }}</flux:heading>

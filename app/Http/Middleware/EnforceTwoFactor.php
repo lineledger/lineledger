@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\CompanyRole;
 use App\Models\Company;
 use Closure;
 use Illuminate\Http\Request;
@@ -34,11 +33,11 @@ class EnforceTwoFactor
             && $user !== null
             && $company->require_two_factor
             && ! $user->hasEnabledTwoFactorAuthentication()
-            && ($user->companyRole($company)?->isAtLeast(CompanyRole::Admin) ?? false)
+            && $user->permissions($company)->requiresTwoFactor()
         ) {
             return redirect()
                 ->route('security.edit')
-                ->with('two_factor_required', __('This company requires two-factor authentication for owners and admins. Enable it to continue.'));
+                ->with('two_factor_required', __('This company requires two-factor authentication for its owner and administrators. Enable it to continue.'));
         }
 
         return $next($request);

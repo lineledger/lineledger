@@ -31,7 +31,9 @@ use Illuminate\Support\Facades\Route;
 // Public machine-readable spec (no auth — documents the surface, no secrets).
 Route::get('v1/openapi.json', OpenApiController::class)->name('api.v1.openapi');
 
-Route::middleware(['throttle:api', 'auth.api_key'])
+// api.permission caps every key at what the person who created it may do
+// in the organization (EnsureApiPermission), on top of the key's own scopes.
+Route::middleware(['throttle:api', 'auth.api_key', 'api.permission'])
     ->prefix('v1')
     ->name('api.v1.')
     ->group(function () {

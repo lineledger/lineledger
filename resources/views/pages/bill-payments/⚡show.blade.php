@@ -2,8 +2,10 @@
 
 use App\Enums\BillPaymentStatus;
 use App\Enums\BillType;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\BillPayment;
 use App\Models\Company;
@@ -31,6 +33,7 @@ new #[Title('Payment')] class extends Component {
         $this->payment = $payment->load('contact', 'paidFromAccount', 'applications.bill', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(BillPaymentPoster $poster): void
     {
@@ -89,15 +92,19 @@ new #[Title('Payment')] class extends Component {
                         </flux:menu.item>
                     @endif
                     @if ($payment->status !== BillPaymentStatus::Void)
+                        @reaches('bill-payments.edit')
                         <flux:menu.item icon="pencil" :href="route('bill-payments.edit', ['company' => $company->slug, 'payment' => $payment->id])" wire:navigate data-test="edit-payment-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($payment->status === BillPaymentStatus::Posted)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this payment? Applied bills will be reopened and a reversing GL entry will be posted.') }}" data-test="void-payment-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>

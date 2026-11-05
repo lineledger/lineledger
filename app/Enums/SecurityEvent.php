@@ -31,6 +31,9 @@ enum SecurityEvent: string
     case CompanyMemberJoined = 'company_member_joined';
     case CompanyMemberRoleChanged = 'company_member_role_changed';
     case CompanyMemberRemoved = 'company_member_removed';
+    case RoleCreated = 'role_created';
+    case RoleUpdated = 'role_updated';
+    case RoleDeleted = 'role_deleted';
 
     case ApiKeyCreated = 'api_key_created';
     case ApiKeyUpdated = 'api_key_updated';

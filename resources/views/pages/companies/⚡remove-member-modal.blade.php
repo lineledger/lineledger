@@ -1,11 +1,8 @@
 <?php
 
-use App\Enums\CompanyRole;
-use App\Enums\SecurityEvent;
+use App\Actions\Companies\Members\RemoveMember;
 use App\Models\Company;
 use App\Models\User;
-use App\Services\Audit\SecurityLogRecorder;
-use App\Services\Security\AccessRevoker;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -36,17 +33,15 @@ new class extends Component {
         $this->modalName = $modalName ?? ($memberId ? "remove-member-{$memberId}" : 'remove-member');
     }
 
-    public function removeMember(SecurityLogRecorder $recorder, AccessRevoker $revoker): void
+    public function removeMember(RemoveMember $remove): void
     {
         Gate::authorize('removeMember', $this->company);
 
         // Only a member of this organization, and never an owner — the members
-        // page offers no remove button for one.
+        // page offers no remove button for one (the Action refuses it too).
         $membership = $this->company->memberships()
             ->where('user_id', $this->memberId)
             ->firstOrFail();
-
-        abort_if($membership->role === CompanyRole::Owner, 403);
 
         $user = User::findOrFail($membership->user_id);
 
@@ -54,25 +49,7 @@ new class extends Component {
             $this->memberName = $user->name;
         }
 
-        $this->company->memberships()
-            ->where('user_id', $user->id)
-            ->delete();
-
-        if ($user->isCurrentCompany($this->company)) {
-            $user->switchCompany($user->personalCompany());
-        }
-
-        // Tear down credentials minted under the now-revoked membership:
-        // sessions, the company API keys they created, and OAuth tokens.
-        $revoker->revokeForRemoval($user, $this->company);
-
-        $recorder->record(SecurityEvent::CompanyMemberRemoved, Auth::user(), metadata: [
-            'company_id' => $this->company->id,
-            'removed_user_id' => $user->id,
-            'removed_user_email' => $user->email,
-        ]);
-
-        $this->dispatch('close-modal', name: $this->modalName);
+        $remove->handle($this->company, Auth::user(), $user);
 
         Flux::toast(variant: 'success', text: __('Member removed.'));
 

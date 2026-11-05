@@ -105,9 +105,11 @@ new #[Title('Cheques')] class extends Component {
             <flux:subheading>{{ __('Expense and payroll :plural. For bill payments, use Bill payments.', ['plural' => mb_strtolower($j->cheque('plural'))]) }}</flux:subheading>
         </div>
 
+        @reaches('cheques.create')
         <flux:button variant="primary" icon="plus" :href="route('cheques.create', ['company' => $company->slug])" wire:navigate data-test="new-cheque-button">
             {{ $j->chequeLabel('write') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4">

@@ -120,6 +120,7 @@ class SendScheduledReportEmailsForCompany implements ShouldQueue
                 resolvePresets: true,
                 replyToAddress: $user->email,
                 senderName: $user->name,
+                senderUserId: $user->id,
             ));
         }
 

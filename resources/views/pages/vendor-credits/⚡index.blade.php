@@ -46,9 +46,11 @@ new #[Title('Vendor credits')] class extends Component {
             <flux:subheading>{{ __('Credits from vendors, reducing what you owe.') }}</flux:subheading>
         </div>
 
+        @reaches('vendor-credits.create')
         <flux:button variant="primary" icon="plus" :href="route('vendor-credits.create', ['company' => $company->slug])" wire:navigate data-test="new-vendor-credit-button">
             {{ __('New vendor credit') }}
         </flux:button>
+        @endreaches
     </div>
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

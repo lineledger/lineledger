@@ -1,10 +1,13 @@
 <?php
 
 use App\Actions\Sales\RecordCustomerRefund;
+use App\Enums\Activity;
 use App\Enums\ChequeStatus;
 use App\Enums\CreditMemoStatus;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
@@ -109,6 +112,7 @@ new #[Title('Credit memo')] class extends Component {
             + (int) ($this->fieldVisibility['tax_column'] ?? true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(CreditMemoPoster $poster): void
     {
@@ -124,18 +128,21 @@ new #[Title('Credit memo')] class extends Component {
         $this->redirectRoute('credit-memos.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires([Activity::Cheques, Activity::Receipts], PermissionAction::Create)]
     #[GuardsEditLock]
     public function submitRefund(RecordCustomerRefund $action): void
     {
         $this->processRefund($action);
     }
 
+    #[Requires(Activity::Cheques, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
         $this->removeRefundCheque($chequeId, $poster);
     }
 
+    #[Requires(Activity::Receipts, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
@@ -180,6 +187,7 @@ new #[Title('Credit memo')] class extends Component {
         return $this->creditMemo->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->orderBy('id')->get();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -192,6 +200,7 @@ new #[Title('Credit memo')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->creditMemo);
@@ -279,15 +288,19 @@ new #[Title('Credit memo')] class extends Component {
                         </flux:menu.item>
                     @endif
                     @if ($creditMemo->status !== CreditMemoStatus::Void)
+                        @reaches('credit-memos.edit')
                         <flux:menu.item icon="pencil" :href="route('credit-memos.edit', ['company' => $company->slug, 'credit_memo' => $creditMemo->id])" wire:navigate data-test="edit-credit-memo-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($creditMemo->status !== CreditMemoStatus::Void && $creditMemo->status !== CreditMemoStatus::Draft)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this credit memo? A reversing GL entry will be posted.') }}" data-test="void-credit-memo-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -437,10 +450,12 @@ new #[Title('Credit memo')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="att-{{ $att->id }}" data-test="credit-memo-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="credit-memo-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -454,9 +469,11 @@ new #[Title('Credit memo')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="credit-memo-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

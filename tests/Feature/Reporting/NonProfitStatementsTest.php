@@ -29,6 +29,9 @@ beforeEach(function () {
     $this->bank = Account::query()->where('type', AccountType::Asset->value)->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->first();
     $this->income = Account::query()->where('type', AccountType::Income->value)->orderBy('code')->first();
     $this->expense = Account::query()->where('type', AccountType::Expense->value)->orderBy('code')->first();
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->owner = actAsCompanyOwner($this->company);
 });
 
 afterEach(function () {

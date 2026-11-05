@@ -2,6 +2,8 @@
 
 namespace App\Concerns;
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Notifications\Reports\ReportEmailNotification;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportSettings;
@@ -47,6 +49,7 @@ trait EmailsReport
         ]);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendReportEmail(): void
     {
         if (! $this->canEmailReport()) {
@@ -95,6 +98,7 @@ trait EmailsReport
             resolvePresets: false,
             replyToAddress: Auth::user()?->email,
             senderName: Auth::user()?->name,
+            senderUserId: Auth::id() !== null ? (int) Auth::id() : null,
         ));
 
         $this->reset('emailRecipients', 'emailSubject', 'emailBody', 'emailAttachXlsx');

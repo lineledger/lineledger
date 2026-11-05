@@ -2,8 +2,11 @@
 
 use App\Actions\Sales\ConvertEstimateToInvoice;
 use App\Actions\Sales\ConvertEstimateToSalesOrder;
+use App\Enums\Activity;
 use App\Enums\EstimateStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Estimate;
@@ -13,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Estimate')] class extends Component {
     use ShowsEditLock;
@@ -50,6 +54,7 @@ new #[Title('Estimate')] class extends Component {
             && $this->estimate->converted_sales_order_id === null;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function accept(): void
     {
@@ -62,6 +67,7 @@ new #[Title('Estimate')] class extends Component {
         Flux::toast(variant: 'success', text: __('Estimate accepted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function reject(): void
     {
@@ -74,6 +80,8 @@ new #[Title('Estimate')] class extends Component {
         Flux::toast(variant: 'success', text: __('Estimate rejected.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     #[GuardsEditLock]
     public function convert(ConvertEstimateToInvoice $action): void
     {
@@ -91,9 +99,11 @@ new #[Title('Estimate')] class extends Component {
         }
 
         Flux::toast(variant: 'success', text: __('Estimate converted to invoice.'));
-        $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::SalesOrders, PermissionAction::Create)]
     #[GuardsEditLock]
     public function convertToSalesOrder(ConvertEstimateToSalesOrder $action): void
     {
@@ -164,39 +174,51 @@ new #[Title('Estimate')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($this->canConvert)
+                @callable($this, 'convert')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" wire:click="convert" wire:confirm="{{ __('Create a draft invoice from this estimate?') }}" data-test="convert-estimate-button">
                     {{ __('Convert to invoice') }}
                 </flux:button>
+                @endcallable
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="estimate-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($this->canConvert)
+                        @callable($this, 'convert')
                         <flux:menu.item class="lg:hidden" icon="document-text" wire:click="convert" wire:confirm="{{ __('Create a draft invoice from this estimate?') }}" data-test="convert-estimate-menu-item">
                             {{ __('Convert to invoice') }}
                         </flux:menu.item>
+                        @endcallable
+                        @callable($this, 'convertToSalesOrder')
                         <flux:menu.item icon="clipboard-document-check" wire:click="convertToSalesOrder" wire:confirm="{{ __('Create a sales order from this estimate?') }}" data-test="convert-estimate-to-sales-order-button">
                             {{ __('Convert to sales order') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                     <flux:menu.item icon="printer" :href="route('estimates.print', ['company' => $company->slug, 'estimate' => $estimate->id])" target="_blank" data-test="print-estimate-button">
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($estimate->status->isEditable())
+                        @reaches('estimates.edit')
                         <flux:menu.item icon="pencil" :href="route('estimates.edit', ['company' => $company->slug, 'estimate' => $estimate->id])" wire:navigate data-test="edit-estimate-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($estimate->status === EstimateStatus::Pending)
+                        @callable($this, 'accept')
                         <flux:menu.item icon="check" wire:click="accept" data-test="accept-estimate-button">
                             {{ __('Accept') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                     @if (in_array($estimate->status, [EstimateStatus::Pending, EstimateStatus::Accepted], true))
+                        @callable($this, 'reject')
                         <flux:menu.item icon="x-mark" wire:click="reject" wire:confirm="{{ __('Reject this estimate?') }}" data-test="reject-estimate-button">
                             {{ __('Reject') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>

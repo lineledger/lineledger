@@ -34,9 +34,11 @@ new #[Title('Recurring journal entries')] class extends Component {
             <flux:subheading>{{ __('Memorized entries that generate draft journal entries automatically.') }}</flux:subheading>
         </div>
 
+        @reaches('recurring-journal.create')
         <flux:button variant="primary" icon="plus" :href="route('recurring-journal.create', ['company' => $company->slug])" wire:navigate data-test="new-recurring-journal-button">
             {{ __('New memorized entry') }}
         </flux:button>
+        @endreaches
     </div>
 
     {{-- Mobile: stacked cards --}}

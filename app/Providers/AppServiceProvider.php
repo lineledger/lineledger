@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Http\Middleware\EnforceTwoFactor;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsurePortalAudience;
@@ -12,14 +14,21 @@ use App\Http\Middleware\ResolvePortalCompany;
 use App\Listeners\Security\NotifyNewDeviceLogin;
 use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
+use App\Livewire\Permissions\MethodPermissionGate;
 use App\Models\Company;
 use App\Models\JournalEntry;
+use App\Models\Membership;
+use App\Models\MembershipRole;
+use App\Models\Role;
+use App\Models\RolePermission;
 use App\Models\User;
 use App\Observers\Audit\AuditableObserver;
 use App\Observers\CompanyObserver;
+use App\Services\Access\PermissionResolver;
 use App\Services\Currency\ExchangeRateProvider;
 use App\Services\Currency\Providers\FrankfurterProvider;
 use App\Services\Currency\Providers\NullExchangeRateProvider;
+use App\Support\Access\CurrentViewer;
 use App\Support\Http\CanonicalUrl;
 use App\Support\MailSettings;
 use Carbon\CarbonImmutable;
@@ -29,6 +38,8 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Events\Routing;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -40,9 +51,12 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Passport\Passport;
+use Livewire\Component;
 use Livewire\ComponentHookRegistry;
 use Livewire\Livewire;
 use Stripe\StripeClient;
+
+use function Livewire\before;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -69,6 +83,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(StripeClient::class, function (): StripeClient {
             return new StripeClient((string) config('services.stripe.secret'));
         });
+
+        // Who may do what, resolved once per request (and per queued job).
+        $this->app->scoped(PermissionResolver::class);
+
+        // Every Livewire method call is checked against what the method
+        // declares it needs (#[Requires] / #[RequiresSave]) before any other
+        // hook runs — ahead of the edit-lock guard and the method itself.
+        // `before` listeners run first whatever the registration order.
+        before('call', function (Component $component, string $method, mixed $params): void {
+            app(MethodPermissionGate::class)->authorize($component, $method, is_array($params) ? $params : []);
+        });
     }
 
     /**
@@ -81,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureRouteBindings();
         $this->configurePassport();
+        $this->configurePermissionDirectives();
 
         // Livewire's update endpoint does not run a page's route middleware: it
         // re-runs only the "persistent" ones, against the page route recorded in
@@ -105,6 +131,19 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         Company::observe(CompanyObserver::class);
+
+        // A changed membership, role or role permission changes what members
+        // may do: drop anything resolved earlier in this request.
+        foreach ([Membership::class, MembershipRole::class, Role::class, RolePermission::class] as $model) {
+            $model::saved(fn () => app(PermissionResolver::class)->flush());
+            $model::deleted(fn () => app(PermissionResolver::class)->flush());
+        }
+
+        // Each request starts from the database as it stands. In production a
+        // request is its own process anyway; this covers anything that keeps
+        // the container across requests (tests, long-running servers) and
+        // changes made with a bulk query, which fires no model events.
+        Event::listen(Routing::class, fn () => app(PermissionResolver::class)->flush());
 
         foreach (array_keys(AuditableObserver::ACTIONS) as $modelClass) {
             $modelClass::observe(AuditableObserver::class);
@@ -163,6 +202,22 @@ class AppServiceProvider extends ServiceProvider
         // after package providers, so by now Passport's routes exist. This also
         // keeps the routes in a context captured by `route:cache`.
         Mcp::oauthRoutes();
+    }
+
+    /**
+     * Blade conditionals that show a button or link only to a member who could
+     * use it, rather than one that answers 403: permits (an activity and
+     * action), reaches (a route name) and callable (a Livewire method on the
+     * component, as MethodPermissionGate would check it).
+     */
+    protected function configurePermissionDirectives(): void
+    {
+        Blade::if('permits', fn (Activity $activity, PermissionAction $action = PermissionAction::View): bool => CurrentViewer::permits($activity, $action));
+        Blade::if('reaches', fn (string $routeName): bool => CurrentViewer::reaches($routeName));
+
+        // @callable($this, 'voidInvoice'): the member may call the Livewire
+        // method — the check MethodPermissionGate makes when it's called.
+        Blade::if('callable', fn (Component $component, string $method): bool => app(MethodPermissionGate::class)->allows($component, $method));
     }
 
     /**

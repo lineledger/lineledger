@@ -12,6 +12,8 @@ use App\Models\JournalEntry;
 use App\Models\Location;
 use App\Models\RecurringJournalEntry;
 use App\Rules\MoneyString;
+use App\Support\Access\CurrentViewer;
+use App\Support\Access\PayrollDetail;
 use App\Support\Money;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
@@ -91,7 +93,8 @@ new #[Title('Recurring journal entry')] class extends Component {
     }
 
     /**
-     * Seed the template from an existing journal entry's lines (the "Memorize" flow).
+     * Seed the template from an existing journal entry's lines (the "Memorize"
+     * flow) — never from a payroll entry the viewer can't open (PayrollDetail).
      */
     protected function prefillFromJournalEntry(int $entryId): void
     {
@@ -100,7 +103,7 @@ new #[Title('Recurring journal entry')] class extends Component {
             ->with('lines')
             ->find($entryId);
 
-        if (! $entry) {
+        if (! $entry || PayrollDetail::hidesEntry($entry, CurrentViewer::permissions($this->company))) {
             return;
         }
 

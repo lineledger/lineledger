@@ -2,6 +2,7 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\AssetCategory;
@@ -72,6 +73,7 @@ new #[Title('Asset categories')] class extends Component {
         Flux::modal('asset-categories-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(AssetCategory::class, $this->editingId)) {

@@ -2,7 +2,9 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\ChequeStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Cheque;
@@ -42,6 +44,7 @@ new #[Title('Cheque')] class extends Component {
         $this->cheque = $cheque->load('lines.account', 'lines.contact', 'lines.taxCode', 'lines.secondaryTaxCode', 'bankAccount', 'payee', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -54,6 +57,7 @@ new #[Title('Cheque')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->cheque);
@@ -109,6 +113,7 @@ new #[Title('Cheque')] class extends Component {
             : null;
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(ChequePoster $poster): void
     {
@@ -170,32 +175,40 @@ new #[Title('Cheque')] class extends Component {
 
         <div class="flex flex-wrap items-center gap-2">
             @if ($cheque->status !== ChequeStatus::Void)
+                @reaches('cheques.edit')
                 <flux:button variant="primary" class="!hidden lg:!inline-flex" :href="route('cheques.edit', ['company' => $company->slug, 'cheque' => $cheque->id])" wire:navigate data-test="edit-cheque-button">
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
             @endif
 
             <flux:dropdown align="end">
                 <flux:button icon:trailing="chevron-down" data-test="cheque-actions-menu">{{ __('Actions') }}</flux:button>
                 <flux:menu>
                     @if ($cheque->status !== ChequeStatus::Void)
+                        @reaches('cheques.edit')
                         <flux:menu.item class="lg:hidden" icon="pencil" :href="route('cheques.edit', ['company' => $company->slug, 'cheque' => $cheque->id])" wire:navigate data-test="edit-cheque-menu-item">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if ($cheque->status !== ChequeStatus::Void && filled($cheque->cheque_no))
                         <flux:menu.item icon="printer" :href="route('cheques.print', ['company' => $company->slug, 'cheque' => $cheque->id])" target="_blank" data-test="print-cheque-button">
                             {{ $j->chequeLabel('print') }}
                         </flux:menu.item>
                     @endif
+                    @reaches('cheques.create')
                     <flux:menu.item icon="document-duplicate" :href="route('cheques.create', ['company' => $company->slug, 'from' => $cheque->id])" wire:navigate data-test="duplicate-cheque-button">
                         {{ __('Duplicate') }}
                     </flux:menu.item>
+                    @endreaches
                     @if ($cheque->status === ChequeStatus::Posted)
                         <flux:menu.separator />
+                        @callable($this, 'void')
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this :label? A reversing GL entry will be posted.', ['label' => mb_strtolower($j->cheque('singular'))]) }}" data-test="void-cheque-button">
                             {{ __('Void') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -242,6 +255,7 @@ new #[Title('Cheque')] class extends Component {
                         <td class="px-4 py-2 text-right">
                             @if (optional($line->account)->subtype === AccountSubtype::FixedAsset)
                                 <flux:tooltip :content="__('Create asset record')">
+                                    @reaches('assets.create')
                                     <flux:button
                                         variant="ghost"
                                         size="sm"
@@ -250,6 +264,7 @@ new #[Title('Cheque')] class extends Component {
                                         wire:navigate
                                         data-test="create-asset-from-cheque-line"
                                     />
+                                    @endreaches
                                 </flux:tooltip>
                             @endif
                         </td>
@@ -280,10 +295,12 @@ new #[Title('Cheque')] class extends Component {
         @forelse ($this->attachments as $att)
             <div class="flex items-center justify-between rounded-md border border-border px-3 py-2" wire:key="cheque-att-{{ $att->id }}" data-test="cheque-attachment-row">
                 <x-attachment-link :attachment="$att" :company="$company" />
+                @callable($this, 'removeAttachment')
                 <flux:button variant="ghost" size="sm" icon="x-mark"
                     wire:click="removeAttachment({{ $att->id }})"
                     wire:confirm="{{ __('Remove this attachment?') }}"
                     data-test="cheque-attachment-remove" />
+                @endcallable
             </div>
         @empty
             <flux:text class="text-sm text-muted-foreground">{{ __('No attachments yet.') }}</flux:text>
@@ -297,9 +314,11 @@ new #[Title('Cheque')] class extends Component {
         @error('newAttachments.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
         @if (count($newAttachments) > 0)
+            @callable($this, 'uploadAttachments')
             <flux:button variant="filled" wire:click="uploadAttachments" data-test="cheque-attachment-upload">
                 {{ __('Upload :count file(s)', ['count' => count($newAttachments)]) }}
             </flux:button>
+            @endcallable
         @endif
     </div>
 </section>

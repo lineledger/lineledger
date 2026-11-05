@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Services\Reporting\ContactStatementBuilder;
@@ -107,6 +109,7 @@ new #[Title('Account Statement')] class extends Component
         return "{$prefix}-{$slug}-{$this->startDate}-to-{$this->endDate}";
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -138,6 +141,7 @@ new #[Title('Account Statement')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->contactStatement(
@@ -152,6 +156,7 @@ new #[Title('Account Statement')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.contact-statement', [
@@ -197,9 +202,15 @@ new #[Title('Account Statement')] class extends Component
             <flux:dropdown align="end">
                 <flux:button variant="primary" icon="arrow-down-tray" icon:trailing="chevron-down" data-test="statement-download">{{ __('Download') }}</flux:button>
                 <flux:menu>
+                    @callable($this, 'exportCsv')
                     <flux:menu.item icon="document-text" wire:click="exportCsv">{{ __('CSV') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportXlsx')
                     <flux:menu.item icon="table-cells" wire:click="exportXlsx">{{ __('Excel') }}</flux:menu.item>
+                    @endcallable
+                    @callable($this, 'exportPdf')
                     <flux:menu.item icon="document" wire:click="exportPdf">{{ __('PDF') }}</flux:menu.item>
+                    @endcallable
                 </flux:menu>
             </flux:dropdown>
         </div>

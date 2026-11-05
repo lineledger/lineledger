@@ -40,7 +40,7 @@ new #[Title('Documentation — Languages')] class extends Component {}; ?>
         {{-- ───────────────────────── Document language ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('An organization’s document language') }}</flux:heading>
         <flux:text>
-            {{ __('Every organization has a Document language: the language of the invoices, estimates, statements, and other forms it prints and emails, of those emails themselves, and of its customer payment portal. Owners and Admins set it on the organization’s edit page under Settings → Organizations, beside the timezone.') }}
+            {{ __('Every organization has a Document language: the language of the invoices, estimates, statements, and other forms it prints and emails, of those emails themselves, and of its customer payment portal. The Owner, or anyone whose role can change organization settings, sets it on the organization’s edit page under Settings → Organizations, beside the timezone.') }}
         </flux:text>
         <flux:text>
             {{ __('A new organization in Quebec starts in French. Anywhere else it starts in the language of the person who created it, so someone working in French who sets up an Ontario or UK organization gets French documents — check the setting after creating one. Organizations that existed before languages were added start in English.') }}

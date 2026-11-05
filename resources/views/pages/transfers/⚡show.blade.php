@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\TransferStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Transfer;
@@ -29,6 +31,7 @@ new #[Title('Transfer')] class extends Component {
         $this->transfer = $transfer->load('fromAccount', 'toAccount', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(TransferPoster $poster): void
     {
@@ -79,14 +82,18 @@ new #[Title('Transfer')] class extends Component {
 
         <div class="flex gap-2">
             @if ($transfer->status === TransferStatus::Draft)
+                @reaches('transfers.edit')
                 <flux:button variant="filled" :href="route('transfers.edit', ['company' => $company->slug, 'transfer' => $transfer->id])" wire:navigate>
                     {{ __('Edit') }}
                 </flux:button>
+                @endreaches
             @endif
             @if ($transfer->status === TransferStatus::Posted)
+                @callable($this, 'void')
                 <flux:button variant="danger" wire:click="void" wire:confirm="{{ __('Void this transfer? A reversing GL entry will be posted.') }}" data-test="void-transfer-button">
                     {{ __('Void') }}
                 </flux:button>
+                @endcallable
             @endif
         </div>
     </div>

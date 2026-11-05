@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
@@ -45,7 +48,7 @@ new #[Title('Deposits in transit')] class extends Component {
 
     public function mount(Company $company): void
     {
-        abort_unless(auth()->user()?->ownsCompany($company), 403);
+        abort_unless(auth()->user()?->permissions($company)->canView(\App\Enums\Activity::OpeningBalances) ?? false, 403);
 
         $this->company = $company;
         $this->resolveObState();
@@ -107,6 +110,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::modal('ob-deposit')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Deposit::class, $this->editingId)) {
@@ -160,6 +164,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Deposit in transit saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function remove(int $id): void
     {
         if (! $this->obEditable()) {
@@ -185,6 +190,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Deposit removed (voided).'));
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();
@@ -248,7 +254,9 @@ new #[Title('Deposits in transit')] class extends Component {
                             <td class="py-1.5 pr-3 text-right tabular-nums">{{ $this->money((int) $deposit->amount_cents) }}</td>
                             <td class="py-1.5 text-right">
                                 <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="openEdit({{ $deposit->id }})" :disabled="$obState->isFinalized()" data-test="ob-deposit-edit-{{ $deposit->id }}" />
+                                @callable($this, 'remove')
                                 <flux:button size="xs" variant="ghost" icon="trash" wire:click="remove({{ $deposit->id }})" wire:confirm="{{ __('Remove this deposit in transit? Its posting will be voided and the bank re-netted.') }}" :disabled="$obState->isFinalized()" data-test="ob-deposit-remove-{{ $deposit->id }}" />
+                                @endcallable
                             </td>
                         </tr>
                     @endforeach
@@ -286,7 +294,9 @@ new #[Title('Deposits in transit')] class extends Component {
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close><flux:button variant="filled">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                @callable($this, 'save')
                 <flux:button variant="primary" wire:click="save" data-test="ob-deposit-save">{{ __('Save') }}</flux:button>
+                @endcallable
             </div>
         </div>
     </flux:modal>

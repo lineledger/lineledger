@@ -20,7 +20,7 @@ afterEach(function () {
 
 function createWithOpeningBalance(Company $company, array $set = [])
 {
-    $component = Livewire::test('pages::accounts.index', ['company' => $company])
+    $component = Livewire::actingAs(actAsCompanyOwner($company))->test('pages::accounts.index', ['company' => $company])
         ->call('openCreate');
 
     foreach (array_merge([
@@ -142,21 +142,21 @@ it('surfaces a friendly error and creates nothing when Opening Balance Equity is
 it('hides the opening balance fields when editing an account', function () {
     $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->first();
 
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->call('openEdit', $bank->id)
         ->assertDontSeeHtml('data-test="account-opening-balance"')
         ->assertDontSeeHtml('data-test="account-opening-balance-as-of"');
 });
 
 it('hides the opening balance fields for profit-and-loss subtypes', function () {
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->call('openCreate')
         ->set('form_subtype', AccountSubtype::Expense->value)
         ->assertDontSeeHtml('data-test="account-opening-balance"');
 });
 
 it('hides the opening balance fields for sub-ledger control subtypes', function () {
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->call('openCreate')
         ->set('form_subtype', AccountSubtype::AccountsReceivable->value)
         ->assertDontSeeHtml('data-test="account-opening-balance"');
@@ -165,7 +165,7 @@ it('hides the opening balance fields for sub-ledger control subtypes', function 
 it('swaps the fields for a journal-entry hint when a foreign currency is selected', function () {
     app(EnableCompanyCurrency::class)->handle($this->company, 'USD');
 
-    Livewire::test('pages::accounts.index', ['company' => $this->company])
+    Livewire::actingAs(actAsCompanyOwner($this->company))->test('pages::accounts.index', ['company' => $this->company])
         ->call('openCreate')
         ->set('form_subtype', AccountSubtype::Bank->value)
         ->assertSeeHtml('data-test="account-opening-balance"')

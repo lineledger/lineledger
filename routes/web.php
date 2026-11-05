@@ -417,9 +417,8 @@ Route::prefix('{company}')
         Route::livewire('reports/vendor-activity', 'pages::reports.vendor-activity')->name('reports.vendor-activity');
         Route::livewire('reports/1099-summary', 'pages::reports.form-1099')->name('reports.form-1099');
         Route::livewire('reports/contact-statement/{contact}', 'pages::reports.contact-statement')->name('reports.contact-statement');
-        Route::livewire('reports/audit-log', 'pages::reports.audit-log')
-            ->middleware(EnsureCompanyMembership::class.':owner')
-            ->name('reports.audit-log');
+        // A reserved activity: the Owner, or a role built to carry it.
+        Route::livewire('reports/audit-log', 'pages::reports.audit-log')->name('reports.audit-log');
 
         // Attachments
         Route::get('attachments/{attachment}/download', function (Request $request, Company $company, Attachment $attachment) {
@@ -474,30 +473,33 @@ Route::prefix('{company}')
             ->where('step', '[a-z_]+')
             ->name('migration.template');
 
-        // Opening balances workspace (owner only): the continuously-editable
-        // post-setup home for the draft trial balance and its sub-ledger detail.
+        // Opening balances workspace: the continuously-editable post-setup home
+        // for the draft trial balance and its sub-ledger detail. A reserved
+        // activity: the Owner, or a role built to carry it.
         Route::livewire('opening-balances', 'pages::opening-balances.index')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.index');
         Route::livewire('opening-balances/trial-balance', 'pages::opening-balances.trial-balance')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.trial-balance');
         Route::livewire('opening-balances/receivables', 'pages::opening-balances.receivables')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.receivables');
         Route::livewire('opening-balances/payables', 'pages::opening-balances.payables')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.payables');
         Route::livewire('opening-balances/cheques', 'pages::opening-balances.cheques')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.cheques');
         Route::livewire('opening-balances/deposits', 'pages::opening-balances.deposits')
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->name('opening-balances.deposits');
         Route::get('opening-balances/templates/{step}', OpeningBalanceTemplateController::class)
-            ->middleware(EnsureCompanyMembership::class.':owner')
             ->where('step', '[a-z_]+')
             ->name('opening-balances.template');
+
+        // Users and roles (QuickBooks-style Role List). Step-up confirmation
+        // first, as for the organization's own settings page.
+        Route::middleware('2fa.confirm')->group(function () {
+            Route::livewire('settings/users-and-roles', 'pages::settings.users-and-roles')->name('settings.users-and-roles');
+            Route::livewire('settings/roles/create', 'pages::settings.roles.form')->name('settings.roles.create');
+            Route::livewire('settings/roles/{role}/edit', 'pages::settings.roles.form')->name('settings.roles.edit');
+        });
+        Route::livewire('reports/role-permissions', 'pages::reports.role-permissions')->name('reports.role-permissions');
 
         // Per-company settings
         Route::livewire('settings/inventory', 'pages::settings.inventory')->name('settings.inventory');

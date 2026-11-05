@@ -2,6 +2,8 @@
 
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Services\Reporting\CsvExporter;
@@ -129,6 +131,7 @@ new #[Title('Vendor Activity')] class extends Component {
         return implode('; ', $row['split']);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = (function () {
@@ -147,6 +150,7 @@ new #[Title('Vendor Activity')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         $rows = (function () {
@@ -171,6 +175,7 @@ new #[Title('Vendor Activity')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         $rows = [];

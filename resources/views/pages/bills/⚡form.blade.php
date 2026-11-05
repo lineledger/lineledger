@@ -37,6 +37,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Bill')] class extends Component
 {
@@ -418,7 +419,7 @@ new #[Title('Bill')] class extends Component
 
         $this->persist();
         Flux::toast(variant: 'success', text: __('Draft saved.'));
-        $this->redirectRoute('bills.edit', ['company' => $this->company->slug, 'bill' => $this->bill->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('bills.edit'), ['company' => $this->company->slug, 'bill' => $this->bill->id], navigate: true);
     }
 
     public function postBill(BillPoster $poster): void

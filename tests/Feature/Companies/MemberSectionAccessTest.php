@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Companies\Members\UpdateMemberAccess;
 use App\Enums\CompanyRole;
 use App\Enums\Section;
 use App\Models\Company;
@@ -126,19 +127,13 @@ test('updating a member to custom stores sections and clearing to a preset remov
     $company->members()->attach($owner, ['role' => CompanyRole::Owner->value]);
     $company->members()->attach($member, ['role' => CompanyRole::Accountant->value]);
 
-    $this->actingAs($owner);
-
-    Livewire::test('pages::companies.edit', ['company' => $company])
-        ->call('updateMember', $member->id, CompanyRole::Custom->value, [Section::Reports->value])
-        ->assertHasNoErrors();
+    app(UpdateMemberAccess::class)->handle($company, $owner, $member, CompanyRole::Custom, [Section::Reports->value]);
 
     $membership = $company->memberships()->where('user_id', $member->id)->firstOrFail();
     expect($membership->role)->toBe(CompanyRole::Custom)
         ->and($membership->sections)->toBe([Section::Reports->value]);
 
-    Livewire::test('pages::companies.edit', ['company' => $company])
-        ->call('updateMember', $member->id, CompanyRole::Admin->value)
-        ->assertHasNoErrors();
+    app(UpdateMemberAccess::class)->handle($company, $owner, $member, CompanyRole::Admin);
 
     $membership = $company->memberships()->where('user_id', $member->id)->firstOrFail();
     expect($membership->role)->toBe(CompanyRole::Admin)

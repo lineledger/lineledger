@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Sales\FulfillSalesOrder;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\SalesOrderStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesOrder;
@@ -12,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use App\Support\Access\RecordRedirect;
 
 new #[Title('Sales Order')] class extends Component {
     use ShowsEditLock;
@@ -75,6 +79,8 @@ new #[Title('Sales Order')] class extends Component {
         $this->fulfillQty = [];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     #[GuardsEditLock]
     public function fulfill(FulfillSalesOrder $action): void
     {
@@ -92,9 +98,10 @@ new #[Title('Sales Order')] class extends Component {
         }
 
         Flux::toast(variant: 'success', text: __('Draft invoice created from sales order.'));
-        $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
+        $this->redirectRoute(RecordRedirect::route('invoices.edit'), ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function cancelOrder(): void
     {
@@ -159,15 +166,19 @@ new #[Title('Sales Order')] class extends Component {
                         {{ __('Print') }}
                     </flux:menu.item>
                     @if ($this->status->isEditable())
+                        @reaches('sales-orders.edit')
                         <flux:menu.item icon="pencil" :href="route('sales-orders.edit', ['company' => $company->slug, 'salesOrder' => $salesOrder->id])" wire:navigate data-test="edit-sales-order-button">
                             {{ __('Edit') }}
                         </flux:menu.item>
+                        @endreaches
                     @endif
                     @if (in_array($this->status, [SalesOrderStatus::Open, SalesOrderStatus::Partial], true))
                         <flux:menu.separator />
+                        @callable($this, 'cancelOrder')
                         <flux:menu.item icon="x-mark" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('Cancel this sales order? No further invoicing will be allowed.') }}" data-test="cancel-sales-order-button">
                             {{ __('Cancel order') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -213,7 +224,9 @@ new #[Title('Sales Order')] class extends Component {
 
             <div class="mt-4 flex justify-end gap-2">
                 <flux:button variant="ghost" type="button" wire:click="cancelFulfill">{{ __('Cancel') }}</flux:button>
+                @callable($this, 'fulfill')
                 <flux:button variant="primary" wire:click="fulfill" data-test="confirm-fulfill-button">{{ __('Create draft invoice') }}</flux:button>
+                @endcallable
             </div>
         </div>
     @endif

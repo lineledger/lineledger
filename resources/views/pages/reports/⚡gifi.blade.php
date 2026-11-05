@@ -4,8 +4,11 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\Memorizable;
 use App\Enums\AccountSubtype;
+use App\Enums\Activity;
 use App\Enums\GifiStatement;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
@@ -71,6 +74,7 @@ new #[Title('GIFI Statement')] class extends Component {
      * Move an account onto a different GIFI line (or clear it). Driven from the
      * report so the mapping can be tuned without leaving the statement.
      */
+    #[Requires(Activity::Accounts, PermissionAction::Modify)]
     public function reassign(int $accountId, ?string $gifiCode): void
     {
         abort_unless($this->canReassign(), 403);
@@ -155,6 +159,7 @@ new #[Title('GIFI Statement')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         return app(CsvExporter::class)->stream(
@@ -166,6 +171,7 @@ new #[Title('GIFI Statement')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->gifi(
@@ -177,6 +183,7 @@ new #[Title('GIFI Statement')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.gifi', [

@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasCustomReportHeader;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
@@ -28,6 +30,7 @@ new #[Title('Open Purchase Orders')] class extends Component {
         return app(SalesPurchaseReportBuilder::class)->openPurchaseOrders($this->company);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = $this->rows->map(fn ($po): array => [

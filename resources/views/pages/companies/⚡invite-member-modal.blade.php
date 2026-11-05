@@ -1,16 +1,13 @@
 <?php
 
+use App\Actions\Companies\Members\InviteMember;
 use App\Enums\CompanyRole;
 use App\Enums\Section;
-use App\Enums\SecurityEvent;
 use App\Models\Company;
-use App\Notifications\Companies\CompanyInvitation as CompanyInvitationNotification;
 use App\Rules\UniqueCompanyInvitation;
-use App\Services\Audit\SecurityLogRecorder;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -30,7 +27,7 @@ new class extends Component {
         $this->company = $company;
     }
 
-    public function createInvitation(SecurityLogRecorder $recorder): void
+    public function createInvitation(InviteMember $invite): void
     {
         Gate::authorize('inviteMember', $this->company);
 
@@ -41,27 +38,15 @@ new class extends Component {
             'inviteSections.*' => [Rule::in(Section::values())],
         ]);
 
-        $role = CompanyRole::from($validated['inviteRole']);
-
-        $invitation = $this->company->invitations()->create([
-            'email' => $validated['inviteEmail'],
-            'role' => $role,
-            'sections' => $role->usesCustomSections() ? array_values($validated['inviteSections']) : null,
-            'invited_by' => Auth::id(),
-            'expires_at' => now()->addDays(3),
-        ]);
-
-        Notification::route('mail', $invitation->email)
-            ->notify(new CompanyInvitationNotification($invitation));
-
-        $recorder->record(SecurityEvent::CompanyMemberInvited, Auth::user(), metadata: [
-            'company_id' => $this->company->id,
-            'invitation_email' => $invitation->email,
-            'role' => $role->value,
-        ]);
+        $invite->handle(
+            $this->company,
+            Auth::user(),
+            $validated['inviteEmail'],
+            CompanyRole::from($validated['inviteRole']),
+            array_values($validated['inviteSections'] ?? []),
+        );
 
         $this->reset('inviteEmail', 'inviteRole', 'inviteSections');
-        $this->dispatch('close-modal', name: 'invite-member');
 
         Flux::toast(variant: 'success', text: __('Invitation sent.'));
 

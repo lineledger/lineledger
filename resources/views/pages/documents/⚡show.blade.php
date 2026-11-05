@@ -2,6 +2,8 @@
 
 use App\Actions\Documents\DeleteDocumentFolder;
 use App\Actions\Documents\SaveDocumentFolder;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Attachment;
 use App\Models\Company;
 use App\Models\DocumentFolder;
@@ -141,6 +143,7 @@ new #[Title('Folder')] class extends Component {
             ->all();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function uploadFiles(AttachmentService $service): void
     {
         $this->requireManage();
@@ -155,6 +158,7 @@ new #[Title('Folder')] class extends Component {
         Flux::toast(variant: 'success', text: __('Documents uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function removeFile(int $id, AttachmentService $service): void
     {
         $this->requireManage();
@@ -178,6 +182,7 @@ new #[Title('Folder')] class extends Component {
         $this->showFileModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveFile(AttachmentService $service): void
     {
         $this->requireManage();
@@ -207,6 +212,7 @@ new #[Title('Folder')] class extends Component {
         $this->showSubfolderModal = true;
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function createSubfolder(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -228,6 +234,7 @@ new #[Title('Folder')] class extends Component {
         $this->showRenameModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function rename(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -248,6 +255,7 @@ new #[Title('Folder')] class extends Component {
         $this->showShareModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveSharing(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -263,6 +271,7 @@ new #[Title('Folder')] class extends Component {
         Flux::toast(variant: 'success', text: __('Sharing updated.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function deleteFolder(DeleteDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -313,7 +322,9 @@ new #[Title('Folder')] class extends Component {
                         <flux:menu.item icon="pencil" wire:click="openRenameModal" data-test="rename-folder-button">{{ __('Rename') }}</flux:menu.item>
                         <flux:menu.item icon="user-group" wire:click="openShareModal" data-test="share-folder-button">{{ __('Share') }}</flux:menu.item>
                         <flux:menu.separator />
+                        @callable($this, 'deleteFolder')
                         <flux:menu.item icon="trash" variant="danger" wire:click="deleteFolder" wire:confirm="{{ __('Delete this folder and everything inside it? This cannot be undone.') }}" data-test="delete-folder-button">{{ __('Delete folder') }}</flux:menu.item>
+                        @endcallable
                     </flux:menu>
                 </flux:dropdown>
             </div>
@@ -351,10 +362,12 @@ new #[Title('Folder')] class extends Component {
                         <flux:button variant="ghost" size="sm" icon="pencil-square"
                             wire:click="openFileModal({{ $file->id }})"
                             data-test="document-edit" />
+                        @callable($this, 'removeFile')
                         <flux:button variant="ghost" size="sm" icon="x-mark"
                             wire:click="removeFile({{ $file->id }})"
                             wire:confirm="{{ __('Remove this document?') }}"
                             data-test="document-remove" />
+                        @endcallable
                     </div>
                 @endif
             </div>
@@ -372,9 +385,11 @@ new #[Title('Folder')] class extends Component {
             @error('newFiles.*') <flux:text class="text-sm text-red-600">{{ $message }}</flux:text> @enderror
 
             @if (count($newFiles) > 0)
+                @callable($this, 'uploadFiles')
                 <flux:button variant="filled" wire:click="uploadFiles" data-test="document-upload">
                     {{ __('Upload :count file(s)', ['count' => count($newFiles)]) }}
                 </flux:button>
+                @endcallable
             @endif
         @endif
     </div>
@@ -422,7 +437,7 @@ new #[Title('Folder')] class extends Component {
         <form wire:submit="saveSharing" class="space-y-6">
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Share folder') }}</flux:heading>
-                <flux:text>{{ __('Choose who else may view this folder and its documents. Owners and admins always have access.') }}</flux:text>
+                <flux:text>{{ __('Choose who else may view this folder and its documents. The owner and anyone whose role can see every folder always have access.') }}</flux:text>
             </div>
 
             <div class="space-y-2">

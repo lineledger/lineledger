@@ -199,10 +199,10 @@ test('a site admin without two-factor authentication is told the admin area need
 
 test('the security page shows why someone was sent to turn on two-factor authentication', function () {
     $this->actingAs(User::factory()->create());
-    session()->flash('two_factor_required', 'This company requires two-factor authentication for owners and admins. Enable it to continue.');
+    session()->flash('two_factor_required', 'This company requires two-factor authentication for its owner and administrators. Enable it to continue.');
 
     Livewire::test('pages::settings.security')
-        ->assertSee('This company requires two-factor authentication for owners and admins. Enable it to continue.');
+        ->assertSee('This company requires two-factor authentication for its owner and administrators. Enable it to continue.');
 });
 
 test('no two-factor notice for someone who was not sent here, or who already has it', function () {

@@ -5,8 +5,9 @@ namespace App\Mcp\Tools\Write;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Purchasing\SaveBill;
 use App\Actions\Sales\SaveInvoice;
+use App\Enums\Activity;
 use App\Enums\McpProposalStatus;
-use App\Enums\Section;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Mcp\Concerns\ProposesWrites;
@@ -75,11 +76,12 @@ class ConfirmProposalTool extends Tool
         if ($denied = $this->requireAgenticWritesEnabled()) {
             return $denied;
         }
-        [$ability, $section] = $this->gatesFor($proposal->tool);
+        // Roles may have changed since the proposal was staged.
+        [$ability, $activity] = $this->gatesFor($proposal->tool);
         if ($denied = $this->requireAbility($ability)) {
             return $denied;
         }
-        if ($denied = $this->requireSection($section)) {
+        if ($denied = $this->requirePermission($activity, PermissionAction::Create)) {
             return $denied;
         }
 
@@ -167,16 +169,17 @@ class ConfirmProposalTool extends Tool
     }
 
     /**
-     * The ability + section gate the originating propose tool applied, by tool type.
+     * The ability + activity gate the originating propose tool applied, by tool type.
      *
-     * @return array{0: string, 1: Section}
+     * @return array{0: string, 1: Activity}
      */
     private function gatesFor(string $tool): array
     {
         return match ($tool) {
-            'invoice' => ['invoices:write', Section::Customers],
-            'bill' => ['bills:write', Section::Vendors],
-            default => ['journal-entries:write', Section::Accounting],
+            'invoice' => ['invoices:write', Activity::Invoices],
+            'bill' => ['bills:write', Activity::Bills],
+            'expense' => ['journal-entries:write', Activity::Expenses],
+            default => ['journal-entries:write', Activity::Journal],
         };
     }
 

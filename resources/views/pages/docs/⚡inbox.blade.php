@@ -53,7 +53,7 @@ new #[Title('Documentation — Inbox')] class extends Component {}; ?>
 
         <p><strong>{{ __('To turn on automatic reading:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('Sign in as an Owner or Admin — Settings → Inbox email is only open to those roles; anyone else is refused with a “403” page.') }}</li>
+            <li>{{ __('Sign in as the Owner, or as someone whose role can change organization settings (Full Access) — anyone else is refused Settings → Inbox email with a “403” page.') }}</li>
             <li>{{ __('Open Settings → Inbox email. It is not listed in the Settings menu: go to /settings/inbox-email directly, or follow the Open inbox settings link in the Auto-fill is off notice on a review screen — the link appears only when the switch that is off is your organization’s.') }}</li>
             <li>{{ __('Switch on Read receipts automatically.') }}</li>
             <li>{{ __('Select the Save button beneath the switch — each switch on this page has its own Save.') }}</li>
@@ -81,7 +81,7 @@ new #[Title('Documentation — Inbox')] class extends Component {}; ?>
 
         <p><strong>{{ __('To set up email forwarding:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('As an Owner or Admin, open Settings → Inbox email (see above for how to reach it).') }}</li>
+            <li>{{ __('As the Owner, or with a role that can change organization settings, open Settings → Inbox email (see above for how to reach it).') }}</li>
             <li>{{ __('Switch on Accept documents by email.') }}</li>
             <li>{{ __('Select Save. A Forwarding address appears, in the form inbox+yourtoken@your-domain, with a copy button beside it.') }}</li>
             <li>{{ __('Copy that address and forward (or auto-forward) your receipts and bills to it — from the email address you sign in with.') }}</li>
@@ -180,7 +180,7 @@ new #[Title('Documentation — Inbox')] class extends Component {}; ?>
         </ul>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('The review screen itself is not locked, but the bill, expense, or reimbursement it creates is: if a teammate opens that draft to edit it, you see who is editing instead of the form, and Owners and Admins can take over. See') }}
+            {{ __('The review screen itself is not locked, but the bill, expense, or reimbursement it creates is: if a teammate opens that draft to edit it, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

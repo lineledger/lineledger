@@ -4,8 +4,10 @@ use App\Enums\CompanyRole;
 use App\Enums\SecurityEvent;
 use App\Models\Company;
 use App\Models\CompanyInvitation;
+use App\Models\Role;
 use App\Models\SecurityLog;
 use App\Models\User;
+use App\Services\Access\LegacyRoleConverter;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
@@ -69,17 +71,22 @@ test('accepting an invitation records a CompanyMemberJoined event', function () 
     expect($row->metadata['role'])->toBe(CompanyRole::Accountant->value);
 });
 
-test('changing a member role records a CompanyMemberRoleChanged event with from and to roles', function () {
+test('changing a member\'s roles records a CompanyMemberRoleChanged event with from and to roles', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
     $company = Company::factory()->create();
     $company->members()->attach($owner, ['role' => CompanyRole::Owner->value]);
     $company->members()->attach($member, ['role' => CompanyRole::Accountant->value]);
+    app()->instance('current_company', $company);
+    app(LegacyRoleConverter::class)->convertCompany($company);
 
     $this->actingAs($owner);
+    session(['auth.password_confirmed_at' => time()]);
 
-    Livewire::test('pages::companies.edit', ['company' => $company])
-        ->call('updateMember', $member->id, CompanyRole::Admin->value)
+    Livewire::test('pages::settings.users-and-roles', ['company' => $company])
+        ->call('editRoles', $member->id)
+        ->set('editRoleIds', [Role::query()->where('system_key', 'full_access')->value('id')])
+        ->call('saveRoles')
         ->assertHasNoErrors();
 
     $row = latestEvent(SecurityEvent::CompanyMemberRoleChanged);
@@ -87,8 +94,9 @@ test('changing a member role records a CompanyMemberRoleChanged event with from 
     expect($row)->not->toBeNull();
     expect($row->user_id)->toBe($owner->id);
     expect($row->metadata['target_user_id'])->toBe($member->id);
-    expect($row->metadata['from_role'])->toBe(CompanyRole::Accountant->value);
-    expect($row->metadata['to_role'])->toBe(CompanyRole::Admin->value);
+    expect($row->metadata['from_roles'])->toBe(['Accountant']);
+    expect($row->metadata['to_roles'])->toBe(['Full Access']);
+    app()->forgetInstance('current_company');
 });
 
 test('removing a member records a CompanyMemberRemoved event', function () {

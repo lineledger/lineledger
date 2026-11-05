@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
@@ -146,6 +148,7 @@ new #[Title('Budget vs. Actual')] class extends Component {
         ];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         $rows = [];
@@ -192,7 +195,9 @@ new #[Title('Budget vs. Actual')] class extends Component {
         </flux:select>
 
         @if ($this->report['has_budget'])
+            @callable($this, 'exportCsv')
             <flux:button icon="arrow-down-tray" variant="ghost" wire:click="exportCsv">{{ __('CSV') }}</flux:button>
+            @endcallable
         @endif
     </x-reports.control-bar>
 

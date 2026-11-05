@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
 use App\Services\Posting\PayrollRemittancePoster;
@@ -30,6 +32,7 @@ new #[Title('Remittance history')] class extends Component {
             ->get();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function voidRemittance(int $id, PayrollRemittancePoster $poster): void
     {
         $remittance = PayrollRemittance::findOrFail($id);
@@ -87,11 +90,13 @@ new #[Title('Remittance history')] class extends Component {
                         </td>
                         <td class="px-4 py-2 text-right">
                             @if ($remittance->status === \App\Enums\RemittanceStatus::Paid)
+                                @callable($this, 'voidRemittance')
                                 <flux:button
                                     variant="ghost" size="sm" icon="x-circle"
                                     wire:click="voidRemittance({{ $remittance->id }})"
                                     wire:confirm="{{ __('Void this remittance? The journal entry will be reversed.') }}"
                                 >{{ __('Void') }}</flux:button>
+                                @endcallable
                             @endif
                         </td>
                     </tr>
