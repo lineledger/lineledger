@@ -72,7 +72,7 @@ new #[Title('Documentation — Estimates')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('One person edits an estimate at a time') }}">
-            {{ __('If a teammate already has the estimate open for editing, you see who is editing instead of the form, and Accept, Reject, and the Convert actions wait until they are done. Owners and Admins can take over.') }}
+            {{ __('If a teammate already has the estimate open for editing, you see who is editing instead of the form, and Accept, Reject, and the Convert actions wait until they are done. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over.') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('See Settings for how edit locks work.') }}</a>
         </x-docs.callout>
 

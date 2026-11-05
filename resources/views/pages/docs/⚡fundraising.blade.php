@@ -22,7 +22,7 @@ new #[Title('Documentation — Fundraising')] class extends Component {}; ?>
 
         <p><strong>{{ __('To turn on fundraising:') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
-            <li>{{ __('Open Settings → Organizations and open your organization. You need to be an Owner or Admin.') }}</li>
+            <li>{{ __('Open Settings → Organizations and open your organization. You need to be the Owner, or to have a role that can change organization settings (Full Access).') }}</li>
             <li>{{ __('Under Features, switch on Donations & grants. If the switch is missing, the person running your LineLedger site has turned the section off site-wide — see') }} <a class="underline" href="{{ route('docs.site-administration') }}" wire:navigate>{{ __('Site administration') }}</a>{{ __('.') }}</li>
             <li>{{ __('On the Non-profit & charity card, set your Legal structure. Choosing Registered charity reveals the CRA charity registration number field — your Business Number with its RR program account, such as 123456789RR0001.') }}</li>
             <li>{{ __('Choose a Contribution accounting method: Deferral method or Restricted fund method. Picking Restricted fund method reveals the Fund accounting switch; turning it on seeds a default General Fund.') }}</li>
@@ -42,8 +42,8 @@ new #[Title('Documentation — Fundraising')] class extends Component {}; ?>
         </x-docs.callout>
 
         <flux:text>
-            {{ __('Who sees the Fundraising group is up to you: Owners, Admins, and Accountants reach it automatically, while a member with the Custom role sees it only when Fundraising is among their selected sections. Whoever sends the invitation — an Owner or Admin — ticks those sections when they invite; after that, only the Owner can change a member’s role or sections, from the Edit button on the member’s row. See') }}
-            <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Team and permissions') }}</a>{{ __('.') }}
+            {{ __('Who sees the Fundraising group is up to you: the Owner reaches it automatically, and anyone else sees it when one of their roles can open Fundraising — Full Access, Accountant, Bookkeeper, and Fundraising among them. Whoever invites someone picks their roles; after that, change them with the Roles button on the person’s row under Settings → Users and roles. See') }}
+            <a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a>{{ __('.') }}
         </flux:text>
 
         {{-- ───────────────────────── Record a donation ───────────────────────── --}}
@@ -76,7 +76,7 @@ new #[Title('Documentation — Fundraising')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('If a teammate already has a donation, grant, or receipt open for editing, you see who is editing instead of the form, and Owners and Admins can take over. While someone holds a record, Post, Void, Issue receipt, Reissue and Recognize revenue wait until they are done, and the same applies to the Funds list dialog. See') }}
+            {{ __('If a teammate already has a donation, grant, or receipt open for editing, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. While someone holds a record, Post, Void, Issue receipt, Reissue and Recognize revenue wait until they are done, and the same applies to the Funds list dialog. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

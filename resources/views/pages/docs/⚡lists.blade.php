@@ -27,7 +27,7 @@ new #[Title('Documentation — Lists')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('Every list on this page opens its records in an edit dialog, and only one person can have a record open for editing at a time. If a teammate already has it open, you see who is editing instead of the dialog, and Owners and Admins can take over. See') }}
+            {{ __('Every list on this page opens its records in an edit dialog, and only one person can have a record open for editing at a time. If a teammate already has it open, you see who is editing instead of the dialog, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

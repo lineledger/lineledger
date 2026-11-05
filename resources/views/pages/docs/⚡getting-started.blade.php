@@ -38,7 +38,7 @@ new #[Title('Documentation — Getting started')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('When several people work in the same organization, whoever opens a record for editing holds it until they save and leave. Anyone else who opens it sees who is editing instead of the form, and Owners and Admins can take over. There is nothing to set up — see') }}
+            {{ __('When several people work in the same organization, whoever opens a record for editing holds it until they save and leave. Anyone else who opens it sees who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. There is nothing to set up — see') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>
             {{ __('for how edit locks behave.') }}
         </x-docs.callout>

@@ -13,7 +13,7 @@
             <flux:text class="mt-2" data-test="period-lock-override-message">{{ $message }}</flux:text>
             <flux:text class="mt-2">
                 {{ $block
-                    ? __('The books are closed through :date. As an Owner or Admin you can override the lock for this one transaction by entering your password. The override is recorded in the audit log.', ['date' => $company->lock_date?->toFormattedDateString()])
+                    ? __('The books are closed through :date. Your access lets you override the lock for this one transaction by entering your password. The override is recorded in the audit log.', ['date' => $company->lock_date?->toFormattedDateString()])
                     : __('The books are closed through :date. Continuing changes figures that may already have been reported. Your confirmation is recorded in the audit log.', ['date' => $company->lock_date?->toFormattedDateString()]) }}
             </flux:text>
         </div>

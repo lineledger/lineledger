@@ -43,6 +43,43 @@ newest first.
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
 
+## 1.4.3 → next release (unreleased)
+
+Not released yet; this section grows with the release.
+
+### What happens
+
+- **Four new tables** hold roles and who holds them (`roles`, `role_permissions`,
+  `company_member_roles`, `company_invitation_roles`). `app:upgrade` creates them, then
+  runs a new step, **`access:sync-roles`**, which gives every organization the 15
+  predefined roles and converts every member and pending invitation:
+  - Admin → **Full Access**; Accountant → **Accountant**;
+  - each Custom member gets a role generated for their set of sections, named
+    "Custom: Customers, Vendors" and so on; members with the same sections share one.
+  Nobody's access to pages changes. The step is idempotent, and
+  `php artisan access:sync-roles --dry-run` prints, per organization, what it would add.
+- The old `role` and `sections` columns on memberships are kept and still read for a
+  member with no roles, so rolling the code back is safe. A later release drops them.
+
+### What people will notice
+
+- The member list on the organization page becomes a link to **Settings → Users and
+  roles**, which asks for the password or a two-factor code before it opens.
+- **Balances follow View balance.** A Custom member converted from sections sees cash,
+  receivables and payables on the dashboard only if their sections included Banking,
+  Customers or Vendors, and net income only with Reports. Before, every member saw all
+  four.
+- **Payroll names and wages** on the general ledger, the transactions report, the bank
+  register and the journal show only to people who can open pay runs.
+- **API keys** are held to their creator's current permissions. Keys created before
+  this release by an Admin (now Full Access) keep working as before; a key with no
+  recorded creator is limited by its scopes alone, as today.
+
+### Before you start
+
+- Run `php artisan access:sync-roles --dry-run` after deploying and before telling your
+  team, and compare it with the member list you expect.
+
 ## 1.4.2 → 1.4.3
 
 Released 2026-11-05. A security patch for the Symfony components LineLedger runs on.

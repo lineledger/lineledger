@@ -805,8 +805,8 @@ new class extends Component
 
                             <flux:switch
                                 wire:model="requireTwoFactor"
-                                :label="__('Require two-factor authentication for owners & admins')"
-                                :description="__('Owners and admins must enable two-factor authentication before they can use this company. They are prompted to set it up; lower-privilege roles are unaffected.')"
+                                :label="__('Require two-factor authentication for the owner and administrators')"
+                                :description="__('The owner, and anyone whose roles include administrative permissions such as organization settings, the closing date, API keys, invitations, users or roles, must enable two-factor authentication before they can use this company. They are prompted to set it up; everyone else is unaffected.')"
                                 data-test="company-require-two-factor-input"
                             />
 
@@ -1136,7 +1136,7 @@ new class extends Component
                                     <flux:text size="sm" class="text-muted-foreground" data-test="lock-mode-summary">
                                         {{ $companyModel->lockMode() === PeriodLockMode::Warn
                                             ? __('Changes on or before this date need a confirmation.')
-                                            : __('Changes on or before this date are blocked; Owners and Admins can override with their password.') }}
+                                            : __('Changes on or before this date are blocked; anyone allowed to change a closed period can override with their password.') }}
                                     </flux:text>
                                 </div>
                             </div>

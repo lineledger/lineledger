@@ -37,7 +37,7 @@ class EnforceTwoFactor
         ) {
             return redirect()
                 ->route('security.edit')
-                ->with('two_factor_required', __('This company requires two-factor authentication for owners and admins. Enable it to continue.'));
+                ->with('two_factor_required', __('This company requires two-factor authentication for its owner and administrators. Enable it to continue.'));
         }
 
         return $next($request);

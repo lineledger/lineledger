@@ -55,7 +55,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('If a teammate already has an employee open in the edit dialog, you see who is editing instead of the form; the reimbursement form and reimbursement page work the same way, and voiding or deleting waits until they are done. Owners and Admins can take over. See ') }}<a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>{{ __(' for how locks are released.') }}
+            {{ __('If a teammate already has an employee open in the edit dialog, you see who is editing instead of the form; the reimbursement form and reimbursement page work the same way, and voiding or deleting waits until they are done. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See ') }}<a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>{{ __(' for how locks are released.') }}
         </x-docs.callout>
 
         {{-- ─────────────── Other ways to add or open an employee ─────────────── --}}

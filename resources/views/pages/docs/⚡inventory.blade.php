@@ -59,7 +59,7 @@ new #[Title('Documentation — Inventory')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits an item at a time') }}">
-            {{ __('If a teammate already has the item open for editing, you see who is editing instead of the form, and Owners and Admins can take over. See') }}
+            {{ __('If a teammate already has the item open for editing, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

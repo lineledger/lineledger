@@ -95,7 +95,7 @@ new #[Title('Documentation — Tax returns')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('Only a saved draft is locked. If a teammate already has one open on the Edit form, you see who is editing instead of the form, and Owners and Admins can take over. File new return has no saved record yet, so it is never locked — two people can open it at once. The return’s page shows a banner naming who is editing it, with a Take over editing button for Owners and Admins, and while they hold the lock File return and Void are refused straight away with a message — try again once they are done. See') }}
+            {{ __('Only a saved draft is locked. If a teammate already has one open on the Edit form, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. File new return has no saved record yet, so it is never locked — two people can open it at once. The return’s page shows a banner naming who is editing it, with a Take over editing button for them, and while they hold the lock File return and Void are refused straight away with a message — try again once they are done. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

@@ -67,7 +67,7 @@ new #[Title('Documentation — Sales orders')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits an order at a time') }}">
-            {{ __('If a teammate already has the order open for editing, the Edit page shows who is editing instead of the form, and Create invoice and Cancel order wait until they are done. Owners and Admins can take over.') }}
+            {{ __('If a teammate already has the order open for editing, the Edit page shows who is editing instead of the form, and Create invoice and Cancel order wait until they are done. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over.') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('See Edit locks under Settings.') }}</a>
         </x-docs.callout>
 

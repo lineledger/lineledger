@@ -137,7 +137,7 @@ new #[Title('Documentation — Purchase orders')] class extends Component {}; ?>
         </ul>
 
         <x-docs.callout type="note" heading="{{ __('One person edits an order at a time') }}">
-            {{ __('If a teammate has the purchase order open for editing, its page shows who is editing, and Create bill and Cancel order wait until they are done. Opening the edit page yourself shows that notice instead of the form, with Try again and View purchase order — and, for Owners and Admins, Take over editing. See') }}
+            {{ __('If a teammate has the purchase order open for editing, its page shows who is editing, and Create bill and Cancel order wait until they are done. Opening the edit page yourself shows that notice instead of the form, with Try again and View purchase order — and, for anyone whose role can take over edit locks, Take over editing. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Edit locks under Settings') }}</a>{{ __(' for how locks are released and taken over.') }}
         </x-docs.callout>
 

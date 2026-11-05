@@ -63,7 +63,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('If a teammate already has a customer open for editing, you see who is editing instead of the form, and Owners and Admins can take over. The same applies to every invoice, credit memo, and receipt described on this page, and to actions such as voiding, merging, or deactivating while someone is editing. See') }}
+            {{ __('If a teammate already has a customer open for editing, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. The same applies to every invoice, credit memo, and receipt described on this page, and to actions such as voiding, merging, or deactivating while someone is editing. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

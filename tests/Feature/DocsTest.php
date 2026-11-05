@@ -58,6 +58,7 @@ test('authenticated users can visit each documentation page', function (string $
     'docs.inbox',
     'docs.lists',
     'docs.settings',
+    'docs.users-and-roles',
     'docs.migration',
     'docs.api',
     'docs.self-hosting',
@@ -73,7 +74,7 @@ test('the docs nav lists every topic on a page', function () {
 
     $response->assertOk();
 
-    foreach (['Getting started', 'Create an organization', 'Languages', 'United Kingdom & VAT', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
+    foreach (['Getting started', 'Create an organization', 'Languages', 'United Kingdom & VAT', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Users and roles', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
         $response->assertSeeText($label);
     }
 });
@@ -130,6 +131,20 @@ test('the members page renders the step-by-step manual format', function () {
     $response->assertOk();
     $response->assertSeeText('To add a member:');
     $response->assertSee('docs/screenshots/members/', false);
+});
+
+test('the users and roles page covers roles, invitations, and the permission report', function () {
+    $user = User::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('docs.users-and-roles'));
+
+    $response->assertOk();
+    $response->assertSeeText('To invite a user:');
+    $response->assertSeeText('To create a role:');
+    $response->assertSeeText('Permission access by roles');
+    $response->assertSeeText('Full Access');
 });
 
 test('every screenshot referenced by a docs page exists on disk', function () {

@@ -393,7 +393,7 @@ new class extends Component {
                     </flux:button>
                 </div>
             @else
-                <flux:text variant="subtle">{{ __('Only company owners and admins can manage API keys.') }}</flux:text>
+                <flux:text variant="subtle">{{ __('Only the owner and people whose role includes API keys can manage API keys.') }}</flux:text>
             @endif
 
             <div class="border rounded-lg border-border overflow-hidden">

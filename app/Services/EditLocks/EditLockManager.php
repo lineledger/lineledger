@@ -86,7 +86,7 @@ class EditLockManager
         }
 
         if ($takeOver && ! $this->canTakeOver($user, $record)) {
-            throw new AuthorizationException(__('Only an owner or admin can take over editing.'));
+            throw new AuthorizationException(__('Your role doesn’t allow taking over someone else’s edit.'));
         }
 
         for ($attempt = 0; $attempt < 3; $attempt++) {

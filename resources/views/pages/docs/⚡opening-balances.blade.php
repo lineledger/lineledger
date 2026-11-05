@@ -19,7 +19,7 @@ new #[Title('Documentation — Opening balances')] class extends Component {}; ?
         {{-- ───────────────────────── Where it lives ───────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Who can open it, and where') }}</flux:heading>
         <flux:text>
-            {{ __('Open Accounting → Opening balances from the sidebar. The entry appears only for the organization’s Owner — the workspace posts directly to the ledger and sets the lock date, so it is deliberately not offered to Admins, Accountants, or anyone on a custom role, and the pages refuse anyone else who types the address. Inside, a row of tabs runs across the top: Overview, Trial balance, Customers (AR), Vendors (AP), Outstanding cheques, and Deposits in transit. The heading reminds you of the as-of date and that “Everything here stays editable — the ledger follows every save.”') }}
+            {{ __('Open Accounting → Opening balances from the sidebar. The entry appears only for the organization’s Owner, unless a custom role grants Opening balances — the workspace posts directly to the ledger and sets the lock date, so no predefined role includes it, and the pages refuse anyone else who types the address. Inside, a row of tabs runs across the top: Overview, Trial balance, Customers (AR), Vendors (AP), Outstanding cheques, and Deposits in transit. The heading reminds you of the as-of date and that “Everything here stays editable — the ledger follows every save.”') }}
         </flux:text>
 
         <x-docs.figure
@@ -183,7 +183,7 @@ new #[Title('Documentation — Opening balances')] class extends Component {}; ?
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('Editing an existing outstanding cheque or deposit in transit holds an edit lock while the dialog is open. If a teammate already has that item open, you see who is editing instead of the form, and Owners and Admins can take over. See') }}
+            {{ __('Editing an existing outstanding cheque or deposit in transit holds an edit lock while the dialog is open. If a teammate already has that item open, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>

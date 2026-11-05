@@ -249,7 +249,7 @@ new #[Title('Documentation — Import from QuickBooks')] class extends Component
             <li>{{ __('In Full transaction history mode, select Finish import. Locking is optional — tick “Lock everything on or before the history start date” only if you want to freeze the imported history; leave it off to keep the books fully open. The lock uses the History start date you entered in Setup, so if you left that blank, nothing is locked.') }}</li>
         </ul>
         <flux:text>
-            {{ __('Either way the app confirms Conversion complete and returns you to the dashboard. Owners and Admins can move the lock date later from the Close the books card under Settings → Organizations → Edit organization — see') }}
+            {{ __('Either way the app confirms Conversion complete and returns you to the dashboard. The Owner, or anyone whose role can set the closing date, can move the lock date later from the Close the books card under Settings → Organizations → Edit organization — see') }}
             <a class="underline" href="{{ route('docs.accounting') }}" wire:navigate>{{ __('Accounting') }}</a>{{ __('.') }}
         </flux:text>
 

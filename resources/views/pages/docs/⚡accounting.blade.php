@@ -213,7 +213,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('If a teammate already has a journal entry, template, schedule, or account open for editing, you see who is editing instead of the form, and Owners and Admins can take over. Posting, voiding, reversing, deleting a draft, or merging is refused while someone else is editing. See') }}
+            {{ __('If a teammate already has a journal entry, template, schedule, or account open for editing, you see who is editing instead of the form, and anyone whose role can take over edit locks (Full Access, or the Owner) can take over. Posting, voiding, reversing, deleting a draft, or merging is refused while someone else is editing. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>
@@ -353,14 +353,14 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             {{ __('Once a period is finished — books reviewed, taxes filed — lock it so the numbers cannot shift underneath you. A lock date guards every transaction dated on or before it, across every workflow: invoices, bills, payments, cheques, transfers, and journal entries. You choose how strict it is:') }}
         </flux:text>
         <ul class="list-disc ps-6 space-y-1">
-            <li><strong>{{ __('Block') }}</strong> — {{ __('the default. The app refuses the change. An Owner or Admin who tries it is offered an override: enter your account password and that one transaction goes through.') }}</li>
+            <li><strong>{{ __('Block') }}</strong> — {{ __('the default. The app refuses the change. Anyone whose role allows changes in a closed period (Full Access, or the Owner) is offered an override when they try it: enter your account password and that one transaction goes through.') }}</li>
             <li><strong>{{ __('Warn and confirm') }}</strong> — {{ __('the app shows a warning that the date is in a closed period, and anyone who can use the form may continue after confirming.') }}</li>
         </ul>
         <flux:text>
             {{ __('Either way, every transaction let through is recorded in the audit log with who confirmed it and the dates it touched. The API, the AI assistant, and scheduled jobs such as recurring transactions never override the lock in either mode.') }}
         </flux:text>
 
-        <p><strong>{{ __('To lock a period (Owners and Admins):') }}</strong></p>
+        <p><strong>{{ __('To lock a period (Full Access, or the Owner):') }}</strong></p>
         <ol class="list-decimal ps-6 space-y-1">
             <li>{{ __('Open Settings → Organizations and select Edit organization next to your organization.') }}</li>
             <li>{{ __('Scroll to the Close the books card. It reads “The books are open. No closing date is set.” or “Books locked through” the current lock date.') }}</li>
@@ -379,7 +379,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="tip" heading="{{ __('Year-end adjusting entries from your accountant') }}">
-            {{ __('A common rhythm: keep working in the new year while your accountant finishes the old one, post their adjusting entries on the year-end date when they arrive, then lock the books through that date. The journal entry form asks you to confirm whenever an entry lands in a prior fiscal year or inside a completed bank reconciliation. If a late adjustment turns up after you have locked, an Owner or Admin can override Block mode for that one entry, or switch to Warn and confirm while the year is being finalized.') }}
+            {{ __('A common rhythm: keep working in the new year while your accountant finishes the old one, post their adjusting entries on the year-end date when they arrive, then lock the books through that date. The journal entry form asks you to confirm whenever an entry lands in a prior fiscal year or inside a completed bank reconciliation. If a late adjustment turns up after you have locked, anyone whose role allows changes in a closed period can override Block mode for that one entry, or switch to Warn and confirm while the year is being finalized.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Related reports ───────────────────────── --}}

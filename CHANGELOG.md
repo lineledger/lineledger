@@ -16,6 +16,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
   installs never see a release candidate. README → Release channels explains
   both channels, and the new `RELEASING.md` is the maintainer's runbook.
+- **Users and roles.** Settings → Users and roles replaces the member list on
+  the organization page, in the manner of QuickBooks Desktop Enterprise:
+  - **Roles** say what people may do, area by area and activity by activity:
+    None, Full, or Partial with View, Create, Modify, Delete, Print and View
+    balance ticked. Fifteen predefined roles come with every organization
+    (Full Access, Accountant, External Accountant, Bookkeeper, Accounts
+    Receivable, Sales, Accounts Payable, Purchasing, Banking, Inventory, Payroll
+    Manager, Payroll Processor, Time Tracking, Fundraising and View-only). Their
+    permissions can be edited and reset to the default; their names can't. New
+    roles can start blank or as a copy of another.
+  - **Users** hold one or more roles, and may do whatever any of them allows.
+    Invitations name the roles too. The Owner keeps full access and isn't
+    assigned roles.
+  - **Permission access by roles** (Reports → Accountant & Taxes) sets every
+    activity against the roles you pick, with a CSV export.
+  - Narrowing a role, or a user's roles, asks first and signs out whoever loses
+    access. Nobody but the Owner can hand out more than they hold, change their
+    own roles or edit a role they hold.
+  - What a role can't do isn't offered: the sidebar leaves out pages it can't
+    open, and New, Edit, Void and Delete buttons are hidden instead of
+    answering "403". Someone who may create but not change a record lands on
+    its page after saving rather than its edit form.
+  - Balances need **View balance**: cash, receivables and payables on the
+    dashboard, the chart of accounts' balance column, account balances in
+    search, the API (`balance_cents` is `null`) and the MCP chart of accounts
+    and contact lookups. Net income and the dashboard charts need financial
+    reports, and each daily insight shows only to people who can open the
+    report it points to.
+  - Payroll detail on the general ledger (employee names on payroll cheques and
+    net-pay lines, and the link to the pay run) shows only to people who can
+    open pay runs; everyone else sees "Payroll" with the amount.
+- **The API and MCP follow the same permissions.** An API key can do no more
+  than the person who created it may do now, and stops working for anything
+  they lose. MCP connections made with an API key are held to their creator's
+  permissions too; until now they skipped section checks.
 
 ### Changed
 

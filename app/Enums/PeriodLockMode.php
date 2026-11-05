@@ -25,7 +25,7 @@ enum PeriodLockMode: string
     public function description(): string
     {
         return match ($this) {
-            self::Block => __('Refuse changes on or before the lock date. Owners and Admins can override one transaction at a time with their password.'),
+            self::Block => __('Refuse changes on or before the lock date. Anyone allowed to change a closed period can override one transaction at a time with their password.'),
             self::Warn => __('Show a warning and let the user continue after confirming.'),
         };
     }

@@ -11,8 +11,8 @@ new #[Title('Documentation — Members')] class extends Component {}; ?>
         :subheading="__('Track your membership roster, dues, renewals, and dues revenue.')"
     >
         <x-docs.callout type="note">
-            {{ __('Roster Members are the people who belong to your organization and pay dues — the contacts you track here. They are different from your organization’s Team members, which are the users who can sign in to LineLedger.') }}
-            <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Team and permissions') }}</a>
+            {{ __('Roster Members are the people who belong to your organization and pay dues — the contacts you track here. They are different from your organization’s users, the people who can sign in to LineLedger.') }}
+            <a class="underline" href="{{ route('docs.users-and-roles') }}" wire:navigate>{{ __('Users and roles') }}</a>
             {{ __('covers those sign-in accounts.') }}
         </x-docs.callout>
 
@@ -90,7 +90,7 @@ new #[Title('Documentation — Members')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="note" heading="{{ __('One person edits a member at a time') }}">
-            {{ __('While a teammate has a member’s Edit form open, the member’s page shows who is editing, Renew waits until they are done, and anyone else who opens the form sees who is editing instead of it. Owners and Admins can take over. The Membership levels dialog under Settings → Lists works the same way. See') }}
+            {{ __('While a teammate has a member’s Edit form open, the member’s page shows who is editing, Renew waits until they are done, and anyone else who opens the form sees who is editing instead of it. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. The Membership levels dialog under Settings → Lists works the same way. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for the full rules.') }}
         </x-docs.callout>

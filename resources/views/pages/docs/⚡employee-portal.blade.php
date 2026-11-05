@@ -44,7 +44,7 @@ new #[Title('Documentation — Employee portal')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
-            {{ __('A payroll profile is edit-locked while someone has it open, and the employee’s own Edit my info page respects the same lock: while you are editing their profile they are asked to try again in a few minutes, and if you save while their page is open they are asked to reload before saving. Owners and Admins can take over a lock a teammate holds. See') }}
+            {{ __('A payroll profile is edit-locked while someone has it open, and the employee’s own Edit my info page respects the same lock: while you are editing their profile they are asked to try again in a few minutes, and if you save while their page is open they are asked to reload before saving. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over a lock a teammate holds. See') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings → Edit locks') }}</a>
             {{ __('for how a lock is held and released.') }}
         </x-docs.callout>
