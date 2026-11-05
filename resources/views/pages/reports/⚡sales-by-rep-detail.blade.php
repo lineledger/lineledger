@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasColumnToggles;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportComparison;
@@ -178,6 +180,7 @@ new #[Title('Sales by Rep (Detail)')] class extends Component {
         return (int) $this->priorRows->sum(fn (RepSalesRow $r): int => $r->amountCents);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $filename = "sales-by-rep-{$this->rep->id}-{$this->startDate}-{$this->endDate}.csv";

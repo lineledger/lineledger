@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\ExpenseStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Company;
@@ -40,6 +42,7 @@ new #[Title('Expense')] class extends Component {
         $this->expense = $expense->load('lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'paymentAccount', 'paymentMethod', 'payee', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -52,6 +55,7 @@ new #[Title('Expense')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->expense);
@@ -83,6 +87,7 @@ new #[Title('Expense')] class extends Component {
             : null;
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(ExpensePoster $poster): void
     {

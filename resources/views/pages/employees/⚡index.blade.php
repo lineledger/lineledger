@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\Contact;
@@ -115,6 +116,7 @@ new #[Title('Employees')] class extends Component {
         Flux::modal('employee-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Contact::class, $this->editingId)) {

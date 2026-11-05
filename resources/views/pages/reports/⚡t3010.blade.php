@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Models\Company;
 use App\Services\Charity\T3010Calculator;
 use App\Services\Reporting\CsvExporter;
@@ -61,6 +63,7 @@ new #[Title('T3010 Summary')] class extends Component
         ];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->lines())->map(fn (int $v, string $label) => [$label, CsvExporter::cents($v)])->values();

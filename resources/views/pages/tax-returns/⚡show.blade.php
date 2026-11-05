@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Enums\TaxReturnPaymentStatus;
 use App\Enums\TaxReturnStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Cheque;
@@ -126,6 +128,7 @@ new #[Title('Tax return')] class extends Component {
         unset($this->draftFigures, $this->vatBoxes);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(TaxReturnFiler $filer): void
     {

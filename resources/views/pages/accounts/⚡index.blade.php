@@ -7,7 +7,10 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\CashFlowActivity;
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -192,6 +195,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         }
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Account::class, $this->editingId)) {
@@ -308,6 +312,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         $this->importSummary = [];
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function previewImport(): void
     {
         $this->validate($this->importRules());
@@ -317,6 +322,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->validate($this->importRules());
@@ -373,6 +379,7 @@ new #[Title('Chart of Accounts')] class extends Component {
         $this->reset(['importFile', 'importPreviewRows', 'importErrors', 'importSummary']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function toggleActive(int $id): void
     {
         $account = Account::findOrFail($id);
@@ -399,6 +406,8 @@ new #[Title('Chart of Accounts')] class extends Component {
         Flux::modal('account-merge')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(null, PermissionAction::Delete)]
     public function merge(): void
     {
         $this->validate([

@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Accounting\SaveStatutoryMapping;
+use App\Enums\Activity;
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Services\Reporting\UkStatutoryAccountsBuilder;
@@ -268,6 +271,7 @@ new #[Title('Statutory Accounts')] class extends Component
         unset($this->mappingRows);
     }
 
+    #[Requires(Activity::Accounts, PermissionAction::Modify)]
     public function setLine(int $accountId, string $line): void
     {
         abort_unless($this->canEdit, 403);
@@ -277,6 +281,7 @@ new #[Title('Statutory Accounts')] class extends Component
         Flux::toast(variant: 'success', text: __('Line updated.'));
     }
 
+    #[Requires(Activity::Accounts, PermissionAction::Modify)]
     public function setLabel(int $accountId, string $label): void
     {
         abort_unless($this->canEdit, 403);
@@ -318,6 +323,7 @@ new #[Title('Statutory Accounts')] class extends Component
         $this->form['depreciation_rates'] = array_values($this->form['depreciation_rates']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveDetails(): void
     {
         abort_unless($this->canEdit, 403);

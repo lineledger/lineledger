@@ -22,6 +22,9 @@ beforeEach(function () {
     ]);
 
     $this->incomeAccount = Account::query()->where('subtype', AccountSubtype::Income->value)->first();
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->owner = actAsCompanyOwner($this->company);
 });
 
 afterEach(function () {

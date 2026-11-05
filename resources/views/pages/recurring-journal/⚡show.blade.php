@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -31,6 +34,7 @@ new #[Title('Recurring journal entry')] class extends Component {
         $this->recurring = $recurring->load(['lines.account']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function pauseSchedule(): void
     {
@@ -39,6 +43,7 @@ new #[Title('Recurring journal entry')] class extends Component {
         Flux::toast(variant: 'success', text: __('Schedule paused.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function resumeSchedule(): void
     {
@@ -48,6 +53,8 @@ new #[Title('Recurring journal entry')] class extends Component {
     }
 
     #[GuardsEditLock]
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Journal, PermissionAction::Create)]
     public function generateNow(RecurringJournalEntryGenerator $generator): void
     {
         try {
@@ -69,6 +76,7 @@ new #[Title('Recurring journal entry')] class extends Component {
         $this->redirectRoute('journal.edit', ['company' => $this->company->slug, 'entry' => $entry->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteSchedule(): void
     {

@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\RecordEditLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Donation;
@@ -37,6 +39,7 @@ new #[Title('Donation')] class extends Component {
         $this->donation = $donation->load('contact', 'fund', 'journalEntry', 'depositToAccount', 'donationReceipt');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(): void
     {
@@ -52,6 +55,7 @@ new #[Title('Donation')] class extends Component {
         Flux::toast(variant: 'success', text: __('Donation posted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {

@@ -2,6 +2,9 @@
 
 use App\Actions\Contacts\MergeContacts;
 use App\Actions\Sales\PostCustomerOpeningBalance;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Attachment;
 use App\Models\Company;
@@ -243,6 +246,7 @@ new #[Title('Customers')] class extends Component {
         $this->f_shipping_country = $this->f_billing_country;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         if (! $this->editingId) {
@@ -263,6 +267,7 @@ new #[Title('Customers')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         if (! $this->editingId) {
@@ -280,6 +285,7 @@ new #[Title('Customers')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachment removed.'));
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Contact::class, $this->editingId)) {
@@ -424,6 +430,7 @@ new #[Title('Customers')] class extends Component {
         Flux::toast(variant: 'success', text: __('Customer saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function toggleActive(int $id): void
     {
         $customer = Contact::where('is_customer', true)->findOrFail($id);
@@ -449,6 +456,8 @@ new #[Title('Customers')] class extends Component {
         Flux::modal('customer-merge')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(null, PermissionAction::Delete)]
     public function merge(): void
     {
         $this->validate([

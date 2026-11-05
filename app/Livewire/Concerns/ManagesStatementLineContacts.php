@@ -3,6 +3,9 @@
 namespace App\Livewire\Concerns;
 
 use App\Actions\Contacts\SaveContact;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\BankStatementLine;
 use App\Models\Contact;
 use Illuminate\Support\Collection;
@@ -128,6 +131,7 @@ trait ManagesStatementLineContacts
      */
     abstract protected function suggestedContactIdsOnPage(): Collection;
 
+    #[Requires(null, PermissionAction::Modify)]
     public function selectLineContact(int $lineId, int $contactId): void
     {
         $line = $this->statementLineForContact($lineId);
@@ -152,6 +156,8 @@ trait ManagesStatementLineContacts
         $this->lineContact[$lineId] = ['id' => null, 'query' => '', 'creating' => true, 'new_name' => trim($state['query'])];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires([Activity::Customers, Activity::Vendors], PermissionAction::Create)]
     public function createLineContact(int $lineId): void
     {
         $line = $this->statementLineForContact($lineId);
@@ -169,6 +175,7 @@ trait ManagesStatementLineContacts
         $this->selectLineContact($lineId, (int) $contact->id);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function clearLineContact(int $lineId): void
     {
         $line = $this->statementLineForContact($lineId);

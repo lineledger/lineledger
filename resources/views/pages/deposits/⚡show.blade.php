@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\DepositStatus;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Deposit;
@@ -30,6 +32,7 @@ new #[Title('Deposit')] class extends Component {
         $this->deposit = $deposit->load('lines.customerReceipt.contact', 'lines.account', 'lines.contact', 'bankAccount', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(DepositPoster $poster): void
     {
@@ -45,6 +48,7 @@ new #[Title('Deposit')] class extends Component {
         $this->redirectRoute('deposits.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(DepositPoster $poster): void
     {

@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
 use App\Enums\RoeReason;
 use App\Exceptions\Payroll\RoeExportBlockedException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Services\Reporting\PdfExporter;
@@ -75,6 +77,7 @@ new #[Title('Record of Employment')] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function downloadPdf()
     {
         $roe = $this->roe;
@@ -87,6 +90,7 @@ new #[Title('Record of Employment')] class extends Component {
         ], 'roe-'.$this->contactId.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function downloadXml()
     {
         abort_if($this->contactId === null, 404);

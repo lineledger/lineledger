@@ -2,8 +2,11 @@
 
 use App\Actions\Sales\SendCustomerStatement;
 use App\Concerns\HasReportDateRange;
+use App\Enums\Activity;
 use App\Enums\CustomerStatementType;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\InvoiceSetting;
@@ -193,6 +196,7 @@ new #[Title('Customer statement')] class extends Component {
         return $this->columns !== $this->defaultColumns;
     }
 
+    #[Requires(Activity::Preferences, PermissionAction::Modify)]
     public function saveDefaultColumns(): void
     {
         abort_unless($this->canSaveDefault, 403);
@@ -328,6 +332,7 @@ new #[Title('Customer statement')] class extends Component {
         return $this->company->invoiceSettingsOrNew()->email_from_address;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function emailStatement(SendCustomerStatement $action): void
     {
         $this->validate([

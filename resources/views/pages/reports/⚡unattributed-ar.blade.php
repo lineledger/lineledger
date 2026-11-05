@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Cheque;
 use App\Models\Company;
@@ -184,6 +187,7 @@ new #[Title('Unattributed AR')] class extends Component
      * control-account lines for this company that are currently unattributed — selection is
      * re-checked in SQL so a stale id can't reassign something else. GL amounts are untouched.
      */
+    #[Requires(Activity::Journal, PermissionAction::Modify)]
     public function assign(): void
     {
         $this->validate([

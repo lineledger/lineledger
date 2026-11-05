@@ -1,6 +1,8 @@
 <?php
 
 use App\Actions\Documents\SaveDocumentFolder;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\DocumentFolder;
 use App\Models\Membership;
@@ -51,6 +53,7 @@ new #[Title('Documents')] class extends Component {
         $this->showFolderModal = true;
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function createFolder(SaveDocumentFolder $action): void
     {
         $this->validate(['folderName' => ['required', 'string', 'max:255']]);

@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\Form1099Calculator;
@@ -69,6 +71,7 @@ new #[Title('1099 Summary')] class extends Component {
         return ['total' => array_sum(array_column($this->rows, 'total_cents')), 'count' => count($this->rows)];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -84,6 +87,7 @@ new #[Title('1099 Summary')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->form1099(
@@ -94,6 +98,7 @@ new #[Title('1099 Summary')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.form-1099', [

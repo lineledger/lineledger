@@ -6,7 +6,10 @@ use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
 use App\Concerns\Memorizable;
 use App\Enums\AccountType;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Attributes\Requires;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use App\Enums\ReportStatement;
@@ -99,6 +102,7 @@ new #[Title('Statement of Operations')] class extends Component
         Flux::modal('recognize-deferred')->show();
     }
 
+    #[Requires(Activity::Journal, PermissionAction::Create)]
     public function recognizeDeferred(RecognizeDeferredContribution $action): void
     {
         $this->validate([
@@ -274,6 +278,7 @@ new #[Title('Statement of Operations')] class extends Component
         ];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -350,6 +355,7 @@ new #[Title('Statement of Operations')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->incomeStatement(
@@ -362,6 +368,7 @@ new #[Title('Statement of Operations')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.income-statement', [

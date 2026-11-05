@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Budget;
 use App\Models\Company;
@@ -25,6 +27,7 @@ new #[Title('Budgets')] class extends Component {
             ->get();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function duplicate(int $id): void
     {
         $budget = Budget::where('company_id', $this->company->id)->findOrFail($id);
@@ -55,6 +58,7 @@ new #[Title('Budgets')] class extends Component {
         $this->redirectRoute('budgets.edit', [$this->company, $copy], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function delete(int $id): void
     {
         $budget = Budget::where('company_id', $this->company->id)->findOrFail($id);

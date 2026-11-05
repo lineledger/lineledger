@@ -11,7 +11,9 @@ use App\Concerns\HasReportNotes;
 use App\Concerns\HasReportNumberFormat;
 use App\Concerns\Memorizable;
 use App\Enums\AccountType;
+use App\Enums\PermissionAction;
 use App\Enums\ReportStatement;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportSection;
@@ -194,6 +196,7 @@ new #[Title('Income Statement')] class extends Component
         return ReportChartBuilder::incomeStatement($this->report, $this->chartContext());
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -276,6 +279,7 @@ new #[Title('Income Statement')] class extends Component
         return $this->isCashBasis() ? '-cash' : '';
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->incomeStatement(
@@ -289,6 +293,7 @@ new #[Title('Income Statement')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         $title = $this->effectiveTitle('Income Statement');

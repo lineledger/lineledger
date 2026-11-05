@@ -7,6 +7,8 @@ use App\Concerns\HasReportComparison;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportNumberFormat;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
@@ -77,6 +79,7 @@ new #[Title('Cash Flow Statement')] class extends Component {
         return ReportChartBuilder::cashFlow($this->report, $this->chartContext());
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -150,6 +153,7 @@ new #[Title('Cash Flow Statement')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->cashFlow(
@@ -163,6 +167,7 @@ new #[Title('Cash Flow Statement')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.cash-flow', [

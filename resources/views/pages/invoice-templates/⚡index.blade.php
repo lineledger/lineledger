@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\InvoiceTemplate;
@@ -29,6 +31,7 @@ new #[Title('Invoice templates')] class extends Component {
             ->paginate(25);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function delete(int $id): void
     {
         $template = InvoiceTemplate::findOrFail($id);

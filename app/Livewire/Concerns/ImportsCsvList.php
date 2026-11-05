@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Services\Migration\Importers\CompanyCsvImporter;
 use App\Services\Migration\ImportResult;
 use Flux\Flux;
@@ -54,6 +56,7 @@ trait ImportsCsvList
         $this->importSummary = [];
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function previewImport(): void
     {
         $this->validate($this->importRules());
@@ -63,6 +66,7 @@ trait ImportsCsvList
         );
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->validate($this->importRules());

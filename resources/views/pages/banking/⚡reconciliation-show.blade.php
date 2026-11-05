@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Attachment;
 use App\Models\BankReconciliation;
 use App\Models\Company;
@@ -103,6 +105,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         return $this->reconciliation->attachments()->get();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -115,6 +118,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->reconciliation);
@@ -138,6 +142,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         return $this->reconciliation->ending_balance_cents - $this->clearedBalanceCents();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rec = $this->reconciliation;
@@ -205,6 +210,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->bankReconciliation(
@@ -218,6 +224,7 @@ new #[Title('Reconciliation detail')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reconciliations.show', [

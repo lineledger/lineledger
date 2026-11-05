@@ -2,8 +2,10 @@
 
 use App\Enums\BillPaymentStatus;
 use App\Enums\BillType;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\BillPayment;
 use App\Models\Company;
@@ -31,6 +33,7 @@ new #[Title('Payment')] class extends Component {
         $this->payment = $payment->load('contact', 'paidFromAccount', 'applications.bill', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(BillPaymentPoster $poster): void
     {

@@ -3,6 +3,7 @@
 use App\Concerns\HasReportChart;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\Activity;
 use App\Enums\BillPaymentStatus;
 use App\Enums\BillStatus;
 use App\Enums\BillType;
@@ -10,7 +11,9 @@ use App\Enums\ChequeStatus;
 use App\Enums\DataMigrationStatus;
 use App\Enums\DepositStatus;
 use App\Enums\InvoiceStatus;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillPayment;
@@ -64,6 +67,7 @@ new #[Title('Dashboard')] class extends Component {
      * Hide the continue-setup banner for good (per company). The import is still
      * resumable from the "Import from QuickBooks" page in company settings.
      */
+    #[Requires(Activity::DataImport, PermissionAction::Create)]
     public function dismissSetupBanner(): void
     {
         $settings = $this->company->settings ?? [];

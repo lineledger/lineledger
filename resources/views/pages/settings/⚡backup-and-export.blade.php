@@ -2,7 +2,9 @@
 
 use App\Enums\CompanyBackupStatus;
 use App\Enums\CompanyRole;
+use App\Enums\PermissionAction;
 use App\Jobs\ExportCompanyDataJob;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\CompanyBackup;
 use Flux\Flux;
@@ -64,6 +66,7 @@ new #[Title('Backup & Export')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::View)]
     public function createBackup(): void
     {
         abort_unless($this->userIsOwner(), 403);
@@ -82,6 +85,7 @@ new #[Title('Backup & Export')] class extends Component {
         Flux::toast(variant: 'success', text: __('Backup queued — refresh in a minute.'));
     }
 
+    #[Requires(null, PermissionAction::View)]
     public function deleteBackup(int $id): void
     {
         abort_unless($this->userIsOwner(), 403);

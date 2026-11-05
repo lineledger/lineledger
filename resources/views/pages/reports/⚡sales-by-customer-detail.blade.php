@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasReportDateRange;
 use App\Enums\CreditMemoStatus;
 use App\Enums\InvoiceStatus;
@@ -89,6 +91,7 @@ new #[Title('Sales by Customer (Detail)')] class extends Component {
         return $this->rows->groupBy('contact');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = $this->rows->map(fn (array $r): array => [

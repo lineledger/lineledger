@@ -2,7 +2,9 @@
 
 use App\Actions\Payroll\FinalizeSlipFiling;
 use App\Actions\Payroll\UnlockSlipFiling;
+use App\Enums\PermissionAction;
 use App\Enums\SlipType;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollSlipFiling;
 use App\Services\Reporting\Cra\CraFilingReadiness;
@@ -73,6 +75,7 @@ new #[Title('T4A slips')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function finalize(): void
     {
         app(FinalizeSlipFiling::class)->handle($this->company, SlipType::T4a, $this->year);
@@ -80,6 +83,7 @@ new #[Title('T4A slips')] class extends Component {
         $this->resetSnapshot();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unlock(): void
     {
         $filing = $this->filing;
@@ -106,6 +110,7 @@ new #[Title('T4A slips')] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -121,6 +126,7 @@ new #[Title('T4A slips')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t4a', [
@@ -164,6 +170,7 @@ new #[Title('T4A slips')] class extends Component {
         return app(T4AXmlGenerator::class)->readiness($this->company, $this->year, $this->filingSlips['slips']);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXml()
     {
         if (! $this->xmlReadiness->isReady()) {

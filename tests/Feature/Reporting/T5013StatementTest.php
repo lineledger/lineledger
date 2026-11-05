@@ -21,6 +21,9 @@ beforeEach(function () {
 
     $this->bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->first();
     $this->income = Account::query()->where('subtype', AccountSubtype::Income->value)->orderBy('code')->first();
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->user = actAsCompanyOwner($this->company, $this->user);
 });
 
 afterEach(fn () => app()->forgetInstance('current_company'));

@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\TransferStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Transfer;
@@ -29,6 +31,7 @@ new #[Title('Transfer')] class extends Component {
         $this->transfer = $transfer->load('fromAccount', 'toAccount', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(TransferPoster $poster): void
     {

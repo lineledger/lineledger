@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
 use App\Models\Account;
@@ -146,6 +148,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals);
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function addRow(): void
     {
         if (! $this->obEditable()) {
@@ -184,6 +187,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals, $this->availableAccounts);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeRow(int $accountId): void
     {
         if (! $this->obEditable()) {
@@ -197,6 +201,7 @@ new #[Title('Opening trial balance')] class extends Component {
         unset($this->rows, $this->totals, $this->availableAccounts);
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();

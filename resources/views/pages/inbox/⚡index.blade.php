@@ -2,7 +2,9 @@
 
 use App\Enums\InboxItemSource;
 use App\Enums\InboxItemStatus;
+use App\Enums\PermissionAction;
 use App\Jobs\Inbox\ProcessInboxItem;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\InboxItem;
 use App\Services\AttachmentService;
@@ -30,6 +32,7 @@ new #[Title('Inbox')] class extends Component {
      * Stage each dropped file as an inbox item, attach the file to it, then
      * queue OCR. The item shows immediately (Pending) and the list polls.
      */
+    #[Requires(null, PermissionAction::Create)]
     public function save(AttachmentService $attachments): void
     {
         $this->validate(AttachmentService::uploadRules(
@@ -61,6 +64,7 @@ new #[Title('Inbox')] class extends Component {
         Flux::toast(variant: 'success', text: __('Documents received. Reading them now…'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function dismiss(int $id): void
     {
         $item = InboxItem::findOrFail($id);

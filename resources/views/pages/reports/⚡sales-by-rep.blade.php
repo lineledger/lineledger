@@ -5,6 +5,8 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportComparison;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
@@ -82,6 +84,7 @@ new #[Title('Sales by Rep')] class extends Component {
         return $builder->mergeComparison($current, $prior);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         if ($this->showComparison()) {
@@ -100,6 +103,7 @@ new #[Title('Sales by Rep')] class extends Component {
         return app(CsvExporter::class)->stream("sales-by-rep-{$this->startDate}-{$this->endDate}.csv", $headers, $rows);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         $curTotal = (int) $this->rows->sum(fn (ComparisonRow $r): int => $r->amountCents);
@@ -134,6 +138,7 @@ new #[Title('Sales by Rep')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         $money = fn (int $c): string => number_format($c / 100, 2);

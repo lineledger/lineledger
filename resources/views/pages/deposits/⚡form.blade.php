@@ -3,8 +3,10 @@
 use App\Actions\Banking\SaveDeposit;
 use App\Enums\AccountSubtype;
 use App\Enums\DepositStatus;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\LockedRows;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
@@ -357,6 +359,7 @@ new #[Title('Make deposit')] class extends Component
         ]));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = $this->orderedReceipts();
@@ -376,6 +379,7 @@ new #[Title('Make deposit')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         $rows = $this->orderedReceipts();
@@ -402,6 +406,7 @@ new #[Title('Make deposit')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         $rows = $this->orderedReceipts();

@@ -8,9 +8,11 @@ use App\Actions\Banking\RecordStatementLine;
 use App\Actions\Banking\SplitStatementLine;
 use App\Enums\AccountSubtype;
 use App\Enums\BillType;
+use App\Enums\PermissionAction;
 use App\Enums\StatementLineMatchStatus;
 use App\Enums\StatementSuggestionSource;
 use App\Exceptions\Posting\PostingValidationException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ManagesStatementLineContacts;
 use App\Livewire\Concerns\ManagesStatementLineTax;
 use App\Models\Account;
@@ -264,6 +266,7 @@ new #[Title('For Review')] class extends Component {
         return (int) collect($this->payBillsRows)->sum(fn (array $row): int => Money::tryFromString(trim((string) $row['apply']))?->cents ?? 0);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function savePayBills(): void
     {
         $line = $this->payBillsLineId ? $this->lineForReview($this->payBillsLineId) : null;
@@ -422,6 +425,7 @@ new #[Title('For Review')] class extends Component {
      * "Always do this": write a bank rule for this payee with the row's
      * category (and vendor).
      */
+    #[Requires(null, PermissionAction::Create)]
     public function createRule(int $lineId): void
     {
         $line = $this->lineForReview($lineId);
@@ -472,6 +476,7 @@ new #[Title('For Review')] class extends Component {
         return app(TransferPairMatcher::class)->candidates($this->company);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function recordTransfer(int $outId, int $inId, PairStatementTransfer $action): void
     {
         $out = $this->lineForReview($outId);
@@ -505,6 +510,7 @@ new #[Title('For Review')] class extends Component {
         $this->selected = [];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkCategorize(BulkCategorizeStatementLines $action): void
     {
         if (! $this->bulkCategory || $this->selected === []) {
@@ -523,6 +529,7 @@ new #[Title('For Review')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkExclude(BulkSetStatementLineStatus $action): void
     {
         $action->exclude($this->selected);
@@ -530,6 +537,7 @@ new #[Title('For Review')] class extends Component {
         unset($this->rows);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function bulkInclude(BulkSetStatementLineStatus $action): void
     {
         $action->include($this->selected);
@@ -537,6 +545,7 @@ new #[Title('For Review')] class extends Component {
         unset($this->rows);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function includeLine(int $lineId, BulkSetStatementLineStatus $action): void
     {
         $action->include([$lineId]);
@@ -583,6 +592,7 @@ new #[Title('For Review')] class extends Component {
         return Contact::query()->where('is_active', true)->orderBy('display_name')->get(['id', 'display_name']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function accept(int $lineId, RecordStatementLine $action): void
     {
         $line = $this->lineForReview($lineId);
@@ -625,6 +635,7 @@ new #[Title('For Review')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function exclude(int $lineId): void
     {
         BankStatementLine::query()
@@ -670,6 +681,7 @@ new #[Title('For Review')] class extends Component {
         $this->splits = array_values($this->splits);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveSplit(SplitStatementLine $action): void
     {
         $line = $this->splittingLineId ? $this->lineForReview($this->splittingLineId) : null;

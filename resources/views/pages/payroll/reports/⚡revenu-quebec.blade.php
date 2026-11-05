@@ -2,9 +2,11 @@
 
 use App\Actions\Payroll\RecordPayrollRemittance;
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceAgency;
 use App\Enums\RemittanceFrequency;
 use App\Enums\RemittanceStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
@@ -123,6 +125,7 @@ new #[Title('Revenu Québec — Payroll remittance')] class extends Component {
         Flux::modal('record-remittance')->show();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function record(RecordPayrollRemittance $action): void
     {
         $validated = $this->validate([
@@ -165,6 +168,7 @@ new #[Title('Revenu Québec — Payroll remittance')] class extends Component {
         return 'revenu-quebec-'.$this->selectedPeriod()['key'];
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -187,6 +191,7 @@ new #[Title('Revenu Québec — Payroll remittance')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.payroll-remittance-revenu-quebec', [

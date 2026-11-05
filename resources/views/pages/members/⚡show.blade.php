@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Membership\BillMemberDues;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\RecurrenceFrequency;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Member;
@@ -42,6 +45,7 @@ new #[Title('Member')] class extends Component {
         return $this->member->invoices()->orderByDesc('invoice_date')->orderByDesc('id')->get();
     }
 
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     public function billDues()
     {
         try {
@@ -59,6 +63,7 @@ new #[Title('Member')] class extends Component {
         $this->redirectRoute('invoices.edit', ['company' => $this->company, 'invoice' => $invoice], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function renew(): void
     {

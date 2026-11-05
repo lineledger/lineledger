@@ -408,7 +408,8 @@ it('defaults the report to the last complete quarter and can jump quarters', fun
 it('exports the nine boxes as CSV with whole pounds in Boxes 6 to 9', function () {
     postUkQuarter();
 
-    $response = Livewire::test('pages::reports.vat-return', ['company' => $this->company])
+    $response = Livewire::actingAs(actAsCompanyOwner($this->company))
+        ->test('pages::reports.vat-return', ['company' => $this->company])
         ->set('startDate', '2026-01-01')
         ->set('endDate', '2026-03-31')
         ->call('exportCsv');

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\MasterData\SaveLocation;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\Location;
@@ -47,6 +48,7 @@ new #[Title('Locations')] class extends Component {
         Flux::modal('locations-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Location::class, $this->editingId)) {

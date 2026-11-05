@@ -4,7 +4,10 @@ use App\Concerns\HasColumnToggles;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportAsOfDate;
 use App\Enums\AccountSubtype;
+use App\Enums\Activity;
 use App\Enums\InvoiceStatus;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Invoice;
@@ -203,6 +206,7 @@ new #[Title('Open Invoices')] class extends Component
      * journal entry (no GL is posted). Safe to run repeatedly — it never closes more
      * than the customer's ledger supports.
      */
+    #[Requires(Activity::Invoices, PermissionAction::Modify)]
     public function reconcileSettled(InvoiceReconciler $reconciler): void
     {
         $result = $reconciler->reconcileCompany($this->company);
@@ -222,6 +226,7 @@ new #[Title('Open Invoices')] class extends Component
         ));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->openInvoices(
@@ -232,6 +237,7 @@ new #[Title('Open Invoices')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.open-invoices', [

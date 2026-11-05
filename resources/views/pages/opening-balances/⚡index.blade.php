@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\Activity;
 use App\Enums\AuditAction;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
 use App\Models\Company;
@@ -45,6 +48,7 @@ new #[Title('Opening balances')] class extends Component {
         return app(OpeningBalanceStatusBuilder::class)->build($this->obState->refresh());
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveAsOf(): void
     {
         if (! $this->obEditable()) {
@@ -64,6 +68,8 @@ new #[Title('Opening balances')] class extends Component {
         Flux::toast(variant: 'success', text: __('As-of date moved to :date. The opening entry was re-dated; existing detail documents keep their own dates.', ['date' => $this->asOfDate]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::ClosingDate, PermissionAction::Modify)]
     public function finalize(): void
     {
         $this->obState->refresh();
@@ -89,6 +95,8 @@ new #[Title('Opening balances')] class extends Component {
         Flux::toast(variant: 'success', text: __('Opening balances finalized — books locked through :date.', ['date' => $newLock]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::ClosingDate, PermissionAction::Modify)]
     public function unfinalize(): void
     {
         $this->obState->refresh();

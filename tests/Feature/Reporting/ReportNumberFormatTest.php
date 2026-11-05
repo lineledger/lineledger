@@ -12,6 +12,9 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->company = Company::factory()->create(['fiscal_year_start_month' => 1]);
     app()->instance('current_company', $this->company);
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->owner = actAsCompanyOwner($this->company);
 });
 
 afterEach(fn () => app()->forgetInstance('current_company'));

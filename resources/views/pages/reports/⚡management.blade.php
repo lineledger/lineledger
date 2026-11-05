@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\PermissionExempt;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\ReportPackage;
 use App\Services\Reporting\Render\ManagementReportBuilder;
@@ -184,6 +187,7 @@ new #[Title('Management Reports')] class extends Component {
         $this->moveItemUp($index + 1);
     }
 
+    #[PermissionExempt('A report package is the user’s own saved bundle of reports.')]
     public function save(): void
     {
         $validated = $this->validate([
@@ -250,6 +254,7 @@ new #[Title('Management Reports')] class extends Component {
         Flux::modal('package-form')->close();
     }
 
+    #[PermissionExempt('A report package is the user’s own saved bundle of reports.')]
     public function delete(int $id): void
     {
         ReportPackage::query()->where('user_id', Auth::id())->where('id', $id)->delete();
@@ -259,6 +264,7 @@ new #[Title('Management Reports')] class extends Component {
     /**
      * Build the package into a single bundled PDF and stream it down.
      */
+    #[Requires(null, PermissionAction::Print)]
     public function download(int $id): ?BinaryFileResponse
     {
         $package = ReportPackage::query()->where('user_id', Auth::id())->with('items')->find($id);

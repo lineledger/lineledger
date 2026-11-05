@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasColumnToggles;
 use App\Concerns\HasReportDimensions;
 use App\Models\Account;
@@ -129,6 +131,7 @@ new #[Title('General Ledger')] class extends Component
         return Account::query()->orderBy('code')->get(['id', 'code', 'name']);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $start = CarbonImmutable::parse($this->startDate);
@@ -148,6 +151,7 @@ new #[Title('General Ledger')] class extends Component
         return $this->exportSingleAccountCsv(app(ReportCalculator::class)->generalLedgerStreamReport($this->account, $start, $end, $classId, $locationId));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         $start = CarbonImmutable::parse($this->startDate);

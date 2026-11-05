@@ -2,7 +2,10 @@
 
 use App\Actions\Contacts\ConvertOtherName;
 use App\Actions\Contacts\SaveOtherName;
+use App\Enums\PermissionAction;
 use App\Enums\Section;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\Contact;
@@ -66,6 +69,7 @@ new #[Title('Other names')] class extends Component {
         Flux::modal('other-names-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Contact::class, $this->editingId)) {
@@ -98,6 +102,7 @@ new #[Title('Other names')] class extends Component {
      * every cheque, expense and journal line written to it stays linked; it
      * simply leaves this list for the Vendors / Customers / Employees page.
      */
+    #[Requires(null, PermissionAction::Modify)]
     public function convert(int $id, string $role): void
     {
         $this->resetErrorBag('convert');

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\MasterData\SaveClassification;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Classification;
 use App\Models\Company;
@@ -47,6 +48,7 @@ new #[Title('Classes')] class extends Component {
         Flux::modal('classifications-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Classification::class, $this->editingId)) {

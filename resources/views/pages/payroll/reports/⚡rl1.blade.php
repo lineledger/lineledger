@@ -2,8 +2,10 @@
 
 use App\Actions\Payroll\FinalizeSlipFiling;
 use App\Actions\Payroll\UnlockSlipFiling;
+use App\Enums\PermissionAction;
 use App\Enums\SlipType;
 use App\Exceptions\Payroll\Rl1ExportBlockedException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollSlipFiling;
 use App\Services\Reporting\CsvExporter;
@@ -75,6 +77,7 @@ new #[Title('RL-1 slips')] class extends Component {
         return $this->filing !== null && ! array_key_exists('boxBA', (array) $this->summary);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function finalize(): void
     {
         app(FinalizeSlipFiling::class)->handle($this->company, SlipType::Rl1, $this->year);
@@ -82,6 +85,7 @@ new #[Title('RL-1 slips')] class extends Component {
         $this->resetSnapshot();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unlock(): void
     {
         $filing = $this->filing;
@@ -103,6 +107,7 @@ new #[Title('RL-1 slips')] class extends Component {
         return Money::fromCents($cents)->format();
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function printSlip(int $contactId)
     {
         $slip = collect($this->slips)->firstWhere('contact_id', $contactId);
@@ -116,6 +121,7 @@ new #[Title('RL-1 slips')] class extends Component {
         ], 'rl1-'.$contactId.'-'.$this->year.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportSummaryPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.rl1-summary', [
@@ -126,6 +132,7 @@ new #[Title('RL-1 slips')] class extends Component {
         ], 'rl1-summary-'.$this->year.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXml()
     {
         try {
@@ -143,6 +150,7 @@ new #[Title('RL-1 slips')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         // A slip finalized before boxes B.A, B.B and C had its one box B: it

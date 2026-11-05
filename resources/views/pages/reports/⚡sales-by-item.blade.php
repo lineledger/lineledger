@@ -5,6 +5,8 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportComparison;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PdfExporter;
@@ -84,6 +86,7 @@ new #[Title('Sales by Item')] class extends Component {
         return $builder->mergeComparison($current, $prior);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $qty = fn (float $q): string => rtrim(rtrim(number_format($q, 4, '.', ''), '0'), '.');
@@ -104,6 +107,7 @@ new #[Title('Sales by Item')] class extends Component {
         return app(CsvExporter::class)->stream("sales-by-item-{$this->startDate}-{$this->endDate}.csv", $headers, $rows);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         $qty = fn (float $q): string => rtrim(rtrim(number_format($q, 4, '.', ''), '0'), '.');
@@ -139,6 +143,7 @@ new #[Title('Sales by Item')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         $qty = fn (float $q): string => rtrim(rtrim(number_format($q, 4, '.', ''), '0'), '.');

@@ -3,10 +3,13 @@
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Actions\Accounting\SaveJournalEntryTemplate;
 use App\Actions\Accounting\UpdateJournalEntryHeader;
+use App\Enums\Activity;
 use App\Enums\AuditAction;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Livewire\Concerns\ManagesLineContacts;
@@ -771,6 +774,7 @@ new #[Title('Journal entry')] class extends Component
      * Capture the current lines as a reusable journal-entry template. Reuses the
      * same SaveJournalEntryTemplate action as the dedicated management page.
      */
+    #[Requires(Activity::JournalEntryTemplates, PermissionAction::Create)]
     public function saveAsTemplate(): void
     {
         $validated = $this->validate(

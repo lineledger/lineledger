@@ -3,6 +3,8 @@
 use App\Concerns\EmailsReport;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Services\Reporting\CsvExporter;
@@ -108,6 +110,7 @@ new #[Title('Customer Contact List')] class extends Component {
         return array_sum(array_column($this->rows, 'balance'));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         return app(CsvExporter::class)->stream(
@@ -121,6 +124,7 @@ new #[Title('Customer Contact List')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->listTable(
@@ -140,6 +144,7 @@ new #[Title('Customer Contact List')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.list-table', [

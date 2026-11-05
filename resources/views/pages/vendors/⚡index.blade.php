@@ -3,6 +3,9 @@
 use App\Actions\Contacts\MergeContacts;
 use App\Enums\AccountType;
 use App\Enums\JurisdictionCapability;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\Attachment;
@@ -199,6 +202,7 @@ new #[Title('Vendors')] class extends Component
         Flux::modal('vendor-form')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         if (! $this->editingId) {
@@ -219,6 +223,7 @@ new #[Title('Vendors')] class extends Component
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         if (! $this->editingId) {
@@ -236,6 +241,7 @@ new #[Title('Vendors')] class extends Component
         Flux::toast(variant: 'success', text: __('Attachment removed.'));
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Contact::class, $this->editingId)) {
@@ -323,6 +329,7 @@ new #[Title('Vendors')] class extends Component
         Flux::toast(variant: 'success', text: __('Vendor saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function toggleActive(int $id): void
     {
         $vendor = Contact::where('is_vendor', true)->findOrFail($id);
@@ -348,6 +355,8 @@ new #[Title('Vendors')] class extends Component
         Flux::modal('vendor-merge')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(null, PermissionAction::Delete)]
     public function merge(): void
     {
         $this->validate([

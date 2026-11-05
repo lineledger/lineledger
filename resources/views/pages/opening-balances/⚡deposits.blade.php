@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
@@ -107,6 +110,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::modal('ob-deposit')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Deposit::class, $this->editingId)) {
@@ -160,6 +164,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Deposit in transit saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function remove(int $id): void
     {
         if (! $this->obEditable()) {
@@ -185,6 +190,7 @@ new #[Title('Deposits in transit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Deposit removed (voided).'));
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();

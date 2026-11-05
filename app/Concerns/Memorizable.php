@@ -2,6 +2,7 @@
 
 namespace App\Concerns;
 
+use App\Livewire\Attributes\PermissionExempt;
 use App\Models\MemorizedReport;
 use App\Models\MemorizedReportGroup;
 use App\Support\Reporting\ReportSettings;
@@ -55,6 +56,7 @@ trait Memorizable
             ->get();
     }
 
+    #[PermissionExempt('A memorized report is the user’s own saved view of a report.')]
     public function memorizeReport(): void
     {
         // The group must be one of the user's own in this company: a group is

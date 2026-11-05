@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Company;
@@ -31,6 +34,7 @@ new #[Title('Recurring schedule')] class extends Component {
         $this->recurring = $recurring->load(['lines.account', 'lines.taxCode', 'contact', 'terms']);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function pauseSchedule(): void
     {
@@ -39,6 +43,7 @@ new #[Title('Recurring schedule')] class extends Component {
         Flux::toast(variant: 'success', text: __('Schedule paused.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function resumeSchedule(): void
     {
@@ -47,6 +52,8 @@ new #[Title('Recurring schedule')] class extends Component {
         Flux::toast(variant: 'success', text: __('Schedule resumed.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires([Activity::Invoices, Activity::Bills], PermissionAction::Create)]
     #[GuardsEditLock]
     public function generateNow(RecurringDocumentGenerator $generator): void
     {
@@ -69,6 +76,7 @@ new #[Title('Recurring schedule')] class extends Component {
         $this->redirectRoute('bills.edit', ['company' => $this->company->slug, 'bill' => $document->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteSchedule(): void
     {

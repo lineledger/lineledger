@@ -6,6 +6,8 @@ use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\HasReportDimensions;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -338,6 +340,7 @@ new #[Title('Transactions')] class extends Component {
         return "transactions-{$this->startDate}-to-{$this->endDate}.{$extension}";
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $grouped = $this->groupBy !== 'none';
@@ -371,6 +374,7 @@ new #[Title('Transactions')] class extends Component {
         return app(CsvExporter::class)->stream($this->exportFilename('csv'), $headers, $rows);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->transactions(
@@ -384,6 +388,7 @@ new #[Title('Transactions')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         // The PDF export stays ungrouped (flat rows; extra 'group' keys are

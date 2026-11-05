@@ -3,6 +3,8 @@
 use App\Actions\Payroll\SaveEmployeePayrollProfile;
 use App\Actions\Payroll\TerminateEmployee;
 use App\Actions\Portal\IssuePortalLoginToken;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Notifications\Portal\EmployeePortalLoginLinkNotification;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
@@ -683,6 +685,7 @@ new #[Title('Employee payroll setup')] class extends Component {
      * only — never banking. No-ops with a warning if the employee isn't eligible
      * (needs an email + an active profile).
      */
+    #[Requires(null, PermissionAction::Modify)]
     public function sendPortalInvite(IssuePortalLoginToken $tokens): void
     {
         $eligible = Contact::query()

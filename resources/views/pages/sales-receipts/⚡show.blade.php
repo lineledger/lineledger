@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\SalesReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesReceipt;
@@ -31,6 +33,7 @@ new #[Title('Sales receipt')] class extends Component {
         $this->receipt = $receipt->load('contact', 'depositToAccount', 'paymentMethod', 'lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(SalesReceiptPoster $poster): void
     {
@@ -46,6 +49,7 @@ new #[Title('Sales receipt')] class extends Component {
         $this->redirectRoute('sales-receipts.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteDraft(): void
     {

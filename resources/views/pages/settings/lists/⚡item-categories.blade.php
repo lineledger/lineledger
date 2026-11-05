@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\MasterData\SaveItemCategory;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Models\Company;
@@ -72,6 +73,7 @@ new #[Title('Item categories')] class extends Component {
         Flux::modal('item-category-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(ItemCategory::class, $this->editingId)) {

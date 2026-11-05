@@ -2,6 +2,8 @@
 
 use App\Actions\Documents\DeleteDocumentFolder;
 use App\Actions\Documents\SaveDocumentFolder;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Attachment;
 use App\Models\Company;
 use App\Models\DocumentFolder;
@@ -141,6 +143,7 @@ new #[Title('Folder')] class extends Component {
             ->all();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function uploadFiles(AttachmentService $service): void
     {
         $this->requireManage();
@@ -155,6 +158,7 @@ new #[Title('Folder')] class extends Component {
         Flux::toast(variant: 'success', text: __('Documents uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function removeFile(int $id, AttachmentService $service): void
     {
         $this->requireManage();
@@ -178,6 +182,7 @@ new #[Title('Folder')] class extends Component {
         $this->showFileModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveFile(AttachmentService $service): void
     {
         $this->requireManage();
@@ -207,6 +212,7 @@ new #[Title('Folder')] class extends Component {
         $this->showSubfolderModal = true;
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function createSubfolder(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -228,6 +234,7 @@ new #[Title('Folder')] class extends Component {
         $this->showRenameModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function rename(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -248,6 +255,7 @@ new #[Title('Folder')] class extends Component {
         $this->showShareModal = true;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveSharing(SaveDocumentFolder $action): void
     {
         $membership = $this->requireManage();
@@ -263,6 +271,7 @@ new #[Title('Folder')] class extends Component {
         Flux::toast(variant: 'success', text: __('Sharing updated.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function deleteFolder(DeleteDocumentFolder $action): void
     {
         $membership = $this->requireManage();

@@ -1,7 +1,9 @@
 <?php
 
 use App\Actions\Sales\SendInvoiceReminder;
+use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\RecordEditLockedException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Invoice;
@@ -49,6 +51,7 @@ new #[Title('Payment Reminders')] class extends Component {
             });
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendNow(int $invoiceId, SendInvoiceReminder $sender): void
     {
         $item = $this->dueItems->firstWhere('invoice.id', $invoiceId);
@@ -66,6 +69,7 @@ new #[Title('Payment Reminders')] class extends Component {
         unset($this->dueItems);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function disableReminders(int $contactId): void
     {
         $contact = Contact::query()->find($contactId);
@@ -93,6 +97,7 @@ new #[Title('Payment Reminders')] class extends Component {
         Flux::toast(variant: 'success', text: __('Automated reminders turned off for this customer.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function snoozeInvoice(int $invoiceId): void
     {
         Invoice::query()->whereKey($invoiceId)->update(['reminders_enabled' => false]);

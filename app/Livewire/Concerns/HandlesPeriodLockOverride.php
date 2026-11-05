@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Enums\PeriodLockMode;
 use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Permissions\MethodPermissionGate;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Audit\AccountingAuditRecorder;
@@ -98,6 +99,10 @@ trait HandlesPeriodLockOverride
         $this->periodLockPassword = '';
         $this->resetErrorBag();
         Flux::modal('period-lock-override')->close();
+
+        // The re-run calls the method directly, so it skips Livewire's call
+        // hook: check what it declares it needs here instead.
+        app(MethodPermissionGate::class)->authorize($this, $action, []);
 
         [, $crossed] = PeriodLockOverride::run($company, fn () => app()->call([$this, $action]));
 

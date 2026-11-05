@@ -12,6 +12,7 @@ use App\Http\Middleware\ResolvePortalCompany;
 use App\Listeners\Security\NotifyNewDeviceLogin;
 use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
+use App\Livewire\Permissions\MethodPermissionGate;
 use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\Membership;
@@ -46,9 +47,12 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Passport\Passport;
+use Livewire\Component;
 use Livewire\ComponentHookRegistry;
 use Livewire\Livewire;
 use Stripe\StripeClient;
+
+use function Livewire\before;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -78,6 +82,14 @@ class AppServiceProvider extends ServiceProvider
 
         // Who may do what, resolved once per request (and per queued job).
         $this->app->scoped(PermissionResolver::class);
+
+        // Every Livewire method call is checked against what the method
+        // declares it needs (#[Requires] / #[RequiresSave]) before any other
+        // hook runs — ahead of the edit-lock guard and the method itself.
+        // `before` listeners run first whatever the registration order.
+        before('call', function (Component $component, string $method, mixed $params): void {
+            app(MethodPermissionGate::class)->authorize($component, $method, is_array($params) ? $params : []);
+        });
     }
 
     /**

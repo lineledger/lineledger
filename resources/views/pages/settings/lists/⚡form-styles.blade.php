@@ -2,6 +2,7 @@
 
 use App\Actions\Sales\SaveFormStyle;
 use App\Enums\InvoiceLayout;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\FormStyle;
@@ -66,6 +67,7 @@ new #[Title('Form styles')] class extends Component
         Flux::modal('form-styles-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(FormStyle::class, $this->editingId)) {

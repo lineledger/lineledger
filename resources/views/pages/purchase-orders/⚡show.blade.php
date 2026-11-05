@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Purchasing\FulfillPurchaseOrder;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\PurchaseOrderStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\PurchaseOrder;
@@ -75,6 +78,8 @@ new #[Title('Purchase Order')] class extends Component {
         $this->receiveQty = [];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Bills, PermissionAction::Create)]
     #[GuardsEditLock]
     public function receive(FulfillPurchaseOrder $action): void
     {
@@ -95,6 +100,7 @@ new #[Title('Purchase Order')] class extends Component {
         $this->redirectRoute('bills.edit', ['company' => $this->company->slug, 'bill' => $bill->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function cancelOrder(): void
     {

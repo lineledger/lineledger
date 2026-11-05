@@ -4,6 +4,7 @@ use App\Actions\Payroll\SaveTimeOffPolicy;
 use App\Enums\TimeOffAccrualMethod;
 use App\Enums\TimeOffCategory;
 use App\Enums\TimeOffUnit;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
 use App\Models\TimeOffPolicy;
@@ -84,6 +85,7 @@ new #[Title('Time-off policies')] class extends Component {
         Flux::modal('policy-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(SaveTimeOffPolicy $action): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(TimeOffPolicy::class, $this->editingId)) {

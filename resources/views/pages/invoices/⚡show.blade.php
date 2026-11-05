@@ -3,12 +3,15 @@
 use App\Actions\Sales\RecordCustomerRefund;
 use App\Actions\Sales\SaveInvoicePaymentRequests;
 use App\Actions\Sales\SendInvoiceToCustomer;
+use App\Enums\Activity;
 use App\Enums\ChequeStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentRequestType;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
@@ -149,6 +152,7 @@ new #[Title('Invoice')] class extends Component {
         $this->milestones = array_values($this->milestones);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function savePaymentSchedule(SaveInvoicePaymentRequests $action): void
     {
@@ -215,6 +219,7 @@ new #[Title('Invoice')] class extends Component {
             + (int) ($this->fieldVisibility['unit_column'] ?? true);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendToClient(SendInvoiceToCustomer $action): void
     {
         $this->validate([
@@ -269,6 +274,7 @@ new #[Title('Invoice')] class extends Component {
         return $emails->all();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(InvoicePoster $poster): void
     {
@@ -301,6 +307,7 @@ new #[Title('Invoice')] class extends Component {
         return min($this->invoice->balanceCents(), $available);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function reconcile(InvoiceReconciler $reconciler): void
     {
@@ -445,21 +452,25 @@ new #[Title('Invoice')] class extends Component {
     // The refund spends a payment's credit and leaves the invoice untouched, so
     // these aren't #[GuardsEditLock]: that would re-version the invoice and turn
     // away whoever is editing it. The payment's own lock is checked instead.
+    #[Requires([Activity::Cheques, Activity::Receipts], PermissionAction::Create)]
     public function submitRefund(RecordCustomerRefund $action): void
     {
         $this->processRefund($action);
     }
 
+    #[Requires(Activity::Cheques, PermissionAction::Delete)]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
         $this->removeRefundCheque($chequeId, $poster);
     }
 
+    #[Requires(Activity::Receipts, PermissionAction::Delete)]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
         $this->removeRefundReceipt($receiptId, $poster);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -472,6 +483,7 @@ new #[Title('Invoice')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->invoice);

@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Bill;
 use App\Models\Cheque;
 use App\Models\Company;
@@ -129,6 +131,7 @@ new #[Title('Sales Tax')] class extends Component {
         };
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -153,6 +156,7 @@ new #[Title('Sales Tax')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->salesTax(
@@ -164,6 +168,7 @@ new #[Title('Sales Tax')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.sales-tax', [
@@ -175,6 +180,7 @@ new #[Title('Sales Tax')] class extends Component {
         ], "sales-tax-{$this->startDate}-{$this->endDate}.pdf");
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportDrillCsv()
     {
         $drill = $this->drill;
@@ -197,6 +203,7 @@ new #[Title('Sales Tax')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportDrillXlsx()
     {
         $drill = $this->drill;
@@ -217,6 +224,7 @@ new #[Title('Sales Tax')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportDrillPdf()
     {
         $drill = $this->drill;

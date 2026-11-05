@@ -2,7 +2,9 @@
 
 use App\Actions\Payroll\FinalizeSlipFiling;
 use App\Actions\Payroll\UnlockSlipFiling;
+use App\Enums\PermissionAction;
 use App\Enums\SlipType;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollSlipFiling;
 use App\Services\Pdf\PdfMerger;
@@ -69,6 +71,7 @@ new #[Title('T4 slips')] class extends Component {
             ?? app(T4SlipCalculator::class)->summary($this->company, $this->year);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function finalize(): void
     {
         app(FinalizeSlipFiling::class)->handle($this->company, SlipType::T4, $this->year);
@@ -76,6 +79,7 @@ new #[Title('T4 slips')] class extends Component {
         $this->resetSnapshot();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unlock(): void
     {
         $filing = $this->filing;
@@ -105,6 +109,7 @@ new #[Title('T4 slips')] class extends Component {
             && SlipFieldMaps::for(SlipTemplateRegistry::T4, $this->year) !== null;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function printSlip(int $contactId)
     {
         $slip = collect($this->slips)->firstWhere('contact_id', $contactId);
@@ -128,6 +133,7 @@ new #[Title('T4 slips')] class extends Component {
     }
 
     /** Every employee's slip in one PDF — official template when installed. */
+    #[Requires(null, PermissionAction::Print)]
     public function printAllSlips()
     {
         abort_if($this->slips === [], 404);
@@ -146,6 +152,7 @@ new #[Title('T4 slips')] class extends Component {
         return $exporter->downloadRaw(app(PdfMerger::class)->merge(...$documents), 't4-slips-'.$this->year.'.pdf');
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportSummaryPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t4-summary', [
@@ -166,6 +173,7 @@ new #[Title('T4 slips')] class extends Component {
         return app(T4XmlGenerator::class)->readiness($this->company, $this->year, $this->slips);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXml()
     {
         if (! $this->xmlReadiness->isReady()) {
@@ -190,6 +198,7 @@ new #[Title('T4 slips')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->slips)->map(fn ($s) => [

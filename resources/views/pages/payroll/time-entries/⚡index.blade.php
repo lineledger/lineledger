@@ -3,8 +3,12 @@
 use App\Actions\Payroll\SaveTimeEntry;
 use App\Actions\Payroll\SetTimeEntryStatus;
 use App\Actions\Sales\CreateInvoiceFromTimeEntries;
+use App\Enums\Activity;
 use App\Enums\AuditAction;
+use App\Enums\PermissionAction;
 use App\Enums\TimeEntryStatus;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Models\AccountingAuditLog;
 use App\Models\Classification;
 use App\Models\Company;
@@ -80,6 +84,7 @@ new #[Title('Time entries')] class extends Component {
         Flux::modal('entry-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(SaveTimeEntry $action): void
     {
         $validated = $this->validate([
@@ -114,12 +119,14 @@ new #[Title('Time entries')] class extends Component {
         Flux::toast(variant: 'success', text: __('Time entry saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function approve(int $id, SetTimeEntryStatus $action): void
     {
         $action->handle([$id], TimeEntryStatus::Approved);
         Flux::toast(variant: 'success', text: __('Time entry approved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function reject(int $id, SetTimeEntryStatus $action): void
     {
         $action->handle([$id], TimeEntryStatus::Rejected);
@@ -163,6 +170,7 @@ new #[Title('Time entries')] class extends Component {
         return TimeEntryPayCodeCatalogue::options();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function approveSelected(SetTimeEntryStatus $action): void
     {
         $ids = array_values(array_map('intval', $this->selected));
@@ -278,6 +286,8 @@ new #[Title('Time entries')] class extends Component {
             ->count();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     public function createInvoice(CreateInvoiceFromTimeEntries $action): void
     {
         if ($this->filterCustomer === null) {

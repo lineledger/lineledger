@@ -2,6 +2,8 @@
 
 namespace App\Concerns;
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Notifications\Reports\ReportEmailNotification;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportSettings;
@@ -47,6 +49,7 @@ trait EmailsReport
         ]);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function sendReportEmail(): void
     {
         if (! $this->canEmailReport()) {

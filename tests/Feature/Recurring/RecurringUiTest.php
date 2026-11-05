@@ -16,6 +16,9 @@ beforeEach(function () {
 
     $this->customer = Contact::create(['display_name' => 'Acme Corp', 'is_customer' => true]);
     $this->incomeAccount = Account::query()->where('subtype', AccountSubtype::Income->value)->firstOrFail();
+
+    // Livewire methods check the signed-in member's permissions.
+    $this->owner = actAsCompanyOwner($this->company);
 });
 
 afterEach(function () {

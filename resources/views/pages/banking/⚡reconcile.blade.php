@@ -4,7 +4,9 @@ use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\BankReconciliationStatus;
 use App\Enums\BankStatementFormat;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\ReconciliationOutOfBalanceException;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Attachment;
 use App\Models\BankReconciliation;
@@ -423,6 +425,7 @@ new #[Title('Reconcile')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function startReconciliation(): void
     {
         if (! $this->account_id) {
@@ -515,6 +518,7 @@ new #[Title('Reconcile')] class extends Component {
         Flux::modal('edit-reconciliation')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function saveDetails(): void
     {
         $rec = $this->current;
@@ -591,6 +595,7 @@ new #[Title('Reconcile')] class extends Component {
         }
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function markAll(string $side): void
     {
         if (! $this->current) {
@@ -607,6 +612,7 @@ new #[Title('Reconcile')] class extends Component {
         unset($this->current);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function unmarkAll(string $side): void
     {
         if (! $this->current) {
@@ -623,6 +629,7 @@ new #[Title('Reconcile')] class extends Component {
         unset($this->current);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function reconcileNow(AttachmentService $attachmentService): void
     {
         if (! $this->current) {
@@ -668,6 +675,7 @@ new #[Title('Reconcile')] class extends Component {
         return $this->current?->attachments()->get() ?? collect();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         if (! $this->current) {
@@ -684,6 +692,7 @@ new #[Title('Reconcile')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         if (! $this->current) {

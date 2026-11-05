@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Sales\FulfillSalesOrder;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\SalesOrderStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesOrder;
@@ -75,6 +78,8 @@ new #[Title('Sales Order')] class extends Component {
         $this->fulfillQty = [];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     #[GuardsEditLock]
     public function fulfill(FulfillSalesOrder $action): void
     {
@@ -95,6 +100,7 @@ new #[Title('Sales Order')] class extends Component {
         $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function cancelOrder(): void
     {

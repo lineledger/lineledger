@@ -3,6 +3,7 @@
 use App\Actions\MasterData\SaveItem;
 use App\Enums\AccountSubtype;
 use App\Enums\ItemType;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Models\Account;
@@ -168,6 +169,7 @@ new #[Title('Items')] class extends Component {
         $this->f_components = array_values($this->f_components);
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Item::class, $this->editingId)) {

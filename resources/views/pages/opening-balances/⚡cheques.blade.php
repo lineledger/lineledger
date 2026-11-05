@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Livewire\Concerns\ImportsCsvList;
 use App\Livewire\Concerns\InteractsWithOpeningBalances;
@@ -111,6 +114,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::modal('ob-cheque')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(Cheque::class, $this->editingId)) {
@@ -159,6 +163,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::toast(variant: 'success', text: __('Outstanding cheque saved.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function remove(int $id): void
     {
         if (! $this->obEditable()) {
@@ -184,6 +189,7 @@ new #[Title('Outstanding cheques')] class extends Component {
         Flux::toast(variant: 'success', text: __('Cheque removed (voided).'));
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function runImport(): void
     {
         $this->baseRunImport();

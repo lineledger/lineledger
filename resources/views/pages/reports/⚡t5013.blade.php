@@ -3,6 +3,8 @@
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportDateRange;
 use App\Concerns\Memorizable;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Partner;
 use App\Services\Reporting\CsvExporter;
@@ -88,6 +90,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         return ['rows' => $rows, 'net_income' => $net, 'total_bps' => $totalBps];
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function addPartner(): void
     {
         $validated = $this->validate([
@@ -107,6 +110,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         Flux::toast(variant: 'success', text: __('Partner added.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function deletePartner(int $id): void
     {
         $partner = Partner::query()->where('company_id', $this->company->id)->findOrFail($id);
@@ -150,6 +154,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         return $rows;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         return app(CsvExporter::class)->stream(
@@ -159,6 +164,7 @@ new #[Title('T5013 Partnership')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.t5013', [

@@ -4,6 +4,7 @@ use App\Actions\MasterData\SaveTaxAgency;
 use App\Actions\MasterData\SaveTaxCode;
 use App\Enums\AccountSubtype;
 use App\Enums\TaxAppliesTo;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -86,6 +87,7 @@ new #[Title('Tax codes')] class extends Component {
         Flux::modal('tax-code-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(TaxCode::class, $this->editingId)) {
@@ -177,6 +179,7 @@ new #[Title('Tax codes')] class extends Component {
         $this->a_account_name = $entry['account_name'] ?? '';
     }
 
+    #[RequiresSave('editingAgencyId')]
     public function saveAgency(): void
     {
         if ($this->editingAgencyId !== null && ! $this->ensureEditLockForSave(TaxAgency::class, $this->editingAgencyId)) {

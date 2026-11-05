@@ -1,7 +1,10 @@
 <?php
 
 use App\Actions\Payroll\DecideTimeOffRequest;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
 use App\Enums\TimeOffRequestStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\TimeOffPolicy;
@@ -62,6 +65,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::modal('staff-day')->show();
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function managerApprove(int $id, DecideTimeOffRequest $action): void
     {
         $action->managerApprove(TimeOffRequest::findOrFail($id), auth()->user());
@@ -69,6 +73,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::toast(variant: 'success', text: __('Absence approved — payroll confirmation is next.'));
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function approve(int $id, DecideTimeOffRequest $action): void
     {
         $action->approve(TimeOffRequest::findOrFail($id), auth()->user());
@@ -76,6 +81,7 @@ new #[Title('Staff calendar')] class extends Component {
         Flux::toast(variant: 'success', text: __('Approved — time entries were scheduled.'));
     }
 
+    #[Requires(Activity::TimeOff, PermissionAction::Modify)]
     public function deny(int $id, DecideTimeOffRequest $action): void
     {
         $action->deny(TimeOffRequest::findOrFail($id), auth()->user());

@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\DonationReceiptStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\DonationReceipt;
@@ -36,6 +38,7 @@ new #[Title('Donation receipt')] class extends Component {
         $this->receipt = $donationReceipt->load('contact', 'journalEntry', 'reissuedFrom', 'donation');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function issue(): void
     {
@@ -51,6 +54,7 @@ new #[Title('Donation receipt')] class extends Component {
         Flux::toast(variant: 'success', text: __('Receipt issued.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {
@@ -64,6 +68,8 @@ new #[Title('Donation receipt')] class extends Component {
         Flux::toast(variant: 'success', text: __('Receipt voided.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function reissue(): void
     {

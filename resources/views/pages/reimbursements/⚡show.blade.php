@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\BillStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Company;
@@ -30,6 +32,7 @@ new #[Title('Reimbursement')] class extends Component {
         $this->bill = $bill->load('lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'contact', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(BillPoster $poster): void
     {
@@ -45,6 +48,7 @@ new #[Title('Reimbursement')] class extends Component {
         $this->redirectRoute('reimbursements.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteDraft(): void
     {

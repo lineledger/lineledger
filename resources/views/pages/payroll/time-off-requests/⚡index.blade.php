@@ -2,7 +2,9 @@
 
 use App\Actions\Payroll\DecideTimeOffRequest;
 use App\Actions\Payroll\SaveTimeOffRequest;
+use App\Enums\PermissionAction;
 use App\Enums\TimeOffRequestStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\TimeOffPolicy;
@@ -51,12 +53,14 @@ new #[Title('Time-off requests')] class extends Component {
         Flux::modal('decide-request')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function managerApprove(DecideTimeOffRequest $action): void
     {
         $action->managerApprove($this->deciding, auth()->user(), $this->decideNote ?: null);
         $this->closeDecide(__('Absence approved — payroll confirmation is next.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function approve(DecideTimeOffRequest $action): void
     {
         $action->approve($this->deciding, auth()->user(), $this->decideNote ?: null, $this->generateEntries);
@@ -65,12 +69,14 @@ new #[Title('Time-off requests')] class extends Component {
             : __('Approved without scheduling time entries.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function deny(DecideTimeOffRequest $action): void
     {
         $action->deny($this->deciding, auth()->user(), $this->decideNote ?: null);
         $this->closeDecide(__('Request denied.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function cancel(DecideTimeOffRequest $action): void
     {
         $action->cancel($this->deciding, auth()->user(), $this->decideNote ?: null);
@@ -85,6 +91,7 @@ new #[Title('Time-off requests')] class extends Component {
         Flux::modal('request-form')->show();
     }
 
+    #[Requires(null, PermissionAction::Create)]
     public function save(SaveTimeOffRequest $action): void
     {
         $validated = $this->validate([

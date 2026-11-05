@@ -3,8 +3,10 @@
 use App\Enums\AccountSubtype;
 use App\Enums\PayrollChequeStatus;
 use App\Enums\PayRunStatus;
+use App\Enums\PermissionAction;
 use App\Exceptions\Payroll\MissingPayrollConstantsException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -104,6 +106,7 @@ new #[Title('Pay run')] class extends Component {
         return null;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(PayRunPoster $poster): void
     {
@@ -123,6 +126,8 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Pay run posted.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function writeCheques(\App\Actions\Payroll\IssuePayrollCheques $issuer): void
     {
@@ -145,6 +150,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Cheques written.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function voidRun(PayRunPoster $poster): void
     {
@@ -160,6 +166,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Pay run voided.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function recalculate(CalculatePayRun $calculate): void
     {
@@ -196,6 +203,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::modal('adjust-line')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function saveAdjust(): void
     {
@@ -238,6 +246,7 @@ new #[Title('Pay run')] class extends Component {
         $line->{$component.'_override_cents'} = $cents === (int) $line->{$component.'_computed_cents'} ? null : $cents;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function resetAdjust(): void
     {
@@ -260,6 +269,7 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Reset to calculated amounts.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function voidCheque(int $chequeId, PayrollChequePoster $poster): void
     {

@@ -1,10 +1,13 @@
 <?php
 
 use App\Actions\Sales\RecordCustomerRefund;
+use App\Enums\Activity;
 use App\Enums\ChequeStatus;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
@@ -38,18 +41,21 @@ new #[Title('Receipt')] class extends Component {
         $this->receipt = $receipt->load('contact', 'depositToAccount', 'paymentMethod', 'applications.invoice', 'journalEntry', 'creditMemo', 'refundedReceipt', 'fromInvoice');
     }
 
+    #[Requires([Activity::Cheques, Activity::Receipts], PermissionAction::Create)]
     #[GuardsEditLock]
     public function submitRefund(RecordCustomerRefund $action): void
     {
         $this->processRefund($action);
     }
 
+    #[Requires(Activity::Cheques, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
         $this->removeRefundCheque($chequeId, $poster);
     }
 
+    #[Requires(Activity::Receipts, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
@@ -94,6 +100,7 @@ new #[Title('Receipt')] class extends Component {
         return $this->receipt->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->orderBy('id')->get();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(ReceiptPoster $poster): void
     {

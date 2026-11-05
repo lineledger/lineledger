@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Grant;
@@ -49,6 +51,7 @@ new #[Title('Grant')] class extends Component {
             && $this->grant->deferredBalanceCents() > 0;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function postAward(): void
     {
@@ -70,6 +73,7 @@ new #[Title('Grant')] class extends Component {
         Flux::modal('recognize-grant')->show();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function recognize(): void
     {
@@ -95,6 +99,7 @@ new #[Title('Grant')] class extends Component {
         Flux::toast(variant: 'success', text: __('Grant revenue recognized.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(): void
     {

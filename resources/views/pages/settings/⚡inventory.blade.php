@@ -2,6 +2,8 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\CostingMethod;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use Flux\Flux;
@@ -27,6 +29,7 @@ new #[Title('Inventory settings')] class extends Component {
         $this->f_default_cogs_account_id = $company->default_cogs_account_id;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function save(): void
     {
         $companyId = $this->company->id;

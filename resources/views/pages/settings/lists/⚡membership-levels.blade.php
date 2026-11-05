@@ -3,6 +3,7 @@
 use App\Actions\MasterData\SaveMembershipLevel;
 use App\Enums\AccountType;
 use App\Enums\RecurrenceFrequency;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -72,6 +73,7 @@ new #[Title('Membership levels')] class extends Component {
         Flux::modal('membership-level-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(MembershipLevel::class, $this->editingId)) {

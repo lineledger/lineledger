@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\VendorCreditStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Company;
@@ -38,6 +40,7 @@ new #[Title('Vendor credit')] class extends Component {
         $this->vendorCredit = $vendor_credit->load('lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'contact', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function post(VendorCreditPoster $poster): void
     {
@@ -53,6 +56,7 @@ new #[Title('Vendor credit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Vendor credit posted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(VendorCreditPoster $poster): void
     {
@@ -68,6 +72,7 @@ new #[Title('Vendor credit')] class extends Component {
         $this->redirectRoute('vendor-credits.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -80,6 +85,7 @@ new #[Title('Vendor credit')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->vendorCredit);

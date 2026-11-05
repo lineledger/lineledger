@@ -9,7 +9,9 @@ use App\Concerns\HasReportNumberFormat;
 use App\Concerns\Memorizable;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
+use App\Enums\PermissionAction;
 use App\Enums\ReportStatement;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\ReportSection;
@@ -266,6 +268,7 @@ new #[Title('Balance Sheet')] class extends Component {
         return ReportChartBuilder::balanceSheet($this->report, $this->chartContext());
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $r = $this->report;
@@ -344,6 +347,7 @@ new #[Title('Balance Sheet')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->balanceSheet(
@@ -356,6 +360,7 @@ new #[Title('Balance Sheet')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.balance-sheet', [

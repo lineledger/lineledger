@@ -2,6 +2,7 @@
 
 use App\Actions\Banking\SaveBankRule;
 use App\Enums\BankRuleMatchType;
+use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Account;
 use App\Models\BankRule;
@@ -68,6 +69,7 @@ new #[Title('Bank rules')] class extends Component {
         Flux::modal('bank-rule-form')->show();
     }
 
+    #[RequiresSave('editingId')]
     public function save(): void
     {
         if ($this->editingId !== null && ! $this->ensureEditLockForSave(BankRule::class, $this->editingId)) {

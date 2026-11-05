@@ -4,7 +4,9 @@ use App\Enums\AccountSubtype;
 use App\Enums\BillPaymentStatus;
 use App\Enums\BillStatus;
 use App\Enums\BillType;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Bill;
@@ -42,6 +44,7 @@ new #[Title('Bill')] class extends Component {
         $this->bill = $bill->load('lines.account', 'lines.taxCode', 'lines.secondaryTaxCode', 'contact', 'journalEntry', 'paymentApplications.payment');
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(BillPoster $poster): void
     {
@@ -74,6 +77,7 @@ new #[Title('Bill')] class extends Component {
         return min($this->bill->balanceCents(), $available);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function reconcile(BillReconciler $reconciler): void
     {
@@ -91,6 +95,7 @@ new #[Title('Bill')] class extends Component {
         Flux::toast(variant: 'success', text: __('Closed :amount already settled in the ledger.', ['amount' => $this->company->currencySymbol($this->bill->currency_code).number_format($closed / 100, 2)]));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -103,6 +108,7 @@ new #[Title('Bill')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->bill);

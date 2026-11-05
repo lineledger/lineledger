@@ -1,9 +1,12 @@
 <?php
 
 use App\Actions\Payroll\SaveWorkersCompSettings;
+use App\Enums\Activity;
 use App\Enums\Country;
 use App\Enums\DentalBenefitsCode;
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceFrequency;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\WorkersCompSetting;
 use App\Support\Payroll\PayrollAccountNumber;
@@ -173,6 +176,7 @@ new #[Title('Payroll settings')] class extends Component {
         $this->f_rep_id = strtoupper(trim($this->f_rep_id));
     }
 
+    #[Requires(Activity::PayrollSetup, PermissionAction::Modify)]
     public function save(): void
     {
         $this->normalizeCraIdentifiers();

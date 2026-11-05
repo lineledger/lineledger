@@ -2,7 +2,9 @@
 
 use App\Enums\AccountSubtype;
 use App\Enums\ChequeStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Cheque;
@@ -42,6 +44,7 @@ new #[Title('Cheque')] class extends Component {
         $this->cheque = $cheque->load('lines.account', 'lines.contact', 'lines.taxCode', 'lines.secondaryTaxCode', 'bankAccount', 'payee', 'journalEntry');
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -54,6 +57,7 @@ new #[Title('Cheque')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->cheque);
@@ -109,6 +113,7 @@ new #[Title('Cheque')] class extends Component {
             : null;
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(ChequePoster $poster): void
     {

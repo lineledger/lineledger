@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\TaxReturnPaymentDirection;
 use App\Enums\TaxReturnPaymentStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
@@ -30,6 +32,7 @@ new #[Title('Tax payment')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function void(TaxReturnPaymentPoster $poster): void
     {
         try {

@@ -3,6 +3,9 @@
 use App\Actions\Documents\MatchInboxItemToStatementLine;
 use App\Actions\Documents\PromoteInboxItem;
 use App\Enums\AccountType;
+use App\Enums\Activity;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\BankStatementLine;
 use App\Models\Company;
@@ -260,6 +263,8 @@ new #[Title('Review document')] class extends Component {
         $this->lines[$i]['total'] = $amount + $taxCents + $secondaryTaxCents;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires([Activity::Bills, Activity::Expenses, Activity::Reimbursements], PermissionAction::Create)]
     public function promote(PromoteInboxItem $action, MatchInboxItemToStatementLine $matcher): void
     {
         $companyId = $this->company->id;

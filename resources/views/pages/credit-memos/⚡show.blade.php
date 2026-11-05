@@ -1,10 +1,13 @@
 <?php
 
 use App\Actions\Sales\RecordCustomerRefund;
+use App\Enums\Activity;
 use App\Enums\ChequeStatus;
 use App\Enums\CreditMemoStatus;
+use App\Enums\PermissionAction;
 use App\Enums\ReceiptStatus;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
@@ -109,6 +112,7 @@ new #[Title('Credit memo')] class extends Component {
             + (int) ($this->fieldVisibility['tax_column'] ?? true);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(CreditMemoPoster $poster): void
     {
@@ -124,18 +128,21 @@ new #[Title('Credit memo')] class extends Component {
         $this->redirectRoute('credit-memos.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires([Activity::Cheques, Activity::Receipts], PermissionAction::Create)]
     #[GuardsEditLock]
     public function submitRefund(RecordCustomerRefund $action): void
     {
         $this->processRefund($action);
     }
 
+    #[Requires(Activity::Cheques, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundCheque(int $chequeId, ChequePoster $poster): void
     {
         $this->removeRefundCheque($chequeId, $poster);
     }
 
+    #[Requires(Activity::Receipts, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteRefundReceipt(int $receiptId, ReceiptPoster $poster): void
     {
@@ -180,6 +187,7 @@ new #[Title('Credit memo')] class extends Component {
         return $this->creditMemo->refundReceipts()->where('status', '!=', ReceiptStatus::Void->value)->orderBy('id')->get();
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -192,6 +200,7 @@ new #[Title('Credit memo')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->creditMemo);

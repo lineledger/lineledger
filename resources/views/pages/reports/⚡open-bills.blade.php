@@ -4,7 +4,10 @@ use App\Concerns\HasColumnToggles;
 use App\Concerns\HasCustomReportHeader;
 use App\Concerns\HasReportAsOfDate;
 use App\Enums\AccountSubtype;
+use App\Enums\Activity;
 use App\Enums\BillStatus;
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\Company;
@@ -200,6 +203,7 @@ new #[Title('Open Bills')] class extends Component
      * entry (no GL is posted). Safe to run repeatedly — it never closes more than the
      * vendor's ledger supports.
      */
+    #[Requires(Activity::Bills, PermissionAction::Modify)]
     public function reconcileSettled(BillReconciler $reconciler): void
     {
         $result = $reconciler->reconcileCompany($this->company);
@@ -219,6 +223,7 @@ new #[Title('Open Bills')] class extends Component
         ));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->openBills(
@@ -229,6 +234,7 @@ new #[Title('Open Bills')] class extends Component
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.open-bills', [

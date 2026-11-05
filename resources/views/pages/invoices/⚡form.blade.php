@@ -3,9 +3,12 @@
 use App\Actions\Sales\SaveInvoice;
 use App\Actions\Sales\SaveInvoiceTemplate;
 use App\Enums\AccountType;
+use App\Enums\Activity;
 use App\Enums\InvoiceStatus;
 use App\Enums\ItemType;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\GuardsEditLockedForm;
 use App\Livewire\Concerns\HandlesPeriodLockOverride;
 use App\Models\Account;
@@ -594,6 +597,7 @@ new #[Title('Invoice')] class extends Component
      * Capture the current line items as a reusable invoice template. Reuses the
      * same SaveInvoiceTemplate action as the dedicated management page.
      */
+    #[Requires(Activity::InvoiceTemplates, PermissionAction::Create)]
     public function saveAsTemplate(): void
     {
         $validated = $this->validate(

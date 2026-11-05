@@ -141,6 +141,24 @@ function customSectionsMember(Company $company, array $sections): User
 }
 
 /**
+ * Sign in as an Owner of $company — attaching $user as Owner when they aren't
+ * a member yet — so Livewire methods that declare a permission run. Returns
+ * the signed-in user.
+ */
+function actAsCompanyOwner(Company $company, ?User $user = null): User
+{
+    $user ??= User::factory()->create();
+
+    if (! $company->memberships()->where('user_id', $user->id)->exists()) {
+        $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+    }
+
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
  * A draft invoice for $company, built through SaveInvoice. Binds the company
  * as current (and leaves it bound) so scoped lookups work.
  */

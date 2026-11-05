@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Attributes\PermissionExempt;
 use App\Models\Company;
 use App\Models\ReportFavorite;
 use App\Support\Reporting\ReportCatalog;
@@ -87,6 +88,7 @@ new #[Title('Reports')] class extends Component {
             ->all();
     }
 
+    #[PermissionExempt('A favorite is the user’s own shortcut on the reports hub.')]
     public function toggleFavorite(string $key): void
     {
         if (! array_key_exists($key, ReportCatalog::flatten($this->company, Auth::user()))) {

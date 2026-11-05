@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PermissionAction;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
 use App\Services\Reporting\PayrollRegisterCalculator;
@@ -66,6 +68,7 @@ new #[Title('Payroll register')] class extends Component {
         return 'payroll-register-'.$this->startDate.'-to-'.$this->endDate.'.'.$ext;
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = collect($this->rows)->map(fn ($r) => [
@@ -90,6 +93,7 @@ new #[Title('Payroll register')] class extends Component {
         );
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.payroll-register', [
@@ -101,6 +105,7 @@ new #[Title('Payroll register')] class extends Component {
         ], $this->filename('pdf'));
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportXlsx()
     {
         return app(XlsxExporter::class)->payrollRegister($this->filename('xlsx'), $this->company, $this->rows, $this->startDate, $this->endDate);

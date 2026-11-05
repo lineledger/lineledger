@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Asset;
 use App\Models\Attachment;
@@ -44,6 +46,7 @@ new #[Title('Asset')] class extends Component {
         ]);
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function archive(): void
     {
@@ -51,6 +54,7 @@ new #[Title('Asset')] class extends Component {
         Flux::toast(variant: 'success', text: __('Asset archived.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function restore(): void
     {
@@ -58,6 +62,7 @@ new #[Title('Asset')] class extends Component {
         Flux::toast(variant: 'success', text: __('Asset restored.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function delete(): void
     {
@@ -66,6 +71,7 @@ new #[Title('Asset')] class extends Component {
         $this->redirectRoute('assets.index', ['company' => $this->company->slug], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function uploadAttachments(AttachmentService $service): void
     {
         $this->validate(AttachmentService::uploadRules());
@@ -78,6 +84,7 @@ new #[Title('Asset')] class extends Component {
         Flux::toast(variant: 'success', text: __('Attachments uploaded.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     public function removeAttachment(int $id, AttachmentService $service): void
     {
         $service->remove(Attachment::findOrFail($id), $this->asset);

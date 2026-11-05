@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PermissionAction;
 use App\Enums\RemittanceStatus;
+use App\Livewire\Attributes\Requires;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
 use App\Services\Posting\PayrollRemittancePoster;
@@ -30,6 +32,7 @@ new #[Title('Remittance history')] class extends Component {
             ->get();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     public function voidRemittance(int $id, PayrollRemittancePoster $poster): void
     {
         $remittance = PayrollRemittance::findOrFail($id);

@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Attributes\Requires;
+use App\Enums\PermissionAction;
 use App\Concerns\HasCustomReportHeader;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
@@ -28,6 +30,7 @@ new #[Title('Inventory Stock Status')] class extends Component {
         return app(InventoryReportBuilder::class)->stockStatus($this->company);
     }
 
+    #[Requires(null, PermissionAction::Print)]
     public function exportCsv()
     {
         $rows = $this->rows->map(fn (array $r): array => [

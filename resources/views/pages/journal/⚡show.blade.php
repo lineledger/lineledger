@@ -3,10 +3,12 @@
 use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\ReverseJournalEntry;
 use App\Enums\AccountSubtype;
+use App\Enums\PermissionAction;
 use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\PostedDocumentDeletionException;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -93,6 +95,7 @@ new #[Title('Journal entry')] class extends Component {
         return TaxCode::query()->whereIn('id', $ids)->pluck('code', 'id')->all();
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function void(JournalPoster $poster): void
     {
@@ -114,6 +117,7 @@ new #[Title('Journal entry')] class extends Component {
      * Permanently remove a draft. It never reached the ledger, so unlike void
      * there is no reversing entry — the entry and its lines are simply gone.
      */
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function deleteDraft(DeleteDraftJournalEntry $action): void
     {
@@ -133,6 +137,7 @@ new #[Title('Journal entry')] class extends Component {
      * Create a draft accrual reversal of this posted entry and open it for review.
      * The original stays posted (this is not a void).
      */
+    #[Requires(null, PermissionAction::Create)]
     #[GuardsEditLock]
     public function reverse(ReverseJournalEntry $action): void
     {

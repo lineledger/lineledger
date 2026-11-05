@@ -2,8 +2,11 @@
 
 use App\Actions\Sales\ConvertEstimateToInvoice;
 use App\Actions\Sales\ConvertEstimateToSalesOrder;
+use App\Enums\Activity;
 use App\Enums\EstimateStatus;
+use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
+use App\Livewire\Attributes\Requires;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Estimate;
@@ -50,6 +53,7 @@ new #[Title('Estimate')] class extends Component {
             && $this->estimate->converted_sales_order_id === null;
     }
 
+    #[Requires(null, PermissionAction::Modify)]
     #[GuardsEditLock]
     public function accept(): void
     {
@@ -62,6 +66,7 @@ new #[Title('Estimate')] class extends Component {
         Flux::toast(variant: 'success', text: __('Estimate accepted.'));
     }
 
+    #[Requires(null, PermissionAction::Delete)]
     #[GuardsEditLock]
     public function reject(): void
     {
@@ -74,6 +79,8 @@ new #[Title('Estimate')] class extends Component {
         Flux::toast(variant: 'success', text: __('Estimate rejected.'));
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::Invoices, PermissionAction::Create)]
     #[GuardsEditLock]
     public function convert(ConvertEstimateToInvoice $action): void
     {
@@ -94,6 +101,8 @@ new #[Title('Estimate')] class extends Component {
         $this->redirectRoute('invoices.edit', ['company' => $this->company->slug, 'invoice' => $invoice->id], navigate: true);
     }
 
+    #[Requires(null, PermissionAction::Modify)]
+    #[Requires(Activity::SalesOrders, PermissionAction::Create)]
     #[GuardsEditLock]
     public function convertToSalesOrder(ConvertEstimateToSalesOrder $action): void
     {
