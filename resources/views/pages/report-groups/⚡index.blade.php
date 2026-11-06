@@ -128,11 +128,9 @@ new #[Title('Combined reports')] class extends Component {
 
                     <div class="flex items-center gap-1">
                         <flux:button variant="ghost" size="sm" icon="chart-bar" :href="route('report-groups.balance-sheet', $group)" wire:navigate :tooltip="__('Reports')" />
-                        @if ($group->user_id === auth()->id())
-                            @reaches('report-groups.edit')
+                        @can('update', $group)
                             <flux:button variant="ghost" size="sm" icon="pencil" :href="route('report-groups.edit', $group)" wire:navigate :tooltip="__('Edit')" data-test="report-group-edit-button" />
-                            @endreaches
-                        @endif
+                        @endcan
                     </div>
                 </div>
             @empty

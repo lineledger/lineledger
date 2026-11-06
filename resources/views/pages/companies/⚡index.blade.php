@@ -134,7 +134,6 @@ new #[Title('Organizations')] class extends Component {
                     @endphp
                     <div class="flex items-center gap-2">
                         <flux:tooltip :content="$canEditCompany ? __('Edit organization') : __('View organization')">
-                            @reaches('companies.edit')
                             <flux:button
                                 variant="ghost"
                                 size="sm"
@@ -143,7 +142,6 @@ new #[Title('Organizations')] class extends Component {
                                 wire:navigate
                                 :data-test="$canEditCompany ? 'company-edit-button' : 'company-view-button'"
                             />
-                            @endreaches
                         </flux:tooltip>
                     </div>
                 </div>

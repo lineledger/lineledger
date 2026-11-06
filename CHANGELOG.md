@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Edit buttons are back on Settings → Organizations.** In 1.5.0-rc.1 each
+  organization in the list had no button to open its settings, and combined
+  report groups had no Edit pencil. The check that hides links a role can't
+  follow needs an organization to check against, and neither page has one.
+  The organization buttons show as before; the pencil shows on groups you
+  created and can still open.
+
 ## [1.5.0-rc.1] - 2026-11-05
 
 **Highlights.** The first release candidate for 1.5.0, on the next channel
