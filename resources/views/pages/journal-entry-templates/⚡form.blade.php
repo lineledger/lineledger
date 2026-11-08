@@ -139,8 +139,16 @@ new #[Title('Journal entry template')] class extends Component {
     #[Computed]
     public function accountOptions(): array
     {
+        $lineAccountIds = collect($this->lines)->pluck('account_id')->filter()->all();
+
         return Account::query()
-            ->where('is_active', true)
+            ->where(function ($q) use ($lineAccountIds) {
+                $q->where('is_active', true);
+
+                if ($lineAccountIds !== []) {
+                    $q->orWhereIn('id', $lineAccountIds);
+                }
+            })
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
             ->map(fn (Account $a) => ['value' => $a->id, 'label' => "{$a->code} — {$a->displayName()}", 'code' => (string) $a->code, 'name' => $a->displayName()])

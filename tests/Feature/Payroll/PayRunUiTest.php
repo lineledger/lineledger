@@ -60,6 +60,25 @@ it('defaults to the first active bank, not a deactivated one with a lower code',
         ->not->toContain($closed->id);
 });
 
+it('keeps a since-deactivated bank on a saved pay run', function () {
+    Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company])
+        ->set('payroll_schedule_id', $this->schedule->id)
+        ->set('period_start_date', '2025-06-01')
+        ->set('period_end_date', '2025-06-14')
+        ->set('pay_date', '2025-06-20')
+        ->set("rows.{$this->employee->id}.selected", true)
+        ->call('calculate');
+
+    $run = PayRun::query()->firstOrFail();
+    Account::query()->whereKey($run->bank_account_id)->update(['is_active' => false]);
+
+    expect(Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company, 'payRun' => $run])
+        ->instance()->bankAccounts()->pluck('id'))->toContain($run->bank_account_id);
+
+    expect(Livewire::test('pages::payroll.pay-runs.show', ['company' => $this->company, 'payRun' => $run])
+        ->instance()->bankAccounts()->pluck('id'))->toContain($run->bank_account_id);
+});
+
 it('creates and calculates a pay run from the form, then redirects to the run', function () {
     Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company])
         ->set('payroll_schedule_id', $this->schedule->id)

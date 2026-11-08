@@ -146,6 +146,10 @@ new #[Title('Make deposit')] class extends Component
         $this->bank_account_id = $source->bank_account_id;
         $this->memo = $source->memo ?? '';
         $this->otherLines = $this->mapOtherLines($source);
+
+        // Choosing the default bank already listed the accounts this request, before
+        // this one was known. It may have been deactivated since.
+        unset($this->bankAccounts);
     }
 
     /**
@@ -671,17 +675,34 @@ new #[Title('Make deposit')] class extends Component
     #[Computed]
     public function bankAccounts()
     {
-        return Account::query()->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
+        return Account::query()
+            ->where(function ($q) {
+                $q->where(fn ($inner) => $inner->where('subtype', AccountSubtype::Bank->value)->where('is_active', true));
+
+                if ($this->bank_account_id) {
+                    $q->orWhere('id', $this->bank_account_id);
+                }
+            })
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
     }
 
     #[Computed]
     public function otherAccountOptions()
     {
+        $lineAccountIds = collect($this->otherLines)->pluck('account_id')->filter()->all();
+
         // Every account type: a refund cheque credits the expense or COGS
         // account it was originally paid from.
         return Account::query()
             ->where('id', '!=', $this->bank_account_id)
-            ->where('is_active', true)
+            ->where(function ($q) use ($lineAccountIds) {
+                $q->where('is_active', true);
+
+                if ($lineAccountIds !== []) {
+                    $q->orWhereIn('id', $lineAccountIds);
+                }
+            })
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
     }

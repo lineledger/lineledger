@@ -671,9 +671,20 @@ new #[Title('Bill')] class extends Component
     #[Computed]
     public function expenseAccountOptions()
     {
+        $lineAccountIds = collect($this->lines)->pluck('account_id')->filter()->all();
+
+        // Plus what the lines already hold: a since-deactivated account, or the
+        // income account an item with no expense account fills in.
         return Account::query()
-            ->whereIn('type', [AccountType::Expense->value, AccountType::Asset->value, AccountType::Liability->value])
-            ->where('is_active', true)
+            ->where(function ($q) use ($lineAccountIds) {
+                $q->where(fn ($inner) => $inner
+                    ->whereIn('type', [AccountType::Expense->value, AccountType::Asset->value, AccountType::Liability->value])
+                    ->where('is_active', true));
+
+                if ($lineAccountIds !== []) {
+                    $q->orWhereIn('id', $lineAccountIds);
+                }
+            })
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
     }
