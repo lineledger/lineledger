@@ -63,6 +63,22 @@ class InvoiceSetting extends Model
     use BelongsToCompany;
 
     /**
+     * The default sales account, or null once it has been deactivated: a new line
+     * shouldn't be coded to an account its own dropdown no longer offers.
+     */
+    public function activeDefaultSalesAccountId(): ?int
+    {
+        if ($this->default_sales_account_id === null) {
+            return null;
+        }
+
+        return Account::query()
+            ->whereKey($this->default_sales_account_id)
+            ->where('is_active', true)
+            ->value('id');
+    }
+
+    /**
      * Default values for a company that has never customised its invoice.
      *
      * @return array<string, bool|string|null>

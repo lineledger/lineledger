@@ -118,7 +118,7 @@ new #[Title('Sales receipt')] class extends Component {
     {
         return [
             'item_id' => null,
-            'account_id' => $this->company->invoiceSettingsOrNew()->default_sales_account_id,
+            'account_id' => $this->company->invoiceSettingsOrNew()->activeDefaultSalesAccountId(),
             'description' => '',
             'quantity' => '1',
             'unit_price' => '0.00',

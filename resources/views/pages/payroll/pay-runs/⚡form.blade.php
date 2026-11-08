@@ -60,7 +60,7 @@ new #[Title('Pay run')] class extends Component {
 
         abort_unless($company->usesPayroll(), 404);
 
-        $this->bank_account_id = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->value('id');
+        $this->bank_account_id = Account::query()->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->value('id');
         $this->payroll_schedule_id = PayrollSchedule::query()->where('is_active', true)->value('id');
 
         $enrolled = $this->enrolledEmployees();

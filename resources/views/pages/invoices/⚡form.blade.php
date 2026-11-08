@@ -936,12 +936,13 @@ new #[Title('Invoice')] class extends Component
 
     /**
      * The company's configured default sales account (invoice settings), used to
-     * prefill new lines and to code any line left without an account. Null when unset.
+     * prefill new lines and to code any line left without an account. Null when
+     * unset or since deactivated.
      */
     #[Computed]
     public function configuredSalesAccountId(): ?int
     {
-        return $this->company->invoiceSettingsOrNew()->default_sales_account_id;
+        return $this->company->invoiceSettingsOrNew()->activeDefaultSalesAccountId();
     }
 
     /**
