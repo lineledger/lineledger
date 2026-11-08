@@ -96,14 +96,16 @@ enum AccountSubtype: string
     }
 
     /**
-     * Subtypes that can be switched on as an expense's "Paid from" account (a
-     * Shareholder Loan when an owner pays personally). Bank and credit card are
-     * always offered, so they don't need the switch; AP and tax payables are
-     * control accounts settled by their own workflows.
+     * Subtypes that can be switched on as an expense's "Paid from" account: a
+     * Shareholder Loan when an owner pays personally, or a petty-cash account
+     * kept as a current asset. Off by default, so Prepaid Expenses is never
+     * offered unless someone asks for it. Bank and credit card are always
+     * offered, so they don't need the switch; AP and tax payables are control
+     * accounts settled by their own workflows.
      */
     public function canOptIntoExpensePayments(): bool
     {
-        return in_array($this, [self::CurrentLiability, self::LongTermLiability, self::OtherLiability], true);
+        return in_array($this, [self::CurrentAsset, self::CurrentLiability, self::LongTermLiability, self::OtherLiability], true);
     }
 
     /**

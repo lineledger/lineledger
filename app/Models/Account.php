@@ -152,10 +152,13 @@ class Account extends Model
 
     /**
      * Accounts a pay-now expense can be paid from: every bank and credit-card
-     * account, plus any liability the user has switched on with "Use to pay
-     * expenses" (a Shareholder Loan when an owner pays personally). The subtype
+     * account, plus any the user has switched on with "Use to pay expenses" (a
+     * Shareholder Loan when an owner pays personally, or petty cash). The subtype
      * and is_system checks repeat what SaveAccount enforces, so a flag left on
      * an account later retyped or seeded as a system account is ignored.
+     *
+     * The Expense form, inbox review and the MCP expense tool all answer "what
+     * can pay for this?" with this scope, so they cannot disagree.
      *
      * @param  Builder<Account>  $query
      * @return Builder<Account>
