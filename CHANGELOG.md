@@ -26,6 +26,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version given, it leaves the install alone when the channel's newest release
   is older than the one installed. Naming a release still works, and points at
   the rollback steps first.
+- **Current assets can use the Use to pay expenses switch.** It is off by
+  default. A petty-cash account kept as a current asset now works under Paid from
+  on both the Expense form and inbox review, once switched on.
+
+### Fixed
+
+- **Inbox review's Paid from matches the Expense form (#198).** It missed accounts
+  switched on with Use to pay expenses, such as a Shareholder Loan, and offered
+  every current asset, including Prepaid Expenses. **If you pay from a petty-cash
+  account kept as a current asset, switch on Use to pay expenses for it in the
+  Chart of Accounts**, or it no longer appears there. Existing drafts keep the
+  account they were saved with.
+- **Inbox review offers what the destination form accepts.** A bill now needs a
+  vendor and a reimbursement an employee; a bill for anyone else could not be saved
+  on the Bill form afterwards. Category lists leave out deactivated accounts and
+  follow the document type, and a contact the page has cleared no longer comes back
+  as a hidden payee.
+- **Agents can't pay an expense from just any account.** The MCP expense tool
+  accepted Prepaid Expenses, a revenue account or a loan that was not switched on.
+  It now uses the Expense form's rule, and checks again when the proposal is
+  confirmed.
+- **The transfers API accepts accounts switched on with Include in transfers**, as
+  the form always has. Neither the form nor the API accepts an accounts receivable
+  or payable account any longer, even when switched on: a transfer has no contact,
+  so that line would break the receivable and payable reports.
+- **Tax pickers follow the document's direction.** Sales forms, customers and
+  membership levels no longer offer a purchase-only code, and reimbursements,
+  recurring bills and vendors no longer offer a sale-only one. Membership levels
+  also stop offering deactivated codes. A document that already carries a code keeps
+  it, including a second tax code, which some purchase forms used to drop from the
+  list.
+- **Defaults skip deactivated accounts.** A new pay run, an invoice from time
+  entries, inbox review, and new invoice and sales receipt lines could all start on
+  an account their own list no longer offered.
+- **A deactivated account stays visible on documents that use it.** Bills,
+  reimbursements, journal entries and their templates, deposits, and pay runs showed
+  the field as blank, though the account was still saved.
 
 ## [1.4.3] - 2026-11-05
 
