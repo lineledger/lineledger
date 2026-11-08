@@ -1373,7 +1373,8 @@ components:
     TransferInput:
       type: object
       description: >
-        Moves money between two of the company's bank or credit-card accounts.
+        Moves money between two of the company's bank or credit-card accounts, or
+        accounts switched on with Include in transfers in the Chart of Accounts.
         For two accounts in the same currency send the same value in both amount
         fields. For a cross-currency transfer send each side in its own account's
         currency; the rate is **not** derived from the pair. Each foreign side is
@@ -1385,8 +1386,8 @@ components:
       required: [from_account_id, to_account_id, transfer_date, from_amount_cents, to_amount_cents]
       properties:
         post: { type: boolean, default: true, description: "Create only." }
-        from_account_id: { type: integer, description: "An account with subtype bank or credit_card." }
-        to_account_id: { type: integer, description: "An account with subtype bank or credit_card; must differ from from_account_id." }
+        from_account_id: { type: integer, description: "An account with subtype bank or credit_card, or switched on with Include in transfers (never accounts receivable or payable)." }
+        to_account_id: { type: integer, description: "Same accounts as from_account_id; must differ from it." }
         transfer_no: { type: [string, "null"], maxLength: 40, description: "Create only; ignored on update. Omit for the next number in sequence." }
         transfer_date: { type: string, format: date }
         from_amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }

@@ -182,6 +182,27 @@ class Account extends Model
         });
     }
 
+    /**
+     * Accounts a transfer can move money between: every bank and credit-card
+     * account, plus any the user has switched on with "Include in transfers" (a
+     * line of credit, say). AR and AP stay out even when flagged: a transfer has no
+     * contact, and a control-account line without one breaks the GL-driven reports.
+     *
+     * @param  Builder<Account>  $query
+     * @return Builder<Account>
+     */
+    public function scopeTransferAccounts(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])
+                ->orWhere(function (Builder $optedIn) {
+                    $optedIn
+                        ->where('use_in_transfers', true)
+                        ->whereNotIn('subtype', [AccountSubtype::AccountsReceivable->value, AccountSubtype::AccountsPayable->value]);
+                });
+        });
+    }
+
     public function scopeSelectableForItemAccount(Builder $query): Builder
     {
         return $query
