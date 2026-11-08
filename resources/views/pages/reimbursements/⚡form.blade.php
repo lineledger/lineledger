@@ -302,7 +302,7 @@ new #[Title('Reimbursement')] class extends Component {
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        return TaxCode::query()->offeredForPurchases(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     #[Computed]

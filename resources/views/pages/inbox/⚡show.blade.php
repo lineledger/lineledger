@@ -8,6 +8,7 @@ use App\Models\BankStatementLine;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\InboxItem;
+use App\Models\TaxCode;
 use App\Rules\MoneyString;
 use App\Services\Classification\CategorySuggester;
 use App\Support\Money;
@@ -68,11 +69,11 @@ new #[Title('Review document')] class extends Component {
             $this->recalcLine($i);
         }
 
-        // OCR is doubly opt-in. Track each half separately so the hint below can
         // After the lines: the opening category reads the contact's history, which
         // is still useful even when this document type can't be filed against them.
         $this->clearContactNotOffered();
 
+        // OCR is doubly opt-in. Track each half separately so the hint below can
         // name the gate that is actually off (mirrors InboxServiceProvider).
         $this->companyOcrEnabled = $company->inboxOcrEnabled();
         $this->operatorOcrEnabled = (bool) config('inbox.ai.enabled')
@@ -150,8 +151,8 @@ new #[Title('Review document')] class extends Component {
         return Account::query()
             ->selectableForItemAccount()
             ->where('type', AccountType::Expense->value)
-            ->orderBy('code')
             ->where('is_active', true)
+            ->orderBy('code')
             ->value('id');
     }
 
@@ -263,10 +264,10 @@ new #[Title('Review document')] class extends Component {
             $amount = 0;
         }
 
-        $taxCode = $line['tax_code_id'] ? \App\Models\TaxCode::find($line['tax_code_id']) : null;
+        $taxCode = $line['tax_code_id'] ? TaxCode::find($line['tax_code_id']) : null;
         $autoTax = $taxCode ? $taxCode->taxFor($amount) : 0;
 
-        $secondaryTaxCode = ($line['secondary_tax_code_id'] ?? null) ? \App\Models\TaxCode::find($line['secondary_tax_code_id']) : null;
+        $secondaryTaxCode = ($line['secondary_tax_code_id'] ?? null) ? TaxCode::find($line['secondary_tax_code_id']) : null;
         $secondaryTax = $secondaryTaxCode ? $secondaryTaxCode->taxFor($amount) : 0;
 
         $this->lines[$i]['tax_code_ids'] = array_values(array_filter([$line['tax_code_id'], $line['secondary_tax_code_id'] ?? null]));
@@ -400,9 +401,9 @@ new #[Title('Review document')] class extends Component {
     {
         $lineAccountIds = collect($this->lines)->pluck('account_id')->filter()->all();
 
-        return Account::query()
         // Never control accounts, which the bank-match path refuses anyway; within
         // that, what the destination form takes. An expense has the widest list.
+        return Account::query()
             ->where(function ($q) use ($lineAccountIds) {
                 $q->where(fn ($inner) => $inner
                     ->selectableForItemAccount()
@@ -453,25 +454,12 @@ new #[Title('Review document')] class extends Component {
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, \App\Models\TaxCode>
+     * @return \Illuminate\Support\Collection<int, TaxCode>
      */
     #[Computed]
     public function taxCodeOptions()
     {
-        $lineTaxCodeIds = collect($this->lines)
-            ->flatMap(fn ($l) => [$l['tax_code_id'] ?? null, $l['secondary_tax_code_id'] ?? null])
-            ->filter()->all();
-
-        return \App\Models\TaxCode::query()
-            ->where(function ($q) use ($lineTaxCodeIds) {
-                $q->where(fn ($inner) => $inner->where('is_active', true)->forPurchases());
-
-                if ($lineTaxCodeIds !== []) {
-                    $q->orWhereIn('id', $lineTaxCodeIds);
-                }
-            })
-            ->orderBy('code')
-            ->get();
+        return TaxCode::query()->offeredForPurchases(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     public function totalCents(): int
@@ -591,14 +579,6 @@ new #[Title('Review document')] class extends Component {
                             {{ $documentType === 'reimbursement' ? __('Select an employee') : __('Select a contact') }}
                         </flux:select.option>
                         @foreach ($this->contactOptions as $contact)
-                    @if ($documentType === 'bill' && $this->contactOptions->isEmpty())
-                        <flux:text class="text-sm text-muted-foreground">
-                            {{ __('No vendors yet.') }}
-                            <flux:link :href="route('vendors.index', ['company' => $company->slug])" wire:navigate>{{ __('Add a vendor') }}</flux:link>
-                            {{ __('(a contact marked as a vendor) to create this bill.') }}
-                        </flux:text>
-                    @endif
-
                             <flux:select.option :value="$contact->id">{{ $contact->display_name }}</flux:select.option>
                         @endforeach
                     </flux:select>
@@ -608,6 +588,14 @@ new #[Title('Review document')] class extends Component {
                             {{ __('No employees yet.') }}
                             <flux:link :href="route('employees.index', ['company' => $company->slug])" wire:navigate>{{ __('Add an employee') }}</flux:link>
                             {{ __('(a contact marked as an employee) to reimburse them.') }}
+                        </flux:text>
+                    @endif
+
+                    @if ($documentType === 'bill' && $this->contactOptions->isEmpty())
+                        <flux:text class="text-sm text-muted-foreground">
+                            {{ __('No vendors yet.') }}
+                            <flux:link :href="route('vendors.index', ['company' => $company->slug])" wire:navigate>{{ __('Add a vendor') }}</flux:link>
+                            {{ __('(a contact marked as a vendor) to create this bill.') }}
                         </flux:text>
                     @endif
 

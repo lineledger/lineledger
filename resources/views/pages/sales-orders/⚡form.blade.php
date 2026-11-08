@@ -466,7 +466,7 @@ new #[Title('Sales Order')] class extends Component
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        return TaxCode::query()->offeredForSales(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     #[Computed]

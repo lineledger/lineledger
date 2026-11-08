@@ -61,6 +61,8 @@ it('hides sale-only codes from every purchase form tax picker', function () {
         'pages::vendor-credits.form',
         'pages::purchase-orders.form',
         'pages::expenses.form',
+        'pages::reimbursements.form',
+        'pages::vendors.index',
     ];
 
     foreach ($components as $component) {
@@ -97,4 +99,42 @@ it('still offers a sale-only code already saved on a line so existing documents 
         ->all();
 
     expect($codes)->toContain('SALEONLY');
+});
+
+it('keeps a second tax code already on a line as well as the first', function (string $component) {
+    $closed = TaxCode::create([
+        'company_id' => $this->company->id,
+        'code' => 'CLOSED',
+        'name' => 'Since deactivated',
+        'rate_basis_points' => 700,
+        'applies_to' => TaxAppliesTo::Both->value,
+        'is_active' => false,
+    ]);
+
+    $page = Livewire::test($component, ['company' => $this->company]);
+
+    expect($page->instance()->taxCodeOptions()->pluck('code')->all())->not->toContain('CLOSED');
+
+    $page->set('lines.0.secondary_tax_code_id', $closed->id);
+
+    expect($page->instance()->taxCodeOptions()->pluck('code')->all())->toContain('CLOSED');
+})->with([
+    'pages::bills.form',
+    'pages::cheques.form',
+    'pages::vendor-credits.form',
+    'pages::purchase-orders.form',
+    'pages::expenses.form',
+    'pages::reimbursements.form',
+]);
+
+it('follows the document type on a recurring schedule', function () {
+    $page = Livewire::test('pages::recurring.form', ['company' => $this->company]);
+
+    $page->set('document_type', 'bill');
+    expect($page->instance()->taxCodeOptions()->pluck('code')->all())
+        ->toContain('PURCHONLY', 'GST')->not->toContain('SALEONLY');
+
+    $page->set('document_type', 'invoice');
+    expect($page->instance()->taxCodeOptions()->pluck('code')->all())
+        ->toContain('SALEONLY', 'GST')->not->toContain('PURCHONLY');
 });
