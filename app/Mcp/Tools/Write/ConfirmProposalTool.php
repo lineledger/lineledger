@@ -181,18 +181,30 @@ class ConfirmProposalTool extends Tool
     }
 
     /**
-     * Re-run the system/control-account rejection against the stored payload lines.
+     * Re-run the system/control-account rejection against the stored payload lines,
+     * and for an expense, the check on the account it is paid from (the credited line).
      */
     private function revalidateAccounts(McpWriteProposal $proposal): ?Response
     {
         $accounts = [];
+        $paidFrom = null;
+
         foreach (array_values((array) ($proposal->payload['lines'] ?? [])) as $i => $line) {
             $accounts[$i + 1] = isset($line['account_id'])
                 ? $this->resolveAccount((int) $line['account_id'])
                 : null;
+
+            if ((int) ($line['credit_cents'] ?? 0) > 0) {
+                $paidFrom = $accounts[$i + 1];
+            }
         }
 
-        return $accounts === [] ? null : $this->rejectSystemAccounts($accounts);
+        if ($accounts === []) {
+            return null;
+        }
+
+        return $this->rejectSystemAccounts($accounts)
+            ?? ($proposal->tool === 'expense' ? $this->rejectIneligiblePaidFrom($paidFrom) : null);
     }
 
     private function confirmedSummary(McpWriteProposal $proposal, bool $replay): string

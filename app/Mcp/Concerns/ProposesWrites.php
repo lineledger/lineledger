@@ -183,6 +183,23 @@ trait ProposesWrites
     }
 
     /**
+     * Reject an account an expense can't be paid from, by the same rule as the
+     * Expense form and inbox review. Pass the account already resolved by the tool;
+     * an unknown one is for rejectSystemAccounts to report.
+     */
+    protected function rejectIneligiblePaidFrom(?Account $account): ?Response
+    {
+        if ($account === null || Account::query()->expensePaymentSources()->where('is_active', true)->whereKey($account->id)->exists()) {
+            return null;
+        }
+
+        return Response::error(
+            "\"{$account->code} — {$account->name}\" cannot pay for an expense. Choose an active bank or credit-card "
+            .'account, or one switched on with Use to pay expenses in the Chart of Accounts.'
+        );
+    }
+
+    /**
      * Convert a caller-supplied amount (a decimal string/number of dollars, or an
      * explicit `*_cents` integer) into integer cents, defensively. Returns null on
      * unparseable input so the caller can reject the line.

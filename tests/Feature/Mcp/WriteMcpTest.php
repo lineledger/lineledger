@@ -175,6 +175,69 @@ it('Confirm: a locked period blocks the post with no partial write', function ()
     expect($proposal->confirmed_journal_entry_id)->toBeNull();
 });
 
+it('Propose expense: refuses a paid_from the Expense form would refuse', function (string $case) {
+    writableTenant();
+
+    $paidFrom = match ($case) {
+        'prepaid' => Account::query()->where('name', 'Prepaid Expenses')->firstOrFail(),
+        'revenue' => firstAccount(AccountType::Income),
+        'loan left switched off' => expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability),
+        'deactivated bank' => tap(mcpBankAccount())->update(['is_active' => false]),
+    };
+
+    $response = (new ProposeExpenseTool)->handle(new Request([
+        'expense_account' => firstAccount(AccountType::Expense)->id,
+        'paid_from' => $paidFrom->id,
+        'amount' => 75,
+        'date' => '2026-06-01',
+    ]));
+
+    expect($response->isError())->toBeTrue();
+    expect((string) $response->content())->toContain('Use to pay expenses');
+    expect(McpWriteProposal::count())->toBe(0);
+})->with(['prepaid', 'revenue', 'loan left switched off', 'deactivated bank']);
+
+it('Propose expense: commits against an account switched on with Use to pay expenses', function () {
+    writableTenant();
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
+
+    $propose = (new ProposeExpenseTool)->handle(new Request([
+        'expense_account' => firstAccount(AccountType::Expense)->id,
+        'paid_from' => $loan->id,
+        'amount' => 75,
+        'date' => '2026-06-01',
+    ]));
+
+    expect($propose->isError())->toBeFalse();
+
+    $confirm = (new ConfirmProposalTool)->handle(new Request(['token' => McpWriteProposal::firstOrFail()->idempotency_key]));
+
+    expect($confirm->isError())->toBeFalse();
+    expect($loan->fresh()->balance_cents)->toBe(7500);
+});
+
+it('Confirm expense: refuses when the account stopped qualifying after the proposal', function () {
+    writableTenant();
+    $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
+
+    (new ProposeExpenseTool)->handle(new Request([
+        'expense_account' => firstAccount(AccountType::Expense)->id,
+        'paid_from' => $loan->id,
+        'amount' => 75,
+        'date' => '2026-06-01',
+    ]));
+
+    $loan->update(['use_for_expenses' => false]);
+    $jeBefore = JournalEntry::count();
+
+    $confirm = (new ConfirmProposalTool)->handle(new Request(['token' => McpWriteProposal::firstOrFail()->idempotency_key]));
+
+    expect($confirm->isError())->toBeTrue();
+    expect((string) $confirm->content())->toContain('Use to pay expenses');
+    expect(JournalEntry::count())->toBe($jeBefore);
+    expect(McpWriteProposal::firstOrFail()->status)->toBe(McpProposalStatus::Pending);
+});
+
 it('Confirm: a token cannot commit another company\'s proposal', function () {
     // Company A stages a proposal.
     $companyA = writableTenant();
