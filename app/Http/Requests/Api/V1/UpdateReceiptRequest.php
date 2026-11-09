@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Models\Company;
 use App\Models\Invoice;
+use App\Rules\PaymentDepositAccount;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,7 +35,7 @@ class UpdateReceiptRequest extends FormRequest
                     ->where('is_customer', true),
             ],
             'receipt_date' => ['required', 'date'],
-            'deposit_to_account_id' => ['required', 'integer', $inCompany('accounts')],
+            'deposit_to_account_id' => ['required', 'integer', $inCompany('accounts'), new PaymentDepositAccount($this->route('receipt')?->deposit_to_account_id)],
             'payment_method_id' => ['nullable', 'integer', $inCompany('payment_methods')],
             'reference' => ['nullable', 'string', 'max:100'],
             'amount_cents' => ['required', 'integer', 'min:1', 'max:999999999999'],

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1;
 use App\Enums\BillType;
 use App\Models\Bill;
 use App\Models\Company;
+use App\Rules\BillPaymentSource;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,7 +40,7 @@ class UpdateBillPaymentRequest extends FormRequest
                     ->where($contactRole, true),
             ],
             'payment_date' => ['required', 'date'],
-            'paid_from_account_id' => ['required', 'integer', $inCompany('accounts')],
+            'paid_from_account_id' => ['required', 'integer', $inCompany('accounts'), new BillPaymentSource($payment?->paid_from_account_id)],
             'payment_method_id' => ['nullable', 'integer', $inCompany('payment_methods')],
             'reference' => ['nullable', 'string', 'max:100'],
             'amount_cents' => ['required', 'integer', 'min:1', 'max:999999999999'],

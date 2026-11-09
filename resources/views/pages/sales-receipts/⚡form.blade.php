@@ -16,6 +16,7 @@ use App\Models\PaymentMethod;
 use App\Models\SalesReceipt;
 use App\Models\TaxCode;
 use App\Rules\MoneyString;
+use App\Rules\PaymentDepositAccount;
 use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\SalesReceiptPoster;
 use App\Services\Posting\TaxCalculator;
@@ -375,7 +376,7 @@ new #[Title('Sales receipt')] class extends Component {
                     ->ignore($this->receipt?->id),
             ],
             'receipt_date' => ['required', 'date'],
-            'deposit_to_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId)],
+            'deposit_to_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId), new PaymentDepositAccount($this->receipt?->deposit_to_account_id)],
             'payment_method_id' => ['nullable', 'integer', Rule::exists('payment_methods', 'id')->where('company_id', $companyId)],
             'reference' => ['nullable', 'string', 'max:100'],
             'memo' => ['nullable', 'string'],
@@ -468,9 +469,7 @@ new #[Title('Sales receipt')] class extends Component {
     {
         return Account::query()
             ->where(function ($q) {
-                $q->where(fn ($inner) => $inner
-                    ->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::UndepositedFunds->value])
-                    ->where('is_active', true));
+                $q->where(fn ($inner) => $inner->paymentDepositAccounts()->where('is_active', true));
 
                 if ($this->deposit_to_account_id) {
                     $q->orWhere('id', $this->deposit_to_account_id);

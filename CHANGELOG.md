@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default. A petty-cash account kept as a current asset now works under Paid from
   on both the Expense form and inbox review, once switched on.
 
+- **The API holds receipts and bill payments to the accounts it documents.**
+  `deposit_to_account_id` must be a bank or Undeposited Funds account, and
+  `paid_from_account_id` a bank or credit card. Any account in the organization used
+  to be accepted. **An integration that posts to another account, such as a clearing
+  account, now gets a 422** and needs to use one of those. A document already saved
+  on another account can keep it when updated.
+
 ### Fixed
 
 - **Inbox review's Paid from matches the Expense form (#198).** It missed accounts
@@ -63,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A deactivated account stays visible on documents that use it.** Bills,
   reimbursements, journal entries and their templates, deposits, and pay runs showed
   the field as blank, though the account was still saved.
+- **Payment forms save only what they offer.** The bill payment, receipt and sales
+  receipt forms listed the right accounts, but a crafted request could save any
+  account in the organization. A document already on another account, such as a
+  Stripe receipt on its clearing account, keeps it.
 
 ## [1.4.3] - 2026-11-05
 
