@@ -74,6 +74,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   receipt forms listed the right accounts, but a crafted request could save any
   account in the organization. A document already on another account, such as a
   Stripe receipt on its clearing account, keeps it.
+- **Tax defaults follow the document's direction.** Picking an item, contact, account
+  or membership level could fill in a sale-only code on a bill, a purchase-only code
+  on an invoice, or a deactivated code. A document now only takes a code its own
+  picker offers, and a second code moves up if the first doesn't apply. Invoices from
+  time entries do the same.
 
 ## [1.4.3] - 2026-11-05
 

@@ -185,8 +185,7 @@ new #[Title('Sales receipt')] class extends Component {
                 $this->lines[$i]['account_id'] = $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForSales($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
@@ -215,8 +214,7 @@ new #[Title('Sales receipt')] class extends Component {
             $line['description'] = $comp->description ?? $comp->name;
             $line['quantity'] = Quantity::format($component->quantity);
             $line['unit_price'] = Money::fromCents((int) $comp->default_price_cents)->toDecimalString();
-            $line['tax_code_id'] = $comp->default_tax_code_id;
-            $line['secondary_tax_code_id'] = $comp->default_secondary_tax_code_id;
+            [$line['tax_code_id'], $line['secondary_tax_code_id']] = TaxCode::defaultsForSales($comp->default_tax_code_id, $comp->default_secondary_tax_code_id);
 
             $newLines[] = $line;
         }
@@ -249,11 +247,11 @@ new #[Title('Sales receipt')] class extends Component {
         }
 
         // Default each empty line's tax code to the customer's default.
-        $defaultTax = Contact::query()->whereKey($id)->value('default_tax_code_id');
+        $defaultTax = TaxCode::defaultForSales(Contact::query()->whereKey($id)->value('default_tax_code_id'));
         if ($defaultTax) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = (int) $defaultTax;
+                    $this->lines[$i]['tax_code_id'] = $defaultTax;
                     $this->recalcLine($i);
                 }
             }

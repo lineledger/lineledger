@@ -143,7 +143,7 @@ new #[Title('Invoice template')] class extends Component {
 
             // Picking an account fills a blank tax code from the account's default.
             if (str_ends_with($key, '.account_id') && $value && empty($this->lines[$i]['tax_code_id'])) {
-                $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                $this->lines[$i]['tax_code_id'] = TaxCode::defaultForSales(Account::find($value)?->default_tax_code_id);
             }
 
             $this->recalcLine($i);
@@ -160,8 +160,7 @@ new #[Title('Invoice template')] class extends Component {
                 $this->lines[$i]['account_id'] = $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForSales($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
