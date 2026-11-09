@@ -87,7 +87,7 @@ final class RecordInterfundTransfer
 
         $account = $cashAccountId !== null
             ? (clone $query)->whereKey($cashAccountId)->first()
-            : (clone $query)->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->first();
+            : (clone $query)->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->first();
 
         if ($account === null) {
             throw new InvalidArgumentException('No cash account is available for the transfer.');

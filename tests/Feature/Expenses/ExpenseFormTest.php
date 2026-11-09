@@ -148,21 +148,10 @@ it('keeps the line description when posting', function () {
         ->and($exp->lines->first()->description)->toBe('Hosting');
 });
 
-function expensePaidFromAccount(string $code, string $name, AccountSubtype $subtype, bool $forExpenses = false, bool $system = false): Account
-{
-    return Account::create([
-        'code' => $code,
-        'name' => $name,
-        'subtype' => $subtype->value,
-        'type' => $subtype->type()->value,
-        'normal_balance' => $subtype->type()->normalBalance()->value,
-        'use_for_expenses' => $forExpenses,
-        'is_system' => $system,
-    ]);
-}
-
-it('offers only liabilities switched on with Use to pay expenses under Paid from', function () {
+it('offers only accounts switched on with Use to pay expenses under Paid from', function () {
     $loan = expensePaidFromAccount('2780', 'Shareholder Loan', AccountSubtype::CurrentLiability, forExpenses: true);
+    $pettyCash = expensePaidFromAccount('1050', 'Petty Cash', AccountSubtype::CurrentAsset, forExpenses: true);
+    $prepaid = expensePaidFromAccount('1310', 'Prepaid Insurance', AccountSubtype::CurrentAsset);
     $vehicle = expensePaidFromAccount('2710', 'Vehicle Loan', AccountSubtype::LongTermLiability);
     $payroll = expensePaidFromAccount('2499', 'Payroll Clearing', AccountSubtype::CurrentLiability, forExpenses: true, system: true);
     $payables = expensePaidFromAccount('2001', 'Other AP', AccountSubtype::AccountsPayable, forExpenses: true);
@@ -170,10 +159,26 @@ it('offers only liabilities switched on with Use to pay expenses under Paid from
     $offered = Livewire::test('pages::expenses.form', ['company' => $this->company])
         ->instance()->paymentAccounts->pluck('id');
 
-    expect($offered)->toContain($this->bank->id, $loan->id)
+    expect($offered)->toContain($this->bank->id, $loan->id, $pettyCash->id)
+        ->not->toContain($prepaid->id)
         ->not->toContain($vehicle->id)
         ->not->toContain($payroll->id)
         ->not->toContain($payables->id);
+});
+
+it('posts an expense paid from petty cash switched on: the asset is credited', function () {
+    $pettyCash = expensePaidFromAccount('1050', 'Petty Cash', AccountSubtype::CurrentAsset, forExpenses: true);
+
+    Livewire::test('pages::expenses.form', ['company' => $this->company])
+        ->set('payment_account_id', $pettyCash->id)
+        ->set('payee_name', 'Corner Store')
+        ->set('lines', [expenseLineInput($this->expenseAccount->id)])
+        ->call('postExpense')
+        ->assertHasNoErrors();
+
+    // Asset is debit-normal: a credit of 8000 takes the balance to -8000.
+    expect($pettyCash->fresh()->balance_cents)->toBe(-8000)
+        ->and($this->bank->fresh()->balance_cents)->toBe(0);
 });
 
 it('posts an expense paid from a shareholder loan: the loan is credited', function () {
@@ -208,6 +213,7 @@ it('rejects an account not switched on for expenses as Paid from', function (Acc
     expect(Expense::count())->toBe(0);
 })->with([
     'liability left switched off' => [AccountSubtype::CurrentLiability, false, false],
+    'current asset left switched off' => [AccountSubtype::CurrentAsset, false, false],
     'system liability switched on' => [AccountSubtype::CurrentLiability, true, true],
     'accounts payable switched on' => [AccountSubtype::AccountsPayable, true, false],
     'tax payable switched on' => [AccountSubtype::TaxPayable, true, false],

@@ -24,7 +24,7 @@ class ProposeExpenseTool extends Tool
 
     protected string $title = 'Propose Expense';
 
-    protected string $description = 'Stage a simple paid expense (money already spent, no vendor bill). Provide an "expense_account" (the expense category, name or code), a "paid_from" account (the bank/cash/credit-card account, name or code), an "amount" in dollars, and a "date" (YYYY-MM-DD). Optional: "memo", "post" (default true — false creates a draft). It records a two-line journal entry: debit the expense, credit the paid-from account. This tool only proposes: it returns a token and a preview and writes nothing. Call the confirm-proposal tool with the token to commit. System/control accounts are rejected.';
+    protected string $description = 'Stage a simple paid expense (money already spent, no vendor bill). Provide an "expense_account" (the expense category, name or code), a "paid_from" account (a bank or credit-card account, or one switched on with Use to pay expenses; name or code), an "amount" in dollars, and a "date" (YYYY-MM-DD). Optional: "memo", "post" (default true — false creates a draft). It records a two-line journal entry: debit the expense, credit the paid-from account. This tool only proposes: it returns a token and a preview and writes nothing. Call the confirm-proposal tool with the token to commit. System/control accounts are rejected, and so is a paid-from account the Expense form would not offer.';
 
     public function handle(Request $request): Response
     {
@@ -52,6 +52,10 @@ class ProposeExpenseTool extends Tool
         }
 
         if ($denied = $this->rejectSystemAccounts([1 => $expense, 2 => $paidFrom])) {
+            return $denied;
+        }
+
+        if ($denied = $this->rejectIneligiblePaidFrom($paidFrom)) {
             return $denied;
         }
 
@@ -88,7 +92,7 @@ class ProposeExpenseTool extends Tool
     {
         return [
             'expense_account' => $schema->string()->description('The expense category account name or code.'),
-            'paid_from' => $schema->string()->description('The bank/cash/credit-card account the money was paid from (name or code).'),
+            'paid_from' => $schema->string()->description('The account the money was paid from (name or code): a bank or credit-card account, or one switched on with Use to pay expenses.'),
             'amount' => $schema->number()->description('Amount paid, in dollars.'),
             'date' => $schema->string()->description('Date of the expense, ISO YYYY-MM-DD.'),
             'memo' => $schema->string()->description('Optional memo / description.'),

@@ -127,11 +127,15 @@ class ProcessInboxItem implements ShouldQueue
         $vendor = isset($extracted['vendor']) ? trim((string) $extracted['vendor']) : '';
 
         if ($vendor !== '') {
+            // A receipt names who was paid, so a vendor beats a same-named customer;
+            // the review page can't offer a deactivated contact at all.
             $contact = Contact::query()
+                ->where('is_active', true)
                 ->where(function ($q) use ($vendor) {
                     $q->where('display_name', 'like', '%'.$vendor.'%')
                         ->orWhere('company_name', 'like', '%'.$vendor.'%');
                 })
+                ->orderByDesc('is_vendor')
                 ->orderBy('id')
                 ->first();
 

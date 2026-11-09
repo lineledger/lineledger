@@ -72,8 +72,13 @@ new #[Title('Pay run')] class extends Component {
     public function bankAccounts()
     {
         return Account::query()
-            ->where('subtype', AccountSubtype::Bank->value)
-            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->where(fn ($inner) => $inner->where('subtype', AccountSubtype::Bank->value)->where('is_active', true));
+
+                if ($this->bankAccountId) {
+                    $q->orWhere('id', $this->bankAccountId);
+                }
+            })
             ->orderBy('code')
             ->get();
     }

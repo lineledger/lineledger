@@ -61,7 +61,7 @@ new #[Title('Pay run')] class extends Component {
 
         abort_unless($company->usesPayroll(), 404);
 
-        $this->bank_account_id = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->value('id');
+        $this->bank_account_id = Account::query()->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->value('id');
         $this->payroll_schedule_id = PayrollSchedule::query()->where('is_active', true)->value('id');
 
         $enrolled = $this->enrolledEmployees();
@@ -246,7 +246,16 @@ new #[Title('Pay run')] class extends Component {
     #[Computed]
     public function bankAccounts()
     {
-        return Account::query()->where('subtype', AccountSubtype::Bank->value)->where('is_active', true)->orderBy('code')->get();
+        return Account::query()
+            ->where(function ($q) {
+                $q->where(fn ($inner) => $inner->where('subtype', AccountSubtype::Bank->value)->where('is_active', true));
+
+                if ($this->bank_account_id) {
+                    $q->orWhere('id', $this->bank_account_id);
+                }
+            })
+            ->orderBy('code')
+            ->get();
     }
 
     public function hourly(string $basis): bool

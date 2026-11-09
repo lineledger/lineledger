@@ -286,6 +286,28 @@ it('creates a draft invoice from billable time, one line per entry', function ()
         ->and($b->fresh()->invoice_id)->toBe($invoice->id);
 });
 
+it('skips a deactivated income account as the last-resort line account', function () {
+    $lowest = Account::query()->where('subtype', AccountSubtype::Income->value)->orderBy('code')->firstOrFail();
+    Account::create([
+        'code' => '4999',
+        'name' => 'Other Services',
+        'subtype' => AccountSubtype::Income->value,
+        'type' => AccountSubtype::Income->type()->value,
+        'normal_balance' => AccountSubtype::Income->type()->normalBalance()->value,
+    ]);
+    $lowest->update(['is_active' => false]);
+
+    // No item, and a customer with no income default: only the last resort is left.
+    $entry = TimeEntry::create(['contact_id' => $this->employee->id, 'date_worked' => '2025-06-02', 'hours' => 3, 'billable' => true, 'billable_rate_cents' => 12000, 'customer_id' => $this->customer->id, 'status' => 'approved']);
+
+    $invoice = app(CreateInvoiceFromTimeEntries::class)->handle($this->customer, collect([$entry]));
+
+    $accountId = $invoice->lines()->firstOrFail()->account_id;
+
+    expect($accountId)->not->toBe($lowest->id)
+        ->and(Account::query()->whereKey($accountId)->value('is_active'))->toBeTrue();
+});
+
 it('skips already-billed and non-billable entries', function () {
     // Bill one entry for real, so it carries a valid invoice_id.
     $billed = TimeEntry::create(['contact_id' => $this->employee->id, 'date_worked' => '2025-06-02', 'hours' => 3, 'billable' => true, 'customer_id' => $this->customer->id, 'item_id' => $this->item->id, 'status' => 'approved']);
