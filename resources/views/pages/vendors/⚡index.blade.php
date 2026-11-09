@@ -515,7 +515,7 @@ new #[Title('Vendors')] class extends Component
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
+        return TaxCode::query()->offeredForPurchases([$this->f_default_tax_code_id])->orderBy('code')->get(['id', 'code', 'name']);
     }
 
     #[Computed]

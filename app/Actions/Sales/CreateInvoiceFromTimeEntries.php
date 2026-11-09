@@ -44,6 +44,7 @@ final class CreateInvoiceFromTimeEntries
             // yields an editable Draft the user can correct before posting.
             $defaultIncomeAccountId = Account::query()
                 ->where('subtype', AccountSubtype::Income->value)
+                ->where('is_active', true)
                 ->orderBy('code')
                 ->value('id');
 

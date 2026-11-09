@@ -292,9 +292,16 @@ new #[Title('Reimbursement')] class extends Component {
     #[Computed]
     public function expenseAccountOptions()
     {
+        $lineAccountIds = collect($this->lines)->pluck('account_id')->filter()->all();
+
         return Account::query()
-            ->where('type', AccountType::Expense->value)
-            ->where('is_active', true)
+            ->where(function ($q) use ($lineAccountIds) {
+                $q->where(fn ($inner) => $inner->where('type', AccountType::Expense->value)->where('is_active', true));
+
+                if ($lineAccountIds !== []) {
+                    $q->orWhereIn('id', $lineAccountIds);
+                }
+            })
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
     }
@@ -302,7 +309,7 @@ new #[Title('Reimbursement')] class extends Component {
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        return TaxCode::query()->offeredForPurchases(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     #[Computed]

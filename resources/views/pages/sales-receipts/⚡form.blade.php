@@ -118,7 +118,7 @@ new #[Title('Sales receipt')] class extends Component {
     {
         return [
             'item_id' => null,
-            'account_id' => $this->company->invoiceSettingsOrNew()->default_sales_account_id,
+            'account_id' => $this->company->invoiceSettingsOrNew()->activeDefaultSalesAccountId(),
             'description' => '',
             'quantity' => '1',
             'unit_price' => '0.00',
@@ -460,7 +460,7 @@ new #[Title('Sales receipt')] class extends Component {
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        return TaxCode::query()->offeredForSales(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     #[Computed]

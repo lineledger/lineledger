@@ -50,7 +50,7 @@ it('switches Use to pay expenses on and off from the account dialog', function (
     expect($loan->fresh()->use_for_expenses)->toBeFalse();
 });
 
-it('shows the switch only for liabilities that can opt in', function (AccountSubtype $subtype, bool $shown) {
+it('shows the switch only for subtypes that can opt in', function (AccountSubtype $subtype, bool $shown) {
     Livewire::test('pages::accounts.index', ['company' => $this->company])
         ->call('openCreate')
         ->set('form_subtype', $subtype->value)
@@ -59,6 +59,10 @@ it('shows the switch only for liabilities that can opt in', function (AccountSub
     'current liability' => [AccountSubtype::CurrentLiability, true],
     'long-term liability' => [AccountSubtype::LongTermLiability, true],
     'other liability' => [AccountSubtype::OtherLiability, true],
+    'current asset (petty cash)' => [AccountSubtype::CurrentAsset, true],
+    'other asset' => [AccountSubtype::OtherAsset, false],
+    'accounts receivable' => [AccountSubtype::AccountsReceivable, false],
+    'inventory' => [AccountSubtype::Inventory, false],
     'bank (always offered)' => [AccountSubtype::Bank, false],
     'credit card (always offered)' => [AccountSubtype::CreditCard, false],
     'accounts payable' => [AccountSubtype::AccountsPayable, false],

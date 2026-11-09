@@ -428,18 +428,7 @@ new #[Title('Expense')] class extends Component
     #[Computed]
     public function taxCodeOptions()
     {
-        $lineTaxCodeIds = collect($this->lines)->pluck('tax_code_id')->filter()->all();
-
-        return TaxCode::query()
-            ->where(function ($q) use ($lineTaxCodeIds) {
-                $q->where(fn ($inner) => $inner->where('is_active', true)->forPurchases());
-
-                if ($lineTaxCodeIds !== []) {
-                    $q->orWhereIn('id', $lineTaxCodeIds);
-                }
-            })
-            ->orderBy('code')
-            ->get();
+        return TaxCode::query()->offeredForPurchases(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     #[Computed]

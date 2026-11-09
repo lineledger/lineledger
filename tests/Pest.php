@@ -78,6 +78,23 @@ function something()
 }
 
 /**
+ * An account for exercising who can pay an expense: Expense form, inbox review
+ * and the MCP expense tool all read the same eligibility rule.
+ */
+function expensePaidFromAccount(string $code, string $name, AccountSubtype $subtype, bool $forExpenses = false, bool $system = false): Account
+{
+    return Account::create([
+        'code' => $code,
+        'name' => $name,
+        'subtype' => $subtype->value,
+        'type' => $subtype->type()->value,
+        'normal_balance' => $subtype->type()->normalBalance()->value,
+        'use_for_expenses' => $forExpenses,
+        'is_system' => $system,
+    ]);
+}
+
+/**
  * Bind a company + API key the way AuthenticateApiKey would, so an MCP tool's
  * handle() can be invoked directly in a test. Reloads the company so DB-default
  * columns (e.g. fiscal_year_start_month) are populated. An empty abilities array

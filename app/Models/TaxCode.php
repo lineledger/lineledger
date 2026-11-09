@@ -131,6 +131,57 @@ class TaxCode extends Model
     }
 
     /**
+     * What a sales document's tax picker offers: active codes that apply to sales,
+     * plus any it already carries, so editing never drops one since deactivated or
+     * re-flagged. See {@see TaxCode::idsOnLines()} for the ids to keep.
+     *
+     * @param  Builder<TaxCode>  $query
+     * @param  array<int, int|string|null>  $keepIds
+     * @return Builder<TaxCode>
+     */
+    public function scopeOfferedForSales(Builder $query, array $keepIds = []): Builder
+    {
+        $keepIds = array_values(array_filter($keepIds));
+
+        return $query->where(function (Builder $q) use ($keepIds) {
+            $q->where(fn (Builder $inner) => $inner->where('is_active', true)->forSales())
+                ->when($keepIds !== [], fn (Builder $kept) => $kept->orWhereIn('id', $keepIds));
+        });
+    }
+
+    /**
+     * The purchase side of {@see TaxCode::scopeOfferedForSales()}.
+     *
+     * @param  Builder<TaxCode>  $query
+     * @param  array<int, int|string|null>  $keepIds
+     * @return Builder<TaxCode>
+     */
+    public function scopeOfferedForPurchases(Builder $query, array $keepIds = []): Builder
+    {
+        $keepIds = array_values(array_filter($keepIds));
+
+        return $query->where(function (Builder $q) use ($keepIds) {
+            $q->where(fn (Builder $inner) => $inner->where('is_active', true)->forPurchases())
+                ->when($keepIds !== [], fn (Builder $kept) => $kept->orWhereIn('id', $keepIds));
+        });
+    }
+
+    /**
+     * Both tax codes every line of a document form carries.
+     *
+     * @param  array<int|string, array<string, mixed>>  $lines
+     * @return array<int, int|string>
+     */
+    public static function idsOnLines(array $lines): array
+    {
+        return collect($lines)
+            ->flatMap(fn (array $line) => [$line['tax_code_id'] ?? null, $line['secondary_tax_code_id'] ?? null])
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

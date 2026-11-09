@@ -455,7 +455,16 @@ new #[Title('Recurring')] class extends Component {
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        $lineTaxCodeIds = TaxCode::idsOnLines($this->lines);
+
+        return TaxCode::query()
+            ->when(
+                $this->isBill(),
+                fn ($q) => $q->offeredForPurchases($lineTaxCodeIds),
+                fn ($q) => $q->offeredForSales($lineTaxCodeIds),
+            )
+            ->orderBy('code')
+            ->get();
     }
 
     #[Computed]

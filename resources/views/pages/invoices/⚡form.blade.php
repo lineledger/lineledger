@@ -931,17 +931,18 @@ new #[Title('Invoice')] class extends Component
     #[Computed]
     public function taxCodeOptions()
     {
-        return TaxCode::query()->where('is_active', true)->orderBy('code')->get();
+        return TaxCode::query()->offeredForSales(TaxCode::idsOnLines($this->lines))->orderBy('code')->get();
     }
 
     /**
      * The company's configured default sales account (invoice settings), used to
-     * prefill new lines and to code any line left without an account. Null when unset.
+     * prefill new lines and to code any line left without an account. Null when
+     * unset or since deactivated.
      */
     #[Computed]
     public function configuredSalesAccountId(): ?int
     {
-        return $this->company->invoiceSettingsOrNew()->default_sales_account_id;
+        return $this->company->invoiceSettingsOrNew()->activeDefaultSalesAccountId();
     }
 
     /**
