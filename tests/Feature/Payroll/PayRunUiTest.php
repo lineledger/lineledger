@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\PayBasis;
 use App\Enums\PayFrequency;
 use App\Enums\PayRunStatus;
+use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\EmployeePayrollProfile;
@@ -38,6 +40,43 @@ afterEach(function () {
 it('renders the pay-runs index and create form', function () {
     $this->get(route('pay-runs.index', $this->company))->assertOk();
     $this->get(route('pay-runs.create', $this->company))->assertOk();
+});
+
+it('defaults to the first active bank, not a deactivated one with a lower code', function () {
+    $closed = Account::create([
+        'code' => '0999',
+        'name' => 'Closed Chequing',
+        'subtype' => AccountSubtype::Bank->value,
+        'type' => AccountSubtype::Bank->type()->value,
+        'normal_balance' => AccountSubtype::Bank->type()->normalBalance()->value,
+        'is_active' => false,
+    ]);
+
+    $component = Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company]);
+
+    expect($component->get('bank_account_id'))->not->toBe($closed->id)
+        ->and($component->instance()->bankAccounts()->pluck('id'))
+        ->toContain($component->get('bank_account_id'))
+        ->not->toContain($closed->id);
+});
+
+it('keeps a since-deactivated bank on a saved pay run', function () {
+    Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company])
+        ->set('payroll_schedule_id', $this->schedule->id)
+        ->set('period_start_date', '2025-06-01')
+        ->set('period_end_date', '2025-06-14')
+        ->set('pay_date', '2025-06-20')
+        ->set("rows.{$this->employee->id}.selected", true)
+        ->call('calculate');
+
+    $run = PayRun::query()->firstOrFail();
+    Account::query()->whereKey($run->bank_account_id)->update(['is_active' => false]);
+
+    expect(Livewire::test('pages::payroll.pay-runs.form', ['company' => $this->company, 'payRun' => $run])
+        ->instance()->bankAccounts()->pluck('id'))->toContain($run->bank_account_id);
+
+    expect(Livewire::test('pages::payroll.pay-runs.show', ['company' => $this->company, 'payRun' => $run])
+        ->instance()->bankAccounts()->pluck('id'))->toContain($run->bank_account_id);
 });
 
 it('creates and calculates a pay run from the form, then redirects to the run', function () {

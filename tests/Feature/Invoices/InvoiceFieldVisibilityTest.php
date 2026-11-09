@@ -216,6 +216,23 @@ it('prefills new lines with the configured default sales account', function () {
     expect($invoice->lines->first()->account_id)->toBe($sales);
 });
 
+it('stops filling in a default sales account once it is deactivated', function () {
+    $sales = Account::query()->where('type', AccountType::Income->value)->where('is_active', true)->orderBy('code')->firstOrFail();
+
+    InvoiceSetting::updateOrCreate(
+        ['company_id' => $this->company->id],
+        [...InvoiceSetting::defaults(), 'default_sales_account_id' => $sales->id],
+    );
+
+    Livewire::test('pages::invoices.form', ['company' => $this->company])->assertSet('lines.0.account_id', $sales->id);
+    Livewire::test('pages::sales-receipts.form', ['company' => $this->company])->assertSet('lines.0.account_id', $sales->id);
+
+    $sales->update(['is_active' => false]);
+
+    Livewire::test('pages::invoices.form', ['company' => $this->company])->assertSet('lines.0.account_id', null);
+    Livewire::test('pages::sales-receipts.form', ['company' => $this->company])->assertSet('lines.0.account_id', null);
+});
+
 it('shows the sales rep field when the Employees feature is enabled', function () {
     $this->company->update(['features_employees' => true]);
 

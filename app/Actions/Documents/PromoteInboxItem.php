@@ -4,7 +4,6 @@ namespace App\Actions\Documents;
 
 use App\Actions\Purchasing\SaveBill;
 use App\Actions\Purchasing\SaveExpense;
-use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\BillType;
 use App\Enums\InboxItemStatus;
@@ -26,8 +25,10 @@ use RuntimeException;
  * The review screen passes corrected values through $overrides, which always win
  * over the OCR-extracted figures:
  *   document_type:      'bill'|'expense'|'reimbursement'  (default: the item's suggested type)
- *   contact_id:         ?int   (bill: vendor; reimbursement: employee/owner — required)
- *   payment_account_id: ?int   (expense: bank/credit-card account paid from)
+ *   contact_id:         ?int   (bill: vendor; reimbursement: employee/owner — required.
+ *                               Passing null means no contact; leaving it out falls
+ *                               back to the item's suggested contact)
+ *   payment_account_id: ?int   (expense: account paid from — see Account::scopeExpensePaymentSources)
  *   account_id:         ?int   (default line category/expense account)
  *   vendor / amount_cents / currency / date: scalar overrides of `extracted`
  *   lines: ?list<array{account_id?: ?int, description?: ?string, amount_cents?: ?int,
@@ -88,7 +89,7 @@ final class PromoteInboxItem
      */
     private function promoteToBill(InboxItem $item, array $overrides, string $date, ?string $currency, array $lines, BillType $billType): Model
     {
-        $contactId = $overrides['contact_id'] ?? $item->suggested_contact_id;
+        $contactId = $this->resolveContactId($item, $overrides);
 
         if ($contactId === null) {
             throw new RuntimeException($billType === BillType::Reimbursement
@@ -128,7 +129,7 @@ final class PromoteInboxItem
             throw new RuntimeException('A payment account is required to create an expense from this document.');
         }
 
-        $contactId = $overrides['contact_id'] ?? $item->suggested_contact_id;
+        $contactId = $this->resolveContactId($item, $overrides);
 
         // An expense requires a non-null payee name. Prefer the (corrected) vendor,
         // then the OCR'd vendor; SaveExpense fills from the contact when those are
@@ -155,6 +156,20 @@ final class PromoteInboxItem
         ];
 
         return $this->saveExpense->handle($data);
+    }
+
+    /**
+     * The review page always sends contact_id, and null there means the reviewer
+     * has no contact on the page. Falling back on null would file the document
+     * against a suggestion the page had already dropped, with nothing showing it.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function resolveContactId(InboxItem $item, array $overrides): ?int
+    {
+        return array_key_exists('contact_id', $overrides)
+            ? $overrides['contact_id']
+            : $item->suggested_contact_id;
     }
 
     /**
@@ -254,6 +269,7 @@ final class PromoteInboxItem
         $account = Account::query()
             ->selectableForItemAccount()
             ->where('type', AccountType::Expense->value)
+            ->where('is_active', true)
             ->orderBy('code')
             ->first();
 
@@ -266,15 +282,10 @@ final class PromoteInboxItem
 
     private function defaultPaymentAccount(): ?Account
     {
-        // The accounts an expense can be paid from — bank, credit card, or cash
-        // (current asset), matching the inbox review form's "Paid from" options.
-        // Ordered by code, so a bank/asset is preferred over a credit-card liability.
+        // The same accounts the Expense form and the review page's "Paid from"
+        // offer. Ordered by code, so a bank is preferred over a card or a loan.
         return Account::query()
-            ->whereIn('subtype', [
-                AccountSubtype::Bank->value,
-                AccountSubtype::CreditCard->value,
-                AccountSubtype::CurrentAsset->value,
-            ])
+            ->expensePaymentSources()
             ->where('is_active', true)
             ->orderBy('code')
             ->first();

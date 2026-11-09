@@ -11,12 +11,12 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\Transfer;
 use App\Rules\MoneyString;
+use App\Rules\TransferAccount;
 use App\Services\Posting\TransferPoster;
 use App\Support\Banking\LastBankAccount;
 use App\Support\Money;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -84,15 +84,14 @@ new #[Title('Transfer')] class extends Component
     #[Computed]
     public function bankAccounts()
     {
-        // Active bank + credit-card accounts (a transfer to a card pays it down),
-        // plus the from/to already selected so editing a transfer never drops a
+        // Active transfer accounts (a transfer to a card pays it down), plus the
+        // from/to already selected so editing a transfer never drops a
         // since-deactivated account from either select.
         $selected = array_filter([$this->from_account_id, $this->to_account_id]);
 
         return Account::query()
             ->where(function ($q) use ($selected) {
-                $q->where(fn ($inner) => $inner->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])->where('is_active', true))
-                    ->orWhere(fn ($inner) => $inner->where('use_in_transfers', true)->where('is_active', true));
+                $q->where(fn ($inner) => $inner->transferAccounts()->where('is_active', true));
 
                 if ($selected !== []) {
                     $q->orWhereIn('id', $selected);
@@ -185,17 +184,9 @@ new #[Title('Transfer')] class extends Component
 
     protected function persist(): void
     {
-        $companyId = $this->company->id;
-
-        $bankRule = fn () => ['required', 'integer', Rule::exists('accounts', 'id')->where(function ($q) use ($companyId) {
-            $q->where('company_id', $companyId)
-                ->where(fn ($inner) => $inner->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])
-                    ->orWhere('use_in_transfers', true));
-        })];
-
         $validated = $this->validate([
-            'from_account_id' => $bankRule(),
-            'to_account_id' => [...$bankRule(), 'different:from_account_id'],
+            'from_account_id' => ['required', 'integer', new TransferAccount],
+            'to_account_id' => ['required', 'integer', new TransferAccount, 'different:from_account_id'],
             'transfer_date' => ['required', 'date'],
             'from_amount' => ['required', 'string', new MoneyString],
             'to_amount' => [$this->isCrossCurrency ? 'required' : 'nullable', 'string', new MoneyString],

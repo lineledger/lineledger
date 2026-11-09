@@ -129,7 +129,7 @@ new #[Title('Membership levels')] class extends Component {
     #[Computed]
     public function taxCodes()
     {
-        return TaxCode::query()->orderBy('name')->get(['id', 'name']);
+        return TaxCode::query()->offeredForSales([$this->f_default_tax_code_id])->orderBy('name')->get(['id', 'name']);
     }
 }; ?>
 

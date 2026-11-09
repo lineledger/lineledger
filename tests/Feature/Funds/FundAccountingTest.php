@@ -69,6 +69,30 @@ test('a journal entry tags its lines with a fund and balances filter by fund', f
     expect($calc->balanceAsOf($this->income->fresh(), CarbonImmutable::parse('2026-12-31')))->toBe(50000);
 });
 
+test('an interfund transfer defaults to an active bank account', function () {
+    $general = Fund::create(['name' => 'General', 'fund_type' => 'general', 'is_default' => true]);
+    $building = Fund::create(['name' => 'Building', 'fund_type' => 'restricted']);
+
+    Account::query()->where('subtype', AccountSubtype::Bank->value)->update(['is_active' => false]);
+    $savings = Account::create([
+        'code' => '1090',
+        'name' => 'Savings',
+        'subtype' => AccountSubtype::Bank->value,
+        'type' => AccountSubtype::Bank->type()->value,
+        'normal_balance' => AccountSubtype::Bank->type()->normalBalance()->value,
+    ]);
+
+    $entry = app(RecordInterfundTransfer::class)->handle(
+        company: $this->company,
+        fromFundId: $general->id,
+        toFundId: $building->id,
+        amountCents: 25000,
+        date: '2026-04-01',
+    );
+
+    expect($entry->lines()->pluck('account_id'))->toContain($savings->id)->not->toContain($this->bank->id);
+});
+
 test('an interfund transfer keeps each fund self-balancing and the transfer account at zero', function () {
     $general = Fund::create(['name' => 'General', 'fund_type' => 'general', 'is_default' => true]);
     $building = Fund::create(['name' => 'Building', 'fund_type' => 'restricted']);

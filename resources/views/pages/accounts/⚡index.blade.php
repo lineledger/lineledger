@@ -1248,7 +1248,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                 </div>
             @endif
 
-            @if ($form_subtype && $form_subtype !== \App\Enums\AccountSubtype::Bank->value)
+            @if ($form_subtype && ! in_array($form_subtype, [\App\Enums\AccountSubtype::Bank->value, \App\Enums\AccountSubtype::AccountsReceivable->value, \App\Enums\AccountSubtype::AccountsPayable->value], true))
                 <flux:switch wire:model="form_use_in_transfers" :label="__('Include in transfers')" :description="__('Makes this account available in the From / To dropdowns when recording a transfer (e.g. a line of credit).')" />
             @endif
 

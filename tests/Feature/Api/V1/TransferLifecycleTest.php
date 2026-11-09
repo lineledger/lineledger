@@ -123,6 +123,68 @@ it('rejects a transfer between the same account', function () {
     ]), transferAuthHeader())->assertStatus(422);
 });
 
+function transferApiAccount(Company $company, string $code, AccountSubtype $subtype, bool $inTransfers): Account
+{
+    app()->instance('current_company', $company);
+
+    $account = Account::create([
+        'code' => $code,
+        'name' => "Account {$code}",
+        'subtype' => $subtype->value,
+        'type' => $subtype->type()->value,
+        'normal_balance' => $subtype->type()->normalBalance()->value,
+        'use_in_transfers' => $inTransfers,
+    ]);
+
+    app()->forgetInstance('current_company');
+
+    return $account;
+}
+
+it('accepts an account switched on with Include in transfers, as the form does', function () {
+    $lineOfCredit = transferApiAccount($this->company, '2150', AccountSubtype::CurrentLiability, inTransfers: true);
+
+    $id = $this->postJson('/api/v1/transfers', transferPayload([
+        'to_account_id' => $lineOfCredit->id,
+        'post' => false,
+    ]), transferAuthHeader())
+        ->assertStatus(201)
+        ->assertJsonPath('data.to_account_id', $lineOfCredit->id)
+        ->json('data.id');
+
+    $this->patchJson("/api/v1/transfers/{$id}", transferPayload([
+        'from_account_id' => $lineOfCredit->id,
+    ]), transferAuthHeader())
+        ->assertStatus(200)
+        ->assertJsonPath('data.from_account_id', $lineOfCredit->id);
+});
+
+it('rejects an account that is not eligible for transfers', function (AccountSubtype $subtype, bool $inTransfers) {
+    $account = transferApiAccount($this->company, '2998', $subtype, $inTransfers);
+
+    $this->postJson('/api/v1/transfers', transferPayload(['to_account_id' => $account->id]), transferAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('to_account_id');
+
+    $id = $this->postJson('/api/v1/transfers', transferPayload(['post' => false]), transferAuthHeader())->json('data.id');
+
+    $this->patchJson("/api/v1/transfers/{$id}", transferPayload(['from_account_id' => $account->id]), transferAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('from_account_id');
+})->with([
+    'liability left switched off' => [AccountSubtype::CurrentLiability, false],
+    'accounts receivable switched on' => [AccountSubtype::AccountsReceivable, true],
+    'accounts payable switched on' => [AccountSubtype::AccountsPayable, true],
+]);
+
+it('rejects another organization\'s account switched on for transfers', function () {
+    $other = transferApiAccount(Company::factory()->create(), '2150', AccountSubtype::CurrentLiability, inTransfers: true);
+
+    $this->postJson('/api/v1/transfers', transferPayload(['to_account_id' => $other->id]), transferAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('to_account_id');
+});
+
 it('forbids writes with a banking:read key', function () {
     ['plaintext' => $readPlain] = CompanyApiKey::mint($this->company, 'Read', null, ['banking:read']);
 
