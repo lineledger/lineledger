@@ -116,6 +116,17 @@ class TaxCode extends Model
     }
 
     /**
+     * Active sale-eligible codes.
+     *
+     * @param  Builder<TaxCode>  $query
+     * @return Builder<TaxCode>
+     */
+    public function scopeUsableForSales(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->forSales();
+    }
+
+    /**
      * Codes selectable on sales documents (invoices, sales receipts, estimates,
      * credit memos): those flagged sale-only or both.
      *
@@ -179,6 +190,62 @@ class TaxCode extends Model
             ->filter()
             ->values()
             ->all();
+    }
+
+    /**
+     * An item, contact or account's default, if a sales document could have picked
+     * it: one default serves every document, so it may only apply to purchases.
+     */
+    public static function defaultForSales(int|string|null $id): ?int
+    {
+        return self::defaultsForSales($id)[0];
+    }
+
+    /**
+     * The purchase side of {@see TaxCode::defaultForSales()}.
+     */
+    public static function defaultForPurchases(int|string|null $id): ?int
+    {
+        return self::defaultsForPurchases($id)[0];
+    }
+
+    /**
+     * An item's pair of defaults, for a sales document. A second code that is usable
+     * moves up when the first is not, so a line never has a second code and no first.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    public static function defaultsForSales(int|string|null $primary, int|string|null $secondary = null): array
+    {
+        return self::usableDefaults(self::query()->usableForSales(), $primary, $secondary);
+    }
+
+    /**
+     * The purchase side of {@see TaxCode::defaultsForSales()}.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    public static function defaultsForPurchases(int|string|null $primary, int|string|null $secondary = null): array
+    {
+        return self::usableDefaults(self::query()->usableForPurchases(), $primary, $secondary);
+    }
+
+    /**
+     * @param  Builder<TaxCode>  $usable
+     * @return array{0: ?int, 1: ?int}
+     */
+    private static function usableDefaults(Builder $usable, int|string|null $primary, int|string|null $secondary): array
+    {
+        $ids = array_map('intval', array_values(array_filter([$primary, $secondary])));
+
+        if ($ids === []) {
+            return [null, null];
+        }
+
+        $usableIds = $usable->whereIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $kept = array_values(array_filter($ids, fn (int $id) => in_array($id, $usableIds, true)));
+
+        return [$kept[0] ?? null, $kept[1] ?? null];
     }
 
     /**

@@ -181,3 +181,44 @@ it('forbids writes with a purchases:read key', function () {
     $this->postJson('/api/v1/bill-payments', billPaymentPayload(), ['Authorization' => "Bearer {$readPlain}"])
         ->assertStatus(403);
 });
+
+it('takes a bill payment from a bank or credit card, as documented', function () {
+    app()->instance('current_company', $this->company);
+    $card = expensePaidFromAccount('2110', 'Company card', AccountSubtype::CreditCard);
+    app()->forgetInstance('current_company');
+
+    $this->postJson('/api/v1/bill-payments', billPaymentPayload(), billPaymentAuthHeader())->assertStatus(201);
+    $this->postJson('/api/v1/bill-payments', billPaymentPayload(['paid_from_account_id' => $card->id]), billPaymentAuthHeader())
+        ->assertStatus(201);
+});
+
+it('refuses a bill payment from any other account', function (AccountSubtype $subtype) {
+    app()->instance('current_company', $this->company);
+    $account = expensePaidFromAccount('1890', 'Not a payment account', $subtype);
+    app()->forgetInstance('current_company');
+
+    $this->postJson('/api/v1/bill-payments', billPaymentPayload(['paid_from_account_id' => $account->id]), billPaymentAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('paid_from_account_id');
+})->with([AccountSubtype::CurrentAsset, AccountSubtype::UndepositedFunds, AccountSubtype::AccountsPayable, AccountSubtype::Expense]);
+
+it('lets an update keep a saved account outside the rule, but not move to one', function () {
+    app()->instance('current_company', $this->company);
+    $loan = expensePaidFromAccount('2891', 'Shareholder loan', AccountSubtype::LongTermLiability);
+    $other = expensePaidFromAccount('2892', 'Other loan', AccountSubtype::LongTermLiability);
+    app()->forgetInstance('current_company');
+
+    $id = $this->postJson('/api/v1/bill-payments', billPaymentPayload(['post' => false]), billPaymentAuthHeader())
+        ->assertStatus(201)
+        ->json('data.id');
+
+    // How a statement-line payment or an imported one gets here: through the Action, not this rule.
+    BillPayment::withoutGlobalScopes()->whereKey($id)->update(['paid_from_account_id' => $loan->id]);
+
+    $this->patchJson("/api/v1/bill-payments/{$id}", billPaymentPayload(['paid_from_account_id' => $loan->id]), billPaymentAuthHeader())
+        ->assertStatus(200);
+
+    $this->patchJson("/api/v1/bill-payments/{$id}", billPaymentPayload(['paid_from_account_id' => $other->id]), billPaymentAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('paid_from_account_id');
+});

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Models\Bill;
 use App\Models\Company;
+use App\Rules\BillPaymentSource;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -42,7 +44,7 @@ class StoreBillPaymentRequest extends FormRequest
             ],
             'payment_no' => ['nullable', 'string', 'max:40', Rule::unique('bill_payments', 'payment_no')->where('company_id', $company->id)],
             'payment_date' => ['required', 'date'],
-            'paid_from_account_id' => ['required', 'integer', $inCompany('accounts')],
+            'paid_from_account_id' => ['required', 'integer', $inCompany('accounts'), new BillPaymentSource],
             'payment_method_id' => ['nullable', 'integer', $inCompany('payment_methods')],
             'reference' => ['nullable', 'string', 'max:100'],
             'amount_cents' => ['required', 'integer', 'min:1', 'max:999999999999'],
@@ -77,7 +79,7 @@ class StoreBillPaymentRequest extends FormRequest
                     ->where('id', $billId)
                     ->where('contact_id', $contactId)
                     ->where('bill_type', $type)
-                    ->whereIn('status', ['posted', 'partial'])
+                    ->whereIn('status', [BillStatus::Posted->value, BillStatus::Partial->value])
                     ->exists();
 
                 if (! $exists) {

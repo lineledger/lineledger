@@ -3,6 +3,8 @@
 use App\Actions\Banking\SaveDeposit;
 use App\Enums\AccountSubtype;
 use App\Enums\DepositStatus;
+use App\Enums\ReceiptStatus;
+use App\Enums\SalesReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\LockedRows;
 use App\Livewire\Concerns\GuardsEditLockedForm;
@@ -187,7 +189,7 @@ new #[Title('Make deposit')] class extends Component
         // when editing, this deposit's own receipts stay selectable + pre-checked.
         $depositedIds = fn (string $column) => DepositLine::query()
             ->whereHas('deposit', function ($q) {
-                $q->whereIn('status', ['draft', 'posted']);
+                $q->whereIn('status', [DepositStatus::Draft->value, DepositStatus::Posted->value]);
 
                 if ($this->deposit) {
                     $q->whereKeyNot($this->deposit->id);
@@ -207,7 +209,7 @@ new #[Title('Make deposit')] class extends Component
         CustomerReceipt::query()
             ->with(['contact', 'paymentMethod'])
             ->where('deposit_to_account_id', $undep->id)
-            ->where('status', 'posted')
+            ->where('status', ReceiptStatus::Posted->value)
             ->whereNotIn('id', $depositedIds('customer_receipt_id'))
             ->orderBy('receipt_date')
             ->get()
@@ -231,7 +233,7 @@ new #[Title('Make deposit')] class extends Component
         SalesReceipt::query()
             ->with(['contact', 'paymentMethod'])
             ->where('deposit_to_account_id', $undep->id)
-            ->where('status', 'posted')
+            ->where('status', SalesReceiptStatus::Posted->value)
             ->whereNotIn('id', $depositedIds('sales_receipt_id'))
             ->orderBy('receipt_date')
             ->get()

@@ -224,3 +224,43 @@ it('allows writes with a sales:write key', function () {
     $this->postJson('/api/v1/receipts', receiptPayload(), ['Authorization' => "Bearer {$writePlain}"])
         ->assertStatus(201);
 });
+
+it('takes a receipt into a bank or Undeposited Funds, as documented', function (AccountSubtype $subtype) {
+    app()->instance('current_company', $this->company);
+    $account = Account::query()->where('subtype', $subtype->value)->orderBy('code')->firstOrFail();
+    app()->forgetInstance('current_company');
+
+    $this->postJson('/api/v1/receipts', receiptPayload(['deposit_to_account_id' => $account->id]), receiptAuthHeader())
+        ->assertStatus(201);
+})->with([AccountSubtype::Bank, AccountSubtype::UndepositedFunds]);
+
+it('refuses a receipt into any other account', function (AccountSubtype $subtype) {
+    app()->instance('current_company', $this->company);
+    $account = expensePaidFromAccount('1890', 'Not a deposit account', $subtype);
+    app()->forgetInstance('current_company');
+
+    $this->postJson('/api/v1/receipts', receiptPayload(['deposit_to_account_id' => $account->id]), receiptAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('deposit_to_account_id');
+})->with([AccountSubtype::CurrentAsset, AccountSubtype::CreditCard, AccountSubtype::AccountsReceivable, AccountSubtype::Income]);
+
+it('lets an update keep a saved account outside the rule, but not move to one', function () {
+    app()->instance('current_company', $this->company);
+    $clearing = expensePaidFromAccount('1890', 'Payment clearing', AccountSubtype::CurrentAsset);
+    $other = expensePaidFromAccount('1891', 'Other clearing', AccountSubtype::CurrentAsset);
+    app()->forgetInstance('current_company');
+
+    $id = $this->postJson('/api/v1/receipts', receiptPayload(['post' => false]), receiptAuthHeader())
+        ->assertStatus(201)
+        ->json('data.id');
+
+    // How a Stripe receipt or an imported one gets here: through the Action, not this rule.
+    CustomerReceipt::withoutGlobalScopes()->whereKey($id)->update(['deposit_to_account_id' => $clearing->id]);
+
+    $this->patchJson("/api/v1/receipts/{$id}", receiptPayload(['deposit_to_account_id' => $clearing->id]), receiptAuthHeader())
+        ->assertStatus(200);
+
+    $this->patchJson("/api/v1/receipts/{$id}", receiptPayload(['deposit_to_account_id' => $other->id]), receiptAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('deposit_to_account_id');
+});

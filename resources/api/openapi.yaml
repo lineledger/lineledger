@@ -1082,7 +1082,7 @@ components:
         receipt_no: { type: [string, "null"], maxLength: 50, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
         contact_id: { type: integer, description: "A customer contact." }
         receipt_date: { type: string, format: date }
-        deposit_to_account_id: { type: integer, description: "Bank or Undeposited Funds account." }
+        deposit_to_account_id: { type: integer, description: "Bank or Undeposited Funds account. An update may also keep the account the receipt is already saved on." }
         payment_method_id: { type: [integer, "null"] }
         reference: { type: [string, "null"], maxLength: 100 }
         amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }
@@ -1220,7 +1220,7 @@ components:
         payment_no: { type: [string, "null"], maxLength: 40, description: "Create only; must be unique within the company. Omit for the next number in sequence." }
         contact_id: { type: integer, description: "A vendor contact — or an employee contact when payment_type is reimbursement." }
         payment_date: { type: string, format: date }
-        paid_from_account_id: { type: integer, description: "Bank or credit-card account the payment comes from." }
+        paid_from_account_id: { type: integer, description: "Bank or credit-card account the payment comes from. An update may also keep the account the payment is already saved on." }
         payment_method_id: { type: [integer, "null"] }
         reference: { type: [string, "null"], maxLength: 100 }
         amount_cents: { type: integer, minimum: 1, maximum: 999999999999 }

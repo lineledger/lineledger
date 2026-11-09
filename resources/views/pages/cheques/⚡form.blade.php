@@ -448,12 +448,7 @@ new #[Title('Cheque')] class extends Component
                 // code that applies to purchases qualifies: a revenue account's
                 // sales-only default has no place on a cheque.
                 if ($value && empty($this->lines[$i]['tax_code_id'])) {
-                    $defaultTaxCodeId = Account::find($value)?->default_tax_code_id;
-
-                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId !== null
-                        && TaxCode::query()->whereKey($defaultTaxCodeId)->forPurchases()->exists()
-                            ? $defaultTaxCodeId
-                            : null;
+                    $this->lines[$i]['tax_code_id'] = TaxCode::defaultForPurchases(Account::find($value)?->default_tax_code_id);
                 }
             } else {
                 $this->prefillLineContactFromPayee($i);

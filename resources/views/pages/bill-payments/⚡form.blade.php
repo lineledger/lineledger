@@ -15,6 +15,7 @@ use App\Models\Company;
 use App\Models\Contact;
 use App\Models\PaymentMethod;
 use App\Actions\Purchasing\SaveBillPayment;
+use App\Rules\BillPaymentSource;
 use App\Services\Posting\BillPaymentPoster;
 use App\Services\Posting\DocumentNumberGenerator;
 use App\Support\Money;
@@ -185,7 +186,7 @@ new #[Title('Pay bills')] class extends Component {
                     ->ignore($this->payment?->id),
             ],
             'payment_date' => ['required', 'date'],
-            'paid_from_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId)],
+            'paid_from_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId), new BillPaymentSource($this->payment?->paid_from_account_id)],
             'payment_method_id' => ['nullable', 'integer', Rule::exists('payment_methods', 'id')->where('company_id', $companyId)],
             'reference' => [$this->isChequeMethod() ? 'required' : 'nullable', 'string', 'max:100'],
             'memo' => ['nullable', 'string'],
@@ -300,7 +301,7 @@ new #[Title('Pay bills')] class extends Component {
         // never drops a since-deactivated account.
         return Account::query()
             ->where(function ($q) {
-                $q->where(fn ($inner) => $inner->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value])->where('is_active', true));
+                $q->where(fn ($inner) => $inner->billPaymentSources()->where('is_active', true));
 
                 if ($this->paid_from_account_id) {
                     $q->orWhere('id', $this->paid_from_account_id);

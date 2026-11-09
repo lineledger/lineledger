@@ -16,6 +16,7 @@ use App\Models\PaymentMethod;
 use App\Models\SalesReceipt;
 use App\Models\TaxCode;
 use App\Rules\MoneyString;
+use App\Rules\PaymentDepositAccount;
 use App\Services\Posting\DocumentNumberGenerator;
 use App\Services\Posting\SalesReceiptPoster;
 use App\Services\Posting\TaxCalculator;
@@ -184,8 +185,7 @@ new #[Title('Sales receipt')] class extends Component {
                 $this->lines[$i]['account_id'] = $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForSales($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
@@ -214,8 +214,7 @@ new #[Title('Sales receipt')] class extends Component {
             $line['description'] = $comp->description ?? $comp->name;
             $line['quantity'] = Quantity::format($component->quantity);
             $line['unit_price'] = Money::fromCents((int) $comp->default_price_cents)->toDecimalString();
-            $line['tax_code_id'] = $comp->default_tax_code_id;
-            $line['secondary_tax_code_id'] = $comp->default_secondary_tax_code_id;
+            [$line['tax_code_id'], $line['secondary_tax_code_id']] = TaxCode::defaultsForSales($comp->default_tax_code_id, $comp->default_secondary_tax_code_id);
 
             $newLines[] = $line;
         }
@@ -248,11 +247,11 @@ new #[Title('Sales receipt')] class extends Component {
         }
 
         // Default each empty line's tax code to the customer's default.
-        $defaultTax = Contact::query()->whereKey($id)->value('default_tax_code_id');
+        $defaultTax = TaxCode::defaultForSales(Contact::query()->whereKey($id)->value('default_tax_code_id'));
         if ($defaultTax) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = (int) $defaultTax;
+                    $this->lines[$i]['tax_code_id'] = $defaultTax;
                     $this->recalcLine($i);
                 }
             }
@@ -375,7 +374,7 @@ new #[Title('Sales receipt')] class extends Component {
                     ->ignore($this->receipt?->id),
             ],
             'receipt_date' => ['required', 'date'],
-            'deposit_to_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId)],
+            'deposit_to_account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId), new PaymentDepositAccount($this->receipt?->deposit_to_account_id)],
             'payment_method_id' => ['nullable', 'integer', Rule::exists('payment_methods', 'id')->where('company_id', $companyId)],
             'reference' => ['nullable', 'string', 'max:100'],
             'memo' => ['nullable', 'string'],
@@ -468,9 +467,7 @@ new #[Title('Sales receipt')] class extends Component {
     {
         return Account::query()
             ->where(function ($q) {
-                $q->where(fn ($inner) => $inner
-                    ->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::UndepositedFunds->value])
-                    ->where('is_active', true));
+                $q->where(fn ($inner) => $inner->paymentDepositAccounts()->where('is_active', true));
 
                 if ($this->deposit_to_account_id) {
                     $q->orWhere('id', $this->deposit_to_account_id);

@@ -202,7 +202,7 @@ new #[Title('Vendor credit')] class extends Component
             // default — never overwriting one already on the line, so item
             // and contact defaults keep their existing precedence.
             if (str_ends_with($key, '.account_id') && $value && empty($this->lines[$i]['tax_code_id'])) {
-                $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                $this->lines[$i]['tax_code_id'] = TaxCode::defaultForPurchases(Account::find($value)?->default_tax_code_id);
             }
 
             $this->recalcLine($i);
@@ -219,8 +219,7 @@ new #[Title('Vendor credit')] class extends Component
                 $this->lines[$i]['account_id'] = $item->expense_account_id ?? $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForPurchases($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
@@ -263,10 +262,12 @@ new #[Title('Vendor credit')] class extends Component
 
         $contact = Contact::find($this->contact_id);
 
-        if ($contact?->default_tax_code_id) {
+        $defaultTaxCodeId = TaxCode::defaultForPurchases($contact?->default_tax_code_id);
+
+        if ($defaultTaxCodeId !== null) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = $contact->default_tax_code_id;
+                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId;
                     $this->recalcLine($i);
                 }
             }

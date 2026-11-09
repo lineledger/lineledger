@@ -44,7 +44,7 @@ new #[Title('Documentation — Lists')] class extends Component {}; ?>
             <li>{{ __('Choose a Type: Service, Non-inventory, or Other charge (a fee or surcharge such as shipping) for things you do not stock, Inventory to track quantity on hand, or Bundle to group several items that expand into separate lines on a sale.') }}</li>
             <li>{{ __('Enter a Name and, if you use them, a SKU, Description, and Category.') }}</li>
             <li>{{ __('Set a Default price and the Income / sales account the sale should post to. If you also buy the item, set a Purchase / expense account under Purchase information — leave it as “Same as income account” and bills, purchase orders, and vendor credits fall back to the income account.') }}</li>
-            <li>{{ __('Under Default tax, pick up to two tax codes (for example GST and PST) so the right taxes apply whenever you add the item to a line — each is applied separately.') }}</li>
+            <li>{{ __('Under Default tax, pick up to two tax codes (for example GST and PST) so the right taxes apply whenever you add the item to a line — each is applied separately. A document only fills in a code that applies to it, so a Sales only code stays off a bill.') }}</li>
             <li>{{ __('Select Save.') }}</li>
         </ol>
 

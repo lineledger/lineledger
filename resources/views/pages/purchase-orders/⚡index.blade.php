@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\BillStatus;
+use App\Enums\PurchaseOrderStatus;
 use App\Models\Company;
 use App\Models\PurchaseOrder;
 use Livewire\Attributes\Computed;
@@ -46,14 +48,15 @@ new #[Title('Purchase Orders')] class extends Component {
      */
     protected function applyStatusFilter($query, string $filter)
     {
-        $hasBill = "EXISTS (SELECT 1 FROM bills b WHERE b.purchase_order_id = purchase_orders.id AND b.status <> 'void' AND b.deleted_at IS NULL)";
-        $hasBackorder = "EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.purchase_order_id = purchase_orders.id AND pol.quantity > (SELECT COALESCE(SUM(bl.quantity), 0) FROM bill_lines bl JOIN bills b2 ON b2.id = bl.bill_id WHERE bl.purchase_order_line_id = pol.id AND b2.status <> 'void' AND b2.deleted_at IS NULL))";
+        $void = BillStatus::Void->value;
+        $hasBill = "EXISTS (SELECT 1 FROM bills b WHERE b.purchase_order_id = purchase_orders.id AND b.status <> '{$void}' AND b.deleted_at IS NULL)";
+        $hasBackorder = "EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.purchase_order_id = purchase_orders.id AND pol.quantity > (SELECT COALESCE(SUM(bl.quantity), 0) FROM bill_lines bl JOIN bills b2 ON b2.id = bl.bill_id WHERE bl.purchase_order_line_id = pol.id AND b2.status <> '{$void}' AND b2.deleted_at IS NULL))";
 
         return match ($filter) {
-            'cancelled' => $query->where('status', 'cancelled'),
-            'open' => $query->where('status', '<>', 'cancelled')->whereRaw("NOT {$hasBill}"),
-            'partial' => $query->where('status', '<>', 'cancelled')->whereRaw($hasBill)->whereRaw($hasBackorder),
-            'closed' => $query->where('status', '<>', 'cancelled')->whereRaw($hasBill)->whereRaw("NOT {$hasBackorder}"),
+            'cancelled' => $query->where('status', PurchaseOrderStatus::Cancelled->value),
+            'open' => $query->where('status', '<>', PurchaseOrderStatus::Cancelled->value)->whereRaw("NOT {$hasBill}"),
+            'partial' => $query->where('status', '<>', PurchaseOrderStatus::Cancelled->value)->whereRaw($hasBill)->whereRaw($hasBackorder),
+            'closed' => $query->where('status', '<>', PurchaseOrderStatus::Cancelled->value)->whereRaw($hasBill)->whereRaw("NOT {$hasBackorder}"),
             default => $query,
         };
     }

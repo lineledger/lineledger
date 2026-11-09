@@ -313,7 +313,7 @@ new #[Title('Invoice')] class extends Component
             // default — never overwriting one already on the line, so item
             // and contact defaults keep their existing precedence.
             if (str_ends_with($key, '.account_id') && $value && empty($this->lines[$i]['tax_code_id'])) {
-                $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                $this->lines[$i]['tax_code_id'] = TaxCode::defaultForSales(Account::find($value)?->default_tax_code_id);
             }
 
             $this->recalcLine($i);
@@ -350,8 +350,7 @@ new #[Title('Invoice')] class extends Component
                 }
                 if (! $hadPrice) {
                     $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                    $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                    $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                    [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForSales($item->default_tax_code_id, $item->default_secondary_tax_code_id);
                 }
             }
         }
@@ -393,7 +392,7 @@ new #[Title('Invoice')] class extends Component
 
             $this->lines[$i]['description'] = __('Membership dues: :level', ['level' => $level->name]);
             $this->lines[$i]['unit_price'] = Money::fromCents((int) $level->default_dues_cents)->toDecimalString();
-            $this->lines[$i]['tax_code_id'] = $level->default_tax_code_id;
+            $this->lines[$i]['tax_code_id'] = TaxCode::defaultForSales($level->default_tax_code_id);
         }
 
         $this->recalcLine($i);
@@ -421,8 +420,7 @@ new #[Title('Invoice')] class extends Component
             $line['description'] = $comp->description ?? $comp->name;
             $line['quantity'] = Quantity::format($component->quantity);
             $line['unit_price'] = Money::fromCents((int) $comp->default_price_cents)->toDecimalString();
-            $line['tax_code_id'] = $comp->default_tax_code_id;
-            $line['secondary_tax_code_id'] = $comp->default_secondary_tax_code_id;
+            [$line['tax_code_id'], $line['secondary_tax_code_id']] = TaxCode::defaultsForSales($comp->default_tax_code_id, $comp->default_secondary_tax_code_id);
 
             $newLines[] = $line;
         }
@@ -488,10 +486,12 @@ new #[Title('Invoice')] class extends Component
             }
         }
 
-        if ($contact?->default_tax_code_id) {
+        $defaultTaxCodeId = TaxCode::defaultForSales($contact?->default_tax_code_id);
+
+        if ($defaultTaxCodeId !== null) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = $contact->default_tax_code_id;
+                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId;
                     $this->recalcLine($i);
                 }
             }
