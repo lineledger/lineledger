@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\BillStatus;
 use App\Enums\BillType;
 use App\Models\Bill;
 use App\Models\Company;
@@ -76,7 +77,7 @@ class UpdateBillPaymentRequest extends FormRequest
                     ->where('id', $billId)
                     ->where('contact_id', $contactId)
                     ->where('bill_type', $type)
-                    ->whereIn('status', ['posted', 'partial', 'paid'])
+                    ->whereIn('status', [BillStatus::Posted->value, BillStatus::Partial->value, BillStatus::Paid->value])
                     ->exists();
 
                 if (! $exists) {

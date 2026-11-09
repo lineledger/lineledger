@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Rules\PaymentDepositAccount;
@@ -49,7 +50,7 @@ class StoreReceiptRequest extends FormRequest
                 'integer',
                 Rule::exists('invoices', 'id')
                     ->where('company_id', $company->id)
-                    ->whereIn('status', ['posted', 'partial']),
+                    ->whereIn('status', [InvoiceStatus::Posted->value, InvoiceStatus::Partial->value]),
             ],
             'applications.*.amount_cents' => ['required', 'integer', 'min:1', 'max:999999999999'],
         ];

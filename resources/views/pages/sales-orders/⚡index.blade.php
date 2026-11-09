@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\InvoiceStatus;
+use App\Enums\SalesOrderStatus;
 use App\Models\Company;
 use App\Models\SalesOrder;
 use Livewire\Attributes\Computed;
@@ -46,14 +48,15 @@ new #[Title('Sales Orders')] class extends Component {
      */
     protected function applyStatusFilter($query, string $filter)
     {
-        $hasInvoice = "EXISTS (SELECT 1 FROM invoices inv WHERE inv.sales_order_id = sales_orders.id AND inv.status <> 'void' AND inv.deleted_at IS NULL)";
-        $hasBackorder = "EXISTS (SELECT 1 FROM sales_order_lines sol WHERE sol.sales_order_id = sales_orders.id AND sol.quantity > (SELECT COALESCE(SUM(il.quantity), 0) FROM invoice_lines il JOIN invoices inv2 ON inv2.id = il.invoice_id WHERE il.sales_order_line_id = sol.id AND inv2.status <> 'void' AND inv2.deleted_at IS NULL))";
+        $void = InvoiceStatus::Void->value;
+        $hasInvoice = "EXISTS (SELECT 1 FROM invoices inv WHERE inv.sales_order_id = sales_orders.id AND inv.status <> '{$void}' AND inv.deleted_at IS NULL)";
+        $hasBackorder = "EXISTS (SELECT 1 FROM sales_order_lines sol WHERE sol.sales_order_id = sales_orders.id AND sol.quantity > (SELECT COALESCE(SUM(il.quantity), 0) FROM invoice_lines il JOIN invoices inv2 ON inv2.id = il.invoice_id WHERE il.sales_order_line_id = sol.id AND inv2.status <> '{$void}' AND inv2.deleted_at IS NULL))";
 
         return match ($filter) {
-            'cancelled' => $query->where('status', 'cancelled'),
-            'open' => $query->where('status', '<>', 'cancelled')->whereRaw("NOT {$hasInvoice}"),
-            'partial' => $query->where('status', '<>', 'cancelled')->whereRaw($hasInvoice)->whereRaw($hasBackorder),
-            'closed' => $query->where('status', '<>', 'cancelled')->whereRaw($hasInvoice)->whereRaw("NOT {$hasBackorder}"),
+            'cancelled' => $query->where('status', SalesOrderStatus::Cancelled->value),
+            'open' => $query->where('status', '<>', SalesOrderStatus::Cancelled->value)->whereRaw("NOT {$hasInvoice}"),
+            'partial' => $query->where('status', '<>', SalesOrderStatus::Cancelled->value)->whereRaw($hasInvoice)->whereRaw($hasBackorder),
+            'closed' => $query->where('status', '<>', SalesOrderStatus::Cancelled->value)->whereRaw($hasInvoice)->whereRaw("NOT {$hasBackorder}"),
             default => $query,
         };
     }
