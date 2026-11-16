@@ -39,6 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GIFI codes match the CRA's.** Checked against the CRA's guide RC4088, the
+  GIFI catalog put the wrong name on 18 codes: "8620 Insurance" is Employee
+  benefits to the CRA, "8690 Interest and bank charges" is Insurance, and six
+  were CRA totals such as 2589 Total long-term assets and 9367 Total operating
+  expenses. Every name is now the CRA's, in English and French, and totals are
+  no longer offered. An upgrade moves each account to the code the CRA uses
+  for the name it showed, so an account on "8620 Insurance" lands on 8690
+  Insurance, and restoring an older backup does the same. Bank accounts now
+  default to 1000 Cash and deposits, other assets to 2420, other liabilities to
+  3320, and retained earnings to 3600. Anyone who keyed an earlier GIFI
+  Statement into a T2 return should check it against the corrected one.
+
 - **Inbox review's Paid from matches the Expense form (#198).** It missed accounts
   switched on with Use to pay expenses, such as a Shareholder Loan, and offered
   every current asset, including Prepaid Expenses. **If you pay from a petty-cash

@@ -45,7 +45,8 @@ class GifiStatementBuilder
         $priorEarnings = $this->calc->priorRetainedEarnings($company, $end);
         $reAccountId = $accounts->first(fn (Account $a) => $a->subtype === AccountSubtype::RetainedEarnings)?->id;
 
-        // code => ['amount' => int, 'accounts' => [...]]
+        // code => ['amount' => int, 'accounts' => [...]], keyed by the code as an
+        // int, as PHP stores a numeric key (and as the catalog is keyed).
         $lines = [];
         $unassigned = [];
         $unassignedTotal = 0;
@@ -72,9 +73,10 @@ class GifiStatementBuilder
                 $amount += $priorEarnings;
             }
 
-            $lines[$account->gifi_code] ??= ['amount' => 0, 'accounts' => []];
-            $lines[$account->gifi_code]['amount'] += $amount;
-            $lines[$account->gifi_code]['accounts'][] = [
+            $code = (int) $entry['code'];
+            $lines[$code] ??= ['amount' => 0, 'accounts' => []];
+            $lines[$code]['amount'] += $amount;
+            $lines[$code]['accounts'][] = [
                 'id' => $account->id,
                 'code' => $account->code,
                 'name' => $account->displayName(),
@@ -85,9 +87,9 @@ class GifiStatementBuilder
         // No Retained Earnings account but prior earnings exist — surface them as a
         // synthetic equity line so the statement still balances.
         if ($reAccountId === null && $priorEarnings !== 0) {
-            $lines['3849'] ??= ['amount' => 0, 'accounts' => []];
-            $lines['3849']['amount'] += $priorEarnings;
-            $lines['3849']['accounts'][] = ['id' => null, 'code' => '', 'name' => __('Retained earnings (prior years)'), 'amount' => $priorEarnings];
+            $lines[3600] ??= ['amount' => 0, 'accounts' => []];
+            $lines[3600]['amount'] += $priorEarnings;
+            $lines[3600]['accounts'][] = ['id' => null, 'code' => '', 'name' => __('Retained earnings (prior years)'), 'amount' => $priorEarnings];
         }
 
         $bsHalves = ['assets' => $this->emptyHalf(__('Assets')), 'liabilities' => $this->emptyHalf(__('Liabilities')), 'equity' => $this->emptyHalf(__('Equity'))];
