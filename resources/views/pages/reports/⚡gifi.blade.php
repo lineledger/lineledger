@@ -9,6 +9,7 @@ use App\Enums\Section;
 use App\Models\Account;
 use App\Models\Company;
 use App\Services\Reporting\CsvExporter;
+use App\Services\Reporting\GifiFileExporter;
 use App\Services\Reporting\GifiStatementBuilder;
 use App\Services\Reporting\PdfExporter;
 use App\Services\Reporting\XlsxExporter;
@@ -177,6 +178,33 @@ new #[Title('GIFI Statement')] class extends Component {
         );
     }
 
+    /**
+     * The statement as a standard GIFI (.gfi) file for tax software — DT Max,
+     * Taxprep, ProFile, TaxCycle — to import Schedules 100 and 125 from.
+     * Refused, with the reason, when the file would carry wrong figures.
+     */
+    public function exportGfi()
+    {
+        $exporter = app(GifiFileExporter::class);
+        $start = CarbonImmutable::parse($this->startDate);
+        $end = CarbonImmutable::parse($this->endDate);
+
+        $refusal = $exporter->refusal($this->company, $this->report, $start, $end);
+
+        if ($refusal !== null) {
+            Flux::toast(variant: 'danger', text: $refusal);
+
+            return null;
+        }
+
+        return $exporter->download(
+            "{$this->company->slug}-gifi-{$this->endDate}.gfi",
+            $this->company,
+            $this->report,
+            $end,
+        );
+    }
+
     public function exportPdf()
     {
         return app(PdfExporter::class)->download('pdf.reports.gifi', [
@@ -194,6 +222,7 @@ new #[Title('GIFI Statement')] class extends Component {
         :title="$this->effectiveTitle(__('GIFI Statement'))"
         :subtitle="$company->name.' · '.__('T2 — GIFI Schedule 100 / 125')"
         mode="range"
+        :exports="['csv', 'xlsx', 'pdf', 'gfi']"
         :title-editable="true"
         :memorizable="true"
     />

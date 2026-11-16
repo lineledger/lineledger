@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
   installs never see a release candidate. README → Release channels explains
   both channels, and the new `RELEASING.md` is the maintainer's runbook.
+- **A GIFI file for tax software.** The GIFI Statement's Download menu now
+  writes the standard GIFI file (.gfi, the "fichier IGRF" in French) that
+  DT Max, Taxprep, ProFile, TaxCycle and Pro Tax import Schedule 100 and
+  Schedule 125 from. It is refused, with the reason, while an account is under
+  Unassigned accounts, the balance sheet is out of balance, or the period is
+  not a fiscal year. Notes to the financial statements are not included.
 
 ### Changed
 
