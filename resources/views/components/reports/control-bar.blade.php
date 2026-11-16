@@ -23,7 +23,8 @@
     wire:model.live directives bind to the host component. The host must expose
     the matching properties: range mode → preset/startDate/endDate; single mode →
     asOfPreset/asOf; plus comparisonBasis, classId, locationId, reportTitle, and
-    the export methods exportCsv/exportXlsx/exportPdf. emailable requires the
+    the export methods exportCsv/exportXlsx/exportPdf (and exportGfi when
+    `exports` lists 'gfi'). emailable requires the
     EmailsReport concern; numberFormat requires the HasReportNumberFormat
     concern (negativeStyle/numberUnits); basis requires the HasReportBasis
     concern (reportBasis); printUrl is the reports.print URL for this report
@@ -203,6 +204,9 @@
                     @endif
                     @if (in_array('pdf', $exports, true))
                         <flux:menu.item icon="document" wire:click="exportPdf">{{ __('PDF') }}</flux:menu.item>
+                    @endif
+                    @if (in_array('gfi', $exports, true))
+                        <flux:menu.item icon="document-arrow-down" wire:click="exportGfi" data-test="export-gfi">{{ __('GIFI file for tax software (.gfi)') }}</flux:menu.item>
                     @endif
                 </flux:menu>
             </flux:dropdown>

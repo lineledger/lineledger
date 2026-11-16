@@ -422,6 +422,9 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
             <li>{{ __('T3010 Summary (registered charities) — the receipted donations, revenue, expenditures, and balance-sheet totals you need for the annual charity information return.') }}</li>
         </ul>
         <flux:text>
+            {{ __('The GIFI Statement’s Download menu also offers a GIFI file for tax software (.gfi): the standard file that DT Max, Taxprep, ProFile, TaxCycle, and Pro Tax import Schedule 100 and Schedule 125 from, so the figures arrive on the T2 without retyping. Set the period to the fiscal year, and give every account under Unassigned accounts a GIFI line first — the file is refused while one is missing, because the return would not balance. Amounts keep their cents, which the tax software rounds to dollars, and totals such as Total assets are left for it to compute. Notes to the financial statements are not included; add them in the tax software.') }}
+        </flux:text>
+        <flux:text>
             {{ __('Payroll has its own set of reports — the payroll register, PD7A and Revenu Québec remittances, T4, T4A and RL-1 slips, the Record of Employment, and more — under the Employees & Payroll group when payroll is turned on. See the') }}
             <a class="underline" href="{{ route('docs.payroll') }}" wire:navigate>{{ __('Payroll') }}</a>{{ __(' guide for those.') }}
         </flux:text>

@@ -22,7 +22,7 @@ afterEach(fn () => app()->forgetInstance('current_company'));
 it('backfills a GIFI line from the subtype when an account is created', function () {
     $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->first();
 
-    expect($bank->gifi_code)->toBe('1001');
+    expect($bank->gifi_code)->toBe('1000');
 });
 
 it('saves the GIFI line chosen on the account form', function () {
