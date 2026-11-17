@@ -220,6 +220,187 @@ it('maps QuickBooks asset type labels to the right subtypes', function () {
         ->and($byCode('9103'))->toBe(AccountSubtype::OtherAsset);
 });
 
+it('keeps QuickBooks sub-accounts under their parents when the listing has no numbers', function () {
+    $result = app(ChartOfAccountsImporter::class)->commit(quickBooksSubAccountListingCsv(asFile: true), $this->ctx);
+
+    expect($result->errors)->toBe([])
+        ->and($result->summary['created'])->toBe(5);
+
+    $account = fn (string $code) => Account::withoutGlobalScopes()
+        ->where('company_id', $this->company->id)->where('code', $code)->firstOrFail();
+
+    $topLevel = $account('Domian Name Reg/Rene');
+    $passThrough = $account('Pass Through Expense');
+    $hosting = $account('Hosting');
+    $nested = $account('Domian Name Reg/Re-2'); // the name's code was taken by the top-level account
+    $email = $account('Email Hosting');
+
+    expect($topLevel->parent_id)->toBeNull()
+        ->and($passThrough->parent_id)->toBeNull()
+        ->and($hosting->parent_id)->toBe($passThrough->id)
+        ->and($nested->name)->toBe('Domian Name Reg/Renew')
+        ->and($nested->parent_id)->toBe($hosting->id)
+        ->and($email->parent_id)->toBe($hosting->id);
+});
+
+it('previews each QuickBooks sub-account with its parent and creates nothing', function () {
+    $result = app(ChartOfAccountsImporter::class)->preview(quickBooksSubAccountListingCsv(asFile: true), $this->ctx);
+
+    expect($result->errors)->toBe([]);
+
+    $rows = collect($result->previewRows);
+
+    // The migration wizard builds its table header from the first row's keys.
+    $rows->each(fn (array $row) => expect(array_keys($row))->toBe(['row', 'code', 'name', 'parent', 'action']));
+
+    expect($rows->pluck('parent', 'code')->all())->toBe([
+        'Domian Name Reg/Rene' => null,
+        'Pass Through Expense' => null,
+        'Hosting' => 'Pass Through Expense',
+        'Domian Name Reg/Re-2' => 'Pass Through Expense:Hosting',
+        'Email Hosting' => 'Pass Through Expense:Hosting',
+    ]);
+
+    expect(Account::withoutGlobalScopes()->where('company_id', $this->company->id)->where('name', 'Hosting')->exists())->toBeFalse();
+});
+
+it('skips every account when the same numberless listing is imported again', function () {
+    app(ChartOfAccountsImporter::class)->commit(quickBooksSubAccountListingCsv(asFile: true), $this->ctx);
+    $again = app(ChartOfAccountsImporter::class)->commit(quickBooksSubAccountListingCsv(asFile: true), $this->ctx);
+
+    expect($again->errors)->toBe([])
+        ->and($again->summary['created'])->toBe(0)
+        ->and($again->summary['skipped_existing'])->toBe(5)
+        ->and(Account::withoutGlobalScopes()->where('company_id', $this->company->id)->where('name', 'Domian Name Reg/Renew')->count())->toBe(2);
+});
+
+it('finds numberless accounts by path when a later listing adds one with the same name above them', function () {
+    app(ChartOfAccountsImporter::class)->commit(quickBooksSubAccountListingCsv(asFile: true), $this->ctx);
+
+    $byCode = fn (string $code) => Account::withoutGlobalScopes()
+        ->where('company_id', $this->company->id)->where('code', $code)->firstOrFail();
+    $hostingDomain = $byCode('Domian Name Reg/Re-2');
+
+    // A newer export: a third "Domian Name Reg/Renew" now sorts above the Hosting one.
+    $path = makeCsv(['Account', 'Type', 'Accnt. #', 'Description'], [
+        ['Domian Name Reg/Renew', 'Expense', '', ''],
+        ['Pass Through Expense', 'Expense', '', ''],
+        ['Pass Through Expense:Domian Name Reg/Renew', 'Expense', '', ''],
+        ['Pass Through Expense:Hosting', 'Expense', '', ''],
+        ['Pass Through Expense:Hosting:Domian Name Reg/Renew', 'Expense', '', ''],
+        ['Pass Through Expense:Hosting:Email Hosting', 'Expense', '', ''],
+    ]);
+
+    $result = app(ChartOfAccountsImporter::class)->commit($path, $this->ctx);
+
+    expect($result->errors)->toBe([])
+        ->and($result->summary['created'])->toBe(1)
+        ->and($result->summary['skipped_existing'])->toBe(5)
+        ->and(collect($result->previewRows)->firstWhere('row', 6)['code'])->toBe('Domian Name Reg/Re-2');
+
+    $new = $byCode('Domian Name Reg/Re-3');
+
+    expect($new->parent_id)->toBe($byCode('Pass Through Expense')->id)
+        ->and($hostingDomain->fresh()->parent_id)->toBe($byCode('Hosting')->id);
+});
+
+it('does not merge a numberless QuickBooks account into a seeded account with the same name', function () {
+    $seeded = Account::withoutGlobalScopes()->where('company_id', $this->company->id)
+        ->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->firstOrFail();
+
+    $path = makeCsv(['Account', 'Type', 'Accnt. #', 'Description'], [[$seeded->name, 'Expense', '', '']]);
+
+    $result = app(ChartOfAccountsImporter::class)->commit($path, $this->ctx);
+
+    expect($result->errors)->toBe([])
+        ->and($result->summary['created'])->toBe(1)
+        ->and(Account::withoutGlobalScopes()->where('company_id', $this->company->id)->where('name', $seeded->name)->count())->toBe(2);
+});
+
+it('links numbered QuickBooks sub-accounts by path, and to a parent already in the chart', function () {
+    $seeded = Account::withoutGlobalScopes()->where('company_id', $this->company->id)
+        ->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->firstOrFail();
+
+    $path = makeCsv(['Account', 'Type', 'Accnt. #', 'Description'], [
+        ['9600 · Pass Through Expense', 'Expense', '9600', ''],
+        ['9600 · Pass Through Expense:9610 · Hosting', 'Expense', '9610', ''],
+        ['9600 · Pass Through Expense:9610 · Hosting:9611 · Domain Names', 'Expense', '9611', ''],
+        ['9700 · Domain Names', 'Expense', '9700', ''],
+        ["{$seeded->code} · {$seeded->name}:9801 · Seeded Child", 'Expense', '9801', ''],
+    ]);
+
+    $result = app(ChartOfAccountsImporter::class)->commit($path, $this->ctx);
+
+    expect($result->errors)->toBe([]);
+
+    $parentOf = fn (string $code) => Account::withoutGlobalScopes()
+        ->where('company_id', $this->company->id)->where('code', $code)->value('parent_id');
+    $idOf = fn (string $code) => Account::withoutGlobalScopes()
+        ->where('company_id', $this->company->id)->where('code', $code)->value('id');
+
+    expect($parentOf('9600'))->toBeNull()
+        ->and($parentOf('9610'))->toBe($idOf('9600'))
+        ->and($parentOf('9611'))->toBe($idOf('9610'))
+        ->and($parentOf('9700'))->toBeNull()
+        ->and($parentOf('9801'))->toBe($seeded->id);
+});
+
+it('rejects a parent of a different account type', function () {
+    $path = makeCsv(['code', 'name', 'subtype', 'parent_code'], [
+        ['9500', 'Some Income', 'income', ''],
+        ['9510', 'Some Expense', 'expense', '9500'],
+    ]);
+
+    $result = app(ChartOfAccountsImporter::class)->preview($path, $this->ctx);
+
+    expect($result->errors)->toBe([['row' => 3, 'message' => 'The parent account must be the same account type.']]);
+});
+
+it('rejects a parent that is neither in the file nor in the chart', function () {
+    $quickBooks = makeCsv(['Account', 'Type', 'Accnt. #', 'Description'], [
+        ['Ghost Parent:Orphan', 'Expense', '', ''],
+    ]);
+    $template = makeCsv(['code', 'name', 'subtype', 'parent_code'], [
+        ['9520', 'Orphan', 'expense', '7777-missing'],
+    ]);
+
+    expect(app(ChartOfAccountsImporter::class)->preview($quickBooks, $this->ctx)->errors)
+        ->toBe([['row' => 2, 'message' => "Parent account 'Ghost Parent' is not in this file or the chart of accounts."]])
+        ->and(app(ChartOfAccountsImporter::class)->preview($template, $this->ctx)->errors)
+        ->toBe([['row' => 2, 'message' => "Parent account '7777-missing' is not in this file or the chart of accounts."]]);
+});
+
+it('rejects a parent listed below its child, or one that has an error of its own', function () {
+    $below = makeCsv(['code', 'name', 'subtype', 'parent_code'], [
+        ['9531', 'Child', 'expense', '9530'],
+        ['9530', 'Parent', 'expense', ''],
+    ]);
+    $broken = makeCsv(['code', 'name', 'subtype', 'parent_code'], [
+        ['9540', 'Parent', 'not_a_subtype', ''],
+        ['9541', 'Child', 'expense', '9540'],
+    ]);
+    $self = makeCsv(['code', 'name', 'subtype', 'parent_code'], [
+        ['9550', 'Loop', 'expense', '9550'],
+    ]);
+
+    $importer = app(ChartOfAccountsImporter::class);
+
+    expect($importer->preview($below, $this->ctx)->errors)
+        ->toBe([['row' => 2, 'message' => "Parent account '9530' must be listed above this row."]])
+        ->and(collect($importer->preview($broken, $this->ctx)->errors)->last())
+        ->toBe(['row' => 3, 'message' => "Parent account '9540' has an error of its own, so this row cannot go under it."])
+        ->and($importer->preview($self, $this->ctx)->errors)
+        ->toBe([['row' => 2, 'message' => 'An account cannot be its own parent.']]);
+});
+
+it('gives the transaction-history replay a type hint for each sub-account path', function () {
+    $hints = app(ChartOfAccountsImporter::class)->typeHints(quickBooksSubAccountListingCsv(asFile: true));
+
+    expect($hints['byName'])
+        ->toHaveKey('pass through expense:hosting:domian name reg/renew')
+        ->toHaveKey('domian name reg/renew');
+});
+
 it('rejects accounts with unknown subtypes', function () {
     $path = makeCsv(['code', 'name', 'subtype'], [['9999', 'Bogus', 'wat']]);
     $result = app(ChartOfAccountsImporter::class)->preview($path, $this->ctx);

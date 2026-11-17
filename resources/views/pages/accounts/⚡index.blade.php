@@ -1368,6 +1368,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                                         <th class="px-3 py-2 font-medium">{{ __('Row') }}</th>
                                         <th class="px-3 py-2 font-medium">{{ __('Code') }}</th>
                                         <th class="px-3 py-2 font-medium">{{ __('Name') }}</th>
+                                        <th class="px-3 py-2 font-medium">{{ __('Parent') }}</th>
                                         <th class="px-3 py-2 font-medium">{{ __('Action') }}</th>
                                     </tr>
                                 </thead>
@@ -1377,6 +1378,7 @@ new #[Title('Chart of Accounts')] class extends Component {
                                             <td class="px-3 py-1.5 text-muted-foreground">{{ $row['row'] }}</td>
                                             <td class="px-3 py-1.5 font-mono">{{ $row['code'] }}</td>
                                             <td class="px-3 py-1.5">{{ $row['name'] }}</td>
+                                            <td class="px-3 py-1.5 text-muted-foreground" data-test="accounts-import-preview-parent">{{ $row['parent'] ?? '' }}</td>
                                             <td class="px-3 py-1.5">{{ $row['action'] }}</td>
                                         </tr>
                                     @endforeach
