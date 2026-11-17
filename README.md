@@ -17,12 +17,15 @@ the GL.
 This is the `next` branch, at **1.5.0-rc.1**, released November 5, 2026: the first
 release candidate for 1.5.0, which adds users and roles in the manner of QuickBooks
 Desktop Enterprise. Release candidates reach only installs on the
-[next channel](#release-channels). The newest stable release is **1.4.3**, also
-released November 5, a security patch that updates the Symfony components LineLedger
-runs on to 8.1.11, for eleven advisories Symfony published on November 4. It follows
-1.4.2 (also November 5), a security patch that
-makes combined report groups, search, scheduled report emails and attachment
-downloads respect a Custom member's sections, and makes Edit on a member work again,
+[next channel](#release-channels). The newest stable release is **1.4.4**, released
+November 17, a patch that gives the GIFI Statement the CRA's own codes and names and
+lets it download as a GIFI file for tax software, keeps QuickBooks sub-accounts under
+their parents on import, makes payment and tax pickers accept only what they offer,
+and adds a next channel for release candidates. It follows 1.4.3 (November 5), a
+security patch that updated the Symfony components LineLedger runs on to 8.1.11, 1.4.2
+(also November 5), a security patch that made combined report groups, search,
+scheduled report emails and attachment downloads respect a Custom member's sections,
+and made Edit on a member work again,
 1.4.1 (November 2), a patch that made actions on an open page work again on any
 installation whose `APP_URL` isn't `localhost`, 1.4.0 (October 29), which added
 statutory accounts for UK companies and an Airy invoice layout, and fixed security,
@@ -787,14 +790,14 @@ docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and pro
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
 pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
 the two `banking:backfill-*` commands; 1.2.0 through 1.3.1 add none; 1.4.0 adds
-`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none; 1.5.0 adds `access:sync-roles`) — and the workers wait for it to become
+`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds `access:sync-roles`) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
 migrate it just runs `integrity:check` and exits non-zero if the ledger doesn't
 reconcile, which is the moment to reach for `restore.sh`.
 
-Image tags: `1.4.3` (exact release), `1.4` (moves with patch releases on the 1.4
+Image tags: `1.4.4` (exact release), `1.4` (moves with patch releases on the 1.4
 line — the pin most self-hosters want), `latest` (newest final release, never
 `main`), `next` (newest release of any kind, release candidates included; see
 [Release channels](#release-channels)), and `edge` (`main`, amd64-only, if you want
@@ -805,7 +808,7 @@ that runs `app:upgrade`.
 
 ### Release channels
 
-LineLedger ships on two channels. **Stable** gets final releases (`1.4.3`), and
+LineLedger ships on two channels. **Stable** gets final releases (`1.4.4`), and
 is what every install follows unless you choose otherwise. **Next** gets release
 candidates as well (`1.5.0-rc.1`, then `-rc.2` …): the next minor release, tested
 on both databases but not yet run by many installs. Each final release reaches

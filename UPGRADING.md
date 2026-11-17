@@ -20,7 +20,7 @@ newest first.
   section says what to do coming from the stable release before it, and whether you
   can go back without a restore. `README.md` → Release channels says how to join or
   leave each.
-- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.3` is one exact
+- **Docker tags.** The image is `ghcr.io/lineledger/lineledger`. `1.4.4` is one exact
   release; `1.4` follows the newest 1.4.x patch; `latest` follows the newest final
   release; `next` follows the newest release of any kind, release candidates
   included; `edge` follows `main` between releases. Release tags are built for
@@ -31,7 +31,7 @@ newest first.
   migrations, then every backfill the release needs (since 1.1.0:
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
-  `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none; 1.5.0 adds
+  `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds
   `access:sync-roles`). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
@@ -43,6 +43,96 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.3 → 1.4.4
+
+Released 2026-11-17. A patch. The GIFI Statement now uses the CRA's codes and names
+and downloads as a GIFI file (.gfi) for tax software, QuickBooks sub-accounts keep
+their parents on import, payment and tax pickers accept only what they offer, and
+release candidates get a next channel of their own. `laravel/framework` 13.42 and
+`phpseclib/phpseclib` 4.0.3 fix two advisories. LineLedger doesn't use the affected
+Laravel feature, and phpseclib only reads LineLedger's own OAuth keys. The full list is
+in `CHANGELOG.md`.
+
+PHP `^8.5` and Laravel 13 are unchanged. **One migration, run by `app:upgrade`; no
+backfills, no config or env changes.** `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged from 1.4.3. The Droplet's `lineledger` command gains
+`lineledger channel`, and App Platform's `deploy.sh` gains `--tag`.
+
+**Coming from 1.4.2 or earlier?** Go straight to 1.4.4, but read the sections below for
+each release you skip first.
+
+### What happens
+
+- **One migration corrects GIFI codes.** The GIFI catalog had the wrong name on 18 codes,
+  six of them CRA totals. The migration moves each account to the code the CRA uses for
+  the name the account showed: an account on "8620 Insurance" goes to 8690, which is
+  Insurance to the CRA, and one on "2589 Other long-term assets" goes to 2420. It moves
+  each account once, in every organization. Restoring a backup made before 1.4.4 does
+  the same to the restored accounts.
+
+### What people will notice
+
+- **The GIFI Statement shows the CRA's names, and some accounts sit on new codes.**
+  Anyone who keyed an earlier GIFI Statement into a T2 return should check that return
+  against the corrected statement. Its Download menu adds **GIFI file for tax software
+  (.gfi)**, for DT Max, Taxprep, ProFile, TaxCycle and Pro Tax.
+- **Inbox review's Paid from follows the Expense form.** A petty-cash account kept as a
+  current asset disappears from it until someone switches on **Use to pay expenses**
+  for that account in the Chart of Accounts.
+- **API integrations:** `deposit_to_account_id` on a receipt must now be a bank or
+  Undeposited Funds account, and `paid_from_account_id` on a bill payment a bank or
+  credit card. Any other account gets a 422; it used to be accepted. A document already
+  saved on another account keeps it when updated.
+- **Card payments:** `stripe/stripe-php` 23 moves the Stripe API version to
+  2026-10-28.endive. If organizations take card payments through Stripe, try one
+  payment after upgrading.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.4.4` in the filenames. Keep it: the
+GIFI migration can't be undone, so the backup is the way back to 1.4.3.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.4.4 (or stay on 1.4, which moves to 1.4.4 by itself).
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+Run `lineledger upgrade`. It backs up, installs the new `lineledger` command, moves to
+1.4.4 and runs `app:upgrade --verify`.
+
+### DigitalOcean App Platform
+
+Run `./deploy.sh` again. The app follows the `latest` image tag, so the redeploy picks up
+1.4.4 and the pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Deploy with the unchanged deploy script: its `composer install` and `npm ci && npm run
+build` pick up the new versions. Then run `php artisan app:upgrade --verify` and
+`php artisan queue:restart`.
+
+### Check it worked
+
+- The footer of every page shows `v1.4.4`.
+- `php artisan migrate:status` (Docker: prefix it with `docker compose exec app`) shows
+  `2026_11_16_120000_correct_gifi_codes_on_accounts` as `Ran`.
+- **Reports → GIFI Statement** uses the CRA's names (8690 is Insurance), and none of its
+  lines is a CRA total such as 2589 or 9367.
+
+### Rolling back
+
+Restore the backup you took before upgrading. Deploying 1.4.3 over the corrected codes
+doesn't put them back: 1.4.3 shows its old, wrong names on some of them (8690 as
+Interest and bank charges, for one) and lists accounts on codes it doesn't know, such as
+1000 and 3600, under Unassigned accounts.
 
 ## 1.4.3 → 1.5.0-rc.1
 
