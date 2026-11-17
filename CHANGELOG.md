@@ -7,125 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.5.0-rc.2] - 2026-11-17
 
-- **A GIFI file for tax software.** The GIFI Statement's Download menu now
-  writes the standard GIFI file (.gfi, the "fichier IGRF" in French) that
-  DT Max, Taxprep, ProFile, TaxCycle and Pro Tax import Schedule 100 and
-  Schedule 125 from. It is refused, with the reason, while an account is under
-  Unassigned accounts, the balance sheet is out of balance, or the period is
-  not a fiscal year. Notes to the financial statements are not included.
-
-### Changed
-
-- **Current assets can use the Use to pay expenses switch.** It is off by
-  default. A petty-cash account kept as a current asset now works under Paid from
-  on both the Expense form and inbox review, once switched on.
-
-- **The API holds receipts and bill payments to the accounts it documents.**
-  `deposit_to_account_id` must be a bank or Undeposited Funds account, and
-  `paid_from_account_id` a bank or credit card. Any account in the organization used
-  to be accepted. **An integration that posts to another account, such as a clearing
-  account, now gets a 422** and needs to use one of those. A document already saved
-  on another account can keep it when updated.
-
-- Dependency updates: `stripe/stripe-php` 23.0 (the Stripe API version moves
-  to 2026-10-28.endive; LineLedger already passes the connected account on every
-  call, which 23.0 now requires), `laravel/fortify` 1.42, `laravel/mcp` 1.2,
-  `laravel/tinker` 3.1, `resend/resend-php` 1.18, `openspout/openspout` 5.14,
-  `laravel/nightwatch` 1.30.6, Larastan 3.15, `laravel/boost` 2.10.4,
-  `@laravel/passkeys` 0.4.1, Vite 8.3.8, Tailwind CSS 4.3.5,
-  `laravel-vite-plugin` 3.2.1, Chart.js 4.6.1, `concurrently` 10.0.7,
-  Autoprefixer 10.6.2, `@rollup/rollup-linux-x64-gnu` 4.68.2,
-  `docker/login-action` 4.8.0 and the CodeQL SARIF upload action 4.39.3.
-  ([#182](https://github.com/lineledger/lineledger/pull/182)–[#227](https://github.com/lineledger/lineledger/pull/227))
+**Highlights.** The second release candidate for 1.5.0, on the next channel
+only. It carries every change in 1.4.4 (see [1.4.4] below): the GIFI
+Statement's CRA codes and names and its GIFI file for tax software, QuickBooks
+sub-accounts that keep their parents, payment and tax pickers that accept only
+what they offer, and the `laravel/framework` and `phpseclib` updates. It also
+puts back the Edit buttons that 1.5.0-rc.1 lost on Settings → Organizations.
+One migration, from 1.4.4; see `UPGRADING.md`.
 
 ### Fixed
 
-- **QuickBooks sub-accounts keep their parents (#229).** Importing a QuickBooks
-  Account Listing into the Chart of Accounts placed every sub-account, such as
-  Pass Through Expense:Hosting, at the top level. If an account had no number
-  and shared its name with another account, the import stopped with a
-  duplicate-code error. Sub-accounts now go under their parent, and the preview
-  shows each account's parent. An account with no number gets a code from its
-  name, ending in -2, -3 and so on when another account already has that code.
-  Importing a newer listing skips the accounts an earlier import made, matching
-  them by name and parent, and never merges an account into a seeded one that
-  shares its name. An import now stops with an error when a row's parent is
-  missing, is listed below it, or is a different account type. The template's
-  parent_code used to be dropped silently in those cases. The transaction
-  history import keeps two accounts with the same name apart by their parents.
 - **Edit buttons are back on Settings → Organizations.** In 1.5.0-rc.1 each
   organization in the list had no button to open its settings, and combined
   report groups had no Edit pencil. The check that hides links a role can't
   follow needs an organization to check against, and neither page has one.
   The organization buttons show as before; the pencil shows on groups you
   created and can still open.
-- **Inbox review's Paid from matches the Expense form (#198).** It missed accounts
-  switched on with Use to pay expenses, such as a Shareholder Loan, and offered
-  every current asset, including Prepaid Expenses. **If you pay from a petty-cash
-  account kept as a current asset, switch on Use to pay expenses for it in the
-  Chart of Accounts**, or it no longer appears there. Existing drafts keep the
-  account they were saved with.
-- **Inbox review offers what the destination form accepts.** A bill now needs a
-  vendor and a reimbursement an employee; a bill for anyone else could not be saved
-  on the Bill form afterwards. Category lists leave out deactivated accounts and
-  follow the document type, and a contact the page has cleared no longer comes back
-  as a hidden payee.
-- **Agents can't pay an expense from just any account.** The MCP expense tool
-  accepted Prepaid Expenses, a revenue account or a loan that was not switched on.
-  It now uses the Expense form's rule, and checks again when the proposal is
-  confirmed.
-- **The transfers API accepts accounts switched on with Include in transfers**, as
-  the form always has. Neither the form nor the API accepts an accounts receivable
-  or payable account any longer, even when switched on: a transfer has no contact,
-  so that line would break the receivable and payable reports.
-- **Tax pickers follow the document's direction.** Sales forms, customers and
-  membership levels no longer offer a purchase-only code, and reimbursements,
-  recurring bills and vendors no longer offer a sale-only one. Membership levels
-  also stop offering deactivated codes. A document that already carries a code keeps
-  it, including a second tax code, which some purchase forms used to drop from the
-  list.
-- **Defaults skip deactivated accounts.** A new pay run, an invoice from time
-  entries, inbox review, and new invoice and sales receipt lines could all start on
-  an account their own list no longer offered.
-- **A deactivated account stays visible on documents that use it.** Bills,
-  reimbursements, journal entries and their templates, deposits, and pay runs showed
-  the field as blank, though the account was still saved.
-
-- **GIFI codes match the CRA's.** Checked against the CRA's guide RC4088, the
-  GIFI catalog put the wrong name on 18 codes: "8620 Insurance" is Employee
-  benefits to the CRA, "8690 Interest and bank charges" is Insurance, and six
-  were CRA totals such as 2589 Total long-term assets and 9367 Total operating
-  expenses. Every name is now the CRA's, in English and French, and totals are
-  no longer offered. An upgrade moves each account to the code the CRA uses
-  for the name it showed, so an account on "8620 Insurance" lands on 8690
-  Insurance, and restoring an older backup does the same. Bank accounts now
-  default to 1000 Cash and deposits, other assets to 2420, other liabilities to
-  3320, and retained earnings to 3600. Anyone who keyed an earlier GIFI
-  Statement into a T2 return should check it against the corrected one.
-
-- **Payment forms save only what they offer.** The bill payment, receipt and sales
-  receipt forms listed the right accounts, but a crafted request could save any
-  account in the organization. A document already on another account, such as a
-  Stripe receipt on its clearing account, keeps it.
-- **Tax defaults follow the document's direction.** Picking an item, contact, account
-  or membership level could fill in a sale-only code on a bill, a purchase-only code
-  on an invoice, or a deactivated code. A document now only takes a code its own
-  picker offers, and a second code moves up if the first doesn't apply. Invoices from
-  time entries do the same.
-
-### Security
-
-- **`laravel/framework` updated to 13.42 and `phpseclib/phpseclib` to 4.0.3.**
-  Only `composer.lock` changed. The advisories they fix:
-  - `laravel/framework`: a `Concurrency` task that prints user-controlled text
-    could forge the framework's result message (CVE-2026-128083,
-    [GHSA-63hm-g96r-2m2q](https://github.com/advisories/GHSA-63hm-g96r-2m2q)).
-    LineLedger does not call `Concurrency`, so it was not exposed.
-  - `phpseclib/phpseclib`, which Passport uses for its OAuth keys: no limit on
-    the PBKDF iteration count when parsing an encrypted key, PFX or CMS file
-    ([GHSA-w3p9-g4p2-h3rr](https://github.com/phpseclib/phpseclib/security/advisories/GHSA-w3p9-g4p2-h3rr)).
 
 ## [1.5.0-rc.1] - 2026-11-05
 
@@ -190,6 +89,142 @@ so nobody's page access changes; see `UPGRADING.md`.
   version given, it leaves the install alone when the channel's newest release
   is older than the one installed. Naming a release still works, and points at
   the rollback steps first.
+
+## [1.4.4] - 2026-11-17
+
+**Highlights.** The GIFI Statement now uses the CRA's codes and names, and
+downloads as a GIFI file (.gfi) that tax software imports. QuickBooks
+sub-accounts keep their parents on import, payment and tax pickers accept only
+what they offer, and release candidates get a next channel of their own.
+`laravel/framework` and `phpseclib` are updated for two advisories. One
+migration, which moves accounts off mislabelled GIFI codes; no backfills and no
+configuration changes. An API integration that records a receipt or bill
+payment on an account other than a bank, card or Undeposited Funds now gets a
+422. See `UPGRADING.md`.
+
+### Added
+
+- **A next channel for release candidates.** Release candidates such as
+  `1.5.0-rc.1` go to a `next` channel only. A Docker install joins it with
+  `LINELEDGER_VERSION=next`, a Droplet with `lineledger channel next` (or
+  `LINELEDGER_CHANNEL=next` for the installer), App Platform with
+  `./deploy.sh --tag next`, and Forge by deploying the `next` branch. Stable
+  installs never see a release candidate. README → Release channels explains
+  both channels, and the new `RELEASING.md` is the maintainer's runbook.
+- **A GIFI file for tax software.** The GIFI Statement's Download menu now
+  writes the standard GIFI file (.gfi, the "fichier IGRF" in French) that
+  DT Max, Taxprep, ProFile, TaxCycle and Pro Tax import Schedule 100 and
+  Schedule 125 from. It is refused, with the reason, while an account is under
+  Unassigned accounts, the balance sheet is out of balance, or the period is
+  not a fiscal year. Notes to the financial statements are not included.
+
+### Changed
+
+- **The `latest` image follows the newest final release by version.** It used
+  to move to whichever release tag was pushed last. A release candidate would
+  have moved it, and so would a patch to an older line.
+- **`lineledger upgrade` never moves a Droplet backwards on its own.** With no
+  version given, it leaves the install alone when the channel's newest release
+  is older than the one installed. Naming a release still works, and points at
+  the rollback steps first.
+- **Current assets can use the Use to pay expenses switch.** It is off by
+  default. A petty-cash account kept as a current asset now works under Paid from
+  on both the Expense form and inbox review, once switched on.
+- **The API holds receipts and bill payments to the accounts it documents.**
+  `deposit_to_account_id` must be a bank or Undeposited Funds account, and
+  `paid_from_account_id` a bank or credit card. Any account in the organization used
+  to be accepted. **An integration that posts to another account, such as a clearing
+  account, now gets a 422** and needs to use one of those. A document already saved
+  on another account can keep it when updated.
+- Dependency updates: `stripe/stripe-php` 23.0 (the Stripe API version moves
+  to 2026-10-28.endive; LineLedger already passes the connected account on every
+  call, which 23.0 now requires), `laravel/fortify` 1.42, `laravel/mcp` 1.2,
+  `laravel/tinker` 3.1, `resend/resend-php` 1.18, `openspout/openspout` 5.14,
+  `laravel/nightwatch` 1.30.6, Larastan 3.15, `laravel/boost` 2.10.4,
+  `@laravel/passkeys` 0.4.1, Vite 8.3.8, Tailwind CSS 4.3.5,
+  `laravel-vite-plugin` 3.2.1, Chart.js 4.6.1, `concurrently` 10.0.7,
+  Autoprefixer 10.6.2, `@rollup/rollup-linux-x64-gnu` 4.68.2,
+  `docker/login-action` 4.8.0 and the CodeQL SARIF upload action 4.39.3.
+  ([#182](https://github.com/lineledger/lineledger/pull/182)–[#227](https://github.com/lineledger/lineledger/pull/227))
+
+### Fixed
+
+- **QuickBooks sub-accounts keep their parents (#229).** Importing a QuickBooks
+  Account Listing into the Chart of Accounts placed every sub-account, such as
+  Pass Through Expense:Hosting, at the top level. If an account had no number
+  and shared its name with another account, the import stopped with a
+  duplicate-code error. Sub-accounts now go under their parent, and the preview
+  shows each account's parent. An account with no number gets a code from its
+  name, ending in -2, -3 and so on when another account already has that code.
+  Importing a newer listing skips the accounts an earlier import made, matching
+  them by name and parent, and never merges an account into a seeded one that
+  shares its name. An import now stops with an error when a row's parent is
+  missing, is listed below it, or is a different account type. The template's
+  parent_code used to be dropped silently in those cases. The transaction
+  history import keeps two accounts with the same name apart by their parents.
+- **GIFI codes match the CRA's.** Checked against the CRA's guide RC4088, the
+  GIFI catalog put the wrong name on 18 codes: "8620 Insurance" is Employee
+  benefits to the CRA, "8690 Interest and bank charges" is Insurance, and six
+  were CRA totals such as 2589 Total long-term assets and 9367 Total operating
+  expenses. Every name is now the CRA's, in English and French, and totals are
+  no longer offered. An upgrade moves each account to the code the CRA uses
+  for the name it showed, so an account on "8620 Insurance" lands on 8690
+  Insurance, and restoring an older backup does the same. Bank accounts now
+  default to 1000 Cash and deposits, other assets to 2420, other liabilities to
+  3320, and retained earnings to 3600. Anyone who keyed an earlier GIFI
+  Statement into a T2 return should check it against the corrected one.
+- **Inbox review's Paid from matches the Expense form (#198).** It missed accounts
+  switched on with Use to pay expenses, such as a Shareholder Loan, and offered
+  every current asset, including Prepaid Expenses. **If you pay from a petty-cash
+  account kept as a current asset, switch on Use to pay expenses for it in the
+  Chart of Accounts**, or it no longer appears there. Existing drafts keep the
+  account they were saved with.
+- **Inbox review offers what the destination form accepts.** A bill now needs a
+  vendor and a reimbursement an employee; a bill for anyone else could not be saved
+  on the Bill form afterwards. Category lists leave out deactivated accounts and
+  follow the document type, and a contact the page has cleared no longer comes back
+  as a hidden payee.
+- **Agents can't pay an expense from just any account.** The MCP expense tool
+  accepted Prepaid Expenses, a revenue account or a loan that was not switched on.
+  It now uses the Expense form's rule, and checks again when the proposal is
+  confirmed.
+- **The transfers API accepts accounts switched on with Include in transfers**, as
+  the form always has. Neither the form nor the API accepts an accounts receivable
+  or payable account any longer, even when switched on: a transfer has no contact,
+  so that line would break the receivable and payable reports.
+- **Tax pickers follow the document's direction.** Sales forms, customers and
+  membership levels no longer offer a purchase-only code, and reimbursements,
+  recurring bills and vendors no longer offer a sale-only one. Membership levels
+  also stop offering deactivated codes. A document that already carries a code keeps
+  it, including a second tax code, which some purchase forms used to drop from the
+  list.
+- **Defaults skip deactivated accounts.** A new pay run, an invoice from time
+  entries, inbox review, and new invoice and sales receipt lines could all start on
+  an account their own list no longer offered.
+- **A deactivated account stays visible on documents that use it.** Bills,
+  reimbursements, journal entries and their templates, deposits, and pay runs showed
+  the field as blank, though the account was still saved.
+- **Payment forms save only what they offer.** The bill payment, receipt and sales
+  receipt forms listed the right accounts, but a crafted request could save any
+  account in the organization. A document already on another account, such as a
+  Stripe receipt on its clearing account, keeps it.
+- **Tax defaults follow the document's direction.** Picking an item, contact, account
+  or membership level could fill in a sale-only code on a bill, a purchase-only code
+  on an invoice, or a deactivated code. A document now only takes a code its own
+  picker offers, and a second code moves up if the first doesn't apply. Invoices from
+  time entries do the same.
+
+### Security
+
+- **`laravel/framework` updated to 13.42 and `phpseclib/phpseclib` to 4.0.3.**
+  Only `composer.lock` changed. The advisories they fix:
+  - `laravel/framework`: a `Concurrency` task that prints user-controlled text
+    could forge the framework's result message (CVE-2026-128083,
+    [GHSA-63hm-g96r-2m2q](https://github.com/advisories/GHSA-63hm-g96r-2m2q)).
+    LineLedger does not call `Concurrency`, so it was not exposed.
+  - `phpseclib/phpseclib`, which Passport uses for its OAuth keys: no limit on
+    the PBKDF iteration count when parsing an encrypted key, PFX or CMS file
+    ([GHSA-w3p9-g4p2-h3rr](https://github.com/phpseclib/phpseclib/security/advisories/GHSA-w3p9-g4p2-h3rr)).
 
 ## [1.4.3] - 2026-11-05
 
@@ -1765,8 +1800,10 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...HEAD
+[1.5.0-rc.2]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...v1.5.0-rc.2
 [1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
+[1.4.4]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/lineledger/lineledger/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/lineledger/lineledger/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/lineledger/lineledger/compare/v1.4.0...v1.4.1

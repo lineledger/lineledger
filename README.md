@@ -14,15 +14,19 @@ the GL.
 
 ## Status
 
-This is the `next` branch, at **1.5.0-rc.1**, released November 5, 2026: the first
+This is the `next` branch, at **1.5.0-rc.2**, released November 17, 2026: the second
 release candidate for 1.5.0, which adds users and roles in the manner of QuickBooks
-Desktop Enterprise. Release candidates reach only installs on the
-[next channel](#release-channels). The newest stable release is **1.4.3**, also
-released November 5, a security patch that updates the Symfony components LineLedger
-runs on to 8.1.11, for eleven advisories Symfony published on November 4. It follows
-1.4.2 (also November 5), a security patch that
-makes combined report groups, search, scheduled report emails and attachment
-downloads respect a Custom member's sections, and makes Edit on a member work again,
+Desktop Enterprise. It carries everything in 1.4.4, and puts back the Edit buttons
+1.5.0-rc.1 lost on Settings → Organizations. Release candidates reach only installs on
+the [next channel](#release-channels). The newest stable release is **1.4.4**, released
+November 17, a patch that gives the GIFI Statement the CRA's own codes and names and
+lets it download as a GIFI file for tax software, keeps QuickBooks sub-accounts under
+their parents on import, makes payment and tax pickers accept only what they offer,
+and adds a next channel for release candidates. It follows 1.4.3 (November 5), a
+security patch that updated the Symfony components LineLedger runs on to 8.1.11, 1.4.2
+(also November 5), a security patch that made combined report groups, search,
+scheduled report emails and attachment downloads respect a Custom member's sections,
+and made Edit on a member work again,
 1.4.1 (November 2), a patch that made actions on an open page work again on any
 installation whose `APP_URL` isn't `localhost`, 1.4.0 (October 29), which added
 statutory accounts for UK companies and an Airy invoice layout, and fixed security,
@@ -65,7 +69,7 @@ Pick the route that fits; each links to its full guide further down.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean/droplet/install.sh | bash
    ```
 
 2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
@@ -726,7 +730,7 @@ No clone needed — fetch the compose bundle for the release, configure, and sta
 
 ```bash
 mkdir lineledger && cd lineledger
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker
 curl -fsSLO "$base/docker-compose.yml"
 curl -fsSL  "$base/.env.example" -o .env
 curl -fsSLO "$base/backup.sh"
@@ -741,7 +745,7 @@ docker compose run --rm --no-deps app php artisan key:generate --show
 docker compose up -d
 ```
 
-Fetch from the tag you are deploying (`v1.5.0-rc.1` above), not `main` — the compose
+Fetch from the tag you are deploying (`v1.5.0-rc.2` above), not `main` — the compose
 file, entrypoint and scripts on `main` may already describe the next release.
 
 **Set up mail before anyone else registers.** Email verification is enforced: a new
@@ -779,7 +783,7 @@ Release notes and anything a specific version needs are in
 
 ```bash
 ./backup.sh                                # 1. DB dump + storage volume + .env into ./backups
-# 2. in .env, pin the release:  LINELEDGER_VERSION=1.5.0-rc.1
+# 2. in .env, pin the release:  LINELEDGER_VERSION=1.5.0-rc.2
 docker compose pull && docker compose up -d   # 3. new image; app:upgrade runs on boot
 docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and prove the books
 ```
@@ -787,14 +791,14 @@ docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and pro
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
 pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
 the two `banking:backfill-*` commands; 1.2.0 through 1.3.1 add none; 1.4.0 adds
-`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.3 add none; 1.5.0 adds `access:sync-roles`) — and the workers wait for it to become
+`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds `access:sync-roles`) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
 migrate it just runs `integrity:check` and exits non-zero if the ledger doesn't
 reconcile, which is the moment to reach for `restore.sh`.
 
-Image tags: `1.4.3` (exact release), `1.4` (moves with patch releases on the 1.4
+Image tags: `1.4.4` (exact release), `1.4` (moves with patch releases on the 1.4
 line — the pin most self-hosters want), `latest` (newest final release, never
 `main`), `next` (newest release of any kind, release candidates included; see
 [Release channels](#release-channels)), and `edge` (`main`, amd64-only, if you want
@@ -805,7 +809,7 @@ that runs `app:upgrade`.
 
 ### Release channels
 
-LineLedger ships on two channels. **Stable** gets final releases (`1.4.3`), and
+LineLedger ships on two channels. **Stable** gets final releases (`1.4.4`), and
 is what every install follows unless you choose otherwise. **Next** gets release
 candidates as well (`1.5.0-rc.1`, then `-rc.2` …): the next minor release, tested
 on both databases but not yet run by many installs. Each final release reaches
@@ -963,7 +967,7 @@ There is nothing to configure before the first visit.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean/droplet/install.sh | bash
    ```
 
    Pick a size with at least 2 GB of memory, and turn on **Backups** while
@@ -1018,7 +1022,7 @@ The only questions are your mail settings. You need [`doctl`](https://docs.digit
 brew install doctl jq        # or your platform's package manager
 doctl auth init              # paste a DigitalOcean API token with write access
 
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean
 curl -fsSLO "$base/deploy.sh"
 curl -fsSLO "$base/app.yaml"
 chmod +x deploy.sh
@@ -1294,7 +1298,7 @@ things around it — take a backup before you click, and read
 [`UPGRADING.md`](UPGRADING.md) for anything the release needs beyond what
 `app:upgrade` does on its own. To upgrade by tag rather than by whatever is on
 `main`, swap the `git pull` line for
-`git fetch --tags origin && git checkout v1.5.0-rc.1` (or point the Forge site at a
+`git fetch --tags origin && git checkout v1.5.0-rc.2` (or point the Forge site at a
 release branch), so a deploy always lands on a version you chose. After the deploy,
 `php artisan app:upgrade --verify` proves the ledger still reconciles, and
 `proof:generate` refreshes `/verification` if you publish it.
