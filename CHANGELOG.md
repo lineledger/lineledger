@@ -56,6 +56,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **QuickBooks sub-accounts keep their parents (#229).** Importing a QuickBooks
+  Account Listing into the Chart of Accounts placed every sub-account, such as
+  Pass Through Expense:Hosting, at the top level. If an account had no number
+  and shared its name with another account, the import stopped with a
+  duplicate-code error. Sub-accounts now go under their parent, and the preview
+  shows each account's parent. An account with no number gets a code from its
+  name, ending in -2, -3 and so on when another account already has that code.
+  Importing a newer listing skips the accounts an earlier import made, matching
+  them by name and parent, and never merges an account into a seeded one that
+  shares its name. An import now stops with an error when a row's parent is
+  missing, is listed below it, or is a different account type. The template's
+  parent_code used to be dropped silently in those cases. The transaction
+  history import keeps two accounts with the same name apart by their parents.
 - **GIFI codes match the CRA's.** Checked against the CRA's guide RC4088, the
   GIFI catalog put the wrong name on 18 codes: "8620 Insurance" is Employee
   benefits to the CRA, "8690 Interest and bank charges" is Insurance, and six
