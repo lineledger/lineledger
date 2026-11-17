@@ -193,7 +193,7 @@ new #[Title('Recurring')] class extends Component {
             // default — never overwriting one already on the line, so item
             // and contact defaults keep their existing precedence.
             if (str_ends_with($key, '.account_id') && $value && empty($this->lines[$i]['tax_code_id'])) {
-                $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                $this->lines[$i]['tax_code_id'] = $this->usableDefaultTaxCodes(Account::find($value)?->default_tax_code_id)[0];
             }
 
             $this->recalcLine($i);
@@ -212,8 +212,7 @@ new #[Title('Recurring')] class extends Component {
                     : $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = $this->usableDefaultTaxCodes($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
@@ -261,10 +260,12 @@ new #[Title('Recurring')] class extends Component {
             $this->terms_id = $contact->default_terms_id;
         }
 
-        if ($contact?->default_tax_code_id) {
+        $defaultTaxCodeId = $this->usableDefaultTaxCodes($contact?->default_tax_code_id)[0];
+
+        if ($defaultTaxCodeId !== null) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = $contact->default_tax_code_id;
+                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId;
                     $this->recalcLine($i);
                 }
             }
@@ -304,6 +305,18 @@ new #[Title('Recurring')] class extends Component {
     public function isBill(): bool
     {
         return $this->document_type === 'bill';
+    }
+
+    /**
+     * The defaults this schedule can use, by the direction of what it generates.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    protected function usableDefaultTaxCodes(int|string|null $primary, int|string|null $secondary = null): array
+    {
+        return $this->isBill()
+            ? TaxCode::defaultsForPurchases($primary, $secondary)
+            : TaxCode::defaultsForSales($primary, $secondary);
     }
 
     public function save(): void

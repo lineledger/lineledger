@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EstimateStatus;
 use App\Models\Company;
 use App\Models\Estimate;
 use Livewire\Attributes\Computed;
@@ -32,7 +33,7 @@ new #[Title('Estimates')] class extends Component {
             ->with('contact')
             // "Expired" is derived from a still-Pending quote past its expiry date.
             ->when($this->statusFilter === 'expired', fn ($q) => $q
-                ->where('status', 'pending')
+                ->where('status', EstimateStatus::Pending->value)
                 ->whereNotNull('expires_on')
                 ->whereDate('expires_on', '<', $today))
             ->when(! in_array($this->statusFilter, ['all', 'expired'], true), fn ($q) => $q

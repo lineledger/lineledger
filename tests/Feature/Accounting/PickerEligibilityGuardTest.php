@@ -72,3 +72,46 @@ it('gives every document tax picker a direction', function () {
     expect($checked)->toBeGreaterThan(15)
         ->and($offenders)->toBe([], 'Use TaxCode::offeredForSales() or offeredForPurchases(), or allowlist it with a reason: '.implode(', ', $offenders));
 });
+
+it('passes a default tax code through its direction before a document form takes it', function () {
+    // These lists legitimately go both ways, so any default fits.
+    $bothWays = [
+        'journal/⚡form.blade.php',
+    ];
+
+    $offenders = [];
+
+    foreach (File::allFiles(resource_path('views/pages')) as $file) {
+        $path = str_replace('\\', '/', $file->getRelativePathname());
+
+        if (in_array($path, $bothWays, true)) {
+            continue;
+        }
+
+        foreach (file($file->getPathname()) as $number => $line) {
+            // ['tax_code_id'] = $item->default_tax_code_id; reads a default raw.
+            if (preg_match('/\[\'(?:secondary_)?tax_code_id\'\]\s*=\s*[^;]*default_(?:secondary_)?tax_code_id\s*;/', $line)
+                && ! str_contains($line, 'defaultFor')
+                && ! str_contains($line, 'usableDefaultTaxCodes')) {
+                $offenders[] = $path.':'.($number + 1);
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], 'Use TaxCode::defaultForSales() or defaultForPurchases(): '.implode(', ', $offenders));
+});
+
+it('filters a status column through its enum, never a raw string', function () {
+    $offenders = [];
+
+    foreach (pickerGuardPhpFiles() as $file) {
+        foreach (file($file->getPathname()) as $number => $line) {
+            // ->where('status', 'posted'), ->where('status', '<>', 'void'), ->whereIn('x.status', ['draft', …])
+            if (preg_match('/(?:->|::)(?:or)?[wW]here(?:Not)?(?:In)?\(\s*[\'"](?:\w+\.)?status[\'"]\s*,\s*(?:[\'"](?:=|!=|<>)[\'"]\s*,\s*)?\[?\s*[\'"]\w/', $line)) {
+                $offenders[] = $file->getRelativePathname().':'.($number + 1);
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], 'Use the status enum: '.implode(', ', $offenders));
+});

@@ -2473,12 +2473,6 @@ parameters:
 			path: app/Services/Reporting/ContactStatementBuilder.php
 
 		-
-			message: '#^Offset ''3849'' on array\<string, array\{amount\: int, accounts\: non\-empty\-list\<array\{id\: int\<0, max\>, code\: string, name\: string, amount\: int\}\>\}\> on left side of \?\?\= does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/Reporting/GifiStatementBuilder.php
-
-		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\AccountSubtype\:\:RetainedEarnings will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
@@ -2831,24 +2825,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: app/Support/Defaults/ChartTemplateBuilder.php
-
-		-
-			message: '#^Method App\\Support\\Gifi\\GifiCatalog\:\:all\(\) should return array\<string, array\{code\: string, label\: string, section\: string, statement\: App\\Enums\\GifiStatement, half\: string, section_label\: string, section_order\: int\}\> but returns non\-empty\-array\<int, array\{code\: ''1001''\|''1060''\|''1067''\|''1120''\|''1180''\|''1240''\|''1300''\|''1480''\|''1484''\|''1600''\|''1680''\|''1740''\|''1743''\|''1774''\|''1788''\|''2008''\|''2360''\|''2420''\|''2589''\|''2600''\|''2620''\|''2680''\|''2700''\|''2780''\|''2960''\|''3140''\|''3220''\|''3300''\|''3450''\|''3500''\|''3520''\|''3540''\|''3849''\|''8000''\|''8090''\|''8210''\|''8230''\|''8320''\|''8457''\|''8518''\|''8520''\|''8590''\|''8620''\|''8690''\|''8710''\|''8810''\|''8860''\|''8910''\|''8960''\|''9060''\|''9130''\|''9180''\|''9200''\|''9220''\|''9224''\|''9270''\|''9281''\|''9367''\|''9368'', label\: ''Accounts payable…''\|''Accounts receivable''\|''Accumulated…''\|''Advertising and…''\|''Allowance for…''\|''Amortization of…''\|''Bad debt expense''\|''Bank overdraft''\|''Buildings''\|''Cash and deposits''\|''Common shares''\|''Computer equipment…''\|''Contributed surplus''\|''Cost of sales''\|''Deferred income…''\|''Due from…''\|''Due to related…''\|''Due to shareholder…''\|''Fuel costs''\|''Goodwill''\|''Insurance''\|''Interest and bank…''\|''Interest on long…''\|''Inventories''\|''Investment revenue''\|''Land''\|''Leasehold…''\|''Loans and notes…''\|''Long\-term debt''\|''Long\-term…''\|''Machinery,…''\|''Motor vehicles''\|''Office expenses''\|''Other current assets''\|''Other current…''\|''Other expenses''\|''Other long\-term…''\|''Other revenue''\|''Preferred shares''\|''Prepaid expenses''\|''Professional fees''\|''Property taxes''\|''Purchases / cost of…''\|''Rental''\|''Rental revenue''\|''Repairs and…''\|''Retained earnings /…''\|''Salaries and wages''\|''Short\-term debt''\|''Short\-term…''\|''Subcontracts''\|''Supplies''\|''Taxes payable''\|''Trade sales of…''\|''Travel expenses''\|''Utilities''\|''Vehicle expenses'', section\: ''capital_assets''\|''cost_of_sales''\|''current_assets''\|''current_liabilities''\|''equity''\|''long_term…''\|''operating_expenses''\|''other_assets''\|''revenue'', section_label\: ''Capital assets''\|''Cost of sales''\|''Current assets''\|''Current liabilities''\|''Long\-term…''\|''Operating expenses''\|''Other assets''\|''Revenue''\|''Shareholder equity'', statement\: App\\Enums\\GifiStatement\:\:BalanceSheet\|App\\Enums\\GifiStatement\:\:IncomeStatement, half\: ''assets''\|''cogs''\|''equity''\|''expense''\|''liabilities''\|''revenue'', section_order\: 10\|20\|30\|40\|50\|60\|70\|80\|90\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Support/Gifi/GifiCatalog.php
-
-		-
-			message: '#^Offset ''accounts_payable''\|''accounts_receivable''\|''bank''\|''cost_of_goods_sold''\|''credit_card''\|''current_asset''\|''current_liability''\|''endowment_net_assets''\|''equity''\|''expense''\|''fixed_asset''\|''income''\|''inventory''\|''long_term_liability''\|''other_asset''\|''other_expense''\|''other_income''\|''other_liability''\|''restricted_net…''\|''retained_earnings''\|''tax_payable''\|''undeposited_funds''\|''unrestricted_net…'' on array\{bank\: ''1001'', undeposited_funds\: ''1001'', accounts_receivable\: ''1060'', inventory\: ''1120'', current_asset\: ''1480'', fixed_asset\: ''1740'', other_asset\: ''2589'', accounts_payable\: ''2620'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Support/Gifi/GifiCatalog.php
-
-		-
-			message: '#^PHPDoc tag @var for constant App\\Support\\Gifi\\GifiCatalog\:\:CODES with type array\<string, array\{string, string\}\> is incompatible with value array\{1001\: array\{''Cash and deposits'', ''current_assets''\}, 1060\: array\{''Accounts receivable'', ''current_assets''\}, 1067\: array\{''Allowance for…'', ''current_assets''\}, 1120\: array\{''Inventories'', ''current_assets''\}, 1180\: array\{''Short\-term…'', ''current_assets''\}, 1240\: array\{''Loans and notes…'', ''current_assets''\}, 1300\: array\{''Due from…'', ''current_assets''\}, 1480\: array\{''Other current assets'', ''current_assets''\}, \.\.\.\}\.$#'
-			identifier: classConstant.phpDocType
-			count: 1
-			path: app/Support/Gifi/GifiCatalog.php
 
 		-
 			message: '#^Cannot call method label\(\) on string\.$#'

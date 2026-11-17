@@ -203,7 +203,7 @@ new #[Title('Sales Order')] class extends Component
             // default — never overwriting one already on the line, so item
             // and contact defaults keep their existing precedence.
             if (str_ends_with($key, '.account_id') && $value && empty($this->lines[$i]['tax_code_id'])) {
-                $this->lines[$i]['tax_code_id'] = Account::find($value)?->default_tax_code_id;
+                $this->lines[$i]['tax_code_id'] = TaxCode::defaultForSales(Account::find($value)?->default_tax_code_id);
             }
 
             $this->recalcLine($i);
@@ -221,8 +221,7 @@ new #[Title('Sales Order')] class extends Component
                 $this->lines[$i]['account_id'] = $item->income_account_id;
                 $this->lines[$i]['description'] = $item->description ?? $item->name;
                 $this->lines[$i]['unit_price'] = Money::fromCents((int) $item->default_price_cents)->toDecimalString();
-                $this->lines[$i]['tax_code_id'] = $item->default_tax_code_id;
-                $this->lines[$i]['secondary_tax_code_id'] = $item->default_secondary_tax_code_id;
+                [$this->lines[$i]['tax_code_id'], $this->lines[$i]['secondary_tax_code_id']] = TaxCode::defaultsForSales($item->default_tax_code_id, $item->default_secondary_tax_code_id);
             }
         }
 
@@ -270,10 +269,12 @@ new #[Title('Sales Order')] class extends Component
             $this->terms_id = $contact->default_terms_id;
         }
 
-        if ($contact?->default_tax_code_id) {
+        $defaultTaxCodeId = TaxCode::defaultForSales($contact?->default_tax_code_id);
+
+        if ($defaultTaxCodeId !== null) {
             foreach ($this->lines as $i => $line) {
                 if (! $line['tax_code_id']) {
-                    $this->lines[$i]['tax_code_id'] = $contact->default_tax_code_id;
+                    $this->lines[$i]['tax_code_id'] = $defaultTaxCodeId;
                     $this->recalcLine($i);
                 }
             }

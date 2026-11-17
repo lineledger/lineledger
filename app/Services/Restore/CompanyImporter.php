@@ -17,6 +17,7 @@ use App\Services\Backup\CompanyExporter;
 use App\Services\Backup\JsonlTableWriter;
 use App\Services\Restore\Exceptions\BundleValidationException;
 use App\Support\Encryption\EncryptedColumns;
+use App\Support\Gifi\GifiCodeCorrections;
 use App\Support\Storage\TemporaryLocalFile;
 use Carbon\CarbonImmutable;
 use FilesystemIterator;
@@ -154,6 +155,10 @@ final class CompanyImporter
             $manifest = $preview['manifest'];
             $manifestTables = is_array($manifest['tables'] ?? null) ? $manifest['tables'] : [];
 
+            // A bundle from before the GIFI codes were checked against CRA's
+            // guide still carries the old, mislabelled codes on its accounts.
+            $correctGifiCodes = GifiCodeCorrections::bundleNeedsCorrection($manifest);
+
             // Per-table sha256 integrity check, before we touch the DB.
             $this->verifyTableHashes($extractedDir, $manifestTables);
 
@@ -222,6 +227,7 @@ final class CompanyImporter
 
             $newCompany = DB::transaction(function () use (
                 $extractedDir,
+                $correctGifiCodes,
                 $shellPayload,
                 $oldCompanyId,
                 $userIdMap,
@@ -257,6 +263,7 @@ final class CompanyImporter
 
                 AuditMute::silence(function () use (
                     $extractedDir,
+                    $correctGifiCodes,
                     $rowTransformer,
                     $idMapper,
                     $newCompany,
@@ -303,6 +310,10 @@ final class CompanyImporter
                                 $skipped++;
 
                                 continue;
+                            }
+
+                            if ($tableName === 'accounts' && $correctGifiCodes && isset($result['row']['gifi_code'])) {
+                                $result['row']['gifi_code'] = GifiCodeCorrections::correct((string) $result['row']['gifi_code']);
                             }
 
                             $payload = $this->prepareRowForInsert($this->encryptColumns($modelClass, $result['row']));

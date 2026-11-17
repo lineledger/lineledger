@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\Item;
+use App\Models\TaxCode;
 use App\Models\TimeEntry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,8 @@ final class CreateInvoiceFromTimeEntries
                         $secondaryTaxCodeId = $item->default_secondary_tax_code_id;
                         $itemName = $item->name;
                     }
+
+                    [$taxCodeId, $secondaryTaxCodeId] = TaxCode::defaultsForSales($taxCodeId, $secondaryTaxCodeId);
 
                     return [
                         'item_id' => $entry->item_id,
