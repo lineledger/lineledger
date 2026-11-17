@@ -9,18 +9,18 @@
         "test": "node --test \"tests/js/**/*.test.js\""
     },
     "dependencies": {
-        "@laravel/passkeys": "^0.2.0",
-        "@tailwindcss/vite": "^4.1.11",
-        "autoprefixer": "^10.4.20",
-        "chart.js": "^4.5.1",
-        "concurrently": "^10.0.3",
-        "laravel-vite-plugin": "^3.1",
-        "tailwindcss": "^4.0.7",
-        "vite": "^8.3.5"
+        "@laravel/passkeys": "^0.4.1",
+        "@tailwindcss/vite": "^4.3.5",
+        "autoprefixer": "^10.6.2",
+        "chart.js": "^4.6.1",
+        "concurrently": "^10.0.7",
+        "laravel-vite-plugin": "^3.2.1",
+        "tailwindcss": "^4.3.5",
+        "vite": "^8.3.8"
     },
     "optionalDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "4.64.12",
-        "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
+        "@rollup/rollup-linux-x64-gnu": "4.68.2",
+        "@tailwindcss/oxide-linux-x64-gnu": "^4.3.5",
         "lightningcss-linux-x64-gnu": "^1.29.1"
     }
 }
