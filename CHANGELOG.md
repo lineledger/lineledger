@@ -43,6 +43,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   account, now gets a 422** and needs to use one of those. A document already saved
   on another account can keep it when updated.
 
+- Dependency updates: `stripe/stripe-php` 23.0 (the Stripe API version moves
+  to 2026-10-28.endive; LineLedger already passes the connected account on every
+  call, which 23.0 now requires), `laravel/fortify` 1.42, `laravel/mcp` 1.2,
+  `laravel/tinker` 3.1, `resend/resend-php` 1.18, `openspout/openspout` 5.14,
+  `laravel/nightwatch` 1.30.6, Larastan 3.15, `laravel/boost` 2.10.4,
+  `@laravel/passkeys` 0.4.1, Vite 8.3.8, Tailwind CSS 4.3.5,
+  `laravel-vite-plugin` 3.2.1, Chart.js 4.6.1, `concurrently` 10.0.7,
+  Autoprefixer 10.6.2, `@rollup/rollup-linux-x64-gnu` 4.68.2,
+  `docker/login-action` 4.8.0 and the CodeQL SARIF upload action 4.39.3.
+  ([#182](https://github.com/lineledger/lineledger/pull/182)–[#227](https://github.com/lineledger/lineledger/pull/227))
+
 ### Fixed
 
 - **GIFI codes match the CRA's.** Checked against the CRA's guide RC4088, the
@@ -97,6 +108,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on an invoice, or a deactivated code. A document now only takes a code its own
   picker offers, and a second code moves up if the first doesn't apply. Invoices from
   time entries do the same.
+
+### Security
+
+- **`laravel/framework` updated to 13.42 and `phpseclib/phpseclib` to 4.0.3.**
+  Only `composer.lock` changed. The advisories they fix:
+  - `laravel/framework`: a `Concurrency` task that prints user-controlled text
+    could forge the framework's result message (CVE-2026-128083,
+    [GHSA-63hm-g96r-2m2q](https://github.com/advisories/GHSA-63hm-g96r-2m2q)).
+    LineLedger does not call `Concurrency`, so it was not exposed.
+  - `phpseclib/phpseclib`, which Passport uses for its OAuth keys: no limit on
+    the PBKDF iteration count when parsing an encrypted key, PFX or CMS file
+    ([GHSA-w3p9-g4p2-h3rr](https://github.com/phpseclib/phpseclib/security/advisories/GHSA-w3p9-g4p2-h3rr)).
 
 ## [1.4.3] - 2026-11-05
 
