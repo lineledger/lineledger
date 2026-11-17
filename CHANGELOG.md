@@ -98,6 +98,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picker offers, and a second code moves up if the first doesn't apply. Invoices from
   time entries do the same.
 
+### Security
+
+- **`laravel/framework` updated to 13.42 and `phpseclib/phpseclib` to 4.0.3.**
+  Only `composer.lock` changed. The advisories they fix:
+  - `laravel/framework`: a `Concurrency` task that prints user-controlled text
+    could forge the framework's result message (CVE-2026-128083,
+    [GHSA-63hm-g96r-2m2q](https://github.com/advisories/GHSA-63hm-g96r-2m2q)).
+    LineLedger does not call `Concurrency`, so it was not exposed.
+  - `phpseclib/phpseclib`, which Passport uses for its OAuth keys: no limit on
+    the PBKDF iteration count when parsing an encrypted key, PFX or CMS file
+    ([GHSA-w3p9-g4p2-h3rr](https://github.com/phpseclib/phpseclib/security/advisories/GHSA-w3p9-g4p2-h3rr)).
+
 ## [1.4.3] - 2026-11-05
 
 **Highlights.** A security patch that updates the Symfony components LineLedger
