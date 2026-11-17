@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.2] - 2026-11-17
+
+**Highlights.** The second release candidate for 1.5.0, on the next channel
+only. It carries every change in 1.4.4 (see [1.4.4] below): the GIFI
+Statement's CRA codes and names and its GIFI file for tax software, QuickBooks
+sub-accounts that keep their parents, payment and tax pickers that accept only
+what they offer, and the `laravel/framework` and `phpseclib` updates. It also
+puts back the Edit buttons that 1.5.0-rc.1 lost on Settings → Organizations.
+One migration, from 1.4.4; see `UPGRADING.md`.
+
 ### Fixed
 
 - **Edit buttons are back on Settings → Organizations.** In 1.5.0-rc.1 each
@@ -1790,7 +1800,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...HEAD
+[1.5.0-rc.2]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...v1.5.0-rc.2
 [1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
 [1.4.4]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/lineledger/lineledger/compare/v1.4.2...v1.4.3

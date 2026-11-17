@@ -44,6 +44,82 @@ newest first.
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
 
+## 1.4.4 → 1.5.0-rc.2
+
+Released 2026-11-17, on the **next channel** only (see How upgrades work → Channels).
+The second release candidate for 1.5.0. It carries everything in 1.4.4, and puts back
+the Edit buttons 1.5.0-rc.1 lost on Settings → Organizations. Run it on an install you
+can restore from a backup.
+
+PHP `^8.5`, Laravel 13 and every dependency are the same as in 1.4.4. **No config or env
+changes.** `docker-compose.yml`, `backup.sh` and `restore.sh` are unchanged from 1.4.4.
+What `app:upgrade` does depends on where you come from:
+
+- **From 1.5.0-rc.1:** one migration, 1.4.4's GIFI code correction. The 1.4.3 → 1.4.4
+  section below says what it does and what people will notice; the dependency updates
+  and the API's new 422 for receipts and bill payments apply to you too. Roles stay as
+  they are.
+- **From 1.4.4:** the four roles tables and `access:sync-roles`, as described under
+  1.4.3 → 1.5.0-rc.1 below. Its What happens, What people will notice and Check it
+  worked all apply.
+- **From 1.4.3 or earlier:** both. Read the 1.4.3 → 1.4.4 and 1.4.3 → 1.5.0-rc.1
+  sections, and the sections for any release you skip, then come straight here.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.5.0-rc.2` in the filenames. Keep it
+until you know you're staying on 1.5: it is the way back to 1.5.0-rc.1, 1.4.3 or
+earlier, and to exactly the access everyone had.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.5.0-rc.2, or LINELEDGER_VERSION=next to take each
+# release candidate (and then 1.5.0) as it ships.
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+```bash
+lineledger upgrade              # already on the next channel
+lineledger upgrade 1.5.0-rc.2   # from stable; then lineledger channel next, optionally
+```
+
+### DigitalOcean App Platform
+
+Already on the `next` image tag: deploy again once the 1.5.0-rc.2 image is built. From
+stable, change every component's image tag from `latest` to `next` in the app's spec,
+then deploy. The pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Check out `v1.5.0-rc.2`, or deploy the `next` branch, with the unchanged deploy script.
+Then run `php artisan app:upgrade --verify` and `php artisan queue:restart`.
+
+### Check it worked
+
+- The footer of every page shows `v1.5.0-rc.2`.
+- `php artisan migrate:status` (Docker: prefix it with `docker compose exec app`) shows
+  `2026_11_16_120000_correct_gifi_codes_on_accounts` as `Ran`.
+- **Settings → Organizations** shows a button for each organization again.
+- Coming from 1.4.4: the checks under 1.4.3 → 1.5.0-rc.1 below.
+
+### Rolling back
+
+Going back to **1.4.4** doesn't need a restore, on the same terms as going back from
+1.5.0-rc.1 (see Rolling back under 1.4.3 → 1.5.0-rc.1): members keep their 1.4.4
+access, and anyone whose roles you set on a candidate has no access until someone
+ticks their sections again. Set `LINELEDGER_VERSION=1.4.4`; on a Droplet, run
+`lineledger channel stable` and then `lineledger upgrade 1.4.4`; on Forge, check out
+`v1.4.4`.
+
+Going back to **1.5.0-rc.1** or **1.4.3** needs the backup: neither knows the corrected
+GIFI codes, so both would show their old, wrong names against them.
+
 ## 1.4.3 → 1.4.4
 
 Released 2026-11-17. A patch. The GIFI Statement now uses the CRA's codes and names

@@ -14,10 +14,11 @@ the GL.
 
 ## Status
 
-This is the `next` branch, at **1.5.0-rc.1**, released November 5, 2026: the first
+This is the `next` branch, at **1.5.0-rc.2**, released November 17, 2026: the second
 release candidate for 1.5.0, which adds users and roles in the manner of QuickBooks
-Desktop Enterprise. Release candidates reach only installs on the
-[next channel](#release-channels). The newest stable release is **1.4.4**, released
+Desktop Enterprise. It carries everything in 1.4.4, and puts back the Edit buttons
+1.5.0-rc.1 lost on Settings → Organizations. Release candidates reach only installs on
+the [next channel](#release-channels). The newest stable release is **1.4.4**, released
 November 17, a patch that gives the GIFI Statement the CRA's own codes and names and
 lets it download as a GIFI file for tax software, keeps QuickBooks sub-accounts under
 their parents on import, makes payment and tax pickers accept only what they offer,
@@ -68,7 +69,7 @@ Pick the route that fits; each links to its full guide further down.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean/droplet/install.sh | bash
    ```
 
 2. A few minutes after it boots, open `http://<droplet-ip>` and register. The first
@@ -729,7 +730,7 @@ No clone needed — fetch the compose bundle for the release, configure, and sta
 
 ```bash
 mkdir lineledger && cd lineledger
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker
 curl -fsSLO "$base/docker-compose.yml"
 curl -fsSL  "$base/.env.example" -o .env
 curl -fsSLO "$base/backup.sh"
@@ -744,7 +745,7 @@ docker compose run --rm --no-deps app php artisan key:generate --show
 docker compose up -d
 ```
 
-Fetch from the tag you are deploying (`v1.5.0-rc.1` above), not `main` — the compose
+Fetch from the tag you are deploying (`v1.5.0-rc.2` above), not `main` — the compose
 file, entrypoint and scripts on `main` may already describe the next release.
 
 **Set up mail before anyone else registers.** Email verification is enforced: a new
@@ -782,7 +783,7 @@ Release notes and anything a specific version needs are in
 
 ```bash
 ./backup.sh                                # 1. DB dump + storage volume + .env into ./backups
-# 2. in .env, pin the release:  LINELEDGER_VERSION=1.5.0-rc.1
+# 2. in .env, pin the release:  LINELEDGER_VERSION=1.5.0-rc.2
 docker compose pull && docker compose up -d   # 3. new image; app:upgrade runs on boot
 docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and prove the books
 ```
@@ -966,7 +967,7 @@ There is nothing to configure before the first visit.
 
    ```bash
    #!/bin/bash
-   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean/droplet/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean/droplet/install.sh | bash
    ```
 
    Pick a size with at least 2 GB of memory, and turn on **Backups** while
@@ -1021,7 +1022,7 @@ The only questions are your mail settings. You need [`doctl`](https://docs.digit
 brew install doctl jq        # or your platform's package manager
 doctl auth init              # paste a DigitalOcean API token with write access
 
-base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.1/docker/digitalocean
+base=https://raw.githubusercontent.com/lineledger/lineledger/v1.5.0-rc.2/docker/digitalocean
 curl -fsSLO "$base/deploy.sh"
 curl -fsSLO "$base/app.yaml"
 chmod +x deploy.sh
@@ -1297,7 +1298,7 @@ things around it — take a backup before you click, and read
 [`UPGRADING.md`](UPGRADING.md) for anything the release needs beyond what
 `app:upgrade` does on its own. To upgrade by tag rather than by whatever is on
 `main`, swap the `git pull` line for
-`git fetch --tags origin && git checkout v1.5.0-rc.1` (or point the Forge site at a
+`git fetch --tags origin && git checkout v1.5.0-rc.2` (or point the Forge site at a
 release branch), so a deploy always lands on a version you chose. After the deploy,
 `php artisan app:upgrade --verify` proves the ledger still reconciles, and
 `proof:generate` refreshes `/verification` if you publish it.
