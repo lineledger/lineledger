@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Gifi\GifiCodeCorrections;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 
@@ -45,6 +46,9 @@ final class ManifestBuilder
         return [
             'schema_version' => (int) config('version.schema'),
             'app_version' => (string) config('version.app'),
+            // Accounts carry CRA's corrected GIFI codes; a bundle without this
+            // key predates them and is corrected on restore.
+            'gifi_codes' => GifiCodeCorrections::REVISION,
             'exported_at' => CarbonImmutable::now('UTC')->toIso8601ZuluString(),
             'exported_by' => [
                 'user_id' => (int) $user->id,

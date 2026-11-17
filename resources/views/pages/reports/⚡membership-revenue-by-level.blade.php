@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\InvoiceStatus;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Support\Money;
@@ -37,7 +38,7 @@ new #[Title('Dues Revenue by Level')] class extends Component {
     {
         return Invoice::query()
             ->whereNotNull('member_id')
-            ->whereIn('status', ['posted', 'partial', 'paid'])
+            ->whereIn('status', [InvoiceStatus::Posted->value, InvoiceStatus::Partial->value, InvoiceStatus::Paid->value])
             ->whereBetween('invoice_date', [
                 CarbonImmutable::parse($this->from)->toDateString(),
                 CarbonImmutable::parse($this->to)->toDateString(),

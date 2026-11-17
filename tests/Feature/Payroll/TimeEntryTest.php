@@ -10,6 +10,7 @@ use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\InvoiceStatus;
 use App\Enums\PayBasis;
+use App\Enums\TaxAppliesTo;
 use App\Enums\TimeEntryStatus;
 use App\Models\Account;
 use App\Models\Company;
@@ -19,6 +20,7 @@ use App\Models\Item;
 use App\Models\Membership;
 use App\Models\PayrollSchedule;
 use App\Models\PayRun;
+use App\Models\TaxCode;
 use App\Models\TimeEntry;
 use App\Models\User;
 use App\Services\Payroll\CalculatePayRun;
@@ -372,4 +374,33 @@ it('gates the my-pay time route to the employee audience', function () {
 
     $this->get(route('employee-portal.time', ['company' => $this->company->slug]))
         ->assertForbidden();
+});
+
+it('skips a customer or item tax default that does not apply to sales', function () {
+    $purchaseOnly = TaxCode::create([
+        'code' => 'PURCHONLY', 'name' => 'Purchase only', 'rate_basis_points' => 500,
+        'applies_to' => TaxAppliesTo::PurchaseOnly->value,
+    ]);
+    $bothWays = TaxCode::create([
+        'code' => 'BOTHWAYS', 'name' => 'Both ways', 'rate_basis_points' => 500,
+        'applies_to' => TaxAppliesTo::Both->value,
+    ]);
+
+    $this->customer->update(['default_tax_code_id' => $purchaseOnly->id]);
+    $item = Item::create([
+        'name' => 'Consulting', 'type' => 'service',
+        'default_tax_code_id' => $purchaseOnly->id,
+        'default_secondary_tax_code_id' => $bothWays->id,
+    ]);
+
+    $fromCustomer = TimeEntry::create(['contact_id' => $this->employee->id, 'date_worked' => '2025-06-02', 'hours' => 1, 'billable' => true, 'customer_id' => $this->customer->id, 'status' => 'approved']);
+    $fromItem = TimeEntry::create(['contact_id' => $this->employee->id, 'date_worked' => '2025-06-03', 'hours' => 1, 'billable' => true, 'customer_id' => $this->customer->id, 'item_id' => $item->id, 'status' => 'approved']);
+
+    $lines = app(CreateInvoiceFromTimeEntries::class)
+        ->handle($this->customer, collect([$fromCustomer, $fromItem]))
+        ->lines()->orderBy('line_order')->get();
+
+    expect($lines[0]->tax_code_id)->toBeNull()
+        ->and($lines[1]->tax_code_id)->toBe($bothWays->id)
+        ->and($lines[1]->secondary_tax_code_id)->toBeNull();
 });

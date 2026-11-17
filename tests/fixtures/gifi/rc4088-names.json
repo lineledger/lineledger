@@ -1,0 +1,366 @@
+{
+  "1000": {
+    "en": "Cash and deposits",
+    "fr": "Encaisse et dépôts"
+  },
+  "1001": {
+    "en": "Cash",
+    "fr": "Encaisse"
+  },
+  "1060": {
+    "en": "Accounts receivable",
+    "fr": "Comptes clients"
+  },
+  "1061": {
+    "en": "Allowance for doubtful accounts",
+    "fr": "Provision pour créances douteuses"
+  },
+  "1067": {
+    "en": "Interest receivable",
+    "fr": "Intérêts à recevoir"
+  },
+  "1120": {
+    "en": "Inventories",
+    "fr": "Stocks"
+  },
+  "1180": {
+    "en": "Short-term investments",
+    "fr": "Placements à court terme"
+  },
+  "1240": {
+    "en": "Loans and notes receivable",
+    "fr": "Prêts et effets à recevoir"
+  },
+  "1300": {
+    "en": "Due from shareholder(s)/director(s)",
+    "fr": "Sommes exigibles d'actionnaires/d'administrateurs (sociétés seulement)"
+  },
+  "1480": {
+    "en": "Other current assets",
+    "fr": "Autres éléments d'actif à court terme"
+  },
+  "1484": {
+    "en": "Prepaid expenses",
+    "fr": "Dépenses payées d'avance"
+  },
+  "1599": {
+    "en": "Total current assets",
+    "fr": "Total de l'actif à court terme"
+  },
+  "1600": {
+    "en": "Land",
+    "fr": "Terrains"
+  },
+  "1680": {
+    "en": "Buildings",
+    "fr": "Bâtiments"
+  },
+  "1681": {
+    "en": "Accumulated amortization of buildings",
+    "fr": "Amortissement cumulé des bâtiments"
+  },
+  "1740": {
+    "en": "Machinery, equipment, furniture, and fixtures",
+    "fr": "Machines, matériel, meubles et accessoires"
+  },
+  "1741": {
+    "en": "Accumulated amortization of machinery, equipment, furniture, and fixtures",
+    "fr": "Amortissement cumulé des machines, du matériel, des meubles et des accessoires"
+  },
+  "1742": {
+    "en": "Motor vehicles",
+    "fr": "Véhicules automobiles"
+  },
+  "1743": {
+    "en": "Accumulated amortization of motor vehicles",
+    "fr": "Amortissement cumulé des véhicules automobiles"
+  },
+  "1774": {
+    "en": "Computer equipment/software",
+    "fr": "Matériel informatique/logiciels"
+  },
+  "1775": {
+    "en": "Accumulated amortization of computer equipment/software",
+    "fr": "Amortissement cumulé du matériel informatique/logiciels"
+  },
+  "1918": {
+    "en": "Leasehold improvements",
+    "fr": "Améliorations locatives"
+  },
+  "1919": {
+    "en": "Accumulated amortization of leasehold improvements",
+    "fr": "Amortissement cumulé des améliorations locatives"
+  },
+  "2008": {
+    "en": "Total tangible capital assets",
+    "fr": "Total des immobilisations"
+  },
+  "2009": {
+    "en": "Total accumulated amortization of tangible capital assets",
+    "fr": "Total de l'amortissement cumulé des immobilisations"
+  },
+  "2010": {
+    "en": "Intangible assets",
+    "fr": "Actif incorporel"
+  },
+  "2012": {
+    "en": "Goodwill",
+    "fr": "Achalandage"
+  },
+  "2178": {
+    "en": "Total intangible capital assets",
+    "fr": "Total de l'actif incorporel"
+  },
+  "2179": {
+    "en": "Total accumulated amortization of intangible capital assets",
+    "fr": "Total de l'amortissement cumulé de l'actif incorporel"
+  },
+  "2300": {
+    "en": "Long-term investments",
+    "fr": "Placements à long terme"
+  },
+  "2360": {
+    "en": "Long-term loans",
+    "fr": "Prêts à long terme"
+  },
+  "2420": {
+    "en": "Other long-term assets",
+    "fr": "Autres éléments d'actif à long terme"
+  },
+  "2589": {
+    "en": "Total long-term assets",
+    "fr": "Total de l'actif à long terme"
+  },
+  "2599": {
+    "en": "Total assets",
+    "fr": "Total de l'actif"
+  },
+  "2600": {
+    "en": "Bank overdraft",
+    "fr": "Découvert bancaire"
+  },
+  "2620": {
+    "en": "Amounts payable and accrued liabilities",
+    "fr": "Montants et charges à payer"
+  },
+  "2680": {
+    "en": "Taxes payable",
+    "fr": "Taxes et impôts à payer"
+  },
+  "2700": {
+    "en": "Short-term debt",
+    "fr": "Dettes à court terme"
+  },
+  "2780": {
+    "en": "Due to shareholder(s)/director(s)",
+    "fr": "Sommes dues à un (des) actionnaire(s)/administrateur(s)"
+  },
+  "2960": {
+    "en": "Other current liabilities",
+    "fr": "Autres éléments du passif à court terme"
+  },
+  "3139": {
+    "en": "Total current liabilities",
+    "fr": "Total du passif à court terme"
+  },
+  "3140": {
+    "en": "Long-term debt",
+    "fr": "Dettes à long terme"
+  },
+  "3220": {
+    "en": "Deferred income",
+    "fr": "Revenus reportés"
+  },
+  "3240": {
+    "en": "Future (deferred) income taxes (corporations only)",
+    "fr": "Impôts sur le revenu futurs (reportés) (sociétés seulement)"
+  },
+  "3300": {
+    "en": "Due to related parties",
+    "fr": "Sommes dues à des personnes apparentées"
+  },
+  "3320": {
+    "en": "Other long-term liabilities",
+    "fr": "Autres éléments de passif à long terme"
+  },
+  "3450": {
+    "en": "Total long-term liabilities",
+    "fr": "Total du passif à long terme"
+  },
+  "3499": {
+    "en": "Total liabilities",
+    "fr": "Total du passif"
+  },
+  "3500": {
+    "en": "Common shares",
+    "fr": "Actions ordinaires"
+  },
+  "3520": {
+    "en": "Preferred shares",
+    "fr": "Actions privilégiées"
+  },
+  "3540": {
+    "en": "Contributed and other surplus",
+    "fr": "Surplus d'apport et autres surplus"
+  },
+  "3600": {
+    "en": "Retained earnings/deficit",
+    "fr": "Bénéfices non répartis/déficit"
+  },
+  "3620": {
+    "en": "Total shareholder equity",
+    "fr": "Total des capitaux propres"
+  },
+  "3640": {
+    "en": "Total liabilities and shareholder equity",
+    "fr": "Total du passif et des capitaux propres"
+  },
+  "3849": {
+    "en": "Retained earnings/deficit – End",
+    "fr": "Bénéfices non répartis/déficit – fin de l'exercice"
+  },
+  "8000": {
+    "en": "Trade sales of goods and services",
+    "fr": "Ventes commerciales de biens et services"
+  },
+  "8089": {
+    "en": "Total sales of goods and services",
+    "fr": "Total des ventes de biens et services"
+  },
+  "8090": {
+    "en": "Investment revenue",
+    "fr": "Revenus de placements"
+  },
+  "8140": {
+    "en": "Rental revenue",
+    "fr": "Revenus de location"
+  },
+  "8210": {
+    "en": "Realized gains/losses on disposal of assets",
+    "fr": "Profits/pertes sur la disposition d'éléments d'actif"
+  },
+  "8230": {
+    "en": "Other revenue",
+    "fr": "Autres revenus"
+  },
+  "8299": {
+    "en": "Total revenue",
+    "fr": "Total des revenus"
+  },
+  "8320": {
+    "en": "Purchases/cost of materials",
+    "fr": "Achats/coût des matériaux"
+  },
+  "8360": {
+    "en": "Trades and sub-contracts",
+    "fr": "Fournisseurs et sous-traitants"
+  },
+  "8457": {
+    "en": "Freight-in and duty",
+    "fr": "Frais de transport à l'achat et droits"
+  },
+  "8518": {
+    "en": "Cost of sales",
+    "fr": "Coût des ventes"
+  },
+  "8519": {
+    "en": "Gross profit/loss",
+    "fr": "Profit brut/perte bruteCe poste représente la différence entre le poste 8089 – Total des ventes de biens et services, et le poste 8518 – Coût des ventes. On peut également l'appeler marge bénéficiaire brute."
+  },
+  "8520": {
+    "en": "Advertising and promotion",
+    "fr": "Publicité et promotion"
+  },
+  "8570": {
+    "en": "Amortization of intangible assets",
+    "fr": "Amortissement de biens incorporels"
+  },
+  "8590": {
+    "en": "Bad debt expense",
+    "fr": "Créances irrécouvrables"
+  },
+  "8620": {
+    "en": "Employee benefits",
+    "fr": "Avantages sociaux"
+  },
+  "8670": {
+    "en": "Amortization of tangible assets",
+    "fr": "Amortissement des biens corporels"
+  },
+  "8690": {
+    "en": "Insurance",
+    "fr": "Assurances"
+  },
+  "8710": {
+    "en": "Interest and bank charges",
+    "fr": "Intérêts et frais bancaires"
+  },
+  "8714": {
+    "en": "Interest on long-term debt",
+    "fr": "Intérêts sur les dettes à long terme"
+  },
+  "8810": {
+    "en": "Office expenses",
+    "fr": "Frais de bureau"
+  },
+  "8860": {
+    "en": "Professional fees",
+    "fr": "Honoraires professionnels"
+  },
+  "8910": {
+    "en": "Rental",
+    "fr": "Frais de location"
+  },
+  "8960": {
+    "en": "Repairs and maintenance",
+    "fr": "Réparations et entretien"
+  },
+  "9060": {
+    "en": "Salaries and wages",
+    "fr": "Salaires et traitements"
+  },
+  "9130": {
+    "en": "Supplies",
+    "fr": "Fournitures"
+  },
+  "9180": {
+    "en": "Property taxes",
+    "fr": "Taxes foncières"
+  },
+  "9200": {
+    "en": "Travel expenses",
+    "fr": "Frais de déplacement"
+  },
+  "9220": {
+    "en": "Utilities",
+    "fr": "Services publics"
+  },
+  "9224": {
+    "en": "Fuel costs",
+    "fr": "Frais de carburant"
+  },
+  "9270": {
+    "en": "Other expenses",
+    "fr": "Autres dépenses"
+  },
+  "9281": {
+    "en": "Vehicle expenses",
+    "fr": "Frais de véhicules"
+  },
+  "9367": {
+    "en": "Total operating expenses",
+    "fr": "Total des frais d'exploitation"
+  },
+  "9368": {
+    "en": "Total expenses",
+    "fr": "Total des dépenses"
+  },
+  "9369": {
+    "en": "Net non-farming income",
+    "fr": "Revenu non agricole net"
+  },
+  "9999": {
+    "en": "Net income/loss after taxes and extraordinary items",
+    "fr": "Revenu net/perte nette après impôts et éléments extraordinaires"
+  }
+}

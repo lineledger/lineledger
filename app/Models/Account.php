@@ -203,6 +203,32 @@ class Account extends Model
         });
     }
 
+    /**
+     * Accounts a bill can be paid from: a bank or credit card. The bill payment form
+     * and the API share this. Statement lines and QuickBooks imports write through the
+     * Action and can use others.
+     *
+     * @param  Builder<Account>  $query
+     * @return Builder<Account>
+     */
+    public function scopeBillPaymentSources(Builder $query): Builder
+    {
+        return $query->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::CreditCard->value]);
+    }
+
+    /**
+     * Accounts a customer's money can land in: a bank or Undeposited Funds. The receipt
+     * and sales receipt forms and the API share this. Stripe receipts and QuickBooks
+     * imports write through the Action and can use others, such as a clearing account.
+     *
+     * @param  Builder<Account>  $query
+     * @return Builder<Account>
+     */
+    public function scopePaymentDepositAccounts(Builder $query): Builder
+    {
+        return $query->whereIn('subtype', [AccountSubtype::Bank->value, AccountSubtype::UndepositedFunds->value]);
+    }
+
     public function scopeSelectableForItemAccount(Builder $query): Builder
     {
         return $query
