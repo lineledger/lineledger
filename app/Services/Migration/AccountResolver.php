@@ -13,8 +13,9 @@ use Illuminate\Support\Collection;
  *
  * QuickBooks labels accounts as "NUMBER · NAME" (e.g. "301 · Due to PA Franchise
  * Corp") and joins sub-accounts with a colon (e.g. "1000 · Bank:1010 · Chequing").
- * Resolution parses the leaf segment into a code + name and matches on the account
- * number first, then the name (both case-insensitive). Auto-created accounts reuse
+ * Resolution matches on the account number first, then the full path of names up
+ * the parent chain (so "Hosting:Domain Names" and a top-level "Domain Names" stay
+ * apart), then the leaf name (all case-insensitive). Auto-created accounts reuse
  * QuickBooks' own number and name.
  */
 class AccountResolver
@@ -24,6 +25,9 @@ class AccountResolver
 
     /** @var Collection<string, Account> keyed by lowercased account code */
     protected Collection $byCode;
+
+    /** @var Collection<string, Account> keyed by QuickBooksAccountLabel::keyFor() of the names up the parent chain */
+    protected Collection $byPath;
 
     /** @var array<string, AccountSubtype> lowercased name => subtype (from IIF !ACCNT records or an Account Listing) */
     protected array $typeHints;
@@ -47,6 +51,7 @@ class AccountResolver
         $this->typeHintsByCode = $typeHintsByCode;
         $this->byName = collect();
         $this->byCode = collect();
+        $this->byPath = collect();
 
         // Order deterministically: byName/byCode use last-write-wins, so when two
         // accounts share a name (e.g. a seeded "Undeposited Funds" plus one imported
@@ -54,10 +59,12 @@ class AccountResolver
         $accounts = Account::withoutGlobalScopes()
             ->where('company_id', $companyId)
             ->orderBy('id')
-            ->get(['id', 'code', 'name', 'subtype', 'normal_balance']);
+            ->get(['id', 'parent_id', 'code', 'name', 'subtype', 'normal_balance']);
+
+        $paths = QuickBooksAccountLabel::pathsOf($accounts);
 
         foreach ($accounts as $account) {
-            $this->index($account);
+            $this->index($account, $paths[$account->id]);
         }
 
         $maxCode = (int) $accounts
@@ -69,11 +76,19 @@ class AccountResolver
 
     public function find(string $label): ?Account
     {
-        $parsed = $this->parseLabel($label);
+        $parsed = QuickBooksAccountLabel::leaf($label);
 
         // Account number is the most reliable match.
         if ($parsed['code'] !== null && $this->byCode->has(mb_strtolower($parsed['code']))) {
             return $this->byCode->get(mb_strtolower($parsed['code']));
+        }
+
+        // Then the whole path, so a sub-account isn't mistaken for another account
+        // that happens to share its name.
+        $path = QuickBooksAccountLabel::pathKey($label);
+
+        if ($path !== '' && $this->byPath->has($path)) {
+            return $this->byPath->get($path);
         }
 
         $candidates = [
@@ -111,11 +126,12 @@ class AccountResolver
             return null;
         }
 
-        $parsed = $this->parseLabel($label);
+        $parsed = QuickBooksAccountLabel::leaf($label);
 
-        // The account number is the most reliable hint key, then the name.
+        // The account number is the most reliable hint key, then the path, then the name.
         $subtype = ($parsed['code'] !== null ? ($this->typeHintsByCode[mb_strtolower($parsed['code'])] ?? null) : null)
             ?? $this->typeHints[mb_strtolower(trim($label))]
+            ?? $this->typeHints[QuickBooksAccountLabel::pathKey($label)]
             ?? $this->typeHints[mb_strtolower($parsed['name'])]
             ?? AccountSubtype::OtherAsset;
 
@@ -157,14 +173,16 @@ class AccountResolver
             'description' => 'Created during QuickBooks full-history import.',
         ]);
 
-        $this->index($account);
+        // Created at the top level, so its path is its name.
+        $this->index($account, $name);
 
         return $account;
     }
 
-    protected function index(Account $account): void
+    protected function index(Account $account, string $path): void
     {
         $this->byName->put(mb_strtolower($account->name), $account);
+        $this->byPath->put(QuickBooksAccountLabel::pathKey($path), $account);
 
         if ($account->code !== null && $account->code !== '') {
             $this->byCode->put(mb_strtolower((string) $account->code), $account);
@@ -174,39 +192,6 @@ class AccountResolver
             $segments = explode(':', $account->name);
             $this->byName->put(mb_strtolower(trim(end($segments))), $account);
         }
-    }
-
-    /**
-     * Split a QuickBooks account label into a code and name.
-     *
-     * "1000 · Bank:1010 · Chequing" → code "1010", name "Chequing"
-     * "Due to Owner"                → code null,   name "Due to Owner"
-     *
-     * @return array{code: ?string, name: string}
-     */
-    protected function parseLabel(string $label): array
-    {
-        $segment = $label;
-
-        if (str_contains($label, ':')) {
-            $segments = explode(':', $label);
-            $segment = (string) end($segments);
-        }
-
-        $segment = trim($segment);
-
-        // QuickBooks separates the account number from the name with a middot.
-        if (str_contains($segment, '·')) {
-            [$code, $name] = array_pad(explode('·', $segment, 2), 2, '');
-            $code = trim($code);
-            $name = trim($name);
-
-            if ($code !== '' && $name !== '') {
-                return ['code' => $code, 'name' => $name];
-            }
-        }
-
-        return ['code' => null, 'name' => $segment];
     }
 
     /**

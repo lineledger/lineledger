@@ -221,6 +221,9 @@ new #[Title('Documentation — Import from QuickBooks')] class extends Component
             {{ __('Three steps read QuickBooks’ own list exports directly, so you do not have to retype them into the template. Chart of accounts accepts an Account Listing export (Account, Type, Accnt. #, Description); Customers and Vendors accept a Customer List or Vendor List export. These readers skip the report preamble and padding columns QuickBooks adds, strip a byte-order mark, and convert Windows-1252 text to UTF-8 — as does the Transaction history step.') }}
         </flux:text>
         <flux:text>
+            {{ __('In an Account Listing, a sub-account such as Pass Through Expense:Hosting is imported under its parent. An account without a number gets a code made from the first 20 characters of its name, ending in -2, -3 and so on when that code is taken. Importing a newer listing skips the accounts an earlier import made, matching them by name and parent.') }}
+        </flux:text>
+        <flux:text>
             {{ __('Open invoices also accepts QuickBooks’ Open Invoices report as-is, recognised by its Type and Open Balance columns. The app nets each customer’s credits (rows with a negative open balance, such as unapplied payments) against that customer’s invoices, oldest first, so a customer whose invoices and payments cancel out imports nothing; and it creates any customer that is not in your list yet. The template layout, by contrast, needs every customer to exist already — import Customers first.') }}
         </flux:text>
         <flux:text>

@@ -469,3 +469,28 @@ function payrollFilingQuebecEmployee(PayrollSchedule $schedule, int $annualSalar
 
     return $employee;
 }
+
+/**
+ * A QuickBooks Desktop Account Listing shaped like the one in #229: no account
+ * numbers, and "Domian Name Reg/Renew" both at the top level and under
+ * Pass Through Expense:Hosting. Returns the CSV body, or with $asFile the path
+ * of a temp file holding it.
+ */
+function quickBooksSubAccountListingCsv(bool $asFile = false): string
+{
+    $csv = "Account,Type,Accnt. #,Description\n"
+        ."Domian Name Reg/Renew,Expense,,\n"
+        ."Pass Through Expense,Expense,,\n"
+        ."Pass Through Expense:Hosting,Expense,,\n"
+        ."Pass Through Expense:Hosting:Domian Name Reg/Renew,Expense,,\n"
+        ."Pass Through Expense:Hosting:Email Hosting,Expense,,\n";
+
+    if (! $asFile) {
+        return $csv;
+    }
+
+    $path = tempnam(sys_get_temp_dir(), 'qbsub').'.csv';
+    file_put_contents($path, $csv);
+
+    return $path;
+}

@@ -108,6 +108,43 @@ it('flags a code that is duplicated within the file and creates nothing', functi
     expect(Account::query()->whereIn('code', ['9960', '9970'])->exists())->toBeFalse();
 });
 
+it('imports a QuickBooks Account Listing with its sub-accounts under their parents (#229)', function () {
+    $component = Livewire::test('pages::accounts.index', ['company' => $this->company])
+        ->set('importFile', accountsImportCsv(quickBooksSubAccountListingCsv()))
+        ->call('previewImport');
+
+    expect($component->get('importErrors'))->toBe([]);
+
+    $component->assertSeeHtml('data-test="accounts-import-preview-parent">Pass Through Expense:Hosting</td>');
+
+    $component->call('runImport');
+
+    expect($component->get('importErrors'))->toBe([]);
+
+    $hosting = Account::query()->where('name', 'Hosting')->sole();
+    $nested = Account::query()->where('name', 'Domian Name Reg/Renew')->whereNotNull('parent_id')->sole();
+
+    expect($hosting->parent?->name)->toBe('Pass Through Expense')
+        ->and($nested->parent_id)->toBe($hosting->id)
+        ->and(Account::query()->where('name', 'Domian Name Reg/Renew')->whereNull('parent_id')->count())->toBe(1);
+});
+
+it('creates nothing when a row sits under a parent of another account type', function () {
+    $csv = <<<'CSV'
+    code,name,subtype,parent_code,description
+    9980,Some Income,income,,
+    9981,Some Expense,expense,9980,
+    CSV;
+
+    $component = Livewire::test('pages::accounts.index', ['company' => $this->company])
+        ->set('importFile', accountsImportCsv($csv))
+        ->call('runImport');
+
+    expect(collect($component->get('importErrors'))->pluck('message')->all())
+        ->toBe(['The parent account must be the same account type.']);
+    expect(Account::query()->whereIn('code', ['9980', '9981'])->exists())->toBeFalse();
+});
+
 it('reports an error and creates nothing when a subtype is invalid', function () {
     $csv = <<<'CSV'
     code,name,subtype,parent_code,description
