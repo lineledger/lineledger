@@ -171,6 +171,7 @@ throttle runs *before* key authentication, so requests with bad keys are limited
 | Money | All money fields are **integer cents** (e.g. `total_cents: 10500` = $105.00). Never floats. |
 | Quantities | Strings, up to 4 decimal places (e.g. `"quantity": "1.5"`). |
 | Negative lines | `unit_price_cents` may be **negative** on an invoice line to record a discount or credit against the invoice (e.g. a member discount posted to a contra-revenue account). `quantity` stays positive — the sign lives on the price. The invoice **total must stay above zero**; a net credit is a credit memo, not an invoice. Credit memos and sales orders reject a negative price. |
+| Negative quantities | `quantity` may be **negative** on a credit memo line, but not zero (`"0"` and `"0.00"` are both refused). Use it when a credit memo refunds one item and re-charges the customer for a substituted one: `"quantity": "-1"` × `unit_price_cents: 19500` is a −$195.00 line, Sales by Item counts it as one sold, and it posts as a **credit** to its account (and to tax payable, if it is taxed). `unit_price_cents` stays at 0 or above. The credit memo **total must stay above zero**; the check runs on the lines' pre-tax subtotal, draft or not. |
 | Document numbers | Optional on create for every numbered document except sales orders (`invoice_no`, `bill_no`, `deposit_no`, …); omit the field and the server assigns the next free number. **Unique per organization** — a duplicate is a `422` naming the field. See [§2.2](#22-document-numbers). |
 | Dates | ISO `YYYY-MM-DD`. |
 | Timestamps | ISO 8601 in the response. |
@@ -587,6 +588,9 @@ Common causes:
 - Sum of `applications[].amount_cents` exceeds `amount_cents`.
 - Invoice lines that net to zero or to a credit (`lines`: `"The invoice total must
   be greater than zero. Use a credit memo for a net credit."`).
+- Credit memo lines that net to zero or less (`lines`: `"The credit memo total must
+  be greater than zero."`), or a credit memo line with a quantity of zero
+  (`lines.N.quantity`).
 
 ### Posting (`422`, no `errors` key)
 

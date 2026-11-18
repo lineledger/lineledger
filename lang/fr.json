@@ -7551,6 +7551,7 @@
   "The company name does not match.": "Le nom de l’organisation ne correspond pas.",
   "The configured payment methods with each one's name, whether it is a cheque method, active status, and API id.": "Les modes de paiement configurés avec le nom de chacun, s'il s'agit d'une méthode de chèque, le statut actif et l'id API.",
   "The core financial statements": "Les états financiers de base",
+  "The credit memo total must be greater than zero.": "Le total de la note de crédit doit être supérieur à zéro.",
   "The credit summary for a vendor with a posted vendor credit. It only appears when the vendor has credit to use.": "Le sommaire de crédit d'un fournisseur ayant un crédit fournisseur comptabilisé. Il n'apparaît que lorsque le fournisseur a du crédit à utiliser.",
   "The credit this refund pays back no longer exists.": "Le crédit que ce remboursement rembourse n’existe plus.",
   "The cube button at the end of a fixed-asset line on a bill. It opens the New asset form with the name, account, date, and cost already filled in.": "Le bouton cube à la fin d'une ligne d'immobilisation sur une facture fournisseur. Il ouvre le formulaire Nouvel actif avec le nom, le compte, la date et le coût déjà remplis.",
