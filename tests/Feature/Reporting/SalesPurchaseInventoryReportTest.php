@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Sales\SaveCreditMemo;
 use App\Enums\AccountSubtype;
 use App\Enums\BillStatus;
 use App\Enums\InvoiceStatus;
@@ -13,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\StockLayer;
 use App\Models\StockMovement;
+use App\Services\Posting\CreditMemoPoster;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Reporting\InventoryReportBuilder;
 use App\Services\Reporting\SalesPurchaseReportBuilder;
@@ -170,6 +172,37 @@ it('compares quantity and amount on sales-by-item with the prior period', functi
         ->assertSee('Qty Change')
         ->assertSee('100.00')      // current sales
         ->assertSee('60.00');      // prior sales
+});
+
+it('counts a negative-quantity credit memo line as sold on sales by item', function () {
+    // A credit memo that refunds a premium service and re-charges the standard
+    // one the customer received instead: the re-charge is a -1 quantity line.
+    $standard = Item::factory()->create(['company_id' => $this->company->id, 'name' => 'Standard service']);
+    $premium = Item::factory()->create(['company_id' => $this->company->id, 'name' => 'Premium service']);
+    $customer = Contact::create(['company_id' => $this->company->id, 'display_name' => 'Acme', 'is_customer' => true]);
+
+    $invoice = Invoice::create(['company_id' => $this->company->id, 'contact_id' => $customer->id, 'invoice_no' => 'INV-1', 'invoice_date' => CarbonImmutable::now(), 'due_date' => CarbonImmutable::now(), 'status' => InvoiceStatus::Posted->value]);
+    $invoice->lines()->create(['account_id' => $this->income->id, 'item_id' => $standard->id, 'description' => 'x', 'quantity' => '2', 'unit_price_cents' => 19500, 'line_subtotal_cents' => 39000, 'line_tax_cents' => 0, 'line_total_cents' => 39000, 'line_order' => 0]);
+
+    $memo = app(SaveCreditMemo::class)->handle([
+        'contact_id' => $customer->id,
+        'credit_memo_date' => CarbonImmutable::now()->toDateString(),
+        'lines' => [
+            ['account_id' => $this->income->id, 'item_id' => $premium->id, 'quantity' => '1', 'unit_price_cents' => 99500],
+            ['account_id' => $this->income->id, 'item_id' => $standard->id, 'quantity' => '-1', 'unit_price_cents' => 19500],
+        ],
+    ]);
+    app(CreditMemoPoster::class)->post($memo);
+
+    $rows = app(SalesPurchaseReportBuilder::class)
+        ->salesByDimension($this->company, $this->start, $this->end, 'item')
+        ->keyBy('key');
+
+    // Two invoiced plus the one re-charged on the credit memo.
+    expect($rows[$standard->id]['qty'])->toBe(3.0)
+        ->and($rows[$standard->id]['amount_cents'])->toBe(58500)
+        ->and($rows[$premium->id]['qty'])->toBe(-1.0)
+        ->and($rows[$premium->id]['amount_cents'])->toBe(-99500);
 });
 
 it('exports the comparison reports to xlsx and pdf in both single and comparison modes', function () {
