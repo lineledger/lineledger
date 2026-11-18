@@ -25,6 +25,7 @@ use App\Support\Tax\LineTaxBreakdown;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -422,7 +423,10 @@ new #[Title('Credit memo')] class extends Component
             'lines.*.account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where('company_id', $companyId)],
             'lines.*.description' => ['nullable', 'string'],
             'lines.*.service_date' => ['nullable', 'date'],
-            'lines.*.quantity' => ['required', 'numeric', 'min:0'],
+            // A negative quantity re-charges the customer for that line inside
+            // the credit (it posts as a credit to the line's account, and Sales by
+            // Item counts it as sold).
+            'lines.*.quantity' => ['required', 'numeric', 'min:-1000000', 'max:1000000'],
             'lines.*.unit_price' => ['required', 'string', new MoneyString],
             'lines.*.discount_pct' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.tax_code_id' => ['nullable', 'integer', Rule::exists('tax_codes', 'id')->where('company_id', $companyId)],
@@ -430,6 +434,16 @@ new #[Title('Credit memo')] class extends Component
             'lines.*.class_id' => ['nullable', 'integer', Rule::exists('classifications', 'id')->where('company_id', $companyId)],
             'lines.*.location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $companyId)],
         ]);
+
+        // CreditMemoPoster refuses a total of zero or less. Check it here, before
+        // anything is saved, so the bookkeeper gets an error on the lines rather
+        // than a posting failure, and a posted memo's lines never drift from its
+        // journal entry.
+        if ($this->creditTotalCents($validated['lines']) <= 0) {
+            throw ValidationException::withMessages([
+                'lines' => __('The credit memo total must be greater than zero.'),
+            ]);
+        }
 
         $this->creditMemo = app(SaveCreditMemo::class)->handle([
             'contact_id' => $validated['contact_id'],
@@ -452,6 +466,39 @@ new #[Title('Credit memo')] class extends Component
                 'location_id' => $line['location_id'] ?? null,
             ])->all(),
         ], $this->creditMemo);
+    }
+
+    /**
+     * The credit memo total the lines will save at: the same per-line math
+     * SaveCreditMemo runs (discount and both taxes included), so this matches
+     * the Total the form shows and the figure the poster checks. Recomputed
+     * here because the line totals on the component are client-writable.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     */
+    protected function creditTotalCents(array $lines): int
+    {
+        $calc = app(TaxCalculator::class);
+        $total = 0;
+
+        foreach ($lines as $line) {
+            $taxCodeId = $line['tax_code_id'] ?? null;
+            $secondaryTaxCodeId = $line['secondary_tax_code_id'] ?? null;
+            $discountPct = ($line['discount_pct'] ?? '') !== '' ? (string) $line['discount_pct'] : null;
+
+            $total += $calc->line(
+                (string) $line['quantity'],
+                Money::fromString((string) $line['unit_price'])->cents,
+                $taxCodeId ? TaxCode::find($taxCodeId) : null,
+                0,
+                $discountPct,
+                0,
+                null,
+                $secondaryTaxCodeId ? TaxCode::find($secondaryTaxCodeId) : null,
+            )['total_cents'];
+        }
+
+        return $total;
     }
 
     #[Computed]

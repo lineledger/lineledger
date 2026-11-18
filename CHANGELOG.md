@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Credit memo lines take a negative quantity.** When a credit memo refunds one
+  service and re-charges the customer for a substituted one, enter the re-charge
+  as its own line with a quantity of -1 at the service's price. Sales by Item
+  then counts that item as sold, in both quantity and amount, instead of the
+  credit memo hiding the sale. The web form and `POST`/`PATCH
+  /api/v1/credit-memos` both accept it; the API still refuses a quantity of zero
+  (`"0.00"` included) and keeps `unit_price_cents` at 0 or above. Quantities are
+  held to ±1,000,000 on both.
+- **A credit memo's total must be greater than zero before it is saved.** The
+  web form checks the Total it shows, tax included, on Save draft as well as on
+  Post credit memo, and puts the error on the lines before anything is saved.
+  It used to save the lines and then fail when the memo posted, which left an
+  edited posted memo with lines its journal entry did not match. The API
+  answers `422` naming `lines` ("The credit memo total must be greater than
+  zero."), checked on the pre-tax subtotal as invoices are. **An integration
+  that saved a zero-total credit memo as a draft (`"post": false`) now gets
+  that 422**; posting one always failed.
+- **Negative credit memo legs post as credits.** A credit memo line that nets
+  negative on its account (a negative quantity, or the negative unit price the
+  web form already accepted) now writes a credit to that account, and to tax
+  payable when the line is taxed, rather than a negative debit. This applies to
+  first posts and reposts, and voiding reverses it. A percentage discount on a
+  negative-quantity line is ignored, as on every document (the line-discount
+  rule is shared), so enter the re-charge at its net price.
+
 ## [1.4.4] - 2026-11-17
 
 **Highlights.** The GIFI Statement now uses the CRA's codes and names, and

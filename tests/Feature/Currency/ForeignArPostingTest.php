@@ -209,3 +209,56 @@ it('rounds revenue legs so the home entry balances exactly', function () {
 
     expect($invoice->refresh()->journalEntry->isBalanced())->toBeTrue();
 });
+
+it('posts a foreign credit memo\'s negative-quantity leg as a credit with its foreign memo', function () {
+    $accounts = Account::query()->whereIn('code', ['4000', '4100', '4900'])->get()->keyBy('code');
+
+    $memo = CreditMemo::create([
+        'contact_id' => $this->customer->id,
+        'credit_memo_no' => 'CM-USD-NEG',
+        'credit_memo_date' => '2026-03-15',
+        'currency_code' => 'USD',
+        'fx_rate' => '1.23456',
+    ]);
+
+    // An awkward rate, so the rounding plug runs with a negative leg present.
+    foreach ([['4000', '1', 33_333], ['4100', '-1', 11_111], ['4900', '1', 22_223]] as $i => [$code, $quantity, $price]) {
+        $subtotal = (int) $quantity * $price;
+
+        $memo->lines()->create([
+            'account_id' => $accounts[$code]->id,
+            'description' => 'Line '.$i,
+            'quantity' => $quantity,
+            'unit_price_cents' => $price,
+            'line_subtotal_cents' => $subtotal,
+            'line_tax_cents' => 0,
+            'line_total_cents' => $subtotal,
+            'line_order' => $i,
+        ]);
+    }
+
+    $poster = app(CreditMemoPoster::class);
+    $entry = $poster->post($memo);
+    $recharge = $entry->lines->firstWhere('account_id', $accounts['4100']->id);
+    $arLine = $entry->lines->firstWhere('account_id', $this->usdCurrency->ar_account_id);
+
+    expect($entry->isBalanced())->toBeTrue()
+        ->and($memo->refresh()->home_total_cents)->toBe(54_870)          // 444.45 USD @1.23456
+        ->and($arLine->credit_cents)->toBe(54_870)
+        ->and($arLine->foreign_credit_cents)->toBe(44_445)
+        ->and($recharge->debit_cents)->toBe(0)
+        ->and($recharge->credit_cents)->toBe(13_717)                     // -111.11 USD @1.23456
+        ->and($recharge->foreign_debit_cents)->toBe(0)
+        ->and($recharge->foreign_credit_cents)->toBe(11_111)
+        ->and($entry->lines->firstWhere('account_id', $accounts['4000']->id)->debit_cents)->toBe(41_151); // 41,152 less the 1¢ plug
+
+    $poster->void($memo->fresh());
+
+    $reversal = $entry->fresh()->reversedBy;
+    $reversed = $reversal->lines->firstWhere('account_id', $accounts['4100']->id);
+
+    expect($reversal->isBalanced())->toBeTrue()
+        ->and($reversed->debit_cents)->toBe(13_717)
+        ->and($reversed->foreign_debit_cents)->toBe(11_111)
+        ->and($reversed->foreign_credit_cents)->toBe(0);
+});

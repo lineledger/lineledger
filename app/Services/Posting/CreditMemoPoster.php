@@ -31,6 +31,9 @@ use RuntimeException;
  *   DR  Income (per-account, grouped)        line_subtotal
  *   DR  Tax Payable (per-agency, grouped)    line_tax
  *   CR    Accounts Receivable                total
+ *
+ * A grouped leg that nets negative (a negative-quantity line that re-charges
+ * the customer inside the credit) posts as a CREDIT to its account instead.
  */
 class CreditMemoPoster
 {
@@ -300,7 +303,9 @@ class CreditMemoPoster
      * Write the revenue + tax debits and the AR credit (the mirror of an invoice),
      * converting to home cents for a foreign credit memo and carrying the foreign
      * amount as a memo. Rounding between the converted legs and the converted total
-     * is plugged onto the largest debit leg so the entry balances in home cents.
+     * is plugged onto the largest leg so the entry balances in home cents. A leg
+     * that nets negative is written as a credit, so the signed legs still sum to
+     * the AR credit.
      */
     protected function writeRevenueAndArLines(CreditMemo $memo, JournalEntry $entry, int $order): int
     {
@@ -332,15 +337,22 @@ class CreditMemoPoster
         $this->applyRoundingPlug($legs, $arHome);
 
         foreach ($legs as $leg) {
+            // A leg that nets negative (a negative-quantity line re-charging the
+            // customer, or a negative price) is a CREDIT to that account, never
+            // a negative debit — the mirror of InvoicePoster's negative legs.
+            $isCredit = $leg['home'] < 0;
+
             $entry->lines()->create([
                 'account_id' => $leg['account_id'],
-                'debit_cents' => $leg['home'],
-                'credit_cents' => 0,
+                'debit_cents' => $isCredit ? 0 : $leg['home'],
+                'credit_cents' => $isCredit ? -$leg['home'] : 0,
                 'memo' => $leg['memo'],
                 'line_order' => $order++,
                 'class_id' => $leg['class_id'],
                 'location_id' => $leg['location_id'],
-                ...Currency::lineMemo($currency, $rate, $leg['foreign'], 0),
+                ...($isCredit
+                    ? Currency::lineMemo($currency, $rate, 0, -$leg['foreign'])
+                    : Currency::lineMemo($currency, $rate, $leg['foreign'], 0)),
             ]);
         }
 

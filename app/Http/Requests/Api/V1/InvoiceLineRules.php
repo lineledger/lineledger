@@ -23,20 +23,35 @@ final class InvoiceLineRules
             return;
         }
 
+        if (self::subtotalCents($lines) <= 0) {
+            $validator->errors()->add(
+                'lines',
+                'The invoice total must be greater than zero. Use a credit memo for a net credit.',
+            );
+        }
+    }
+
+    /**
+     * The lines' pre-tax subtotal in cents (quantity × unit price, signed). Also
+     * used by {@see CreditMemoLineRules}.
+     *
+     * @param  array<int, mixed>  $lines
+     */
+    public static function subtotalCents(array $lines): int
+    {
         $total = 0;
 
         foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
             // Same scaled-integer math as TaxCalculator::line(), so the guard
             // sees exactly the subtotal the poster will.
             $qtyScaled = (int) round(((float) ($line['quantity'] ?? 0)) * 10000);
             $total += intdiv($qtyScaled * (int) ($line['unit_price_cents'] ?? 0), 10000);
         }
 
-        if ($total <= 0) {
-            $validator->errors()->add(
-                'lines',
-                'The invoice total must be greater than zero. Use a credit memo for a net credit.',
-            );
-        }
+        return $total;
     }
 }
