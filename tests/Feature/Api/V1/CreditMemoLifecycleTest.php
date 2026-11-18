@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\CreditMemo;
+use App\Models\JournalLine;
 
 beforeEach(function () {
     $this->company = Company::factory()->create();
@@ -148,4 +149,53 @@ it('allows writes with a sales:write key', function () {
 
     $this->postJson('/api/v1/credit-memos', creditMemoPayload(), ['Authorization' => "Bearer {$writePlain}"])
         ->assertStatus(201);
+});
+
+it('reposts a negative-quantity line added via update as a credit to its account', function () {
+    $id = $this->postJson('/api/v1/credit-memos', creditMemoPayload(), creditMemoAuthHeader())->json('data.id');
+
+    app()->instance('current_company', $this->company);
+    $services = Account::query()
+        ->where('subtype', AccountSubtype::Income->value)
+        ->where('id', '!=', $this->income->id)
+        ->firstOrFail();
+    app()->forgetInstance('current_company');
+
+    $this->patchJson("/api/v1/credit-memos/{$id}", creditMemoPayload([
+        'lines' => [
+            ['quantity' => '1', 'unit_price_cents' => 99500, 'account_id' => $this->income->id],
+            ['quantity' => '-1', 'unit_price_cents' => 19500, 'account_id' => $services->id],
+        ],
+    ]), creditMemoAuthHeader())
+        ->assertStatus(200)
+        ->assertJsonPath('data.total_cents', 80000)
+        ->assertJsonPath('data.status', 'posted');
+
+    $memo = CreditMemo::query()->withoutGlobalScopes()->findOrFail($id);
+    $lines = JournalLine::query()->withoutGlobalScopes()->where('journal_entry_id', $memo->journal_entry_id)->get();
+
+    expect((int) $lines->firstWhere('account_id', $services->id)->credit_cents)->toBe(19500)
+        ->and((int) $lines->firstWhere('account_id', $this->income->id)->debit_cents)->toBe(99500)
+        ->and((int) $lines->sum('debit_cents'))->toBe((int) $lines->sum('credit_cents'));
+});
+
+it('rejects an update whose lines net to zero or less and leaves the credit memo as it was', function () {
+    $id = $this->postJson('/api/v1/credit-memos', creditMemoPayload(), creditMemoAuthHeader())->json('data.id');
+
+    $this->patchJson("/api/v1/credit-memos/{$id}", creditMemoPayload([
+        'lines' => [
+            ['quantity' => '1', 'unit_price_cents' => 1000, 'account_id' => $this->income->id],
+            ['quantity' => '-1', 'unit_price_cents' => 1500, 'account_id' => $this->income->id],
+        ],
+    ]), creditMemoAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['lines' => 'The credit memo total must be greater than zero.']);
+
+    $this->patchJson("/api/v1/credit-memos/{$id}", creditMemoPayload([
+        'lines' => [['quantity' => '0.00', 'unit_price_cents' => 1000, 'account_id' => $this->income->id]],
+    ]), creditMemoAuthHeader())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['lines.0.quantity']);
+
+    expect((int) CreditMemo::query()->withoutGlobalScopes()->findOrFail($id)->total_cents)->toBe(10000);
 });
