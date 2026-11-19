@@ -64,7 +64,7 @@ enum Section: string
             self::Banking => __('Bank register, reconciliation, cheques and deposits.'),
             self::Inbox => __('Incoming receipts and bills awaiting review.'),
             self::Fundraising => __('Donations, grants and official donation receipts.'),
-            self::Reports => __('Financial reports and tax returns.'),
+            self::Reports => __('Financial reports, tax returns and filing deadlines.'),
             self::Lists => __('Items, tax codes and payment terms.'),
             self::Documents => __('Company document repository and attachment index.'),
             self::Settings => __('Company settings and integrations.'),

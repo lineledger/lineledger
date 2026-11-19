@@ -21,6 +21,22 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    @if (app()->bound('current_company') && auth()->user())
+                        @reaches('deadlines.index')
+                            @php($deadlineBadge = \App\Services\Deadlines\DeadlineFeed::for(app('current_company'))->badge(auth()->user()))
+                            <flux:sidebar.item
+                                icon="calendar-days"
+                                :href="route('deadlines.index')"
+                                :current="request()->routeIs('deadlines.*')"
+                                :badge="$deadlineBadge['count'] > 0 ? $deadlineBadge['count'] : null"
+                                :badge-color="$deadlineBadge['overdue'] ? 'red' : 'amber'"
+                                wire:navigate
+                                data-test="sidebar-deadlines"
+                            >
+                                {{ __('Deadlines') }}
+                            </flux:sidebar.item>
+                        @endreaches
+                    @endif
                     <flux:sidebar.item icon="sparkles" :href="route('insights.index')" :current="request()->routeIs('insights.*')" wire:navigate data-test="sidebar-insights">
                         {{ __('Insights') }}
                     </flux:sidebar.item>

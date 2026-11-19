@@ -7,6 +7,7 @@ use App\Models\Attachment;
 use App\Models\Bill;
 use App\Models\Company;
 use App\Models\CreditMemo;
+use App\Models\DeadlineOccurrence;
 use App\Models\DocumentFolder;
 use App\Models\Invoice;
 use App\Models\TaxReturn;
@@ -95,6 +96,7 @@ new #[Title('Attachment index')] class extends Component {
             VendorCredit::class => ['type' => __('Vendor credit'), 'label' => $model?->vendor_credit_no ?? "#{$id}", 'url' => route('vendor-credits.show', ['company' => $slug, 'vendor_credit' => $id])],
             Asset::class => ['type' => __('Fixed asset'), 'label' => $model?->name ?? "#{$id}", 'url' => route('assets.show', ['company' => $slug, 'asset' => $id])],
             TaxReturn::class => ['type' => __('Tax return'), 'label' => "#{$id}", 'url' => route('tax-returns.show', ['company' => $slug, 'tax_return' => $id])],
+            DeadlineOccurrence::class => ['type' => __('Deadline'), 'label' => $model?->deadline?->title ?? "#{$id}", 'url' => route('deadlines.index', ['company' => $slug, 'view' => 'list', 'occurrence' => $id])],
             default => ['type' => class_basename((string) $attachment->attachable_type), 'label' => $model?->display_name ?? "#{$id}", 'url' => null],
         };
     }

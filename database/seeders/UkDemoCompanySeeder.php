@@ -26,6 +26,7 @@ use App\Models\Item;
 use App\Models\TaxAgency;
 use App\Models\TaxCode;
 use App\Models\User;
+use App\Services\Deadlines\Suggestions\SuggestionChoices;
 use App\Services\Posting\BillPaymentPoster;
 use App\Services\Posting\BillPoster;
 use App\Services\Posting\CreditMemoPoster;
@@ -37,6 +38,7 @@ use App\Services\Posting\VendorCreditPoster;
 use App\Services\Tax\TaxReturnFiler;
 use App\Support\Legal\LegalDocuments;
 use Carbon\CarbonImmutable;
+use Database\Seeders\Concerns\SeedsDemoDeadlines;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
 
@@ -65,6 +67,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class UkDemoCompanySeeder extends Seeder
 {
+    use SeedsDemoDeadlines;
+
     public function run(): void
     {
         if (app()->environment('production')) {
@@ -289,6 +293,19 @@ class UkDemoCompanySeeder extends Seeder
             'period_end' => $q2->endOfQuarter()->toDateString(),
             'notes' => 'Draft — review the nine boxes, then file.',
         ]);
+
+        $this->seedDemoDeadlines(
+            $company,
+            $user,
+            assignees: [
+                'gb.vat' => $user,
+                'gb.ct.payment' => $user,
+                'gb.ct.return' => $user,
+                'gb.companies_house.accounts' => $user,
+                'gb.paye' => $user,
+            ],
+            choices: new SuggestionChoices(vatStagger: '1'),
+        );
 
         return $company;
     }

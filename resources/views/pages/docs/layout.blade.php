@@ -6,6 +6,7 @@
             <flux:navlist.item :href="route('docs.languages')" :current="request()->routeIs('docs.languages')" wire:navigate>{{ __('Languages') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.united-kingdom')" :current="request()->routeIs('docs.united-kingdom')" wire:navigate>{{ __('United Kingdom & VAT') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.dashboard')" :current="request()->routeIs('docs.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('docs.deadlines')" :current="request()->routeIs('docs.deadlines')" wire:navigate>{{ __('Deadlines') }}</flux:navlist.item>
             <flux:navlist.item :href="route('docs.insights')" :current="request()->routeIs('docs.insights')" wire:navigate>{{ __('Insights') }}</flux:navlist.item>
 
             {{-- Groups mirror the app sidebar (app/Support/Navigation/SidebarNavCatalog.php) in order and membership. --}}

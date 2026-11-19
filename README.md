@@ -535,7 +535,7 @@ you need the full set of knobs; the keys below are the ones that turn the featur
 
 ## Scheduled jobs
 
-Thirteen tasks run on the scheduler (`routes/console.php`). They need either a
+Fourteen tasks run on the scheduler (`routes/console.php`). They need either a
 cron entry calling `schedule:run` every minute (Forge does this for you) or a
 long-running `schedule:work` process (the Docker `scheduler` container):
 
@@ -550,13 +550,14 @@ long-running `schedule:work` process (the Docker `scheduler` container):
 | `reports:send-scheduled` | daily 07:00 | Email memorized reports on their schedules |
 | `reminders:send` | daily 07:30 | Email payment reminders for overdue invoices (opted-in customers only) |
 | `rates:health` | daily 08:30 | Alert if FX rates are stale (the fetch missed or failed) |
+| `deadlines:notify` | hourly | Roll each organization's deadline due dates forward and email due-soon and overdue reminders and digests; each organization runs once a day, from 07:00 in its own timezone |
 | `security:monitor` | hourly | Scan the security log for anomalies (failed-login spikes, lockouts, mass API-key revocation, privilege escalation); email ops on any finding |
 | `ops:monitor-failed-jobs` | hourly | Digest of queued jobs that landed in `failed_jobs` during the window; logs, emails `OPS_ALERT_EMAIL`, and exits non-zero. The only thing that surfaces a silently failed backup, restore, or mail send |
 | `backups:prune-expired` | daily | Delete expired organization backup files |
 | `edit-locks:prune` | daily | Delete released edit-lock rows nobody has held or changed for `EDIT_LOCKS_PRUNE_AFTER_DAYS` (default 7) |
 
 The per-organization jobs — `recurring:generate`, `depreciation:generate`,
-`insights:generate`, `reports:send-scheduled`, `reminders:send` — all take an optional
+`insights:generate`, `reports:send-scheduled`, `reminders:send`, `deadlines:notify` — all take an optional
 `{company?}` (id or slug) plus `--sync`, so you can run one organization in-process
 when you're debugging. `payroll:accrue-time-off` takes `{company?}` and `--date=`.
 Since 1.1.0 they skip soft-deleted organizations instead of queuing work that fails.
@@ -612,7 +613,7 @@ the payroll one is mandatory every year before the first January pay run.
 | **Every deploy** | Regenerate verification proofs | Run `php artisan proof:generate` so `/verification` reflects the current code. Neither the Forge deploy script below nor the Docker entrypoint runs it — add it to your deploy script, or `docker compose exec app php artisan proof:generate` after an upgrade. |
 | **After a restore** | Prove the books | `php artisan app:upgrade --verify` (or `integrity:check` directly, `--fix` to heal drifted caches) and `audit:verify --full`, so a restored dump is known-good before anyone posts to it. |
 | **Periodically** | Dependency & security updates | `composer update` / `npm update`, run the suite, redeploy; keep PHP and MySQL patched. The `security` CI workflow runs `composer audit` + `npm audit`, secret scanning and SAST weekly and on every PR, so advisories surface without you polling. |
-| **Periodically** | Confirm backups + worker health | Check organization backups complete and land on `BACKUP_DISK` (`php artisan storage:check` proves the disks), and that the queue worker + `schedule:run` are alive. The queue runs backups, restores, recurring-document generation, depreciation drafting, daily insights, scheduled report emails, payment reminders, document-inbox processing (incl. OCR), the QuickBooks full-history replay, and all outgoing mail; the scheduler drives the [thirteen tasks](#scheduled-jobs). `ops:monitor-failed-jobs` emails `OPS_ALERT_EMAIL` within the hour when anything lands in `failed_jobs`, so the manual check is mostly confirming that alert path works. |
+| **Periodically** | Confirm backups + worker health | Check organization backups complete and land on `BACKUP_DISK` (`php artisan storage:check` proves the disks), and that the queue worker + `schedule:run` are alive. The queue runs backups, restores, recurring-document generation, depreciation drafting, daily insights, scheduled report emails, payment reminders, deadline emails, document-inbox processing (incl. OCR), the QuickBooks full-history replay, and all outgoing mail; the scheduler drives the [fourteen tasks](#scheduled-jobs). `ops:monitor-failed-jobs` emails `OPS_ALERT_EMAIL` within the hour when anything lands in `failed_jobs`, so the manual check is mostly confirming that alert path works. |
 
 ### Payroll tax rates (the important one)
 

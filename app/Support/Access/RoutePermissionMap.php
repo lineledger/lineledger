@@ -136,6 +136,7 @@ final class RoutePermissionMap
         'reports.donations-by-donor' => Activity::ReportsFundraising,
         'reports.donations-by-fund' => Activity::ReportsFundraising,
         'reports.grants-summary' => Activity::ReportsFundraising,
+        'deadlines' => Activity::Deadlines,
         'reports.sales-tax' => Activity::TaxReturns,
         'reports.vat-return' => Activity::TaxReturns,
         'reports.budget-vs-actual' => Activity::Budgets,
@@ -186,6 +187,7 @@ final class RoutePermissionMap
      */
     private const array ACTIONS = [
         'bill-payments.batch' => PermissionAction::Create,
+        'deadlines.suggestions' => PermissionAction::Create,
         'settings.stripe.connect' => PermissionAction::Modify,
         'settings.stripe.disconnect' => PermissionAction::Modify,
         'settings.backup.download' => PermissionAction::View,

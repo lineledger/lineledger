@@ -27,6 +27,11 @@ Schedule::command('reports:send-scheduled')->dailyAt('07:00')->withoutOverlappin
 // so freshly issued invoices are considered, and is idempotent per (invoice, tier).
 Schedule::command('reminders:send')->dailyAt('07:30')->withoutOverlapping()->onOneServer()
     ->onFailure(SchedulerFailureAlert::for('reminders:send'));
+// Deadline reminders and digests. Hourly, but each organization runs once a
+// day from 07:00 in its own timezone (see SendDeadlineNotifications); also rolls
+// deadline occurrences forward. Idempotent per email.
+Schedule::command('deadlines:notify')->hourly()->withoutOverlapping()->onOneServer()
+    ->onFailure(SchedulerFailureAlert::for('deadlines:notify'));
 // Grant beginning-of-year / anniversary time-off lumps and roll balances over at
 // the cycle boundary. Idempotent per cycle, so a daily run is safe.
 Schedule::command('payroll:accrue-time-off')->dailyAt('01:00')->withoutOverlapping()->onOneServer()

@@ -15,6 +15,8 @@ use App\Models\Classification;
 use App\Models\Contact;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
+use App\Models\Deadline;
+use App\Models\DeadlineOccurrence;
 use App\Models\Deposit;
 use App\Models\Donation;
 use App\Models\DonationReceipt;
@@ -79,6 +81,8 @@ final class EditLockables
             Contact::class => 'contact',
             CreditMemo::class => 'credit memo',
             CustomerReceipt::class => 'receipt',
+            Deadline::class => 'deadline',
+            DeadlineOccurrence::class => 'deadline occurrence',
             Deposit::class => 'deposit',
             Donation::class => 'donation',
             DonationReceipt::class => 'donation receipt',

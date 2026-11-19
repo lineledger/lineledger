@@ -97,6 +97,7 @@ enum Activity: string
     case ReportsInventory = 'reports-inventory';
     case ReportsFundraising = 'reports-fundraising';
     case TaxReturns = 'tax-returns';
+    case Deadlines = 'deadlines';
     case Budgets = 'budgets';
     case AuditLog = 'audit-log';
 
@@ -143,7 +144,7 @@ enum Activity: string
             self::Inbox => Section::Inbox,
             self::Donations, self::DonationReceipts, self::Grants => Section::Fundraising,
             self::ReportsFinancial, self::ReportsSales, self::ReportsPurchases, self::ReportsInventory,
-            self::ReportsFundraising, self::TaxReturns, self::Budgets, self::AuditLog => Section::Reports,
+            self::ReportsFundraising, self::TaxReturns, self::Deadlines, self::Budgets, self::AuditLog => Section::Reports,
             self::Items, self::TaxCodes, self::TrackingLists, self::OtherLists => Section::Lists,
             self::Documents, self::DocumentsAllFolders => Section::Documents,
             self::Preferences, self::DataImport, self::Backup, self::CompanySettings, self::ClosingDate,
@@ -179,7 +180,7 @@ enum Activity: string
             self::InvoiceTemplates, self::RecurringSales, self::RecurringPurchases, self::PayrollSetup,
             self::TimeTracking, self::TimeOff, self::InventoryAdjustments, self::JournalEntryTemplates,
             self::RecurringJournal, self::Inbox, self::Items, self::TaxCodes, self::TrackingLists,
-            self::OtherLists, self::Documents, self::ApiKeys, self::Roles => [$v, $c, $m, $d],
+            self::OtherLists, self::Documents, self::ApiKeys, self::Roles, self::Deadlines => [$v, $c, $m, $d],
             self::Reminders => [$v, $m, $p],
             self::OpeningBalances => [$v, $c, $m],
             self::ReportsFinancial => [$v, $m, $p],
@@ -281,6 +282,7 @@ enum Activity: string
             self::ReportsInventory => __('Inventory reports'),
             self::ReportsFundraising => __('Fundraising reports'),
             self::TaxReturns => __('Sales tax returns'),
+            self::Deadlines => __('Deadlines'),
             self::Budgets => __('Budgets'),
             self::AuditLog => __('Audit log'),
             self::Items => __('Items'),

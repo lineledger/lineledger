@@ -126,6 +126,13 @@ Route::prefix('{company}')
         // the card lives on (see Section::forRouteName).
         Route::livewire('insights', 'pages::insights.index')->name('insights.index');
 
+        // Filing and payment deadlines: the organization's compliance calendar.
+        Route::livewire('deadlines', 'pages::deadlines.index')->name('deadlines.index');
+        Route::livewire('deadlines/create', 'pages::deadlines.form')->name('deadlines.create');
+        Route::livewire('deadlines/suggestions', 'pages::deadlines.suggestions')->name('deadlines.suggestions');
+        Route::livewire('deadlines/{deadline}', 'pages::deadlines.show')->name('deadlines.show');
+        Route::livewire('deadlines/{deadline}/edit', 'pages::deadlines.form')->name('deadlines.edit');
+
         Route::livewire('accounts', 'pages::accounts.index')->name('accounts.index');
         Route::get('accounts/template', ChartOfAccountsTemplateController::class)->name('accounts.template');
 

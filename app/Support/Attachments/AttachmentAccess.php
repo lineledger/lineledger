@@ -11,6 +11,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\CreditMemo;
+use App\Models\DeadlineOccurrence;
 use App\Models\Expense;
 use App\Models\InboxItem;
 use App\Models\Invoice;
@@ -54,6 +55,7 @@ final class AttachmentAccess
         InboxItem::class => [Section::Inbox],
         TaxReturn::class => [Section::Reports],
         TaxReturnPayment::class => [Section::Reports],
+        DeadlineOccurrence::class => [Section::Reports],
         Contact::class => [Section::Customers, Section::Vendors, Section::Employees, Section::Lists],
     ];
 
