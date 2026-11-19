@@ -6,25 +6,9 @@ use App\Models\Company;
 use App\Models\ReportGroup;
 use App\Models\ReportGroupAccountMap;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use Livewire\Livewire;
 
-/**
- * @return array{0: User, 1: Collection<int, Company>}
- */
-function userWithCompanies(int $count, string $currency = 'CAD'): array
-{
-    $user = User::factory()->create();
-
-    $companies = collect(range(1, $count))->map(function () use ($user, $currency) {
-        $company = Company::factory()->create(['currency_code' => $currency]);
-        $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
-
-        return $company;
-    });
-
-    return [$user, $companies];
-}
+// userWithCompanies() lives in tests/Pest.php (CombinedReportPagesTest shares it).
 
 it('creates a group with two companies and auto-seeds mappings', function () {
     [$user, $companies] = userWithCompanies(2);

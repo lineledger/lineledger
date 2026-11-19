@@ -30,11 +30,13 @@ class ProofArtifactWriter
     ) {}
 
     /**
-     * Directory holding the published manifests + bundles.
+     * Directory holding the published manifests + bundles. `proof.directory`
+     * lets a test write to a scratch folder of its own instead of the
+     * published one, which parallel test workers would otherwise share.
      */
     public static function directory(): string
     {
-        return storage_path('app/proof');
+        return config('proof.directory') ?? storage_path('app/proof');
     }
 
     public static function manifestPath(string $key): string

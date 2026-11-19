@@ -30,7 +30,11 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
-          coverage: xdebug
+          # No coverage driver: nothing here collects coverage, and a loaded
+          # Xdebug slowed the suite 2-3x. CLI OPcache caches the compiled Blade
+          # views every render re-includes (28% faster locally).
+          coverage: none
+          ini-values: opcache.enable_cli=1, opcache.memory_consumption=256, opcache.max_accelerated_files=50000
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -55,8 +59,14 @@ jobs:
       - name: Build Assets
         run: npm run build
 
+      # Once, before the workers start: TestCase generates missing keys on first
+      # use, and parallel workers on a fresh checkout would otherwise race to do it.
+      - name: Generate Passport Keys
+        run: php artisan passport:keys --no-interaction
+
+      # One worker per CPU, each with its own in-memory SQLite database.
       - name: Run Tests
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
-        run: ./vendor/bin/pest
+        run: ./vendor/bin/pest --parallel

@@ -1,23 +1,18 @@
 <?php
 
 use App\Services\Proof\ProofArtifactWriter;
+use Illuminate\Support\Facades\File;
 
 /**
  * The public /verification page and its download endpoint. These render whatever
- * `proof:generate` last wrote, so the test stages a known manifest + bundle and
- * restores any pre-existing local artifacts afterwards.
+ * `proof:generate` last wrote, so the test stages a known manifest + bundle in a
+ * scratch directory of its own, never the published one that parallel workers
+ * and a developer's local bundle would otherwise share.
  */
 beforeEach(function () {
-    $this->dir = ProofArtifactWriter::directory();
-    if (! is_dir($this->dir)) {
-        mkdir($this->dir, 0775, true);
-    }
-
-    $this->backup = [];
-    foreach (['test-1.json', 'test-1.zip'] as $file) {
-        $path = $this->dir.'/'.$file;
-        $this->backup[$file] = is_file($path) ? file_get_contents($path) : null;
-    }
+    $this->dir = sys_get_temp_dir().'/proof-page-'.uniqid();
+    mkdir($this->dir, 0775, true);
+    config(['proof.directory' => $this->dir]);
 
     file_put_contents(ProofArtifactWriter::manifestPath('test-1'), json_encode([
         'key' => 'test-1',
@@ -40,16 +35,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    foreach ($this->backup as $file => $contents) {
-        $path = $this->dir.'/'.$file;
-        if ($contents === null) {
-            if (is_file($path)) {
-                unlink($path);
-            }
-        } else {
-            file_put_contents($path, $contents);
-        }
-    }
+    File::deleteDirectory($this->dir);
 });
 
 it('shows passing verification results publicly without auth', function () {

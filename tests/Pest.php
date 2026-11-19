@@ -4,6 +4,7 @@ use App\Actions\Payroll\SaveEmployeePayrollProfile;
 use App\Actions\Payroll\SavePayRun;
 use App\Actions\Sales\SaveInvoice;
 use App\Enums\AccountSubtype;
+use App\Enums\AccountType;
 use App\Enums\CompanyRole;
 use App\Enums\PredefinedRole;
 use App\Enums\Section;
@@ -20,13 +21,18 @@ use App\Models\MembershipRole;
 use App\Models\PaymentMethod;
 use App\Models\PayrollSchedule;
 use App\Models\PayRun;
+use App\Models\ReportGroup;
+use App\Models\ReportGroupAccountMap;
+use App\Models\ReportGroupLine;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\PayRunPoster;
 use App\Services\Posting\ReceiptPoster;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -534,4 +540,120 @@ function quickBooksSubAccountListingCsv(bool $asFile = false): string
     file_put_contents($path, $csv);
 
     return $path;
+}
+
+/**
+ * Grab the first seeded account of a given type for a company (no global scope).
+ */
+function acctOfType(Company $company, AccountType $type): Account
+{
+    return Account::withoutGlobalScopes()
+        ->where('company_id', $company->id)
+        ->where('type', $type->value)
+        ->orderBy('code')
+        ->firstOrFail();
+}
+
+/**
+ * Post a balanced, posted manual journal entry to a company.
+ *
+ * @param  array<int, array{account: Account, debit?: int, credit?: int}>  $lines
+ */
+function postEntry(Company $company, string $date, array $lines): void
+{
+    app()->instance('current_company', $company);
+
+    $entry = JournalEntry::create([
+        'entry_no' => 'JE-'.fake()->unique()->numerify('#####'),
+        'entry_date' => CarbonImmutable::parse($date),
+        'memo' => 'Test',
+        'is_posted' => true,
+    ]);
+
+    foreach ($lines as $i => $line) {
+        $entry->lines()->create([
+            'account_id' => $line['account']->id,
+            'debit_cents' => $line['debit'] ?? 0,
+            'credit_cents' => $line['credit'] ?? 0,
+            'line_order' => $i,
+        ]);
+    }
+
+    app()->forgetInstance('current_company');
+}
+
+/**
+ * Two CAD companies with a known ledger and a report group mapping like-for-like
+ * accounts (Cash / Revenue / Expenses). Returns the group + accounts.
+ */
+function combinedScenario(): array
+{
+    $user = User::factory()->create();
+
+    $a = Company::factory()->create(['name' => 'Alpha']);
+    $b = Company::factory()->create(['name' => 'Bravo']);
+
+    $bankA = acctOfType($a, AccountType::Asset);
+    $incomeA = acctOfType($a, AccountType::Income);
+    $expenseA = acctOfType($a, AccountType::Expense);
+
+    $bankB = acctOfType($b, AccountType::Asset);
+    $incomeB = acctOfType($b, AccountType::Income);
+    $expenseB = acctOfType($b, AccountType::Expense);
+
+    // Alpha: $1000 income (into bank), $300 expense (out of bank) → bank $700, NI $700
+    postEntry($a, '2026-03-01', [['account' => $bankA, 'debit' => 100000], ['account' => $incomeA, 'credit' => 100000]]);
+    postEntry($a, '2026-03-05', [['account' => $expenseA, 'debit' => 30000], ['account' => $bankA, 'credit' => 30000]]);
+
+    // Bravo: $500 income, $200 expense → bank $300, NI $300
+    postEntry($b, '2026-03-01', [['account' => $bankB, 'debit' => 50000], ['account' => $incomeB, 'credit' => 50000]]);
+    postEntry($b, '2026-03-05', [['account' => $expenseB, 'debit' => 20000], ['account' => $bankB, 'credit' => 20000]]);
+
+    $group = ReportGroup::create(['user_id' => $user->id, 'name' => 'Combined', 'currency_code' => 'CAD']);
+    $group->companies()->attach([$a->id, $b->id]);
+
+    $mkLine = function (string $name, AccountType $type, ?AccountSubtype $subtype, array $accountsByCompany) use ($group) {
+        $line = ReportGroupLine::create([
+            'report_group_id' => $group->id,
+            'name' => $name,
+            'type' => $type,
+            'subtype' => $subtype,
+            'sort_order' => 0,
+        ]);
+        foreach ($accountsByCompany as $companyId => $account) {
+            ReportGroupAccountMap::create([
+                'report_group_id' => $group->id,
+                'report_group_line_id' => $line->id,
+                'company_id' => $companyId,
+                'account_id' => $account->id,
+            ]);
+        }
+
+        return $line;
+    };
+
+    $mkLine('Cash', AccountType::Asset, AccountSubtype::Bank, [$a->id => $bankA, $b->id => $bankB]);
+    $mkLine('Revenue', AccountType::Income, AccountSubtype::Income, [$a->id => $incomeA, $b->id => $incomeB]);
+    $mkLine('Expenses', AccountType::Expense, AccountSubtype::Expense, [$a->id => $expenseA, $b->id => $expenseB]);
+
+    return compact('user', 'a', 'b', 'group', 'incomeA', 'expenseA');
+}
+
+/**
+ * A user who owns `$count` fresh companies in one currency.
+ *
+ * @return array{0: User, 1: Collection<int, Company>}
+ */
+function userWithCompanies(int $count, string $currency = 'CAD'): array
+{
+    $user = User::factory()->create();
+
+    $companies = collect(range(1, $count))->map(function () use ($user, $currency) {
+        $company = Company::factory()->create(['currency_code' => $currency]);
+        $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+        return $company;
+    });
+
+    return [$user, $companies];
 }
