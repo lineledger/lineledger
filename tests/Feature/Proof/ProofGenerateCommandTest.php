@@ -1,38 +1,22 @@
 <?php
 
 use App\Services\Proof\ProofArtifactWriter;
+use Illuminate\Support\Facades\File;
 
 /**
  * Exercises the full artifact pipeline: build → validate → render every report →
  * zip. Guards against regressions in any of the PDF/CSV renders. Uses a small
- * per-year volume and restores any locally-published bundle afterwards.
+ * per-year volume and writes to a scratch directory of its own, so it never
+ * touches a locally-published bundle or another parallel worker's files.
  */
 beforeEach(function () {
-    // Park any locally-published bundle on DISK (a published zip can run tens
-    // of MB — slurping it into memory has blown the test memory limit).
-    $this->backup = [];
-    foreach (['test-1.json', 'test-1.zip'] as $file) {
-        $path = ProofArtifactWriter::directory().'/'.$file;
-        if (is_file($path)) {
-            $this->backup[$file] = $path.'.test-backup';
-            rename($path, $this->backup[$file]);
-        } else {
-            $this->backup[$file] = null;
-        }
-    }
+    $this->dir = sys_get_temp_dir().'/proof-generate-'.uniqid();
+    config(['proof.directory' => $this->dir]);
 });
 
 afterEach(function () {
     app()->forgetInstance('current_company');
-    foreach ($this->backup as $file => $parked) {
-        $path = ProofArtifactWriter::directory().'/'.$file;
-        if (is_file($path)) {
-            unlink($path);
-        }
-        if ($parked !== null && is_file($parked)) {
-            rename($parked, $path);
-        }
-    }
+    File::deleteDirectory($this->dir);
 });
 
 it('generates a passing bundle containing every report', function () {

@@ -35,6 +35,12 @@ abstract class TestCase extends BaseTestCase
      * per-environment, so a fresh checkout (CI or a new clone) has none and every
      * MCP test would throw "Invalid key supplied". Generate them once per test
      * process when absent so the suite is self-contained.
+     *
+     * Under `--parallel` every worker gets here at once on a fresh checkout, and
+     * two of them writing their own pair can leave a private key that does not
+     * match the public one. The lock lets one worker write the pair while the
+     * others wait, so none reads a key that is still being written. It is
+     * taken once per process.
      */
     private function ensurePassportKeys(): void
     {
@@ -44,8 +50,16 @@ abstract class TestCase extends BaseTestCase
 
         self::$passportKeysEnsured = true;
 
-        if (! file_exists(Passport::keyPath('oauth-private.key'))) {
-            Artisan::call('passport:keys', ['--no-interaction' => true]);
+        $lock = fopen(storage_path('framework/testing/passport-keys.lock'), 'c');
+        flock($lock, LOCK_EX);
+
+        try {
+            if (! file_exists(Passport::keyPath('oauth-private.key'))) {
+                Artisan::call('passport:keys', ['--no-interaction' => true]);
+            }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
 }
