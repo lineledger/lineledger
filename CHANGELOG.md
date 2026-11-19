@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Deadlines: a filing and payment calendar for each organization.** A new
+  Deadlines item sits under Dashboard in the sidebar. Each deadline (a GST/HST
+  return, a PST remittance, payroll source deductions, WCB reports, employer
+  health tax, corporate instalments, a licence renewal) has a schedule:
+  - Its periods (monthly, quarterly, every N weeks or months, yearly, or set
+    dates each year, from a first period start).
+  - When each period is due (N months after it ends, on the same day, a set
+    day or the last day of the month, plus N days), and whether a weekend due
+    date moves to the Friday before or the Monday after.
+  - When it stops, and the date to track it from.
+
+  The deadline's form previews the next six due dates as you type. Each due date
+  is assigned to a staff member and marked done with who did it, on what date,
+  the amount, a confirmation number, notes and the receipt or confirmation
+  file. A due date can also be marked not required, moved, reassigned or
+  reopened. Edited due dates keep their changes when the schedule changes.
+  The page has four views: a month calendar, a list grouped by overdue, this
+  week, the next 30 days and later, a fiscal-year tracker laid out like a
+  filing spreadsheet, and every deadline with its schedule in words.
+- **Add suggested deadlines.** LineLedger proposes the deadlines an
+  organization probably has, from its country, province or state, organization
+  type, fiscal year and payroll settings, plus a few choices it doesn't store,
+  such as the GST/HST filing period and the VAT stagger. Each suggestion cites
+  the official page its rule comes from:
+  - Canada: GST/HST, BC, Saskatchewan and Manitoba PST, QST, CRA and Revenu
+    Québec source deductions, T4/T4A and RL-1, WorkSafeBC, BC and Ontario
+    employer health tax, the T2 return, balance and instalments,
+    T1/T2125, T3010, T1044, T5013 and T5018.
+  - UK: VAT, PAYE, Corporation Tax, CT600, Companies House accounts and the
+    confirmation statement, and Self Assessment.
+  - US: Forms 941, 940, W-2, 1099-NEC, 1040-ES, 1120, 1120-S, 1065 and 990,
+    plus a state sales tax template.
+- **Deadline emails.** The assignee gets a reminder on the days each deadline
+  asks for (7 days and 1 day before by default), then an overdue reminder the
+  day after and weekly up to four times. Each member can also get a daily or
+  weekly summary, and can turn either off under Email settings. A new hourly
+  `deadlines:notify` command sends them, once a day per organization from 07:00
+  in its own timezone. It never sends one twice and never sends a catch-up
+  burst. A Dashboard card lists what's coming up, and the sidebar item shows
+  how many deadlines are overdue or due this week.
+- **New permission: Deadlines** (View, Create, Modify, Delete), under Reports in
+  the role editor. Full Access, Accountant, Bookkeeper and External Accountant
+  get it in full, View-only can view, and Payroll Manager can view and complete.
+  **Roles you have customized don't get it automatically; grant it under
+  Settings → Users and roles.** Removing someone, or taking away their access,
+  unassigns their open deadlines.
+- The Business Q&A MCP server gains `upcoming-deadlines-tool` (read-only).
+
 ### Changed
 
 - **Credit memo lines take a negative quantity.** When a credit memo refunds one

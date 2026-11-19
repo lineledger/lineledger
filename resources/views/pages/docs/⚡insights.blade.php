@@ -15,7 +15,7 @@ new #[Title('Documentation — Insights')] class extends Component {}; ?>
         </flux:text>
 
         <flux:text>
-            {{ __('Open Insights from the sidebar — it sits directly under Dashboard at the top, in every organization. The page itself is titled Daily insights.') }}
+            {{ __('Open Insights from the sidebar — it sits near the top, under Dashboard and Deadlines, in every organization. The page itself is titled Daily insights.') }}
         </flux:text>
 
         <x-docs.figure

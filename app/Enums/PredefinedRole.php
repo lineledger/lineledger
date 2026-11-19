@@ -137,7 +137,11 @@ enum PredefinedRole: string
                 ...self::pick([Activity::Vendors], PermissionAction::View),
                 ...self::pick([Activity::ReportsInventory], PermissionAction::View, PermissionAction::Print),
             ],
-            self::PayrollManager => self::fullAreas(Section::Payroll, Section::Employees),
+            self::PayrollManager => [
+                ...self::fullAreas(Section::Payroll, Section::Employees),
+                // Remittance deadlines are theirs to complete.
+                ...self::pick([Activity::Deadlines], PermissionAction::View, PermissionAction::Modify),
+            ],
             self::PayrollProcessor => [
                 ...self::pick([Activity::PayRuns], PermissionAction::View, PermissionAction::Create, PermissionAction::Modify, PermissionAction::Print),
                 ...self::pick([Activity::PayrollSetup, Activity::Employees], PermissionAction::View),

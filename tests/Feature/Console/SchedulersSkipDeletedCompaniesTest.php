@@ -3,9 +3,11 @@
 use App\Jobs\GenerateDailyInsightForCompany;
 use App\Jobs\GenerateDepreciationForCompany;
 use App\Jobs\GenerateRecurringDocumentsForCompany;
+use App\Jobs\SendDeadlineNotificationsForCompany;
 use App\Jobs\SendPaymentRemindersForCompany;
 use App\Jobs\SendScheduledReportEmailsForCompany;
 use App\Models\Company;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
@@ -25,6 +27,11 @@ beforeEach(function () {
 it('queues per-company work for live companies only', function (string $command, string $job) {
     Queue::fake();
 
+    // Deadline emails go out from 07:00 in each company's timezone.
+    if ($command === 'deadlines:notify') {
+        $this->travelTo(CarbonImmutable::parse('2026-11-23 18:00', 'UTC'));
+    }
+
     $this->artisan($command)->assertSuccessful();
 
     Queue::assertPushed($job, fn ($queued) => $queued->companyId === $this->live->id);
@@ -35,6 +42,7 @@ it('queues per-company work for live companies only', function (string $command,
     'payment reminders' => ['reminders:send', SendPaymentRemindersForCompany::class],
     'daily insights' => ['insights:generate', GenerateDailyInsightForCompany::class],
     'scheduled reports' => ['reports:send-scheduled', SendScheduledReportEmailsForCompany::class],
+    'deadline notifications' => ['deadlines:notify', SendDeadlineNotificationsForCompany::class],
 ]);
 
 it('does not resolve a deleted company by id or slug', function () {
@@ -60,4 +68,5 @@ it('finishes quietly when the company vanished before the job ran', function (st
     SendPaymentRemindersForCompany::class,
     GenerateDailyInsightForCompany::class,
     SendScheduledReportEmailsForCompany::class,
+    SendDeadlineNotificationsForCompany::class,
 ]);

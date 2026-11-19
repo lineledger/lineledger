@@ -2,12 +2,17 @@
 
 namespace App\Services\Security;
 
+use App\Enums\DeadlineStatus;
 use App\Enums\Section;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
+use App\Models\Deadline;
+use App\Models\DeadlineNotificationSetting;
+use App\Models\DeadlineOccurrence;
 use App\Models\EmployeePayrollProfile;
 use App\Models\ReportEmailSchedule;
 use App\Models\User;
+use App\Services\Deadlines\DeadlineAssignees;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +52,8 @@ class AccessRevoker
             ->where('company_id', $company->id)
             ->where('approver_user_id', $user->id)
             ->update(['approver_user_id' => null]);
+
+        $this->unassignDeadlines($user, $company);
     }
 
     /**
@@ -67,6 +74,12 @@ class AccessRevoker
         // report against its owner's live access.
         if (! ($company->sectionEnabled(Section::Reports) && $user->canAccessSection($company, Section::Reports))) {
             $this->pauseReportSchedules($user, $company, __('The schedule’s owner no longer has access to Reports.'));
+        }
+
+        // Deadlines go to people who can open and complete them; one who no
+        // longer can stops being their assignee (they show as unassigned).
+        if (! DeadlineAssignees::canAct($user, $company)) {
+            $this->unassignDeadlines($user, $company);
         }
     }
 
@@ -107,6 +120,30 @@ class AccessRevoker
             ->when($company !== null, fn ($query) => $query->where('company_id', $company?->id))
             ->where('is_active', true)
             ->update(['is_active' => false, 'paused_reason' => $reason]);
+    }
+
+    /**
+     * Take the user off the company's deadlines: the series they're assigned
+     * and every occurrence still open. Who completed past ones stays on record.
+     * Their own deadline email settings there go too.
+     */
+    protected function unassignDeadlines(User $user, Company $company): void
+    {
+        Deadline::query()->withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('assigned_user_id', $user->id)
+            ->update(['assigned_user_id' => null]);
+
+        DeadlineOccurrence::query()->withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('assigned_user_id', $user->id)
+            ->where('status', DeadlineStatus::Open->value)
+            ->update(['assigned_user_id' => null]);
+
+        DeadlineNotificationSetting::query()->withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('user_id', $user->id)
+            ->delete();
     }
 
     /**

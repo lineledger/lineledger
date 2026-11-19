@@ -492,6 +492,8 @@ new #[Title('Dashboard')] class extends Component {
     {{-- Today's "Did you know?" insight (hides when none; dismissal lasts the day) --}}
     <livewire:daily-insight />
 
+    <livewire:upcoming-deadlines />
+
     {{-- KPI cards --}}
     @php $cardClass = 'block rounded-lg bg-muted p-4 transition hover:bg-secondary'; @endphp
     <div class="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">

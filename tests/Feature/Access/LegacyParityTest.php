@@ -49,8 +49,11 @@ $oldReach = fn (CompanyRole $role, ?array $sections): array => match ($role) {
     CompanyRole::Custom => array_values(array_filter(array_map(fn (string $v) => Section::tryFrom($v), $sections ?? []))),
 };
 
-/** Routes added with roles: they had no "before" to compare with. */
-$newWithRoles = ['settings.users-and-roles', 'settings.roles.create', 'settings.roles.edit', 'reports.role-permissions'];
+/** Routes added with roles or since: they had no "before" to compare with. */
+$newWithRoles = [
+    'settings.users-and-roles', 'settings.roles.create', 'settings.roles.edit', 'reports.role-permissions',
+    'deadlines.index', 'deadlines.create', 'deadlines.suggestions', 'deadlines.show', 'deadlines.edit',
+];
 
 $memberships = [
     'owner' => [CompanyRole::Owner, null],

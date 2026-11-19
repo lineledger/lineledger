@@ -65,6 +65,7 @@ use App\Models\TaxCode;
 use App\Models\User;
 use App\Models\WorkersCompSetting;
 use App\Services\Charity\DonationReceiptIssuer;
+use App\Services\Deadlines\Suggestions\SuggestionChoices;
 use App\Services\Fundraising\DonationPoster;
 use App\Services\Fundraising\GrantPoster;
 use App\Services\Payroll\CalculatePayRun;
@@ -81,6 +82,7 @@ use App\Services\Posting\TransferPoster;
 use App\Support\Access\Grant;
 use App\Support\Defaults\ChartTemplateBuilder;
 use App\Support\Legal\LegalDocuments;
+use Database\Seeders\Concerns\SeedsDemoDeadlines;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
 
@@ -102,6 +104,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class DemoCompanySeeder extends Seeder
 {
+    use SeedsDemoDeadlines;
+
     public function run(): void
     {
         // This is a development/QA seeder: it creates a `test@example.com` /
@@ -673,6 +677,40 @@ class DemoCompanySeeder extends Seeder
 
         $this->seedTeam($company, $user);
 
+        $marc = User::query()->where('email', 'marc@example.com')->first();
+        $today = $company->currentDateTime();
+        $this->seedDemoDeadlines(
+            $company,
+            $user,
+            assignees: [
+                'ca.gst_hst.return' => $user,
+                'ca.payroll.source_deductions' => $marc,
+                'ca.payroll.t4' => $marc,
+                'ca.t2.return' => $user,
+                'ca.t2.balance' => $user,
+                'ca.t2.instalments' => $user,
+            ],
+            choices: new SuggestionChoices(gstFrequency: 'quarterly'),
+            amounts: ['ca.t2.instalments' => '2500.00'],
+            custom: [[
+                'title' => 'City business licence renewal',
+                'category' => 'licence_renewal',
+                'kind' => 'pay',
+                'agency_name' => 'City of Toronto',
+                'instructions' => "Renew online with the licence number on the current certificate.\nPrint the new licence for the front counter.",
+                'assigned_user_id' => $user->id,
+                'frequency' => 'annual_dates',
+                'period_anchor' => $today->startOfYear()->subYear()->toDateString(),
+                'annual_dates' => [['month' => (int) $today->addDays(12)->month, 'day' => (int) $today->addDays(12)->day]],
+                'due_day_rule' => 'same_day',
+                'weekend_adjustment' => 'previous_business_day',
+                'end_type' => 'never',
+                'notify_days_before' => [14, 3],
+                'expected_amount' => '345.00',
+            ]],
+            leaveOverdue: 'ca.payroll.source_deductions',
+        );
+
         $this->command?->info("Demo company ready at slug 'demo' (login test@example.com / password).");
 
         // A second company — a Canadian registered charity — so the docs can
@@ -932,6 +970,13 @@ class DemoCompanySeeder extends Seeder
         ]);
 
         $this->seedSocietyTeam($company, $user);
+
+        $this->seedDemoDeadlines(
+            $company,
+            $user,
+            assignees: ['ca.t3010' => User::query()->where('email', 'treasurer@example.com')->first()],
+            choices: new SuggestionChoices,
+        );
 
         $this->command?->info("Demo charity ready at slug 'demo-society' (same login).");
     }

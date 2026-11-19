@@ -44,7 +44,7 @@ it('locks every full-page edit form under {company}', function () use ($componen
         $checked[] = $route->getName();
     }
 
-    expect($checked)->toHaveCount(30);
+    expect($checked)->toHaveCount(31);
 });
 
 it('makes every show page that has an edit page aware of the lock, with at least one guarded action', function () use ($componentFor) {
@@ -74,7 +74,7 @@ it('makes every show page that has an edit page aware of the lock, with at least
         $checked[] = $name;
     }
 
-    expect($checked)->toHaveCount(25);
+    expect($checked)->toHaveCount(26);
 });
 
 it('locks every master-data edit dialog', function (string $component) {
@@ -120,4 +120,5 @@ it('locks every master-data edit dialog', function (string $component) {
     'pages::payroll.time-off-policies.index',
     'pages::opening-balances.cheques',
     'pages::opening-balances.deposits',
+    'pages::deadlines.occurrence-dialog',
 ]);

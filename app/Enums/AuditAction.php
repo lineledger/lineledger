@@ -139,6 +139,14 @@ enum AuditAction: string
     case TimeOffRequestDenied = 'time_off_request.denied';
     case TimeOffRequestCancelled = 'time_off_request.cancelled';
 
+    case DeadlineCreated = 'deadline.created';
+    case DeadlineUpdated = 'deadline.updated';
+    case DeadlineArchived = 'deadline.archived';
+    case DeadlineOccurrenceUpdated = 'deadline_occurrence.updated';
+    case DeadlineOccurrenceCompleted = 'deadline_occurrence.completed';
+    case DeadlineOccurrenceSkipped = 'deadline_occurrence.skipped';
+    case DeadlineOccurrenceReopened = 'deadline_occurrence.reopened';
+
     case DonationReceiptIssued = 'donation_receipt.issued';
     case DonationReceiptVoided = 'donation_receipt.voided';
     case DonationReceiptReissued = 'donation_receipt.reissued';

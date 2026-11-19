@@ -11,9 +11,9 @@ enum RecurrenceEndType: string
     public function label(): string
     {
         return match ($this) {
-            self::Never => 'Never (until paused)',
-            self::OnDate => 'On date',
-            self::AfterOccurrences => 'After number of occurrences',
+            self::Never => __('Never (until paused)'),
+            self::OnDate => __('On date'),
+            self::AfterOccurrences => __('After number of occurrences'),
         };
     }
 }

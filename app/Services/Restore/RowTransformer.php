@@ -487,6 +487,18 @@ final class RowTransformer
             'memorized_report_group_id' => 'memorized_report_groups',
         ],
         'memorized_report_groups' => [],
+        // Deadlines: assigned_user_id / completed_by_user_id / created_by_user_id
+        // and the settings + log user_id are remapped by the generic user pass.
+        'deadlines' => [
+            'tax_agency_id' => 'tax_agencies',
+        ],
+        'deadline_occurrences' => [
+            'deadline_id' => 'deadlines',
+        ],
+        'deadline_notification_settings' => [],
+        'deadline_notification_logs' => [
+            'deadline_occurrence_id' => 'deadline_occurrences',
+        ],
         // user_id is remapped by the USER_ID_EXACT mechanism, not listed here.
         'report_email_schedules' => [
             'memorized_report_id' => 'memorized_reports',

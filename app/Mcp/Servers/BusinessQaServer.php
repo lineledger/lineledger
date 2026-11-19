@@ -33,6 +33,7 @@ use App\Mcp\Tools\SalesReportTool;
 use App\Mcp\Tools\SalesTaxTool;
 use App\Mcp\Tools\TaxCodesTool;
 use App\Mcp\Tools\TrialBalanceTool;
+use App\Mcp\Tools\UpcomingDeadlinesTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Prompt;
 use Laravel\Mcp\Server\Tool;
@@ -56,7 +57,7 @@ class BusinessQaServer extends Server
         This server answers plain-language questions about the finances of a single
         company in LineLedger (a double-entry accounting app). Use it for questions
         like "how did we do last quarter?", "who owes me money?", "are we low on any
-        stock?", or "how much sales tax do I owe?".
+        stock?", "how much sales tax do I owe?", or "what filings are due soon?".
 
         Important context for every answer:
         - All figures are already in the company's home currency and are computed from
@@ -110,6 +111,7 @@ class BusinessQaServer extends Server
         ListInvoicesTool::class,
         SalesTaxTool::class,
         Form1099Tool::class,
+        UpcomingDeadlinesTool::class,
         CompanyProfileTool::class,
         ChartOfAccountsTool::class,
         ItemsCatalogTool::class,

@@ -28,6 +28,10 @@ use App\Models\CreditMemoLine;
 use App\Models\CurrencyRevaluation;
 use App\Models\CustomerReceipt;
 use App\Models\DailyInsight;
+use App\Models\Deadline;
+use App\Models\DeadlineNotificationLog;
+use App\Models\DeadlineNotificationSetting;
+use App\Models\DeadlineOccurrence;
 use App\Models\Deposit;
 use App\Models\DepositLine;
 use App\Models\DocumentFolder;
@@ -332,6 +336,14 @@ final class BackupTableRegistry
             ['table' => 'recurring_document_lines', 'model' => RecurringDocumentLine::class, 'group' => 'recurring'],
             ['table' => 'recurring_journal_entries', 'model' => RecurringJournalEntry::class, 'group' => 'recurring'],
             ['table' => 'recurring_journal_entry_lines', 'model' => RecurringJournalEntryLine::class, 'group' => 'recurring'],
+
+            // === Deadlines === the series before its occurrences; the email
+            // log after the occurrences it names. Assignee / completed-by /
+            // creator columns all end in _user_id (generic user remap).
+            ['table' => 'deadlines', 'model' => Deadline::class, 'group' => 'deadlines'],
+            ['table' => 'deadline_occurrences', 'model' => DeadlineOccurrence::class, 'group' => 'deadlines'],
+            ['table' => 'deadline_notification_settings', 'model' => DeadlineNotificationSetting::class, 'group' => 'deadlines'],
+            ['table' => 'deadline_notification_logs', 'model' => DeadlineNotificationLog::class, 'group' => 'deadlines'],
 
             // === User-affordances (per-company UI state + auth) ===
             ['table' => 'memorized_report_groups', 'model' => MemorizedReportGroup::class, 'group' => 'user_affordances'],

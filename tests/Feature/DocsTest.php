@@ -31,6 +31,7 @@ test('authenticated users can visit each documentation page', function (string $
     'docs.languages',
     'docs.united-kingdom',
     'docs.dashboard',
+    'docs.deadlines',
     'docs.insights',
     'docs.banking',
     'docs.fundraising',
@@ -74,7 +75,7 @@ test('the docs nav lists every topic on a page', function () {
 
     $response->assertOk();
 
-    foreach (['Getting started', 'Create an organization', 'Languages', 'United Kingdom & VAT', 'Dashboard', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Users and roles', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
+    foreach (['Getting started', 'Create an organization', 'Languages', 'United Kingdom & VAT', 'Dashboard', 'Deadlines', 'Insights', 'Banking', 'Fundraising', 'Customers', 'Members', 'Estimates', 'Sales orders', 'Recurring', 'Sales receipts', 'Customer portal', 'Purchases', 'Vendors', 'Purchase orders', 'Inventory', 'Employees', 'Employee portal', 'Payroll', 'Accounting', 'Opening balances', 'Fixed assets', 'Multi-currency', 'Reports', 'Budgets', 'Tax returns', 'Documents', 'Inbox', 'Settings & administration', 'Lists', 'Settings', 'Users and roles', 'Import from QuickBooks', 'API', 'Self-hosting & upgrades', 'Site administration'] as $label) {
         $response->assertSeeText($label);
     }
 });
