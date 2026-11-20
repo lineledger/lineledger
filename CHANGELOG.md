@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Invoices take a Customer PO # through the API.** `POST` and `PATCH
+  /api/v1/invoices` accept `customer_po` (up to 100 characters) and the invoice
+  response returns it. It is the same "Customer PO #" the invoice form has always
+  had; the API used to drop it without saying so.
+
 ### Changed
 
 - **Credit memo lines take a negative quantity.** When a credit memo refunds one

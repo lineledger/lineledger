@@ -36,6 +36,7 @@ class InvoiceResource extends JsonResource
             // entry. Clients that computed total − amount_paid overstated it.
             'balance_cents' => $this->balanceCents(),
             'memo' => $this->memo,
+            'customer_po' => $this->customer_po,
             'posted_at' => optional($this->posted_at)->toIso8601String(),
             'journal_entry_id' => $this->journal_entry_id,
             'lines' => $this->lines->map(fn ($line) => [
