@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StorePaymentMethodRequest;
 use App\Http\Requests\Api\V1\UpdatePaymentMethodRequest;
 use App\Http\Resources\Api\V1\PaymentMethodResource;
 use App\Models\PaymentMethod;
+use App\Services\References\PaymentMethodReferenceRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -49,8 +50,14 @@ class PaymentMethodController extends ApiController
         return new PaymentMethodResource($method);
     }
 
+    /**
+     * Delete an unused payment method. One a recorded payment or a contact
+     * still names is refused; deactivate it instead.
+     */
     public function destroy(PaymentMethod $paymentMethod): JsonResponse
     {
+        $this->refuseWhileReferenced(PaymentMethodReferenceRegistry::class, (int) $paymentMethod->id, __('payment method'));
+
         $paymentMethod->delete();
 
         return response()->json(null, 204);

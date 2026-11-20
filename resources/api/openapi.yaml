@@ -89,7 +89,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/contact' }]
     get: { $ref: '#/components/x-ops/contactShow', tags: [Sales], summary: Get a customer }
     patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Sales], summary: Update a customer }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Sales], summary: Delete a customer }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Sales], summary: "Delete an unused customer (409 while a document or other record names it — deactivate instead)" }
 
   /sales-orders:
     get:
@@ -238,7 +238,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/contact' }]
     get: { $ref: '#/components/x-ops/contactShow', tags: [Purchasing], summary: Get a vendor }
     patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Purchasing], summary: Update a vendor }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: Delete a vendor }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: "Delete an unused vendor (409 while a document or other record names it — deactivate instead)" }
 
   /employees:
     get: { $ref: '#/components/x-ops/contactIndex', tags: [Purchasing], summary: List employees }
@@ -247,7 +247,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/contact' }]
     get: { $ref: '#/components/x-ops/contactShow', tags: [Purchasing], summary: Get an employee }
     patch: { $ref: '#/components/x-ops/contactUpdate', tags: [Purchasing], summary: Update an employee }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: Delete an employee }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Purchasing], summary: "Delete an unused employee (409 while a pay run or other record names them — deactivate instead)" }
 
   /bills:
     get:
@@ -479,7 +479,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/account' }]
     get: { tags: [Accounting], summary: Get an account, responses: { '200': {$ref: '#/components/responses/Account'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Accounting], summary: Update an account (system accounts can be renamed only), requestBody: {$ref: '#/components/requestBodies/Account'}, responses: { '200': {$ref: '#/components/responses/Account'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Accounting], summary: Delete an account (409 if it has transactions), responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Accounting], summary: "Delete an unused account (409 for a system account, or while transactions, sub-accounts or defaults use it — deactivate instead)", responses: { '204': {description: Deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /journal-entries:
     get:
@@ -504,7 +504,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
     get: { tags: [Accounting], summary: Get a journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Accounting], summary: Update a draft / amend a posted entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Accounting], summary: Void a posted entry or delete a draft, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Accounting], summary: "Void a posted manual entry or delete a draft (422 for an entry another document created, or the reversal a void wrote — act on that document instead)", responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /journal-entries/{journalEntry}/post:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
     post: { tags: [Accounting], summary: Post a draft journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
@@ -632,7 +632,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/taxCode' }]
     get: { tags: [Tax], summary: Get a tax code, responses: { '200': {$ref: '#/components/responses/TaxCode'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Tax], summary: Update a tax code, requestBody: {$ref: '#/components/requestBodies/TaxCode'}, responses: { '200': {$ref: '#/components/responses/TaxCode'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Tax], summary: Delete a tax code }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Tax], summary: "Delete an unused tax code (409 while a document line, ledger line or default uses it — deactivate instead)" }
 
   /tax-agencies:
     get:
@@ -740,7 +740,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/paymentTerm' }]
     get: { tags: [Settings], summary: Get a payment term, responses: { '200': {$ref: '#/components/responses/PaymentTerm'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Settings], summary: Update a payment term, requestBody: {$ref: '#/components/requestBodies/PaymentTerm'}, responses: { '200': {$ref: '#/components/responses/PaymentTerm'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: Delete a payment term }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: "Delete unused payment terms (409 while a document or contact names them — deactivate instead)" }
 
   /payment-methods:
     get:
@@ -763,7 +763,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/paymentMethod' }]
     get: { tags: [Settings], summary: Get a payment method, responses: { '200': {$ref: '#/components/responses/PaymentMethod'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Settings], summary: Update a payment method, requestBody: {$ref: '#/components/requestBodies/PaymentMethod'}, responses: { '200': {$ref: '#/components/responses/PaymentMethod'}, '404': {$ref: '#/components/responses/NotFound'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: Delete a payment method }
+    delete: { $ref: '#/components/x-ops/resourceDelete', tags: [Settings], summary: "Delete an unused payment method (409 while a payment or contact names it — deactivate instead)" }
 
 components:
   securitySchemes:

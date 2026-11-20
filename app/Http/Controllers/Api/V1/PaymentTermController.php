@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StorePaymentTermRequest;
 use App\Http\Requests\Api\V1\UpdatePaymentTermRequest;
 use App\Http\Resources\Api\V1\PaymentTermResource;
 use App\Models\PaymentTerm;
+use App\Services\References\PaymentTermReferenceRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -49,8 +50,14 @@ class PaymentTermController extends ApiController
         return new PaymentTermResource($term);
     }
 
+    /**
+     * Delete unused payment terms. Terms a document or a contact still names
+     * are refused; deactivate them instead.
+     */
     public function destroy(PaymentTerm $paymentTerm): JsonResponse
     {
+        $this->refuseWhileReferenced(PaymentTermReferenceRegistry::class, (int) $paymentTerm->id, __('payment terms'));
+
         $paymentTerm->delete();
 
         return response()->json(null, 204);

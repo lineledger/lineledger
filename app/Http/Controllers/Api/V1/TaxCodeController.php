@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreTaxCodeRequest;
 use App\Http\Requests\Api\V1\UpdateTaxCodeRequest;
 use App\Http\Resources\Api\V1\TaxCodeResource;
 use App\Models\TaxCode;
+use App\Services\References\TaxCodeReferenceRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -49,8 +50,15 @@ class TaxCodeController extends ApiController
         return new TaxCodeResource($taxCode);
     }
 
+    /**
+     * Delete an unused tax code. One still on a document line, a journal line
+     * or a list default is refused: the FKs would otherwise null it out of
+     * posted history. Deactivate it instead.
+     */
     public function destroy(TaxCode $taxCode): JsonResponse
     {
+        $this->refuseWhileReferenced(TaxCodeReferenceRegistry::class, (int) $taxCode->id, __('tax code'));
+
         $taxCode->delete();
 
         return response()->json(null, 204);

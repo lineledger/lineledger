@@ -103,6 +103,16 @@ new #[Title('Journal entry')] class extends Component {
     }
 
     /**
+     * Whether the journal may void, reverse or delete this entry: a manual
+     * entry, not one another document created and not the reversal a void
+     * wrote (JournalEntry::isManualEntry()).
+     */
+    public function isManagedHere(): bool
+    {
+        return $this->entry->isManualEntry();
+    }
+
+    /**
      * Codes for any tax codes tagged on the lines, keyed by id. The tag is for
      * tax reporting only — no amounts are derived from it. Empty when no line
      * carries one, which hides the column entirely.
@@ -125,7 +135,7 @@ new #[Title('Journal entry')] class extends Component {
     #[GuardsEditLock]
     public function void(JournalPoster $poster): void
     {
-        abort_if($this->isSourceLinked(), 403);
+        abort_unless($this->isManagedHere(), 403);
 
         try {
             $poster->void($this->entry);
@@ -168,7 +178,7 @@ new #[Title('Journal entry')] class extends Component {
     public function reverse(ReverseJournalEntry $action): void
     {
         abort_unless($this->entry->isPosted() && ! $this->entry->isVoided(), 403);
-        abort_if($this->isSourceLinked(), 403);
+        abort_unless($this->isManagedHere(), 403);
 
         $this->validate(['reverseDate' => ['required', 'date']]);
 
@@ -268,7 +278,7 @@ new #[Title('Journal entry')] class extends Component {
                     <flux:menu.item icon="arrow-path" :href="route('recurring-journal.create', ['company' => $company->slug, 'from' => $entry->id])" wire:navigate data-test="memorize-entry-button">
                         {{ __('Memorize') }}
                     </flux:menu.item>
-                    @if ($entry->isPosted() && ! $entry->isVoided() && $entry->source_type === null)
+                    @if ($entry->isPosted() && ! $entry->isVoided() && $this->isManagedHere())
                         <flux:menu.separator />
                         <flux:modal.trigger name="reverse-entry">
                             <flux:menu.item icon="arrow-uturn-left" data-test="reverse-entry-button">
@@ -278,7 +288,7 @@ new #[Title('Journal entry')] class extends Component {
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this entry? A reversing entry will be posted.') }}" data-test="void-entry-button">
                             {{ __('Void') }}
                         </flux:menu.item>
-                    @elseif (! $entry->isPosted() && $entry->source_type === null)
+                    @elseif (! $entry->isPosted() && $this->isManagedHere())
                         <flux:menu.separator />
                         <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft entry? It has not been posted, so nothing is reversed — it is removed permanently.') }}" data-test="delete-entry-button">
                             {{ __('Delete draft') }}
@@ -289,7 +299,7 @@ new #[Title('Journal entry')] class extends Component {
         </div>
     </div>
 
-    @if ($entry->isPosted() && ! $entry->isVoided() && $entry->source_type === null)
+    @if ($entry->isPosted() && ! $entry->isVoided() && $this->isManagedHere())
         <flux:modal name="reverse-entry" focusable class="max-w-md">
             <form wire:submit="reverse" class="space-y-6">
                 <div>

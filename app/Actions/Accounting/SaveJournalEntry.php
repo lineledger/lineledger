@@ -83,7 +83,7 @@ final class SaveJournalEntry
             ];
 
             if ($entry && $entry->exists) {
-                if ($entry->source_type !== null) {
+                if (! $entry->isManualEntry()) {
                     throw LinkedJournalEntryException::for($entry);
                 }
                 if (! empty($data['entry_no'])) {
