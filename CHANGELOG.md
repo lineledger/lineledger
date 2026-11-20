@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.5] - 2026-11-20
+
+**Highlights.** The fifth release candidate for 1.5.0, on the next channel
+only. An assistant connected to the Business Q&A MCP server can now read what
+is on an invoice (every line as typed, tax by code, the payments applied and
+the balance due), search invoice lines and a customer's payments, page through
+an account's ledger, and see a customer's or vendor's address and email. No
+migrations and no new `app:upgrade` steps. See `UPGRADING.md`.
+
 ### Added
 
 - **The Business Q&A MCP server can read what is on an invoice.** Three new
@@ -2139,7 +2148,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.4...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.5...HEAD
+[1.5.0-rc.5]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.4...v1.5.0-rc.5
 [1.5.0-rc.4]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.3...v1.5.0-rc.4
 [1.5.0-rc.3]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...v1.5.0-rc.3
 [1.5.0-rc.2]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...v1.5.0-rc.2

@@ -44,6 +44,93 @@ newest first.
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
 
+## 1.4.4 → 1.5.0-rc.5
+
+Released 2026-11-20, on the **next channel** only (see How upgrades work → Channels).
+The fifth release candidate for 1.5.0. On top of 1.5.0-rc.4 it lets the Business Q&A MCP
+server read what is on an invoice, search invoice lines and a customer's payments, and
+return a customer's or vendor's contact details. Run it on an install you can restore
+from a backup.
+
+PHP `^8.5`, Laravel 13 and every dependency are the same as in 1.5.0-rc.4. **No config
+or env changes are required**, and `docker-compose.yml`, `backup.sh` and `restore.sh`
+are unchanged. There are **no migrations** and **no new `app:upgrade` steps**. What
+`app:upgrade` does depends on where you come from:
+
+- **From 1.5.0-rc.4:** nothing; it reports nothing pending.
+- **From 1.5.0-rc.3 or earlier, or from 1.4.4:** what 1.4.4 → 1.5.0-rc.4 below lists for
+  your starting point, including its `deletions:purge-soft-deleted` step. Run
+  `app:upgrade --dry-run` first, as that section says.
+- **From 1.4.3 or earlier:** read the 1.4.3 → 1.4.4 and 1.4.3 → 1.5.0-rc.1 sections, and
+  the sections for any release you skip, then come straight here.
+
+### What people will notice
+
+Only MCP clients connected to the Business Q&A server (`/mcp/business`) see a
+difference. The web app and the REST API are unchanged.
+
+- **Three new read-only tools.** `get-invoice-tool` returns one invoice in full: every
+  line as typed, tax by code, the payments applied and the balance due (`format: json`
+  gives one object). `invoice-lines-tool` searches lines across invoices.
+  `customer-payments-tool` lists a customer's payments, refunds, credit memos and
+  unapplied credit. A client that asks before calling a new tool asks once for each.
+- **`find-contact-tool`** now includes the contact's billing and shipping address, email,
+  phone and terms, for a connection that may view that customer or vendor. It no longer
+  matches a contact that is only an employee.
+- **`account-balance-tool`** still lists the ten most recent lines by default and now says
+  how many more there are; `limit` (up to 500), `offset`, `contact` and `reference` page
+  through and narrow them.
+- **`list-invoices-tool`** shows each invoice's API id and balance due, filters by number,
+  and prints a foreign-currency invoice's total in its own currency (it used to label it
+  as home currency).
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.5.0-rc.5` in the filenames.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.5.0-rc.5, or LINELEDGER_VERSION=next to take each
+# release candidate (and then 1.5.0) as it ships.
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+```bash
+lineledger upgrade              # already on the next channel
+lineledger upgrade 1.5.0-rc.5   # from stable; then lineledger channel next, optionally
+```
+
+### DigitalOcean App Platform
+
+Already on the `next` image tag: deploy again once the 1.5.0-rc.5 image is built. From
+stable, change every component's image tag from `latest` to `next` in the app's spec,
+then deploy. The pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Check out `v1.5.0-rc.5`, or deploy the `next` branch, with the unchanged deploy script.
+Then run `php artisan app:upgrade --verify` and `php artisan queue:restart`.
+
+### Check it worked
+
+- The footer of every page shows `v1.5.0-rc.5`.
+- In an MCP client connected to the Business Q&A server, the tool list includes
+  `get-invoice-tool`, and calling it with an invoice number returns that invoice's lines.
+- `php artisan integrity:check` reports `Ledger integrity OK.`
+- Coming from 1.5.0-rc.3 or earlier: the checks under 1.4.4 → 1.5.0-rc.4 below.
+
+### Rolling back
+
+Going back to **1.5.0-rc.4** doesn't need a restore: rc.5 adds no tables, columns or data
+steps, and MCP clients simply lose the new tools. Going back further is on the terms
+under 1.4.4 → 1.5.0-rc.4 below.
+
 ## 1.4.4 → 1.5.0-rc.4
 
 Released 2026-11-20, on the **next channel** only (see How upgrades work → Channels).
