@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.4] - 2026-11-20
+
+**Highlights.** The fourth release candidate for 1.5.0, on the next channel
+only. It finishes Delete as QuickBooks Desktop does it (#241): every other
+transaction that can be voided, estimates and orders, stock adjustments, tax
+payments, donations and grants, pay runs, payroll cheques and remittances, and
+list records nobody uses. The API can delete for good with
+`?permanent=true` and void with `POST …/void`. No migrations; `app:upgrade`
+runs one new step, `deletions:purge-soft-deleted`, which permanently removes
+what earlier releases only hid. See `UPGRADING.md`.
+
 ### Added
 
 - **Delete for every other transaction you can void** (#241, after 1.5.0-rc.3
@@ -2097,7 +2108,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.3...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.4...HEAD
+[1.5.0-rc.4]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.3...v1.5.0-rc.4
 [1.5.0-rc.3]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...v1.5.0-rc.3
 [1.5.0-rc.2]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...v1.5.0-rc.2
 [1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
