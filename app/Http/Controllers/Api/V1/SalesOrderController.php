@@ -98,14 +98,16 @@ class SalesOrderController extends ApiController
         return new SalesOrderResource($salesOrder->load(self::WITH));
     }
 
-    public function destroy(SalesOrder $salesOrder): JsonResponse
+    /**
+     * Delete a sales order (it never posts), keeping the record of the
+     * deletion. One with invoices is refused: cancel it instead.
+     */
+    public function destroy(Request $request, SalesOrder $salesOrder): JsonResponse
     {
         if (in_array($salesOrder->effectiveStatus(), [SalesOrderStatus::Partial, SalesOrderStatus::Closed], true)) {
             $this->conflict('A sales order with invoices cannot be deleted; cancel it instead.');
         }
 
-        $salesOrder->delete();
-
-        return response()->json(null, 204);
+        return $this->deletePermanently($request, $salesOrder);
     }
 }

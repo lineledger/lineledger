@@ -318,27 +318,27 @@ always requiring `{resource}:write`:
 |---|---|---|
 | `sales` | `customers` | — |
 | `sales` | `sales-orders` | `fulfill`, `cancel` |
-| `sales` | `invoices` | `post`, `refund` |
-| `sales` | `receipts` | `post` |
-| `sales` | `credit-memos` | `post`, `refund` |
+| `sales` | `invoices` | `post`, `refund`, `void` |
+| `sales` | `receipts` | `post`, `void` |
+| `sales` | `credit-memos` | `post`, `refund`, `void` |
 | `purchases` | `vendors` | — |
 | `purchases` | `employees` | — |
-| `purchases` | `bills` | `post` |
-| `purchases` | `bill-payments` | `post` |
-| `banking` | `cheques` | `post` |
-| `banking` | `deposits` | `post` |
-| `banking` | `transfers` | `post` |
+| `purchases` | `bills` | `post`, `void` |
+| `purchases` | `bill-payments` | `post`, `void` |
+| `banking` | `cheques` | `post`, `void` |
+| `banking` | `deposits` | `post`, `void` |
+| `banking` | `transfers` | `post`, `void` |
 | `banking` | `bank-reconciliations` | `complete` |
 | `accounting` | `accounts` | — |
-| `accounting` | `journal-entries` | `post` |
+| `accounting` | `journal-entries` | `post`, `void` |
 | `accounting` | `assets` | — |
 | `accounting` | `asset-categories` | — |
 | `inventory` | `items` | — |
-| `inventory` | `stock-adjustments` | `post` |
+| `inventory` | `stock-adjustments` | `post`, `void` |
 | `tax` | `tax-codes` | — |
 | `tax` | `tax-agencies` | — |
 | `tax` | `tax-returns` | `file`, `void` |
-| `tax` | `tax-return-payments` | `post` |
+| `tax` | `tax-return-payments` | `post`, `void` |
 | `settings` | `payment-terms` | — |
 | `settings` | `payment-methods` | — |
 
@@ -360,7 +360,9 @@ have a posted state, and the HTTP verbs map onto it:
 | `POST /{resource}` | Creates **and posts** by default. Send `"post": false` to leave a draft. | — |
 | `PATCH /{resource}/{id}` | Edits the draft. | **Reposts in place** where supported; `409` where not. |
 | `POST /{resource}/{id}/post` | Posts it. | Reposts invoices, bills, receipts, credit memos and bill payments. `409` for cheques, deposits and journal entries (edit those with `PATCH`) and for the types that never repost. |
-| `DELETE /{resource}/{id}` | **Hard-deletes**, returns `204`. | **Voids** with a reversing journal entry, returns `200` and the voided document. |
+| `DELETE /{resource}/{id}` | **Deletes**, returns `204`; the audit log and the Voided/Deleted Transactions report keep a record. | **Voids** with a reversing journal entry, returns `200` and the voided document, with a `Deprecation: true` header and a `Link` to `POST /{resource}/{id}/void` (API v2 makes `DELETE` delete). |
+| `DELETE /{resource}/{id}?permanent=true` | Deletes, `204`. | **Deletes** it as if never entered (posted or voided): the document, its lines and its journal entries leave the books and every report; the audit log keeps the record. `204`, or `409` with a `blockers` array when something still depends on it (a payment applied, a deposit holding it, …), or `422` for a closed period or a filed tax return. An optional `reason` is kept with the record. |
+| `POST /{resource}/{id}/void` | `409` (nothing to reverse; delete it). | **Voids**, returns `200` and the voided document; `409` once voided. |
 
 `PATCH`/`PUT`, `DELETE` and `POST /{resource}/{id}/{action}` on an existing record
 return **`423`** while someone has that record open for editing in the web app
@@ -401,9 +403,10 @@ Four more cheque rules, enforced by the same code path the web form uses:
 
 Three consequences worth designing around:
 
-- **`DELETE` is not idempotent in the usual sense.** On a posted document it writes
-  a reversing entry and returns the resource; calling it again returns `409`
-  (`"Invoice is already voided."`). Check the status code, not just success.
+- **Plain `DELETE` is not idempotent in the usual sense.** On a posted document it
+  writes a reversing entry and returns the resource; calling it again returns `409`
+  (`"Invoice is already voided."`). Check the status code, not just success. Prefer
+  `POST …/void` to void, and `DELETE …?permanent=true` to delete.
 - **Repost support is per document type.** Invoices, credit memos, receipts, bills,
   bill payments, journal entries, deposits and — since 1.1.0 — cheques repost in
   place. Stock adjustments, transfers and tax-return payments do **not** — editing
@@ -547,7 +550,7 @@ that `422` tells you the first attempt went through.
 | `401` | Missing, unknown, or revoked API key. |
 | `403` | The key is valid but lacks the required scope. |
 | `404` | No such record **in this company** (also returned for a wrong-role contact). |
-| `409` | The operation conflicts with the document's state — already voided, an edit to a posted document that can't repost, or a journal entry another document owns. |
+| `409` | The operation conflicts with the document's state — already voided, an edit to a posted document that can't repost, a journal entry another document owns, or a delete something still depends on (the body lists `blockers`). |
 | `422` | Validation failed, or the post was rejected (locked period, unbalanced, zero total, filed tax period). |
 | `423` | Someone is editing the record in the web app right now. Wait `Retry-After` seconds and try again. |
 | `429` | Rate limit exceeded. |

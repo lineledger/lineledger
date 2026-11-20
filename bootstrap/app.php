@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\ClientSafeException;
+use App\Exceptions\Deletion\DeletionBlockedException;
 use App\Exceptions\EditLocks\RecordEditLockedException;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Http\Middleware\AuthenticateApiKey;
@@ -22,6 +23,7 @@ use App\Http\Middleware\SetCompanyUrlDefaults;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\Company;
+use App\Services\Deletion\DeletionBlocker;
 use App\Support\Http\TrustedHosts;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -201,6 +203,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['message' => $e->clientSafeMessage()], 423, [
                     'Retry-After' => (string) $e->retryAfterSeconds,
                 ]);
+            }
+        });
+
+        // A delete something else still depends on: 409 Conflict, with each
+        // reason and, where there is one, the record to deal with first.
+        $exceptions->render(function (DeletionBlockedException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->clientSafeMessage(),
+                    'blockers' => array_map(fn (DeletionBlocker $b): array => ['message' => $b->message], $e->blockers),
+                ], 409);
             }
         });
 

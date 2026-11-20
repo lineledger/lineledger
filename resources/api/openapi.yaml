@@ -161,10 +161,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
     get: { tags: [Sales], summary: Get an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Sales], summary: Update a draft / repost a posted invoice, requestBody: {$ref: '#/components/requestBodies/Invoice'}, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Sales], summary: Void a posted invoice or delete a draft, responses: { '200': {$ref: '#/components/responses/Invoice'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: "Delete (?permanent=true) or void a posted invoice, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Invoice'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /invoices/{invoice}/post:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
     post: { tags: [Sales], summary: Post a draft / repost an invoice, responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /invoices/{invoice}/void:
+    parameters: [{ $ref: '#/components/parameters/invoice' }]
+    post: { tags: [Sales], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Invoice'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /invoices/{invoice}/refund:
     parameters: [{ $ref: '#/components/parameters/invoice' }]
     post: { tags: [Sales], summary: Refund a customer's overpayment from an invoice, description: 'Records and posts a refund (money out) of a payment''s unapplied credit — e.g. a customer who paid twice — as a negative customer receipt (DR Accounts Receivable, CR the deposit account), with no credit memo. refunded_receipt_id is the payment holding the credit; it must be a posted, home-currency payment by the invoice''s customer, and the amount cannot exceed its unapplied credit. The invoice itself is unchanged; it lists the refund. Only a posted, partly paid or paid invoice can issue a refund. 423 while the invoice or the payment is being edited in the web app. Returns the receipt.', requestBody: {$ref: '#/components/requestBodies/InvoiceRefund'}, responses: { '201': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
@@ -193,10 +196,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/receipt' }]
     get: { tags: [Sales], summary: Get a receipt, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Sales], summary: Update / repost a receipt, description: "Send the full header and the complete applications list — the list replaces what is stored, so omitting an application unapplies it.", requestBody: {$ref: '#/components/requestBodies/Receipt'}, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Sales], summary: Void a posted receipt or delete a draft, responses: { '200': {$ref: '#/components/responses/Receipt'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: "Delete (?permanent=true) or void a posted receipt, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Receipt'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /receipts/{receipt}/post:
     parameters: [{ $ref: '#/components/parameters/receipt' }]
     post: { tags: [Sales], summary: Post a draft receipt, responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /receipts/{receipt}/void:
+    parameters: [{ $ref: '#/components/parameters/receipt' }]
+    post: { tags: [Sales], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /credit-memos:
     get:
@@ -222,10 +228,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
     get: { tags: [Sales], summary: Get a credit memo, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Sales], summary: Update / repost a credit memo, requestBody: {$ref: '#/components/requestBodies/CreditMemo'}, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Sales], summary: Void a posted credit memo or delete a draft, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Sales], summary: "Delete (?permanent=true) or void a posted credit memo, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /credit-memos/{creditMemo}/post:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
     post: { tags: [Sales], summary: Post a draft credit memo, responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /credit-memos/{creditMemo}/void:
+    parameters: [{ $ref: '#/components/parameters/creditMemo' }]
+    post: { tags: [Sales], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/CreditMemo'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /credit-memos/{creditMemo}/refund:
     parameters: [{ $ref: '#/components/parameters/creditMemo' }]
     post: { tags: [Sales], summary: Refund a posted credit memo, description: 'Records and posts a refund (money out) against a posted credit memo as a negative customer receipt (DR Accounts Receivable, CR the deposit account). The amount cannot exceed the memo''s remaining refundable balance; only a posted credit memo can be refunded. Returns the receipt.', requestBody: {$ref: '#/components/requestBodies/CreditMemoRefund'}, responses: { '201': {$ref: '#/components/responses/Receipt'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
@@ -274,10 +283,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/bill' }]
     get: { tags: [Purchasing], summary: Get a bill, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Purchasing], summary: Update / repost a bill, requestBody: {$ref: '#/components/requestBodies/Bill'}, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Purchasing], summary: Void a posted bill or delete a draft, responses: { '200': {$ref: '#/components/responses/Bill'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Purchasing], summary: "Delete (?permanent=true) or void a posted bill, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Bill'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bills/{bill}/post:
     parameters: [{ $ref: '#/components/parameters/bill' }]
     post: { tags: [Purchasing], summary: Post a draft bill, responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /bills/{bill}/void:
+    parameters: [{ $ref: '#/components/parameters/bill' }]
+    post: { tags: [Purchasing], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Bill'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /bill-payments:
     get:
@@ -303,10 +315,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/billPayment' }]
     get: { tags: [Purchasing], summary: Get a bill payment, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Purchasing], summary: Update / repost a bill payment, description: "Send the full header and the complete applications list — the list replaces what is stored.", requestBody: {$ref: '#/components/requestBodies/BillPayment'}, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Purchasing], summary: Void a posted bill payment or delete a draft, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Purchasing], summary: "Delete (?permanent=true) or void a posted bill payment, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/BillPayment'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /bill-payments/{billPayment}/post:
     parameters: [{ $ref: '#/components/parameters/billPayment' }]
     post: { tags: [Purchasing], summary: Post a draft bill payment, responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /bill-payments/{billPayment}/void:
+    parameters: [{ $ref: '#/components/parameters/billPayment' }]
+    post: { tags: [Purchasing], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/BillPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   # ---- Banking -----------------------------------------------------------
   /cheques:
@@ -348,10 +363,13 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
         '423': { $ref: '#/components/responses/Locked' }
         '500': { $ref: '#/components/responses/InternalError' }
-    delete: { tags: [Banking], summary: Void a posted cheque or delete a draft, responses: { '200': {$ref: '#/components/responses/Cheque'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Banking], summary: "Delete (?permanent=true) or void a posted cheque, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Cheque'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /cheques/{cheque}/post:
     parameters: [{ $ref: '#/components/parameters/cheque' }]
     post: { tags: [Banking], summary: Post a draft cheque (409 if already posted — edit it with PATCH instead), responses: { '200': {$ref: '#/components/responses/Cheque'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /cheques/{cheque}/void:
+    parameters: [{ $ref: '#/components/parameters/cheque' }]
+    post: { tags: [Banking], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Cheque'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /deposits:
     get:
@@ -377,10 +395,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/deposit' }]
     get: { tags: [Banking], summary: Get a deposit, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Banking], summary: Update a deposit (a posted one is reposted in place), requestBody: {$ref: '#/components/requestBodies/Deposit'}, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Banking], summary: Void a posted deposit or delete a draft, responses: { '200': {$ref: '#/components/responses/Deposit'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Banking], summary: "Delete (?permanent=true) or void a posted deposit, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Deposit'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /deposits/{deposit}/post:
     parameters: [{ $ref: '#/components/parameters/deposit' }]
     post: { tags: [Banking], summary: Post a draft deposit, responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /deposits/{deposit}/void:
+    parameters: [{ $ref: '#/components/parameters/deposit' }]
+    post: { tags: [Banking], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Deposit'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /transfers:
     get:
@@ -423,10 +444,13 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
         '423': { $ref: '#/components/responses/Locked' }
         '500': { $ref: '#/components/responses/InternalError' }
-    delete: { tags: [Banking], summary: Void a posted transfer or delete a draft, responses: { '200': {$ref: '#/components/responses/Transfer'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Banking], summary: "Delete (?permanent=true) or void a posted transfer, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/Transfer'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /transfers/{transfer}/post:
     parameters: [{ $ref: '#/components/parameters/transfer' }]
     post: { tags: [Banking], summary: Post a draft transfer (409 if already posted or voided), responses: { '200': {$ref: '#/components/responses/Transfer'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /transfers/{transfer}/void:
+    parameters: [{ $ref: '#/components/parameters/transfer' }]
+    post: { tags: [Banking], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/Transfer'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /bank-reconciliations:
     get:
@@ -504,10 +528,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
     get: { tags: [Accounting], summary: Get a journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Accounting], summary: Update a draft / amend a posted entry, requestBody: {$ref: '#/components/requestBodies/JournalEntry'}, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Accounting], summary: "Void a posted manual entry or delete a draft (422 for an entry another document created, or the reversal a void wrote — act on that document instead)", responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Accounting], summary: "Delete (?permanent=true) or void a posted manual entry, or delete a draft (422 for an entry another document created, or the reversal a void wrote — act on that document instead)", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /journal-entries/{journalEntry}/post:
     parameters: [{ $ref: '#/components/parameters/journalEntry' }]
     post: { tags: [Accounting], summary: Post a draft journal entry, responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /journal-entries/{journalEntry}/void:
+    parameters: [{ $ref: '#/components/parameters/journalEntry' }]
+    post: { tags: [Accounting], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/JournalEntry'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '423': {$ref: '#/components/responses/Locked'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   /assets:
     get:
@@ -605,10 +632,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
     get: { tags: [Inventory], summary: Get a stock adjustment, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Inventory], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/StockAdjustment'}, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Inventory], summary: Void a posted stock adjustment or delete a draft, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Inventory], summary: "Delete (?permanent=true) or void a posted stock adjustment, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /stock-adjustments/{stockAdjustment}/post:
     parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
     post: { tags: [Inventory], summary: Post a draft stock adjustment, responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /stock-adjustments/{stockAdjustment}/void:
+    parameters: [{ $ref: '#/components/parameters/stockAdjustment' }]
+    post: { tags: [Inventory], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/StockAdjustment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   # ---- Tax ---------------------------------------------------------------
   /tax-codes:
@@ -713,10 +743,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
     get: { tags: [Tax], summary: Get a tax return payment, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '500': {$ref: '#/components/responses/InternalError'} } }
     patch: { tags: [Tax], summary: "Update a draft (posted: 409 — no repost)", requestBody: {$ref: '#/components/requestBodies/TaxReturnPayment'}, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
-    delete: { tags: [Tax], summary: Void a posted payment or delete a draft, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '204': {description: Draft deleted.}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
+    delete: { tags: [Tax], summary: "Delete (?permanent=true) or void a posted payment, or delete a draft", parameters: [{ $ref: '#/components/parameters/permanent' }], responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '204': {description: "Deleted (a draft, or any document with ?permanent=true)."}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '500': {$ref: '#/components/responses/InternalError'} } }
   /tax-return-payments/{taxReturnPayment}/post:
     parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
     post: { tags: [Tax], summary: Post a draft tax return payment, responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
+  /tax-return-payments/{taxReturnPayment}/void:
+    parameters: [{ $ref: '#/components/parameters/taxReturnPayment' }]
+    post: { tags: [Tax], summary: Void a posted document with a reversing journal entry (409 for a draft or one already voided), responses: { '200': {$ref: '#/components/responses/TaxReturnPayment'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/ValidationError'}, '500': {$ref: '#/components/responses/InternalError'} } }
 
   # ---- Settings ----------------------------------------------------------
   /payment-terms:
@@ -777,6 +810,7 @@ components:
       name: X-Api-Key
 
   parameters:
+    permanent: { name: permanent, in: query, schema: { type: boolean, default: false }, description: "true deletes the document as if it was never entered, whether draft, posted or voided: it leaves the books and every report, and the audit log keeps the record (204). 409 lists what still depends on it; 422 for a closed period or a filed tax return. Optional `reason` (body or query) is kept with the record. Without it, DELETE voids a posted document (deprecated; use POST …/void)." }
     page: { name: page, in: query, schema: { type: integer, minimum: 1 }, description: "Page number." }
     perPage: { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Items per page (capped at 100)." }
     from: { name: from, in: query, schema: { type: string, format: date }, description: "Only rows whose document date (named in the list's description) is on or after this date." }

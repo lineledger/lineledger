@@ -103,23 +103,25 @@ class ChequeController extends ApiController
     }
 
     /**
-     * Void a posted cheque (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the cheque as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(Cheque $cheque): JsonResponse
+    public function destroy(Request $request, Cheque $cheque): JsonResponse
     {
-        if ($cheque->status === ChequeStatus::Void) {
-            $this->conflict('Cheque is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $cheque,
+            fn () => $this->poster->void($cheque),
+            fn () => new ChequeResource($cheque->fresh(['lines'])),
+            'Cheque is already voided.',
+        );
+    }
 
-        if ($cheque->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($cheque));
-
-            return (new ChequeResource($cheque->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $cheque->lines()->delete();
-        $cheque->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted cheque with a reversing journal entry.
+     */
+    public function void(Cheque $cheque): JsonResponse
+    {
+        return $this->voidDocument($cheque, fn () => $this->poster->void($cheque), fn () => new ChequeResource($cheque->fresh(['lines'])), 'Cheque is already voided.');
     }
 }

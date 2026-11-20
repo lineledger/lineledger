@@ -96,23 +96,29 @@ class StockAdjustmentController extends ApiController
     }
 
     /**
-     * Void a posted adjustment (reversing JE + movements) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the stockAdjustment as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(StockAdjustment $stockAdjustment): JsonResponse
+    public function destroy(Request $request, StockAdjustment $stockAdjustment): JsonResponse
     {
-        if ($stockAdjustment->voided_at !== null) {
-            $this->conflict('Stock adjustment is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $stockAdjustment,
+            fn () => $this->poster->void($stockAdjustment),
+            fn () => new StockAdjustmentResource($stockAdjustment->fresh(['lines'])),
+            'Stock adjustment is already voided.',
+            legacyDraftDelete: function () use ($stockAdjustment): void {
+                $stockAdjustment->lines()->delete();
+                $stockAdjustment->delete();
+            },
+        );
+    }
 
-        if ($stockAdjustment->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($stockAdjustment));
-
-            return (new StockAdjustmentResource($stockAdjustment->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $stockAdjustment->lines()->delete();
-        $stockAdjustment->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted stockAdjustment with a reversing journal entry.
+     */
+    public function void(StockAdjustment $stockAdjustment): JsonResponse
+    {
+        return $this->voidDocument($stockAdjustment, fn () => $this->poster->void($stockAdjustment), fn () => new StockAdjustmentResource($stockAdjustment->fresh(['lines'])), 'Stock adjustment is already voided.');
     }
 }

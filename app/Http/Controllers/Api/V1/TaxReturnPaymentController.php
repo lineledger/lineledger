@@ -96,22 +96,26 @@ class TaxReturnPaymentController extends ApiController
     }
 
     /**
-     * Void a posted payment (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the taxReturnPayment as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(TaxReturnPayment $taxReturnPayment): JsonResponse
+    public function destroy(Request $request, TaxReturnPayment $taxReturnPayment): JsonResponse
     {
-        if ($taxReturnPayment->status === TaxReturnPaymentStatus::Void) {
-            $this->conflict('Tax payment is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $taxReturnPayment,
+            fn () => $this->poster->void($taxReturnPayment),
+            fn () => new TaxReturnPaymentResource($taxReturnPayment->fresh()),
+            'Tax payment is already voided.',
+            legacyDraftDelete: fn () => $taxReturnPayment->delete(),
+        );
+    }
 
-        if ($taxReturnPayment->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($taxReturnPayment));
-
-            return (new TaxReturnPaymentResource($taxReturnPayment->fresh()))->response()->setStatusCode(200);
-        }
-
-        $taxReturnPayment->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted taxReturnPayment with a reversing journal entry.
+     */
+    public function void(TaxReturnPayment $taxReturnPayment): JsonResponse
+    {
+        return $this->voidDocument($taxReturnPayment, fn () => $this->poster->void($taxReturnPayment), fn () => new TaxReturnPaymentResource($taxReturnPayment->fresh()), 'Tax payment is already voided.');
     }
 }

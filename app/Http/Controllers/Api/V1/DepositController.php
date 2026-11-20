@@ -103,23 +103,25 @@ class DepositController extends ApiController
     }
 
     /**
-     * Void a posted deposit (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the deposit as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(Deposit $deposit): JsonResponse
+    public function destroy(Request $request, Deposit $deposit): JsonResponse
     {
-        if ($deposit->status === DepositStatus::Void) {
-            $this->conflict('Deposit is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $deposit,
+            fn () => $this->poster->void($deposit),
+            fn () => new DepositResource($deposit->fresh(['lines'])),
+            'Deposit is already voided.',
+        );
+    }
 
-        if ($deposit->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($deposit));
-
-            return (new DepositResource($deposit->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $deposit->lines()->delete();
-        $deposit->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted deposit with a reversing journal entry.
+     */
+    public function void(Deposit $deposit): JsonResponse
+    {
+        return $this->voidDocument($deposit, fn () => $this->poster->void($deposit), fn () => new DepositResource($deposit->fresh(['lines'])), 'Deposit is already voided.');
     }
 }

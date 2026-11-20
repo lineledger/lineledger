@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Delete, and removes the draft for real. If a document is posted or voided
   elsewhere while its Delete dialog is open, confirming shows what deleting it
   would do now and asks again.
+- **The API can delete.** `DELETE /api/v1/{resource}/{id}?permanent=true`
+  deletes any invoice, receipt, credit memo, bill, bill payment, cheque,
+  deposit, transfer or journal entry as if it was never entered (204), with an
+  optional `reason`. It answers 409 with a `blockers` list when something still
+  depends on the document, and 422 for a closed period (the API never
+  overrides one). New `POST …/void` endpoints void a posted document. Plain
+  `DELETE` keeps voiding a posted document for now, with a `Deprecation`
+  header pointing at `POST …/void`; on a draft it now deletes it for real and
+  keeps the record. The deleted transaction's page says when a delete came
+  through the API.
 
 ## [1.5.0-rc.3] - 2026-11-20
 

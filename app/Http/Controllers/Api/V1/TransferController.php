@@ -96,22 +96,25 @@ class TransferController extends ApiController
     }
 
     /**
-     * Void a posted transfer (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the transfer as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(Transfer $transfer): JsonResponse
+    public function destroy(Request $request, Transfer $transfer): JsonResponse
     {
-        if ($transfer->status === TransferStatus::Void) {
-            $this->conflict('Transfer is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $transfer,
+            fn () => $this->poster->void($transfer),
+            fn () => new TransferResource($transfer->fresh()),
+            'Transfer is already voided.',
+        );
+    }
 
-        if ($transfer->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($transfer));
-
-            return (new TransferResource($transfer->fresh()))->response()->setStatusCode(200);
-        }
-
-        $transfer->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted transfer with a reversing journal entry.
+     */
+    public function void(Transfer $transfer): JsonResponse
+    {
+        return $this->voidDocument($transfer, fn () => $this->poster->void($transfer), fn () => new TransferResource($transfer->fresh()), 'Transfer is already voided.');
     }
 }

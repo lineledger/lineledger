@@ -315,7 +315,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\BillStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 3
+			count: 2
 			path: app/Http/Controllers/Api/V1/BillController.php
 
 		-
@@ -333,7 +333,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\BillPaymentStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 3
+			count: 2
 			path: app/Http/Controllers/Api/V1/BillPaymentController.php
 
 		-
@@ -375,7 +375,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DepositStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 3
+			count: 2
 			path: app/Http/Controllers/Api/V1/DepositController.php
 
 		-
@@ -543,7 +543,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaxReturnPaymentStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 3
+			count: 2
 			path: app/Http/Controllers/Api/V1/TaxReturnPaymentController.php
 
 		-
@@ -561,7 +561,7 @@ parameters:
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TransferStatus\:\:Void will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
-			count: 3
+			count: 2
 			path: app/Http/Controllers/Api/V1/TransferController.php
 
 		-
