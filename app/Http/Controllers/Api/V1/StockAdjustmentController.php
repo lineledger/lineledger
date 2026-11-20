@@ -107,10 +107,6 @@ class StockAdjustmentController extends ApiController
             fn () => $this->poster->void($stockAdjustment),
             fn () => new StockAdjustmentResource($stockAdjustment->fresh(['lines'])),
             'Stock adjustment is already voided.',
-            legacyDraftDelete: function () use ($stockAdjustment): void {
-                $stockAdjustment->lines()->delete();
-                $stockAdjustment->delete();
-            },
         );
     }
 
