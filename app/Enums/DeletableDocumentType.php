@@ -8,13 +8,17 @@ use App\Models\Cheque;
 use App\Models\CreditMemo;
 use App\Models\CustomerReceipt;
 use App\Models\Deposit;
+use App\Models\Donation;
 use App\Models\Estimate;
 use App\Models\Expense;
+use App\Models\Grant;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesReceipt;
+use App\Models\StockAdjustment;
+use App\Models\TaxReturnPayment;
 use App\Models\Transfer;
 use App\Models\VendorCredit;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +45,10 @@ enum DeletableDocumentType: string
     case Estimate = 'estimate';
     case SalesOrder = 'sales_order';
     case PurchaseOrder = 'purchase_order';
+    case StockAdjustment = 'stock_adjustment';
+    case TaxReturnPayment = 'tax_return_payment';
+    case Donation = 'donation';
+    case Grant = 'grant';
 
     /**
      * @return class-string<Model>
@@ -63,6 +71,10 @@ enum DeletableDocumentType: string
             self::Estimate => Estimate::class,
             self::SalesOrder => SalesOrder::class,
             self::PurchaseOrder => PurchaseOrder::class,
+            self::StockAdjustment => StockAdjustment::class,
+            self::TaxReturnPayment => TaxReturnPayment::class,
+            self::Donation => Donation::class,
+            self::Grant => Grant::class,
         };
     }
 
@@ -107,6 +119,10 @@ enum DeletableDocumentType: string
             self::Estimate => __('Estimate'),
             self::SalesOrder => __('Sales order'),
             self::PurchaseOrder => __('Purchase order'),
+            self::StockAdjustment => __('Stock adjustment'),
+            self::TaxReturnPayment => __('Tax payment'),
+            self::Donation => __('Donation'),
+            self::Grant => __('Grant'),
         };
     }
 
@@ -129,6 +145,10 @@ enum DeletableDocumentType: string
             self::Estimate => __('estimate'),
             self::SalesOrder => __('sales order'),
             self::PurchaseOrder => __('purchase order'),
+            self::StockAdjustment => __('stock adjustment'),
+            self::TaxReturnPayment => __('tax payment'),
+            self::Donation => __('donation'),
+            self::Grant => __('grant'),
         };
     }
 
@@ -154,6 +174,10 @@ enum DeletableDocumentType: string
             self::Estimate => 'estimate_no',
             self::SalesOrder => 'order_no',
             self::PurchaseOrder => 'po_no',
+            self::StockAdjustment => 'adjustment_no',
+            self::TaxReturnPayment => 'payment_no',
+            self::Donation => 'donation_no',
+            self::Grant => 'grant_no',
         };
     }
 
@@ -174,6 +198,10 @@ enum DeletableDocumentType: string
             self::Estimate => 'estimate_date',
             self::SalesOrder => 'order_date',
             self::PurchaseOrder => 'po_date',
+            self::StockAdjustment => 'adjustment_date',
+            self::TaxReturnPayment => 'payment_date',
+            self::Donation => 'donation_date',
+            self::Grant => 'period_start',
         };
     }
 
@@ -206,7 +234,11 @@ enum DeletableDocumentType: string
             self::Cheque => ChequeStatus::Draft->value,
             self::Deposit => DepositStatus::Draft->value,
             self::Transfer => TransferStatus::Draft->value,
-            self::JournalEntry, self::Estimate, self::SalesOrder, self::PurchaseOrder => null,
+            self::TaxReturnPayment => TaxReturnPaymentStatus::Draft->value,
+            self::Donation => DonationStatus::Draft->value,
+            // A stock adjustment tracks posted_at, and a grant's entry is its
+            // award entry: neither fits the integrity check's status/entry pair.
+            self::JournalEntry, self::Estimate, self::SalesOrder, self::PurchaseOrder, self::StockAdjustment, self::Grant => null,
         };
     }
 
@@ -228,6 +260,10 @@ enum DeletableDocumentType: string
             self::Estimate => 'estimates.index',
             self::SalesOrder => 'sales-orders.index',
             self::PurchaseOrder => 'purchase-orders.index',
+            self::StockAdjustment => 'inventory.adjustments.index',
+            self::TaxReturnPayment => 'tax-returns.show',
+            self::Donation => 'donations.index',
+            self::Grant => 'grants.index',
         };
     }
 
@@ -242,6 +278,17 @@ enum DeletableDocumentType: string
         }
 
         return $this->indexRoute();
+    }
+
+    /**
+     * Parameters the index route needs beyond the company: a tax payment lives
+     * on its tax return's page.
+     *
+     * @return array<string, mixed>
+     */
+    public function indexRouteParametersFor(Model $document): array
+    {
+        return $this === self::TaxReturnPayment ? ['tax_return' => $document->getAttribute('tax_return_id')] : [];
     }
 
     public function showRoute(): string
@@ -262,6 +309,10 @@ enum DeletableDocumentType: string
             self::Estimate => 'estimates.show',
             self::SalesOrder => 'sales-orders.show',
             self::PurchaseOrder => 'purchase-orders.show',
+            self::StockAdjustment => 'inventory.adjustments.index',
+            self::TaxReturnPayment => 'tax-returns.payments.show',
+            self::Donation => 'donations.show',
+            self::Grant => 'grants.show',
         };
     }
 
@@ -283,6 +334,10 @@ enum DeletableDocumentType: string
             self::Estimate => 'estimate',
             self::SalesOrder => 'salesOrder',
             self::PurchaseOrder => 'purchaseOrder',
+            self::StockAdjustment => 'stockAdjustment',
+            self::TaxReturnPayment => 'payment',
+            self::Donation => 'donation',
+            self::Grant => 'grant',
         };
     }
 
@@ -304,6 +359,10 @@ enum DeletableDocumentType: string
             self::Estimate => AuditAction::EstimateDeleted,
             self::SalesOrder => AuditAction::SalesOrderDeleted,
             self::PurchaseOrder => AuditAction::PurchaseOrderDeleted,
+            self::StockAdjustment => AuditAction::StockAdjustmentDeleted,
+            self::TaxReturnPayment => AuditAction::TaxReturnPaymentDeleted,
+            self::Donation => AuditAction::DonationDeleted,
+            self::Grant => AuditAction::GrantDeleted,
         };
     }
 }

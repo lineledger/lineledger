@@ -27,6 +27,13 @@ final class InvoiceDeletionHandler implements DeletionHandler
         return DeletableDocumentType::Invoice;
     }
 
+    public function journalEntryIds(Model $document): array
+    {
+        $entryId = $document->getAttribute('journal_entry_id');
+
+        return $entryId !== null ? [(int) $entryId] : [];
+    }
+
     public function blockers(Model $document): array
     {
         $invoice = $this->own($document);

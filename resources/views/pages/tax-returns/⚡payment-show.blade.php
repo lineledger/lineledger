@@ -4,20 +4,29 @@ use App\Enums\PermissionAction;
 use App\Enums\TaxReturnPaymentDirection;
 use App\Enums\TaxReturnPaymentStatus;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Models\Company;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Services\Posting\TaxReturnPaymentPoster;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Tax payment')] class extends Component {
+    use DeletesTransaction;
+
     public Company $company;
 
     public TaxReturn $taxReturn;
 
     public TaxReturnPayment $payment;
+
+    protected function deletableDocument(): Model
+    {
+        return $this->payment;
+    }
 
     public function mount(Company $company, TaxReturn $tax_return, TaxReturnPayment $payment): void
     {
@@ -92,6 +101,11 @@ new #[Title('Tax payment')] class extends Component {
                 </flux:button>
                 @endcallable
             @endif
+            @if ($this->canOfferDelete)
+                @callable($this, 'prepareDelete')
+                <flux:button variant="ghost" icon="trash" wire:click="prepareDelete" data-test="delete-transaction-button">{{ __('Delete') }}</flux:button>
+                @endcallable
+            @endif
         </div>
     </div>
 
@@ -161,4 +175,6 @@ new #[Title('Tax payment')] class extends Component {
             {{ optional($payment->voidedBy)->name ? __('by').' '.$payment->voidedBy->name : '' }}
         </div>
     @endif
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$payment" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\GrantStatus;
 use Database\Factories\GrantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -27,8 +28,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class Grant extends Model
 {
+    /**
+     * The entry GuardsPostedDeletion checks: a grant posts its award entry.
+     */
+    public function postedEntryColumn(): string
+    {
+        return 'award_journal_entry_id';
+    }
+
     /** @use HasFactory<GrantFactory> */
-    use BelongsToCompany, HasFactory, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, HasFactory, SoftDeletes;
 
     /**
      * @return BelongsTo<Contact, $this>

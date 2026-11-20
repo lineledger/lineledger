@@ -5,30 +5,30 @@ namespace App\Services\Deletion;
 use App\Enums\DeletableDocumentType;
 use App\Models\BankReconciliation;
 use App\Models\CurrencyRevaluation;
-use App\Models\Donation;
 use App\Models\DonationReceipt;
-use App\Models\Grant;
 use App\Models\GrantRecognition;
 use App\Models\OpeningBalanceState;
 use App\Models\PayrollCheque;
 use App\Models\PayrollRemittance;
 use App\Models\PayRun;
-use App\Models\StockAdjustment;
 use App\Models\TaxReturn;
-use App\Models\TaxReturnPayment;
 use App\Services\Deletion\Handlers\BillDeletionHandler;
 use App\Services\Deletion\Handlers\BillPaymentDeletionHandler;
 use App\Services\Deletion\Handlers\ChequeDeletionHandler;
 use App\Services\Deletion\Handlers\CreditMemoDeletionHandler;
 use App\Services\Deletion\Handlers\CustomerReceiptDeletionHandler;
 use App\Services\Deletion\Handlers\DepositDeletionHandler;
+use App\Services\Deletion\Handlers\DonationDeletionHandler;
 use App\Services\Deletion\Handlers\EstimateDeletionHandler;
 use App\Services\Deletion\Handlers\ExpenseDeletionHandler;
+use App\Services\Deletion\Handlers\GrantDeletionHandler;
 use App\Services\Deletion\Handlers\InvoiceDeletionHandler;
 use App\Services\Deletion\Handlers\JournalEntryDeletionHandler;
 use App\Services\Deletion\Handlers\PurchaseOrderDeletionHandler;
 use App\Services\Deletion\Handlers\SalesOrderDeletionHandler;
 use App\Services\Deletion\Handlers\SalesReceiptDeletionHandler;
+use App\Services\Deletion\Handlers\StockAdjustmentDeletionHandler;
+use App\Services\Deletion\Handlers\TaxReturnPaymentDeletionHandler;
 use App\Services\Deletion\Handlers\TransferDeletionHandler;
 use App\Services\Deletion\Handlers\VendorCreditDeletionHandler;
 use Illuminate\Database\Eloquent\Model;
@@ -63,6 +63,10 @@ final class DeletableDocuments
             DeletableDocumentType::Estimate->value => EstimateDeletionHandler::class,
             DeletableDocumentType::SalesOrder->value => SalesOrderDeletionHandler::class,
             DeletableDocumentType::PurchaseOrder->value => PurchaseOrderDeletionHandler::class,
+            DeletableDocumentType::StockAdjustment->value => StockAdjustmentDeletionHandler::class,
+            DeletableDocumentType::TaxReturnPayment->value => TaxReturnPaymentDeletionHandler::class,
+            DeletableDocumentType::Donation->value => DonationDeletionHandler::class,
+            DeletableDocumentType::Grant->value => GrantDeletionHandler::class,
         ];
     }
 
@@ -78,10 +82,6 @@ final class DeletableDocuments
         $planned = 'Delete is planned for this type (issue #241); until then, void it.';
 
         return [
-            StockAdjustment::class => $planned,
-            TaxReturnPayment::class => $planned,
-            Donation::class => $planned,
-            Grant::class => $planned,
             GrantRecognition::class => 'Part of its grant; it goes when the grant does.',
             PayRun::class => $planned,
             PayrollCheque::class => $planned,

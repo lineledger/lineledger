@@ -107,7 +107,6 @@ class TaxReturnPaymentController extends ApiController
             fn () => $this->poster->void($taxReturnPayment),
             fn () => new TaxReturnPaymentResource($taxReturnPayment->fresh()),
             'Tax payment is already voided.',
-            legacyDraftDelete: fn () => $taxReturnPayment->delete(),
         );
     }
 

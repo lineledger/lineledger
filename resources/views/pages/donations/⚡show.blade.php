@@ -4,6 +4,7 @@ use App\Enums\PermissionAction;
 use App\Exceptions\EditLocks\RecordEditLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Donation;
@@ -18,6 +19,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Donation')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -124,6 +126,11 @@ new #[Title('Donation')] class extends Component {
                 <flux:button variant="danger" icon="x-mark" wire:click="void" wire:confirm="{{ $donation->donationReceipt && ! $donation->donationReceipt->isVoid() ? __('Void this donation? Its journal entry will be reversed and its official receipt :number voided.', ['number' => $donation->donationReceipt->receipt_no]) : __('Void this donation? Its journal entry will be reversed.') }}" data-test="donation-void-button">{{ __('Void') }}</flux:button>
                 @endcallable
             @endif
+            @if ($this->canOfferDelete)
+                @callable($this, 'prepareDelete')
+                <flux:button variant="ghost" icon="trash" wire:click="prepareDelete" data-test="delete-transaction-button">{{ __('Delete') }}</flux:button>
+                @endcallable
+            @endif
         </div>
     </div>
 
@@ -171,4 +178,6 @@ new #[Title('Donation')] class extends Component {
             <a href="{{ route('donation-receipts.show', ['company' => $company, 'donationReceipt' => $donation->donationReceipt]) }}" wire:navigate class="text-primary hover:underline">{{ __('View linked donation receipt') }} {{ $donation->donationReceipt->receipt_no }}</a>
         @endif
     </div>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$donation" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

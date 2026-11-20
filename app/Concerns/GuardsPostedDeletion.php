@@ -21,14 +21,17 @@ use App\Services\Deletion\TransactionDeleter;
  * The guard fires for soft deletes and force deletes alike. Company teardown is
  * a database-level delete, not an Eloquent one, so it is unaffected.
  *
- * Consuming models must expose a nullable `journal_entry_id`.
+ * Consuming models must expose a nullable `journal_entry_id`, or name their
+ * entry column with a public postedEntryColumn() (a grant's award entry).
  */
 trait GuardsPostedDeletion
 {
     public static function bootGuardsPostedDeletion(): void
     {
         static::deleting(function ($model): void {
-            if ($model->journal_entry_id !== null && ! TransactionDeleter::running()) {
+            $column = method_exists($model, 'postedEntryColumn') ? $model->postedEntryColumn() : 'journal_entry_id';
+
+            if ($model->getAttribute($column) !== null && ! TransactionDeleter::running()) {
                 throw PostedDocumentDeletionException::for($model);
             }
         });

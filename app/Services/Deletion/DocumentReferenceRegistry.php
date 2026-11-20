@@ -107,6 +107,16 @@ final class DocumentReferenceRegistry
                 'purchase_order_lines.purchase_order_id' => self::OWNED,
                 'bills.purchase_order_id' => self::BLOCKS, // and bill lines on its lines
             ],
+            'stock_adjustments' => [
+                'stock_adjustment_lines.stock_adjustment_id' => self::OWNED,
+            ],
+            'tax_return_payments' => [],
+            'donations' => [
+                'donation_receipts.donation_id' => self::BLOCKS, // an issued or voided receipt; a draft one goes with it
+            ],
+            'grants' => [
+                'grant_recognitions.grant_id' => self::OWNED,
+            ],
             'journal_entries' => [
                 'journal_lines.journal_entry_id' => self::OWNED,
                 'journal_entries.reverses_entry_id' => self::OWNED,

@@ -161,7 +161,7 @@ new #[Title('Documentation — Fundraising')] class extends Component {}; ?>
         </x-docs.callout>
 
         <x-docs.callout type="warning">
-            {{ __('Voiding a grant reverses both the original award entry and every revenue recognition posted against it, then keeps the voided grant on file for your audit trail. The Void button is offered on any posted grant, Completed ones included, and asks you to confirm first. There is no delete: a posted grant cannot be edited or removed, only voided.') }}
+            {{ __('Voiding a grant reverses both the original award entry and every revenue recognition posted against it, then keeps the voided grant on file for your audit trail. The Void button is offered on any posted grant, Completed ones included, and asks you to confirm first. A posted grant can\'t be edited. If it should never have been entered, Delete removes the grant, its award entry and every recognition from your books, as if never entered (see Deleting a transaction in the Accounting guide); a donation can be deleted the same way, unless an official receipt was issued for it.') }}
         </x-docs.callout>
 
         {{-- ───────────────────── Issue an official donation receipt ───────────────────── --}}

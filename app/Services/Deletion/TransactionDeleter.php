@@ -238,35 +238,33 @@ final class TransactionDeleter
     }
 
     /**
-     * The document's journal entry and, when it was voided, the reversing
-     * entry the void wrote.
+     * The journal entries the document posted (its handler says which) and,
+     * for each one voided, the reversing entry the void wrote.
      *
      * @return Collection<int, JournalEntry>
      */
     private function journalEntries(Model $document, bool $lock = false): Collection
     {
-        // A journal entry is its own document.
-        $entryId = $document instanceof JournalEntry ? $document->getKey() : $document->getAttribute('journal_entry_id');
-
-        if ($entryId === null) {
-            return new Collection;
-        }
-
         $companyId = (int) $document->getAttribute('company_id');
-        $entry = $this->entryQuery($companyId, $lock)->find($entryId);
-
-        if ($entry === null) {
-            return new Collection;
-        }
 
         /** @var Collection<int, JournalEntry> $entries */
-        $entries = new Collection([$entry]);
+        $entries = new Collection;
 
-        if ($entry->isVoided() && $entry->reversed_by_entry_id !== null) {
-            $reversal = $this->entryQuery($companyId, $lock)->find($entry->reversed_by_entry_id);
+        foreach (DeletableDocuments::handlerFor($document)->journalEntryIds($document) as $entryId) {
+            $entry = $this->entryQuery($companyId, $lock)->find($entryId);
 
-            if ($reversal !== null && (int) $reversal->reverses_entry_id === (int) $entry->id) {
-                $entries->push($reversal);
+            if ($entry === null || $entries->contains('id', $entry->id)) {
+                continue;
+            }
+
+            $entries->push($entry);
+
+            if ($entry->isVoided() && $entry->reversed_by_entry_id !== null) {
+                $reversal = $this->entryQuery($companyId, $lock)->find($entry->reversed_by_entry_id);
+
+                if ($reversal !== null && (int) $reversal->reverses_entry_id === (int) $entry->id) {
+                    $entries->push($reversal);
+                }
             }
         }
 

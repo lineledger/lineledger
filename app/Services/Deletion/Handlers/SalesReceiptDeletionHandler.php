@@ -24,6 +24,13 @@ final class SalesReceiptDeletionHandler implements DeletionHandler
         return DeletableDocumentType::SalesReceipt;
     }
 
+    public function journalEntryIds(Model $document): array
+    {
+        $entryId = $document->getAttribute('journal_entry_id');
+
+        return $entryId !== null ? [(int) $entryId] : [];
+    }
+
     public function blockers(Model $document): array
     {
         $receipt = $this->own($document);

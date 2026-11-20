@@ -154,7 +154,7 @@ it('guards exactly the charity show page methods that change the record', functi
 
     expect($guarded)->toBe($methods);
 })->with([
-    'donations' => ['pages::donations.show', ['post', 'void']],
+    'donations' => ['pages::donations.show', ['confirmDelete', 'post', 'void']],
     'donation receipts' => ['pages::donation-receipts.show', ['issue', 'reissue', 'void']],
-    'grants' => ['pages::grants.show', ['postAward', 'recognize', 'void']],
+    'grants' => ['pages::grants.show', ['confirmDelete', 'postAward', 'recognize', 'void']],
 ]);

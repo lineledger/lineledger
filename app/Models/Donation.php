@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\DonationStatus;
 use App\Enums\GiftType;
 use App\Services\Charity\DonationReceiptSynchronizer;
@@ -35,7 +36,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Donation extends Model
 {
     /** @use HasFactory<DonationFactory> */
-    use BelongsToCompany, HasFactory, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, HasFactory, SoftDeletes;
 
     /**
      * @return BelongsTo<Contact, $this>

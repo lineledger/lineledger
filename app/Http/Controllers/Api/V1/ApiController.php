@@ -98,9 +98,8 @@ abstract class ApiController extends Controller
      *
      * @param  Closure(): mixed  $void  the poster's void
      * @param  Closure(): JsonResource  $resource  the document after the void
-     * @param  (Closure(): void)|null  $legacyDraftDelete  for a type Delete doesn't cover yet
      */
-    protected function destroyDocument(Request $request, Model $document, Closure $void, Closure $resource, string $alreadyVoided, ?Closure $legacyDraftDelete = null): JsonResponse
+    protected function destroyDocument(Request $request, Model $document, Closure $void, Closure $resource, string $alreadyVoided): JsonResponse
     {
         if ($request->boolean('permanent')) {
             return $this->deletePermanently($request, $document);
@@ -117,12 +116,6 @@ abstract class ApiController extends Controller
                 'Deprecation' => 'true',
                 'Link' => '<'.$request->url().'/void>; rel="successor-version"',
             ]);
-        }
-
-        if ($legacyDraftDelete !== null && ! DeletableDocuments::supports($document)) {
-            $legacyDraftDelete();
-
-            return response()->json(null, 204);
         }
 
         return $this->deletePermanently($request, $document);

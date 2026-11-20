@@ -37,6 +37,14 @@ final class JournalEntryDeletionHandler extends DocumentDeletionHandler
         return null;
     }
 
+    /**
+     * A journal entry is its own document.
+     */
+    public function journalEntryIds(Model $document): array
+    {
+        return [(int) $this->entry($document)->id];
+    }
+
     public function blockers(Model $document): array
     {
         $entry = $this->entry($document);
