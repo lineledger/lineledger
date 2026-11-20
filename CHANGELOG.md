@@ -57,6 +57,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   payment methods and terms now removes the record for good, and refuses
   (409) one that is still used or that the app relies on. It doesn't require
   the record to be inactive first. Contacts were previously soft-deleted.
+- **Delete pay runs, payroll cheques and remittances.** Payroll's delete is
+  the strictest: a posted pay run can be deleted only while no later posted
+  run in the year pays the same employees (delete newest first), no recorded
+  remittance covers its pay date, its T4 and RL-1 slips aren't finalized and
+  none of its cheques is posted. Deleting it reverses the vacation and
+  time-off it accrued and releases its time entries; its draft and voided
+  cheques go with it. A deleted payroll cheque reopens a Paid run and frees
+  the employee for a new cheque. Deleted payroll records are shown only to
+  members who can open pay runs.
 
 ## [1.5.0-rc.3] - 2026-11-20
 

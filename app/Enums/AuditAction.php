@@ -129,9 +129,11 @@ enum AuditAction: string
 
     case PayrollChequePosted = 'payroll_cheque.posted';
     case PayrollChequeVoided = 'payroll_cheque.voided';
+    case PayrollChequeDeleted = 'payroll_cheque.deleted';
 
     case PayrollRemittancePosted = 'payroll_remittance.posted';
     case PayrollRemittanceVoided = 'payroll_remittance.voided';
+    case PayrollRemittanceDeleted = 'payroll_remittance.deleted';
 
     case TimeEntryCreated = 'time_entry.created';
     case TimeEntryUpdated = 'time_entry.updated';

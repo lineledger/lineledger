@@ -53,10 +53,10 @@ new #[Title('Voided/Deleted Transactions')] class extends Component {
         $start = CarbonImmutable::parse($this->startDate ?: 'today', $this->company->timezone ?: 'UTC')->startOfDay()->utc();
         $end = CarbonImmutable::parse($this->endDate ?: 'today', $this->company->timezone ?: 'UTC')->endOfDay()->utc();
         $rows = [];
+        $viewer = CurrentViewer::permissions($this->company);
 
         if ($this->show !== 'deleted') {
             $resolver = app(SourceLinkResolver::class);
-            $viewer = CurrentViewer::permissions($this->company);
             $users = [];
 
             $voided = JournalEntry::query()
@@ -98,6 +98,10 @@ new #[Title('Voided/Deleted Transactions')] class extends Component {
                 ->get();
 
             foreach ($deleted as $record) {
+                if ($record->document_type->isPayroll() && ! $viewer->seesPayrollDetail()) {
+                    continue;
+                }
+
                 $rows[] = [
                     'action' => 'deleted',
                     'when' => CarbonImmutable::parse($record->created_at),

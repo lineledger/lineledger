@@ -117,6 +117,13 @@ final class DocumentReferenceRegistry
             'grants' => [
                 'grant_recognitions.grant_id' => self::OWNED,
             ],
+            'pay_runs' => [
+                'pay_run_lines.pay_run_id' => self::OWNED,
+                'payroll_cheques.pay_run_id' => self::OWNED, // draft and voided ones; a posted cheque blocks
+                'time_entries.pay_run_id' => self::RESET,
+            ],
+            'payroll_cheques' => [],
+            'payroll_remittances' => [],
             'journal_entries' => [
                 'journal_lines.journal_entry_id' => self::OWNED,
                 'journal_entries.reverses_entry_id' => self::OWNED,

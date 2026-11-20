@@ -289,7 +289,8 @@ Route::prefix('{company}')
         Route::livewire('time-entries', 'pages::payroll.time-entries.index')->name('time-entries.index');
         Route::livewire('pay-runs', 'pages::payroll.pay-runs.index')->name('pay-runs.index');
         Route::livewire('pay-runs/create', 'pages::payroll.pay-runs.form')->name('pay-runs.create');
-        Route::livewire('pay-runs/{payRun}', 'pages::payroll.pay-runs.show')->name('pay-runs.show');
+        Route::livewire('pay-runs/{payRun}', 'pages::payroll.pay-runs.show')->name('pay-runs.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::PayRun));
         Route::livewire('pay-runs/{payRun}/edit', 'pages::payroll.pay-runs.form')->name('pay-runs.edit');
         Route::get('payroll-cheques/{payrollCheque}/print', PrintPayrollChequeController::class)->name('payroll-cheques.print');
         Route::get('pay-runs/lines/{payRunLine}/stub', PrintPayStubController::class)->name('payroll.pay-stub.preview');

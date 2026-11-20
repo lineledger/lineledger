@@ -362,10 +362,12 @@ final class TransactionDeleter
             );
         }
 
+        $sources = [[$document::class, (int) $document->getKey()], ...($handler instanceof OwnsChildEntries ? $handler->childEntrySources($document) : [])];
+
         foreach ($entries as $entry) {
             $ownedByDocument = $document instanceof JournalEntry
                 ? (int) $entry->id === (int) $document->getKey()
-                : $entry->source_type === $document::class && (int) $entry->source_id === (int) $document->getKey();
+                : in_array([(string) $entry->source_type, (int) $entry->source_id], $sources, true);
             $isOwnReversal = $entry->reverses_entry_id !== null && $entries->contains('id', $entry->reverses_entry_id);
 
             if (! $ownedByDocument && ! $isOwnReversal) {

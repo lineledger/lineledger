@@ -3,6 +3,7 @@
 use App\Models\AccountingAuditLog;
 use App\Models\Company;
 use App\Models\DeletedTransaction;
+use App\Support\Access\CurrentViewer;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -22,6 +23,11 @@ new #[Title('Deleted transaction')] class extends Component {
     public function mount(Company $company, DeletedTransaction $deletedTransaction): void
     {
         $this->company = $company;
+
+        // An employee's pay is shown only to members who can open pay runs,
+        // as on the ledger (PayrollDetail).
+        abort_if($deletedTransaction->document_type->isPayroll() && ! CurrentViewer::permissions($company)->seesPayrollDetail(), 404);
+
         $this->deletedTransaction = $deletedTransaction->load('deletedBy');
     }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\RemittanceAgency;
 use App\Enums\RemittanceFrequency;
 use App\Enums\RemittanceStatus;
@@ -35,7 +36,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class PayrollRemittance extends Model
 {
-    use BelongsToCompany, HasFactory;
+    use BelongsToCompany, GuardsPostedDeletion, HasFactory;
 
     /**
      * @return BelongsTo<JournalEntry, $this>

@@ -14,6 +14,9 @@ use App\Models\Expense;
 use App\Models\Grant;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\PayrollCheque;
+use App\Models\PayrollRemittance;
+use App\Models\PayRun;
 use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesReceipt;
@@ -49,6 +52,9 @@ enum DeletableDocumentType: string
     case TaxReturnPayment = 'tax_return_payment';
     case Donation = 'donation';
     case Grant = 'grant';
+    case PayRun = 'pay_run';
+    case PayrollCheque = 'payroll_cheque';
+    case PayrollRemittance = 'payroll_remittance';
 
     /**
      * @return class-string<Model>
@@ -75,6 +81,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => TaxReturnPayment::class,
             self::Donation => Donation::class,
             self::Grant => Grant::class,
+            self::PayRun => PayRun::class,
+            self::PayrollCheque => PayrollCheque::class,
+            self::PayrollRemittance => PayrollRemittance::class,
         };
     }
 
@@ -123,6 +132,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => __('Tax payment'),
             self::Donation => __('Donation'),
             self::Grant => __('Grant'),
+            self::PayRun => __('Pay run'),
+            self::PayrollCheque => __('Payroll cheque'),
+            self::PayrollRemittance => __('Payroll remittance'),
         };
     }
 
@@ -149,6 +161,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => __('tax payment'),
             self::Donation => __('donation'),
             self::Grant => __('grant'),
+            self::PayRun => __('pay run'),
+            self::PayrollCheque => __('payroll cheque'),
+            self::PayrollRemittance => __('payroll remittance'),
         };
     }
 
@@ -178,6 +193,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => 'payment_no',
             self::Donation => 'donation_no',
             self::Grant => 'grant_no',
+            self::PayRun => 'run_no',
+            self::PayrollCheque => 'cheque_no',
+            self::PayrollRemittance => 'reference',
         };
     }
 
@@ -202,6 +220,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => 'payment_date',
             self::Donation => 'donation_date',
             self::Grant => 'period_start',
+            self::PayRun => 'pay_date',
+            self::PayrollCheque => 'cheque_date',
+            self::PayrollRemittance => 'payment_date',
         };
     }
 
@@ -236,9 +257,13 @@ enum DeletableDocumentType: string
             self::Transfer => TransferStatus::Draft->value,
             self::TaxReturnPayment => TaxReturnPaymentStatus::Draft->value,
             self::Donation => DonationStatus::Draft->value,
+            self::PayrollCheque => PayrollChequeStatus::Draft->value,
             // A stock adjustment tracks posted_at, and a grant's entry is its
             // award entry: neither fits the integrity check's status/entry pair.
-            self::JournalEntry, self::Estimate, self::SalesOrder, self::PurchaseOrder, self::StockAdjustment, self::Grant => null,
+            // A calculated pay run has no entry yet either, and a remittance is
+            // recorded paid.
+            self::JournalEntry, self::Estimate, self::SalesOrder, self::PurchaseOrder, self::StockAdjustment, self::Grant,
+            self::PayRun, self::PayrollRemittance => null,
         };
     }
 
@@ -264,6 +289,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => 'tax-returns.show',
             self::Donation => 'donations.index',
             self::Grant => 'grants.index',
+            self::PayRun => 'pay-runs.index',
+            self::PayrollCheque => 'pay-runs.show',
+            self::PayrollRemittance => 'payroll.reports.remittances',
         };
     }
 
@@ -282,13 +310,17 @@ enum DeletableDocumentType: string
 
     /**
      * Parameters the index route needs beyond the company: a tax payment lives
-     * on its tax return's page.
+     * on its tax return's page, a payroll cheque on its pay run's.
      *
      * @return array<string, mixed>
      */
     public function indexRouteParametersFor(Model $document): array
     {
-        return $this === self::TaxReturnPayment ? ['tax_return' => $document->getAttribute('tax_return_id')] : [];
+        return match ($this) {
+            self::TaxReturnPayment => ['tax_return' => $document->getAttribute('tax_return_id')],
+            self::PayrollCheque => ['payRun' => $document->getAttribute('pay_run_id')],
+            default => [],
+        };
     }
 
     public function showRoute(): string
@@ -313,6 +345,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => 'tax-returns.payments.show',
             self::Donation => 'donations.show',
             self::Grant => 'grants.show',
+            self::PayRun => 'pay-runs.show',
+            self::PayrollCheque => 'pay-runs.show',
+            self::PayrollRemittance => 'payroll.reports.remittances',
         };
     }
 
@@ -338,6 +373,9 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => 'payment',
             self::Donation => 'donation',
             self::Grant => 'grant',
+            self::PayRun => 'payRun',
+            self::PayrollCheque => 'payrollCheque',
+            self::PayrollRemittance => 'payrollRemittance',
         };
     }
 
@@ -363,6 +401,18 @@ enum DeletableDocumentType: string
             self::TaxReturnPayment => AuditAction::TaxReturnPaymentDeleted,
             self::Donation => AuditAction::DonationDeleted,
             self::Grant => AuditAction::GrantDeleted,
+            self::PayRun => AuditAction::PayRunDeleted,
+            self::PayrollCheque => AuditAction::PayrollChequeDeleted,
+            self::PayrollRemittance => AuditAction::PayrollRemittanceDeleted,
         };
+    }
+
+    /**
+     * Whether the record carries payroll detail (an employee's pay), which only
+     * members who can open pay runs see (PayrollDetail).
+     */
+    public function isPayroll(): bool
+    {
+        return in_array($this, [self::PayRun, self::PayrollCheque, self::PayrollRemittance], true);
     }
 }

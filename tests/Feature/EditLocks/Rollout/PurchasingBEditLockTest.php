@@ -191,7 +191,7 @@ it('guards exactly the show page methods that change the record', function (stri
 })->with([
     'vendor credit' => ['pages::vendor-credits.show', ['confirmDelete', 'post', 'void']],
     'reimbursement' => ['pages::reimbursements.show', ['confirmDelete', 'void']],
-    'pay run' => ['pages::payroll.pay-runs.show', ['post', 'recalculate', 'resetAdjust', 'saveAdjust', 'voidCheque', 'voidRun', 'writeCheques']],
+    'pay run' => ['pages::payroll.pay-runs.show', ['confirmDelete', 'post', 'recalculate', 'resetAdjust', 'saveAdjust', 'voidCheque', 'voidRun', 'writeCheques']],
 ]);
 
 it('refuses a show page action while another member is editing', function (array $page) {

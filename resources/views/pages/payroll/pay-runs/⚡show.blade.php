@@ -7,6 +7,7 @@ use App\Enums\PermissionAction;
 use App\Exceptions\Payroll\MissingPayrollConstantsException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Account;
 use App\Models\Company;
@@ -14,6 +15,7 @@ use App\Models\PayRun;
 use App\Models\PayrollCheque;
 use App\Models\PayRunLine;
 use App\Rules\MoneyString;
+use App\Services\Deletion\TransactionDeleter;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\PayrollChequePoster;
 use App\Services\Posting\PayRunPoster;
@@ -23,15 +25,21 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Pay run')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
 
     public PayRun $payRun;
+
+    /** The payroll cheque the Delete dialog is about; null for the run itself. */
+    #[Locked]
+    public ?int $deletingChequeId = null;
 
     // Adjustment modal state.
     public ?int $adjustLineId = null;
@@ -294,6 +302,45 @@ new #[Title('Pay run')] class extends Component {
         Flux::toast(variant: 'success', text: __('Cheque voided.'));
     }
 
+    /**
+     * Open the Delete dialog for the pay run.
+     */
+    #[Requires(null, PermissionAction::Delete)]
+    public function prepareDeleteRun(TransactionDeleter $deleter): void
+    {
+        $this->deletingChequeId = null;
+
+        $this->prepareDelete($deleter);
+    }
+
+    /**
+     * Open the Delete dialog for one of the run's payroll cheques.
+     */
+    #[Requires(null, PermissionAction::Delete)]
+    public function prepareDeleteCheque(int $chequeId, TransactionDeleter $deleter): void
+    {
+        $cheque = PayrollCheque::query()->where('pay_run_id', $this->payRun->id)->findOrFail($chequeId);
+        $this->deletingChequeId = (int) $cheque->id;
+
+        $this->prepareDelete($deleter);
+    }
+
+    protected function deletableDocument(): Model
+    {
+        return $this->deletingChequeId !== null
+            ? PayrollCheque::query()->where('pay_run_id', $this->payRun->id)->findOrFail($this->deletingChequeId)
+            : $this->payRun;
+    }
+
+    /**
+     * The run or cheque the Delete dialog is open for.
+     */
+    #[Computed]
+    public function deletingDocument(): Model
+    {
+        return $this->deletableDocument();
+    }
+
     public function money(int $cents): string
     {
         return Money::fromCents($cents)->format();
@@ -337,6 +384,11 @@ new #[Title('Pay run')] class extends Component {
             @if (in_array($payRun->status, [\App\Enums\PayRunStatus::Posted, \App\Enums\PayRunStatus::Paid], true))
                 @callable($this, 'voidRun')
                 <flux:button variant="ghost" icon="x-mark" wire:click="voidRun" wire:confirm="{{ __('Void this pay run? Its journal entry will be reversed.') }}">{{ __('Void') }}</flux:button>
+                @endcallable
+            @endif
+            @if ($payRun->journal_entry_id === null || $company->allowsTransactionDeletion())
+                @callable($this, 'prepareDeleteRun')
+                <flux:button variant="ghost" icon="trash" wire:click="prepareDeleteRun" data-test="delete-transaction-button">{{ __('Delete') }}</flux:button>
                 @endcallable
             @endif
         </div>
@@ -447,6 +499,11 @@ new #[Title('Pay run')] class extends Component {
                                             <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="voidCheque({{ $cheque->id }})" wire:confirm="{{ __('Void cheque #:no for :payee? This reverses the bank entry.', ['no' => $cheque->cheque_no, 'payee' => $cheque->payee_name]) }}">{{ __('Void') }}</flux:button>
                                             @endcallable
                                         @endif
+                                        @if ($cheque->journal_entry_id === null || $company->allowsTransactionDeletion())
+                                            @callable($this, 'prepareDeleteCheque')
+                                            <flux:button size="xs" variant="ghost" icon="trash" wire:click="prepareDeleteCheque({{ $cheque->id }})" :aria-label="__('Delete')" data-test="delete-payroll-cheque-button" />
+                                            @endcallable
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -503,4 +560,6 @@ new #[Title('Pay run')] class extends Component {
             </div>
         </div>
     </flux:modal>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$this->deletingDocument" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>
