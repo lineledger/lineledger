@@ -4,6 +4,7 @@ namespace App\Actions\Companies;
 
 use App\Models\Company;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,6 +19,11 @@ use Illuminate\Support\Facades\DB;
  * scoped currentCompany relation — so keeping the pivot rows leaks nothing, and
  * it is what makes {@see RestoreCompany} lossless. Destroying them (as this
  * flow used to) would hand back an ownerless company nobody could reach.
+ *
+ * An owner's delete passes a purge date (`companies.purge_after_days` out):
+ * the daily companies:purge-deleted run hands the company to
+ * {@see PurgeCompany} once it passes. The admin portal's "Mark as deleted"
+ * passes none, so the company is held until an admin restores or purges it.
  */
 class DeleteCompany
 {
@@ -26,14 +32,16 @@ class DeleteCompany
      *                            one. They are moved to their next company by
      *                            name; everyone else falls back to their
      *                            personal company. The admin portal passes null.
+     * @param  CarbonInterface|null  $purgeAt  When companies:purge-deleted may erase
+     *                                         the company for good; null holds it.
      */
-    public function handle(Company $company, ?User $actor = null): void
+    public function handle(Company $company, ?User $actor = null, ?CarbonInterface $purgeAt = null): void
     {
         $actorFallback = $actor?->isCurrentCompany($company)
             ? $actor->fallbackCompany($company)
             : null;
 
-        DB::transaction(function () use ($company, $actor) {
+        DB::transaction(function () use ($company, $actor, $purgeAt) {
             User::query()
                 ->where('current_company_id', $company->id)
                 ->when($actor, fn ($query) => $query->where('id', '!=', $actor->id))
@@ -51,6 +59,9 @@ class DeleteCompany
                     $affected->switchCompany($personal);
                 });
 
+            // Saved on its own: a soft delete writes only deleted_at/updated_at
+            // and would drop any other dirty attribute.
+            $company->forceFill(['purge_at' => $purgeAt])->save();
             $company->delete();
         });
 

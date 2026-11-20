@@ -129,7 +129,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Delete company') }}</flux:heading>
         <flux:text>
-            {{ __('At the bottom of the edit page, Owners see a Delete company section. Select Delete company and type the organization’s name to confirm. It disappears for every member at once, but it is not erased on the spot — a site administrator can still restore it or purge it permanently (see') }}
+            {{ __('At the bottom of the edit page, Owners see a Delete company section. Select Delete company and type the organization’s name to confirm. It disappears for every member at once and, after a 30-day grace period, is permanently erased with all of its data — the general ledger, documents, attachments and backups — so download a backup from Backup & export first if you may ever need it again. Until the grace period ends, a site administrator can still restore it (see') }}
             <a class="underline" href="{{ route('docs.site-administration') }}" wire:navigate>{{ __('Site administration') }}</a>{{ __('). An organization badged Personal on the Organizations list cannot be deleted.') }}
         </flux:text>
 

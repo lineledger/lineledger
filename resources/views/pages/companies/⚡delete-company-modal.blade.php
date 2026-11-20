@@ -1,7 +1,9 @@
 <?php
 
 use App\Actions\Companies\DeleteCompany;
+use App\Enums\SecurityEvent;
 use App\Models\Company;
+use App\Services\Audit\SecurityLogRecorder;
 use App\Support\UserCompany;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -26,7 +28,18 @@ new class extends Component {
         return __('Type ":name" to confirm', ['name' => $this->company->name]);
     }
 
-    public function deleteCompany(): void
+    #[Computed]
+    public function purgeAfterDays(): int
+    {
+        return max(0, (int) config('companies.purge_after_days'));
+    }
+
+    /**
+     * Members lose access at once; the data itself is erased by
+     * companies:purge-deleted once the grace period ends. Until then a site
+     * admin can still restore the organization.
+     */
+    public function deleteCompany(SecurityLogRecorder $recorder): void
     {
         Gate::authorize('delete', $this->company);
 
@@ -40,9 +53,21 @@ new class extends Component {
             return;
         }
 
-        app(DeleteCompany::class)->handle($this->company, Auth::user());
+        $purgeAt = now()->addDays($this->purgeAfterDays);
 
-        Flux::toast(variant: 'success', text: __('Company deleted.'));
+        app(DeleteCompany::class)->handle($this->company, Auth::user(), $purgeAt);
+
+        $recorder->record(SecurityEvent::CompanyDeleted, Auth::user(), metadata: [
+            'company_id' => $this->company->id,
+            'slug' => $this->company->slug,
+            'name' => $this->company->name,
+            'actor' => Auth::user()?->email,
+            'purge_at' => $purgeAt->toIso8601String(),
+        ]);
+
+        Flux::toast(variant: 'success', text: __('Company deleted. Its data will be permanently erased after :date.', [
+            'date' => $purgeAt->isoFormat('LL'),
+        ]));
 
         $this->redirectRoute('companies.index', navigate: true);
     }
@@ -62,7 +87,10 @@ new class extends Component {
         <div>
             <flux:heading size="lg">{{ __('Are you sure?') }}</flux:heading>
             <flux:subheading>
-                {{ __('This action cannot be undone. This will permanently delete the company ":name".', ['name' => $company->name]) }}
+                {{ __('Everyone loses access to ":name" right away. After :days days, it and all of its data — transactions, documents, attachments and backups — are permanently erased. Until then, only a site administrator can restore it.', ['name' => $company->name, 'days' => $this->purgeAfterDays]) }}
+            </flux:subheading>
+            <flux:subheading class="mt-2">
+                {{ __('To keep a copy, download a backup first from Settings → Backup & export.') }}
             </flux:subheading>
         </div>
 

@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\CompanyRole;
+use App\Enums\SecurityEvent;
 use App\Models\Company;
+use App\Models\SecurityLog;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -367,6 +369,55 @@ test('companies can be deleted by owners', function () {
     $this->assertSoftDeleted('companies', [
         'id' => $company->id,
     ]);
+});
+
+test('an owner delete schedules the purge after the grace period and logs it', function () {
+    $this->freezeSecond();
+
+    $user = User::factory()->create();
+    $company = Company::factory()->create();
+
+    $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::companies.delete-company-modal', ['company' => $company])
+        ->assertSee('After 30 days')
+        ->set('deleteName', $company->name)
+        ->call('deleteCompany')
+        ->assertHasNoErrors();
+
+    $deleted = Company::withTrashed()->findOrFail($company->id);
+
+    expect($deleted->trashed())->toBeTrue()
+        ->and($deleted->purge_at?->toDateTimeString())->toBe(now()->addDays(30)->toDateTimeString());
+
+    $log = SecurityLog::query()->where('event', SecurityEvent::CompanyDeleted->value)->sole();
+
+    expect($log->user_id)->toBe($user->id)
+        ->and($log->metadata['company_id'])->toBe($company->id)
+        ->and($log->metadata['purge_at'])->toBe(now()->addDays(30)->toIso8601String());
+});
+
+test('the purge grace period follows COMPANY_PURGE_AFTER_DAYS', function () {
+    $this->freezeSecond();
+    config(['companies.purge_after_days' => 7]);
+
+    $user = User::factory()->create();
+    $company = Company::factory()->create();
+
+    $company->members()->attach($user, ['role' => CompanyRole::Owner->value]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::companies.delete-company-modal', ['company' => $company])
+        ->assertSee('After 7 days')
+        ->set('deleteName', $company->name)
+        ->call('deleteCompany')
+        ->assertHasNoErrors();
+
+    expect(Company::withTrashed()->findOrFail($company->id)->purge_at?->toDateTimeString())
+        ->toBe(now()->addDays(7)->toDateTimeString());
 });
 
 test('company deletion requires name confirmation', function () {

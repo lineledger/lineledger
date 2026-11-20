@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Companies\DeleteCompany;
 use App\Enums\AccountSubtype;
 use App\Enums\CompanyRole;
 use App\Enums\SecurityEvent;
@@ -65,6 +66,31 @@ it('hides a deleted company from the owners switcher', function () {
 
     expect($this->owner->fresh()->companies()->pluck('companies.id'))
         ->not->toContain($this->company->id);
+});
+
+it('holds a company the admin marks deleted, with no automatic purge', function () {
+    Livewire::test('pages::admin.company-show', ['company' => $this->company])
+        ->call('deleteCompany');
+
+    expect($this->company->fresh()->purge_at)->toBeNull();
+
+    Livewire::test('pages::admin.company-show', ['company' => $this->company->fresh()])
+        ->assertSee('Held: it will not be erased automatically.');
+});
+
+it('shows an owner-deleted company’s purge date and cancels the purge on restore', function () {
+    $purgeAt = now()->addDays(30);
+
+    app(DeleteCompany::class)->handle($this->company, $this->owner, $purgeAt);
+
+    Livewire::test('pages::admin.company-show', ['company' => $this->company->fresh()])
+        ->assertSee($purgeAt->isoFormat('LL'))
+        ->call('restoreCompany');
+
+    $restored = $this->company->fresh();
+
+    expect($restored->trashed())->toBeFalse()
+        ->and($restored->purge_at)->toBeNull();
 });
 
 it('permanently deletes a trashed company and its ledger', function () {

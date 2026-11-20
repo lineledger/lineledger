@@ -195,7 +195,7 @@ new #[Title('Documentation — Site administration')] class extends Component {}
 
         <flux:heading size="md" class="mt-6">{{ __('Delete, restore, and permanently delete an organization') }}</flux:heading>
         <flux:text>
-            {{ __('Removing an organization is a two-step affair, and only the first step is reversible. Mark as deleted takes the organization offline without destroying anything; Delete permanently, which is only offered once it is marked deleted, destroys it for good. When an owner deletes their own organization from its settings page, it takes exactly the same first step, so it shows up here as Deleted and you can restore or purge it from this page.') }}
+            {{ __('Removing an organization is a two-step affair, and only the first step is reversible. Mark as deleted takes the organization offline without destroying anything; Delete permanently, which is only offered once it is marked deleted, destroys it for good. When an owner deletes their own organization from its settings page, it takes the same first step, so it shows up here as Deleted, but it also gets a purge date 30 days out (set by COMPANY_PURGE_AFTER_DAYS). Once that date has passed, the daily companies:purge-deleted job deletes it permanently, exactly as Delete permanently would. The Deleted banner shows the date, and restoring the organization before then cancels the purge. An organization you mark as deleted yourself gets no purge date: it is held until you restore or purge it.') }}
         </flux:text>
 
         <x-docs.figure

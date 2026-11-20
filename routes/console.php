@@ -47,6 +47,10 @@ Schedule::command('backups:prune-expired')->daily()->onOneServer()
 // Drop released edit-lock rows nobody has held or changed for a week.
 Schedule::command('edit-locks:prune')->daily()->onOneServer()
     ->onFailure(SchedulerFailureAlert::for('edit-locks:prune'));
+// Permanently erase owner-deleted organizations once their grace period
+// (COMPANY_PURGE_AFTER_DAYS) has ended. Admin-held deletions are never touched.
+Schedule::command('companies:purge-deleted')->dailyAt('03:00')->withoutOverlapping()->onOneServer()
+    ->onFailure(SchedulerFailureAlert::for('companies:purge-deleted'));
 // Nightly proof the books reconcile (hash chain + GL balance + balance cache).
 // Emails ops on any failure; the run history is SOC 2 Type II monitoring evidence.
 Schedule::command('integrity:check')->dailyAt('04:00')->withoutOverlapping()->onOneServer()

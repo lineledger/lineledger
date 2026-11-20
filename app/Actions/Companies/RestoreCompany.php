@@ -12,6 +12,9 @@ use App\Models\Company;
  * immediately reachable again. Companies deleted before that behaviour changed
  * had their memberships hard-deleted and come back ownerless — the admin page
  * warns when that is the case.
+ *
+ * Restoring also cancels any purge an owner's delete scheduled, so the
+ * company cannot be erased later on a stale date.
  */
 class RestoreCompany
 {
@@ -21,6 +24,8 @@ class RestoreCompany
             return;
         }
 
+        // restore() saves the model, so the cleared purge date goes with it.
+        $company->forceFill(['purge_at' => null]);
         $company->restore();
     }
 }

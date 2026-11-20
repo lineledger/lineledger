@@ -69,10 +69,13 @@ enum SecurityEvent: string
     case UserEnabled = 'user_enabled';
     case UserUpdatedByAdmin = 'user_updated_by_admin';
 
-    // Company lifecycle from the site admin portal. SecurityLog::company_id is
-    // derived from the acting admin's current company, which is not the target
-    // here — the affected company's id/slug/name live in the metadata. For
-    // CompanyPurged that metadata is the only surviving record of the company.
+    // Company lifecycle: from the site admin portal, from an owner deleting
+    // their own organization (CompanyDeleted, with the scheduled purge_at), and
+    // from companies:purge-deleted (CompanyPurged, no user, actor "scheduler").
+    // SecurityLog::company_id is derived from the acting user's current company,
+    // which is not the target here — the affected company's id/slug/name live in
+    // the metadata. For CompanyPurged that metadata is the only surviving record
+    // of the company.
     case CompanyDeleted = 'company_deleted';
     case CompanyRestored = 'company_restored';
     case CompanyPurged = 'company_purged';
