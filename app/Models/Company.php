@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Storage;
 
@@ -48,6 +49,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $inbound_email_token
  * @property bool $inbound_email_enabled
  * @property DentalBenefitsCode|null $payroll_dental_benefits_code
+ * @property Carbon|null $purge_at
  */
 #[Fillable([
     'name',
@@ -953,6 +955,7 @@ class Company extends Model
             'stripe_connected_at' => 'datetime',
             'stripe_disconnected_at' => 'datetime',
             'payroll_admin_enabled_at' => 'datetime',
+            'purge_at' => 'datetime',
             'inbound_email_enabled' => 'boolean',
         ];
     }

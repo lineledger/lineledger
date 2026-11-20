@@ -59,6 +59,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Deleting an organization now erases its data after a 30-day grace period.**
+  When an owner deletes an organization, members still lose access at once, but
+  the organization used to stay in the database until a site admin purged it by
+  hand, even though the dialog said it was permanently deleted. It now gets a
+  purge date, and a new daily job, `companies:purge-deleted` (03:00), erases it
+  for good once that date passes: its ledger, documents, attachments, backups
+  and logos. `COMPANY_PURGE_AFTER_DAYS` (`config/companies.php`) sets the grace
+  period. Until it ends, a site admin can restore the organization from Site
+  Admin → Companies, and restoring cancels the purge; the Deleted banner there
+  shows the date. The delete dialog now says all this, and the delete is
+  recorded in the security log. Organizations a site admin marks as deleted, and
+  ones deleted before this release, get no purge date and are left for an admin
+  to restore or purge.
 - **Credit memo lines take a negative quantity.** When a credit memo refunds one
   service and re-charges the customer for a substituted one, enter the re-charge
   as its own line with a quantity of -1 at the service's price. Sales by Item

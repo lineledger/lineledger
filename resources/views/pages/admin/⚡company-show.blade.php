@@ -151,6 +151,13 @@ new #[Title('Site Admin — Company')] class extends Component {
             <flux:callout.text>
                 {{ __('Members cannot reach this organization. Restore it to give access back, or permanently delete it below.') }}
             </flux:callout.text>
+            <flux:callout.text data-test="company-purge-schedule">
+                @if ($company->purge_at)
+                    {{ __('Its owner deleted it, so it will be permanently erased automatically after :date. Restoring it cancels that.', ['date' => $company->purge_at->isoFormat('LL')]) }}
+                @else
+                    {{ __('Held: it will not be erased automatically.') }}
+                @endif
+            </flux:callout.text>
         </flux:callout>
 
         @if ($company->members->isEmpty())

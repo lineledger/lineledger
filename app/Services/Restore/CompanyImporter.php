@@ -204,6 +204,10 @@ final class CompanyImporter
             // logo_path comes back attached after the AttachmentImporter logo pass.
             $shellRow['logo_path'] = null;
 
+            // A copy never inherits its source's scheduled purge
+            // (companies:purge-deleted): it starts out as a live organization.
+            $shellRow['purge_at'] = null;
+
             // Strip account-FK columns from the shell insert — they reference
             // accounts we haven't restored yet. Re-applied after the table loop.
             foreach ([
@@ -370,11 +374,13 @@ final class CompanyImporter
                     $updateRow = $this->prepareRowForInsert($this->encryptColumns(Company::class, $companyUpdate['row']));
 
                     // Don't overwrite the freshly-generated slug or the (about to
-                    // be set) logo_path — both are handled separately. Also drop
-                    // the bundle's id/created_at; updated_at refreshes to now.
+                    // be set) logo_path — both are handled separately — nor the
+                    // purge date the shell cleared. Also drop the bundle's
+                    // id/created_at; updated_at refreshes to now.
                     unset(
                         $updateRow['slug'],
                         $updateRow['logo_path'],
+                        $updateRow['purge_at'],
                         $updateRow['id'],
                         $updateRow['created_at'],
                     );
