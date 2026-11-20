@@ -4,6 +4,7 @@ namespace App\Services\Posting;
 
 use App\Models\Cheque;
 use App\Models\Company;
+use App\Models\DeletedTransaction;
 use App\Models\PayrollCheque;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -115,7 +116,8 @@ class DocumentNumberGenerator
             ->withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->where($column, 'like', $stem.'%')
-            ->pluck($column);
+            ->pluck($column)
+            ->merge($this->deletedNumbers($company, $modelClass));
 
         foreach ($existing as $candidate) {
             if (preg_match('/^(.*?)(\d+)(\D*)$/', (string) $candidate, $c) && $c[1] === $stem && $c[3] === $suffix) {
@@ -137,7 +139,8 @@ class DocumentNumberGenerator
             ->withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->where($column, 'like', $prefix.'-%')
-            ->pluck($column);
+            ->pluck($column)
+            ->merge($this->deletedNumbers($company, $modelClass));
 
         $next = 1;
 
@@ -158,8 +161,10 @@ class DocumentNumberGenerator
      */
     protected function firstFree(Company $company, string $modelClass, string $column, string $candidate): ?string
     {
+        $deleted = $this->deletedNumbers($company, $modelClass);
+
         for ($probe = 0; $probe < self::MAX_PROBES; $probe++) {
-            if (! $this->isTaken($company, $modelClass, $column, $candidate)) {
+            if (! in_array($candidate, $deleted, true) && ! $this->isTaken($company, $modelClass, $column, $candidate)) {
                 return $candidate;
             }
 
@@ -173,6 +178,26 @@ class DocumentNumberGenerator
         }
 
         return null;
+    }
+
+    /**
+     * Numbers deleted transactions of this type held. Auto-numbering never
+     * hands one out again, so the audit trail and the Voided/Deleted report
+     * never name two documents with the same number. isTaken() ignores them:
+     * a user may still type a deleted number back in by hand.
+     *
+     * @param  class-string<Model>  $modelClass
+     * @return list<string>
+     */
+    protected function deletedNumbers(Company $company, string $modelClass): array
+    {
+        return DeletedTransaction::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('document_table', (new $modelClass)->getTable())
+            ->whereNotNull('document_number')
+            ->pluck('document_number')
+            ->map(fn ($number): string => (string) $number)
+            ->all();
     }
 
     /**

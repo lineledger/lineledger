@@ -30,6 +30,7 @@ use App\Models\MemorizedReport;
 use App\Models\TaxAgency;
 use App\Models\TaxReturn;
 use App\Models\User;
+use App\Services\Deletion\TransactionDeleter;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\StockAdjustmentPoster;
 use App\Support\Banking\LastBankAccount;
@@ -50,6 +51,8 @@ use Illuminate\Support\Facades\Storage;
  *    marked lines, a tax return's excluded lines, remembered accounts, a saved
  *    report's filters);
  *  - audit rows about records deleted since (a reposted invoice's old lines);
+ *  - a deleted transaction: its tombstone and the audit row naming it, whose
+ *    journal entry and invoice are gone;
  *  - files (logos, an invoice attachment, an inbox document, and an attachment
  *    whose record no longer exists);
  *  - the tables backups once left out (budgets, the bank feed);
@@ -72,6 +75,7 @@ final class AdversarialBackupFixture
 
             self::inventory($company, $ctx);
             self::voidsAndReposts($ctx);
+            self::deletedTransaction($ctx);
             self::reparenting($company, $ctx);
             self::files($company, $owner, $ctx);
             self::jsonIds($company, $owner, $ctx);
@@ -175,6 +179,31 @@ final class AdversarialBackupFixture
             'lines' => [$line(3), $line(1)],
         ], $toRepost->fresh());
         app(InvoicePoster::class)->repost($toRepost->fresh());
+    }
+
+    /**
+     * A posted invoice deleted through TransactionDeleter: its journal entry
+     * and lines are gone, the audit rows about posting it point at nothing,
+     * and the tombstone plus the deletion's audit row (whose auditable is the
+     * tombstone) must restore and keep verifying.
+     *
+     * @param  array<string, mixed>  $ctx
+     */
+    private static function deletedTransaction(array $ctx): void
+    {
+        $mistake = app(SaveInvoice::class)->handle([
+            'contact_id' => $ctx['customer']->id,
+            'invoice_date' => now()->subDays(7)->toDateString(),
+            'lines' => [[
+                'account_id' => $ctx['revenue']->id,
+                'description' => 'Entered by mistake',
+                'quantity' => 1,
+                'unit_price_cents' => 2500,
+            ]],
+        ]);
+        app(InvoicePoster::class)->post($mistake);
+
+        app(TransactionDeleter::class)->delete($mistake->fresh(), 'Entered on the wrong customer');
     }
 
     /**

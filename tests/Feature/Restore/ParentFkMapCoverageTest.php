@@ -44,6 +44,7 @@ beforeEach(function () {
         'journal_entries.source_external_id', // QuickBooks TxnID carried over by the migration
         'customer_receipts.stripe_payment_intent_id', // Stripe PaymentIntent handle
         'bank_statement_lines.external_id', // the bank's own transaction id (OFX FITID)
+        'deleted_transactions.original_id', // the deleted row's own id, kept as history (it names nothing)
     ];
 
     // Polymorphic ids the transformer remaps in a per-table quirk, because

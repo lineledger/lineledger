@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\AccountSubtype;
 use App\Enums\ChequeStatus;
+use App\Enums\DeletableDocumentType;
 use App\Enums\NormalBalance;
 use App\Models\Account;
 use App\Models\Bill;
@@ -35,6 +36,11 @@ use Illuminate\Support\Facades\Notification;
  *      {@see checkControlAccountTax()}.
  *   6. Foreign units left by a void — report-only; see
  *      {@see checkVoidForeignUnits()}.
+ *   7. A journal entry whose source document no longer exists, and
+ *   8. a posted or voided document whose journal entry no longer exists —
+ *      report-only; see {@see checkDocumentEntryLinks()}. Deleting goes through
+ *      TransactionDeleter, which removes both together; either half alone
+ *      means something deleted around it.
  *
  * On any failure it logs, emails ops (unless --no-alert), and exits non-zero so
  * a scheduler/CI run surfaces it. The accumulating run history is also exactly
@@ -48,7 +54,7 @@ class CheckLedgerIntegrity extends Command
         {--no-alert : Report failures without emailing}
         {--no-log : Report failures without writing them to the application log (for a caller that reports them itself)}';
 
-    protected $description = 'Verify ledger integrity: audit hash chain, double-entry balance, account-balance cache, invoice/bill paid caches, tax on control-account cheque lines, and foreign-currency units left behind by voids.';
+    protected $description = 'Verify ledger integrity: audit hash chain, double-entry balance, account-balance cache, invoice/bill paid caches, tax on control-account cheque lines, foreign-currency units left behind by voids, and documents and journal entries left without each other.';
 
     /**
      * Voided entries that check 6 lists one by one; any beyond are counted in
@@ -166,6 +172,68 @@ class CheckLedgerIntegrity extends Command
 
         // 6. Voided entries whose reversal leaves foreign-currency units behind.
         $issues = array_merge($issues, $this->checkVoidForeignUnits($companyId));
+
+        // 7 + 8. Documents and their journal entries, each missing the other.
+        $issues = array_merge($issues, $this->checkDocumentEntryLinks($companyId));
+
+        return $issues;
+    }
+
+    /**
+     * For every transaction type Delete covers: a journal entry still naming a
+     * document that is gone (7), and a posted or voided document whose entry is
+     * gone (8). TransactionDeleter removes a document and its entries in one
+     * transaction, so either half on its own means a path deleted around it.
+     * A soft-deleted document still counts as present.
+     *
+     * Report-only, with no --fix: which half is wrong needs a look by hand.
+     *
+     * @return list<string>
+     */
+    protected function checkDocumentEntryLinks(int $companyId): array
+    {
+        $issues = [];
+
+        foreach (DeletableDocumentType::cases() as $type) {
+            $class = $type->modelClass();
+            $table = (new $class)->getTable();
+
+            $orphanEntries = DB::table('journal_entries as e')
+                ->where('e.company_id', $companyId)
+                ->where('e.source_type', $class)
+                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($table.' as d')->whereColumn('d.id', 'e.source_id'))
+                ->orderBy('e.id')
+                ->pluck('e.entry_no');
+
+            $noun = str_replace('_', ' ', $type->value);
+
+            if ($orphanEntries->isNotEmpty()) {
+                $issues[] = sprintf(
+                    'Journal entries whose %s no longer exists (%d): %s.',
+                    $noun,
+                    $orphanEntries->count(),
+                    $orphanEntries->take(20)->implode(', '),
+                );
+            }
+
+            $unlinked = DB::table($table.' as d')
+                ->where('d.company_id', $companyId)
+                ->whereNull('d.deleted_at')
+                ->where('d.status', '!=', $type->draftStatus())
+                ->where(fn ($q) => $q->whereNull('d.journal_entry_id')
+                    ->orWhereNotExists(fn ($q) => $q->select(DB::raw(1))->from('journal_entries as e')->whereColumn('e.id', 'd.journal_entry_id')))
+                ->orderBy('d.id')
+                ->pluck('d.'.$type->numberColumn());
+
+            if ($unlinked->isNotEmpty()) {
+                $issues[] = sprintf(
+                    'Posted or voided %ss with no journal entry (%d): %s.',
+                    $noun,
+                    $unlinked->count(),
+                    $unlinked->take(20)->implode(', '),
+                );
+            }
+        }
 
         return $issues;
     }

@@ -5,6 +5,7 @@ use App\Enums\SalesReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\SalesReceipt;
@@ -16,6 +17,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Sales receipt')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -23,6 +25,11 @@ new #[Title('Sales receipt')] class extends Component {
     public SalesReceipt $receipt;
 
     protected function editLockRecord(): ?Model
+    {
+        return $this->receipt;
+    }
+
+    protected function deletableDocument(): Model
     {
         return $this->receipt;
     }
@@ -49,21 +56,6 @@ new #[Title('Sales receipt')] class extends Component {
         $this->redirectRoute('sales-receipts.index', ['company' => $this->company->slug], navigate: true);
     }
 
-    #[Requires(null, PermissionAction::Delete)]
-    #[GuardsEditLock]
-    public function deleteDraft(): void
-    {
-        if ($this->receipt->journal_entry_id) {
-            Flux::toast(variant: 'danger', text: __('A posted sales receipt cannot be deleted. Void it instead.'));
-
-            return;
-        }
-
-        $this->receipt->delete();
-
-        Flux::toast(variant: 'success', text: __('Draft deleted.'));
-        $this->redirectRoute('sales-receipts.index', ['company' => $this->company->slug], navigate: true);
-    }
 }; ?>
 
 <section class="w-full">
@@ -115,11 +107,14 @@ new #[Title('Sales receipt')] class extends Component {
                             {{ __('Void') }}
                         </flux:menu.item>
                         @endcallable
-                    @elseif ($receipt->status === SalesReceiptStatus::Draft)
-                        <flux:menu.separator />
-                        @callable($this, 'deleteDraft')
-                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft sales receipt?') }}" data-test="delete-sales-receipt-button">
-                            {{ __('Delete draft') }}
+                    @endif
+                    @if ($this->canOfferDelete)
+                        @if ($receipt->status !== SalesReceiptStatus::Posted)
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
                         </flux:menu.item>
                         @endcallable
                     @endif
@@ -202,4 +197,6 @@ new #[Title('Sales receipt')] class extends Component {
     @if ($receipt->memo)
         <flux:text class="mt-4 text-muted-foreground">{{ $receipt->memo }}</flux:text>
     @endif
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$receipt" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

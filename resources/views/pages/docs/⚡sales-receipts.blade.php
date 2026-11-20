@@ -123,16 +123,16 @@ new #[Title('Documentation — Sales receipts')] class extends Component {}; ?>
             <li>{{ __('Print — open a PDF of the receipt in a new tab, headed SALES RECEIPT with a PAID stamp, a Sold To block, and a Total Paid line, ready to hand or email to the customer. Your logo, the tax registration line, and the footer message come from Settings → Invoices; the receipt’s own memo prints in the footer as well.') }}</li>
             <li>{{ __('Edit — change a draft freely, or update a posted receipt. On a posted receipt the buttons collapse to a single Save changes, and saving reposts it in place, adjusting the same journal entry rather than creating another. A voided receipt cannot be edited, so Edit disappears from its menu.') }}</li>
             <li>{{ __('Void — for a posted receipt, reverse it: after you confirm, the app writes a reversing journal entry dated today, returns any issued stock to inventory, and keeps the voided receipt on file.') }}</li>
-            <li>{{ __('Delete draft — remove a receipt that was never posted, so it leaves no trace in your books.') }}</li>
+            <li>{{ __('Delete — remove a draft, posted or voided receipt from your books entirely, as if it was never entered. The audit log keeps a record of it; see Deleting a transaction in the Accounting guide.') }}</li>
         </ul>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a receipt at a time') }}">
-            {{ __('When a teammate has a sales receipt open for editing, its page says who is editing and Void and Delete draft wait until they are done; anyone else opening the edit page sees who has it instead of the form. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. How locks are released is explained under Edit locks on the') }}
+            {{ __('When a teammate has a sales receipt open for editing, its page says who is editing and Void and Delete wait until they are done; anyone else opening the edit page sees who has it instead of the form. Anyone whose role can take over edit locks (Full Access, or the Owner) can take over. How locks are released is explained under Edit locks on the') }}
             <a class="underline" href="{{ route('docs.settings') }}" wire:navigate>{{ __('Settings') }}</a>{{ __(' page.') }}
         </x-docs.callout>
 
         <x-docs.callout type="warning">
-            {{ __('A posted sales receipt should never simply be deleted — that would leave a gap in your numbered records. To cancel one, void it instead: the ledger entry and any stock movement are reversed, and the voided receipt stays on file for your audit trail. Voiding is permanent — a voided receipt is read-only, so if the sale really happened, create a fresh receipt rather than trying to bring the old one back.') }}
+            {{ __('Void or delete? Void when the sale was real but is cancelled: the ledger entry and any stock movement are reversed, and the voided receipt stays on file, read-only, for your audit trail. Delete when it should never have been entered, say a sales receipt recorded instead of a customer payment: the receipt and its journal entries leave your books and every report, its number is not handed out again, and the record of what was deleted, by whom and when, stays in the audit log and on the Voided/Deleted Transactions report. A receipt already on a deposit has to come off the deposit first.') }}
         </x-docs.callout>
 
         <flux:text>

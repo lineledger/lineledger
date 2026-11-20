@@ -11,6 +11,8 @@ enum AuditAction: string
     case PeriodLockChanged = 'period.lock_changed';
     case PeriodLockOverridden = 'period.lock_overridden';
 
+    case TransactionDeletionSettingChanged = 'transactions.delete_setting_changed';
+
     case InvoiceCreated = 'invoice.created';
     case InvoiceUpdated = 'invoice.updated';
     case InvoiceDeleted = 'invoice.deleted';

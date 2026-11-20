@@ -144,6 +144,8 @@ final class AccountReferenceRegistry
             ['table' => 'pay_run_line_accruals', 'column' => 'expense_account_id'],
             ['table' => 'pay_run_line_accruals', 'column' => 'liability_account_id'],
             ['table' => 'payroll_cheques', 'column' => 'bank_account_id'],
+            // A deleted cheque's number stays reserved on the surviving bank account.
+            ['table' => 'deleted_transactions', 'column' => 'bank_account_id'],
             ['table' => 'payroll_remittances', 'column' => 'bank_account_id'],
 
             // Recurring templates.

@@ -434,6 +434,11 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
             {{ __('A timeline of every change made inside the organization — who did what, when, and what changed. Only owners see it. The Accounting tab records every posting action (invoices, bills, credit memos, receipts, payments, cheques, deposits, journal entries, and tax returns: created, posted, reposted, or voided) with the actor, IP, and a snapshot of what changed. The Security tab records sign-ins, password and two-factor changes, team-membership changes, and API-key lifecycle events (created, rotated, revoked). Actions taken through the API are attributed to the API key rather than a person, so you can tell automated activity from manual work. The accounting log is append-only and cryptographically chained — each entry is hashed together with the one before it — so tampering is detectable. Use the Verify chain action to confirm the log has not been altered.') }}
         </flux:text>
 
+        <flux:heading size="md" class="mt-6">{{ __('Voided/Deleted Transactions') }}</flux:heading>
+        <flux:text>
+            {{ __('Every transaction voided or deleted in a period, newest first, with who did it and when, like the QuickBooks Desktop report of the same name. A voided transaction is still in your books, its entry and the void’s reversing entry netting to zero, and its row opens the document. A deleted one is gone from your books; its row opens the record kept of it: the document and journal lines as they stood, struck through, the reason given, and its audit trail. Anyone who can see the financial reports can open it.') }}
+        </flux:text>
+
         {{-- ─────────────────── List reports ─────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('List reports') }}</flux:heading>
         <flux:text>

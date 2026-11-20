@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DeletableDocumentType;
 use App\Http\Controllers\BillPayments\PrintBillPaymentController;
 use App\Http\Controllers\BillPayments\PrintChequeController;
 use App\Http\Controllers\Bills\PrintBillController;
@@ -45,6 +46,7 @@ use App\Models\Attachment;
 use App\Models\Company;
 use App\Models\DocumentFolder;
 use App\Support\Attachments\AttachmentAccess;
+use App\Support\Deletion\DeletedRecordRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -168,7 +170,8 @@ Route::prefix('{company}')
         Route::livewire('invoices', 'pages::invoices.index')->name('invoices.index');
         Route::livewire('reminders', 'pages::reminders.index')->name('reminders.index');
         Route::livewire('invoices/create', 'pages::invoices.form')->name('invoices.create');
-        Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show');
+        Route::livewire('invoices/{invoice}', 'pages::invoices.show')->name('invoices.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Invoice));
         Route::livewire('invoices/{invoice}/edit', 'pages::invoices.form')->name('invoices.edit');
         Route::get('invoices/{invoice}/print', PrintInvoiceController::class)->name('invoices.print');
 
@@ -201,14 +204,16 @@ Route::prefix('{company}')
         // Receipts
         Route::livewire('receipts/create', 'pages::receipts.form')->name('receipts.create');
         Route::livewire('receipts', 'pages::receipts.index')->name('receipts.index');
-        Route::livewire('receipts/{receipt}', 'pages::receipts.show')->name('receipts.show');
+        Route::livewire('receipts/{receipt}', 'pages::receipts.show')->name('receipts.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::CustomerReceipt));
         Route::get('receipts/{receipt}/print', PrintReceiptController::class)->name('receipts.print');
         Route::livewire('receipts/{receipt}/edit', 'pages::receipts.form')->name('receipts.edit');
 
         // Sales receipts (pay-now sales: revenue + tax + cash in one document)
         Route::livewire('sales-receipts/create', 'pages::sales-receipts.form')->name('sales-receipts.create');
         Route::livewire('sales-receipts', 'pages::sales-receipts.index')->name('sales-receipts.index');
-        Route::livewire('sales-receipts/{receipt}', 'pages::sales-receipts.show')->name('sales-receipts.show');
+        Route::livewire('sales-receipts/{receipt}', 'pages::sales-receipts.show')->name('sales-receipts.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::SalesReceipt));
         Route::get('sales-receipts/{receipt}/print', PrintSalesReceiptController::class)->name('sales-receipts.print');
         Route::livewire('sales-receipts/{receipt}/edit', 'pages::sales-receipts.form')->name('sales-receipts.edit');
 
@@ -426,6 +431,8 @@ Route::prefix('{company}')
         Route::livewire('reports/contact-statement/{contact}', 'pages::reports.contact-statement')->name('reports.contact-statement');
         // A reserved activity: the Owner, or a role built to carry it.
         Route::livewire('reports/audit-log', 'pages::reports.audit-log')->name('reports.audit-log');
+        Route::livewire('reports/voided-deleted', 'pages::reports.voided-deleted')->name('reports.voided-deleted');
+        Route::livewire('deleted-transactions/{deletedTransaction}', 'pages::deleted-transactions.show')->name('deleted-transactions.show');
 
         // Attachments
         Route::get('attachments/{attachment}/download', function (Request $request, Company $company, Attachment $attachment) {

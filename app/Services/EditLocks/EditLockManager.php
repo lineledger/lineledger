@@ -329,6 +329,12 @@ class EditLockManager
             return;
         }
 
+        // The write deleted the record (TransactionDeleter removes its lock
+        // rows with it): there is nothing left to edit, so leave no row behind.
+        if (! $record->newQueryWithoutScopes()->whereKey($record->getKey())->exists()) {
+            return;
+        }
+
         // Never opened for editing yet: record the write anyway, as a free row,
         // so an edit page that loaded the record just before it can't save over it.
         try {

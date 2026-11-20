@@ -709,6 +709,29 @@ class Company extends Model
     }
 
     /**
+     * Whether members with the Delete permission may delete posted and voided
+     * transactions (QuickBooks Desktop's Edit › Delete), not just drafts. On
+     * by default; an owner can turn it off for void-only books, as some
+     * auditors prefer. See App\Services\Deletion\TransactionDeleter.
+     */
+    public function allowsTransactionDeletion(): bool
+    {
+        return (bool) data_get($this->settings, 'transactions.allow_delete', true);
+    }
+
+    /**
+     * Persist the delete setting, merging into the existing `settings` JSON
+     * without disturbing other keys.
+     */
+    public function setTransactionDeletionAllowed(bool $allowed): void
+    {
+        $settings = $this->settings ?? [];
+        $settings['transactions'] = array_merge($settings['transactions'] ?? [], ['allow_delete' => $allowed]);
+
+        $this->forceFill(['settings' => $settings])->save();
+    }
+
+    /**
      * Whether this company is a registered Canadian charity — and so can issue
      * official donation receipts and file the T3010. Requires the charity org
      * type, a Canadian jurisdiction, and a CRA registration number on file.

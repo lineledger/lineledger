@@ -80,5 +80,5 @@ it('guards exactly the invoice show page methods that change the invoice', funct
         ->map->getName()
         ->sort()->values()->all();
 
-    expect($guarded)->toBe(['reconcile', 'savePaymentSchedule', 'void']);
+    expect($guarded)->toBe(['confirmDelete', 'reconcile', 'savePaymentSchedule', 'void']);
 });

@@ -134,8 +134,8 @@ it('guards exactly the show page methods that change the record', function (stri
     expect($guarded)->toBe($expected);
 })->with([
     'credit memo' => ['pages::credit-memos.show', ['deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
-    'receipt' => ['pages::receipts.show', ['deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
-    'sales receipt' => ['pages::sales-receipts.show', ['deleteDraft', 'void']],
+    'receipt' => ['pages::receipts.show', ['confirmDelete', 'deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
+    'sales receipt' => ['pages::sales-receipts.show', ['confirmDelete', 'void']],
     'recurring' => ['pages::recurring.show', ['deleteSchedule', 'generateNow', 'pauseSchedule', 'resumeSchedule']],
 ]);
 
@@ -171,7 +171,7 @@ it('refuses to delete a draft sales receipt while someone else is editing it', f
 
     $this->actingAs($this->bob);
     Livewire::test('pages::sales-receipts.show', ['company' => $this->company, 'receipt' => $receipt->fresh()])
-        ->call('deleteDraft')
+        ->call('confirmDelete')
         ->assertDispatched('toast-show')
         ->assertNoRedirect();
 

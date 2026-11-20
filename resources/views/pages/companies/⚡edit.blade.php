@@ -65,6 +65,8 @@ new class extends Component
 
     public bool $agenticWrites = false;
 
+    public bool $allowTransactionDeletion = true;
+
     public bool $warnDuplicateBillNo = true;
 
     public string $chequeOffsetX = '';
@@ -172,6 +174,7 @@ new class extends Component
         $this->autoApplyCustomerCredits = (bool) $company->auto_apply_customer_credits;
         $this->insightsAiNarration = $company->insightsAiNarrationEnabled();
         $this->agenticWrites = $company->agenticWritesEnabled();
+        $this->allowTransactionDeletion = $company->allowsTransactionDeletion();
         $this->warnDuplicateBillNo = (bool) $company->warn_duplicate_bill_no;
         $this->chequeOffsetX = $company->cheque_offset_x !== null ? (string) $company->cheque_offset_x : '';
         $this->chequeOffsetY = $company->cheque_offset_y !== null ? (string) $company->cheque_offset_y : '';
@@ -472,6 +475,30 @@ new class extends Component
         $this->companyModel->setMcpState(['agentic_writes' => $value]);
 
         Flux::toast(variant: 'success', text: __('AI assistant write preference saved.'));
+    }
+
+    /**
+     * Instant-save toggle for deleting posted and voided transactions (drafts
+     * can always be deleted). Owner/Admin only, gated by the same `update`
+     * policy as the company form; every change is written to the audit log.
+     */
+    public function updatedAllowTransactionDeletion(bool $value): void
+    {
+        Gate::authorize('update', $this->companyModel);
+
+        $previous = $this->companyModel->allowsTransactionDeletion();
+        $this->companyModel->setTransactionDeletionAllowed($value);
+
+        if ($previous !== $value) {
+            app(AccountingAuditRecorder::class)->record(
+                (int) $this->companyModel->id,
+                AuditAction::TransactionDeletionSettingChanged,
+                $this->companyModel,
+                ['from' => $previous, 'to' => $value],
+            );
+        }
+
+        Flux::toast(variant: 'success', text: __('Delete preference saved.'));
     }
 
     /**
@@ -790,6 +817,19 @@ new class extends Component
                                 @unless ($mcpWritesOperatorEnabled)
                                     <flux:text class="text-sm text-muted-foreground" data-test="company-agentic-writes-operator-off">{{ __('The site operator has not enabled AI assistant writes on this server, so this switch cannot be turned on yet.') }}</flux:text>
                                 @endunless
+                            </div>
+
+                            <div class="space-y-3 rounded-lg border border-border p-4" data-test="company-transaction-deletion-section">
+                                <div>
+                                    <flux:heading size="sm">{{ __('Deleting transactions') }}</flux:heading>
+                                    <flux:subheading>{{ __('Members whose role includes Delete can remove a posted or voided transaction from the books and every report, as if it was never entered, as in QuickBooks Desktop. The audit log and the Voided/Deleted Transactions report keep a record of what was deleted, by whom and when. Drafts can always be deleted.') }}</flux:subheading>
+                                </div>
+                                <flux:switch
+                                    wire:model.live="allowTransactionDeletion"
+                                    :label="__('Allow deleting posted and voided transactions')"
+                                    :description="__('Turn this off to keep void-only books, as some auditors prefer: posted transactions can then only be voided.')"
+                                    data-test="company-transaction-deletion-input"
+                                />
                             </div>
 
                             <div class="space-y-3 rounded-lg border border-border p-4">

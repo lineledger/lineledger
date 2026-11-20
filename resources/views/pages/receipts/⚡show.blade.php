@@ -8,6 +8,7 @@ use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
@@ -23,6 +24,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Receipt')] class extends Component {
+    use DeletesTransaction;
     use IssuesCustomerRefunds;
     use ShowsEditLock;
 
@@ -31,6 +33,11 @@ new #[Title('Receipt')] class extends Component {
     public CustomerReceipt $receipt;
 
     protected function editLockRecord(): ?Model
+    {
+        return $this->receipt;
+    }
+
+    protected function deletableDocument(): Model
     {
         return $this->receipt;
     }
@@ -179,6 +186,16 @@ new #[Title('Receipt')] class extends Component {
                         </flux:menu.item>
                         @endcallable
                     @endif
+                    @if ($this->canOfferDelete)
+                        @if ($receipt->status !== ReceiptStatus::Posted)
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
+                        </flux:menu.item>
+                        @endcallable
+                    @endif
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -273,4 +290,6 @@ new #[Title('Receipt')] class extends Component {
         :payment-methods="$this->refundPaymentMethods"
         :stripe-source="$receipt->stripe_payment_intent_id !== null"
     />
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$receipt" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

@@ -229,6 +229,27 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             {{ __('A draft never reached your books, so it does not need a reversing entry. Open a manual draft and choose Delete draft from the Actions menu, then confirm: the entry and its lines are removed and the deletion is recorded in the audit log. Delete draft appears only on drafts; once an entry is posted, Void takes its place. An entry created by another document is managed from that document instead.') }}
         </flux:text>
 
+        <flux:heading size="md" class="mt-6" id="deleting-a-transaction">{{ __('Deleting a transaction') }}</flux:heading>
+        <flux:text>
+            {{ __('Delete removes a transaction as if it was never entered, the way QuickBooks Desktop’s Edit › Delete does. It is offered on invoices, sales receipts and customer payments, whether draft, posted or voided: open one and choose Delete from the Actions menu. The dialog says what will happen, lists anything to deal with first, and takes an optional reason. Once you confirm, the document, its lines and its journal entries (for a voided one, the void’s reversing entry too) leave your books and every report, and any stock it moved goes back. Deleting a payment shows the invoices it paid as owing again.') }}
+        </flux:text>
+        <flux:text class="mt-2">{{ __('A delete is refused, with a link to what stands in the way, while:') }}</flux:text>
+        <ul class="list-disc ps-6 space-y-1">
+            <li>{{ __('another record depends on it: a payment applied to the invoice, a deposit holding the receipt, a refund paying back a payment’s credit, or a fixed asset created from it. Deal with that record first;') }}</li>
+            <li>{{ __('a completed bank reconciliation ticked one of its lines, or a filed tax return includes it. Undo the reconciliation or void the return first;') }}</li>
+            <li>{{ __('the stock of an item on it has moved since, through a later sale, purchase or adjustment. Deleting would change what those cost, so void it instead;') }}</li>
+            <li>{{ __('it is a card payment received through Stripe, or an official donation receipt was made for it. Void it instead.') }}</li>
+        </ul>
+        <flux:text class="mt-2">
+            {{ __('Deleting takes the transaction out of its own period, so one dated on or before the lock date counts as a change to the closed books: in Block mode, someone whose role allows changes in a closed period confirms with their password; in Warn mode, you confirm.') }}
+        </flux:text>
+        <flux:text class="mt-2">
+            {{ __('Nothing disappears without a trace. The audit log records the deletion with a full copy of what was deleted, who deleted it, when and why, and the chain still verifies. Reports › Voided/Deleted Transactions lists every transaction voided or deleted in a period, and opens a deleted one as it stood. A deleted document’s number, and its journal entry’s number, are never handed out again automatically, though you can type a document number back in by hand. An old link to a deleted document opens that record instead.') }}
+        </flux:text>
+        <x-docs.callout type="note">
+            {{ __('Delete needs the same Delete permission as Void. An owner can turn off deleting posted and voided transactions in the organization settings, for void-only books; drafts can always be deleted. Bills, cheques, deposits, journal entries and the other transaction types are voided for now; Delete is coming to them.') }}
+        </x-docs.callout>
+
         <flux:heading size="md" class="mt-6">{{ __('Source-linked entries') }}</flux:heading>
         <flux:text>
             {{ __('Most entries in the list were created automatically by another document — a posted invoice, bill, receipt, cheque, deposit, transfer, or bank reconciliation. Those show a blue Source badge on the entry page that links to the document, and the toolbar’s main button reads View followed by the source’s name, such as View Bill. Reverse and Void are withheld for them: the only correct way to back out a posted bill or invoice is to void or edit that bill or invoice, so the document and its ledger entry can never disagree. Memorize stays available on every entry, but Duplicate appears only when the source is a bill or a deposit — the two documents with a duplicate flow of their own.') }}
@@ -375,7 +396,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="warning">
-            {{ __('In Block mode, without an override, the app will not post anything dated on or before the lock date, and it refuses to edit a posted invoice, bill, payment, or manual journal entry when either its original date or its new date falls on or before it. Voiding is the one action checked only against a new date: it is checked against the void date, which is today, so a posted entry or document dated inside the locked period can still be voided and its reversing entry lands today. To reopen the books, choose Change lock date, leave the Lock date blank, and confirm with your password. Every change to the lock date is recorded in the audit log. Finishing the Opening Balances workspace with Finalize & lock sets the same lock date through your conversion date.') }}
+            {{ __('In Block mode, without an override, the app will not post anything dated on or before the lock date, and it refuses to edit a posted invoice, bill, payment, or manual journal entry when either its original date or its new date falls on or before it. Voiding is the one action checked only against a new date: it is checked against the void date, which is today, so a posted entry or document dated inside the locked period can still be voided and its reversing entry lands today. To reopen the books, choose Change lock date, leave the Lock date blank, and confirm with your password. Deleting a transaction is checked against every date it touched, since it takes the original out of its own period, so one dated in the locked period needs the override. Every change to the lock date is recorded in the audit log. Finishing the Opening Balances workspace with Finalize & lock sets the same lock date through your conversion date.') }}
         </x-docs.callout>
 
         <x-docs.callout type="tip" heading="{{ __('Year-end adjusting entries from your accountant') }}">
