@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\MasterData\SaveClassification;
 use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
@@ -11,6 +13,13 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Classes')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Classification::query();
+    }
+
     use HoldsEditLock;
 
     public Company $company;
@@ -102,6 +111,11 @@ new #[Title('Classes')] class extends Component {
                             <td class="px-4 py-2">{{ $c->name }}</td>
                             <td class="px-4 py-2 text-right">
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $c->id }})" />
+                                @if (! $c->is_active)
+                                    @callable($this, 'deleteListRecord')
+                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="deleteListRecord({{ $c->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $c->name]) }}" data-test="delete-list-record" />
+                                    @endcallable
+                                @endif
                             </td>
                         </tr>
                     @empty

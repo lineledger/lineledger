@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\MasterData\SavePaymentMethod;
 use App\Enums\JurisdictionCapability;
 use App\Livewire\Attributes\RequiresSave;
@@ -12,6 +14,13 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Payment methods')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return PaymentMethod::query();
+    }
+
     use HoldsEditLock;
 
     public Company $company;
@@ -146,6 +155,11 @@ new #[Title('Payment methods')] class extends Component {
                             @endif
                             <td class="px-4 py-2 text-right">
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $m->id }})" />
+                                @if (! $m->is_active)
+                                    @callable($this, 'deleteListRecord')
+                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="deleteListRecord({{ $m->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $m->name]) }}" data-test="delete-list-record" />
+                                    @endcallable
+                                @endif
                             </td>
                         </tr>
                     @endforeach

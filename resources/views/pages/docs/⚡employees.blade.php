@@ -51,7 +51,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="tip">
-            {{ __('When someone leaves the team, mark them inactive instead of deleting: they drop out of selectors but their reimbursement and payroll history stays intact for your records.') }}
+            {{ __('When someone leaves the team, mark them inactive: they drop out of selectors but their reimbursement and payroll history stays intact for your records. An employee entered by mistake and never paid can then be deleted with the bin on their row, along with their payroll setup.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">

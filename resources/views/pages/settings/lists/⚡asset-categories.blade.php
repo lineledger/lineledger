@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Livewire\Attributes\RequiresSave;
@@ -14,6 +16,13 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Asset categories')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return AssetCategory::query();
+    }
+
     use HoldsEditLock;
 
     public Company $company;
@@ -181,6 +190,11 @@ new #[Title('Asset categories')] class extends Component {
                             <td class="px-4 py-2">{{ $c->default_useful_life_months ?? '—' }}</td>
                             <td class="px-4 py-2 text-right">
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $c->id }})" data-test="edit-asset-category-button" />
+                                @if (! $c->is_active)
+                                    @callable($this, 'deleteListRecord')
+                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="deleteListRecord({{ $c->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $c->name]) }}" data-test="delete-list-record" />
+                                    @endcallable
+                                @endif
                             </td>
                         </tr>
                     @endforeach

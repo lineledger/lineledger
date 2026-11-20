@@ -1,5 +1,10 @@
 <?php
 
+use App\Services\References\AssetCategoryReferenceRegistry;
+use App\Services\References\ClassificationReferenceRegistry;
+use App\Services\References\FundReferenceRegistry;
+use App\Services\References\ItemReferenceRegistry;
+use App\Services\References\LocationReferenceRegistry;
 use App\Services\References\PaymentMethodReferenceRegistry;
 use App\Services\References\PaymentTermReferenceRegistry;
 use App\Services\References\TaxCodeReferenceRegistry;
@@ -26,6 +31,31 @@ function listReferenceRegistryCases(): array
             PaymentMethodReferenceRegistry::class,
             'payment_methods',
             fn (string $column): bool => $column === 'payment_method_id' || str_ends_with($column, '_payment_method_id'),
+        ],
+        'items' => [
+            ItemReferenceRegistry::class,
+            'items',
+            fn (string $column): bool => $column === 'item_id' || str_ends_with($column, '_item_id'),
+        ],
+        'classes' => [
+            ClassificationReferenceRegistry::class,
+            'classifications',
+            fn (string $column): bool => $column === 'class_id' || str_ends_with($column, '_class_id'),
+        ],
+        'locations' => [
+            LocationReferenceRegistry::class,
+            'locations',
+            fn (string $column): bool => $column === 'location_id' || str_ends_with($column, '_location_id'),
+        ],
+        'funds' => [
+            FundReferenceRegistry::class,
+            'funds',
+            fn (string $column): bool => $column === 'fund_id' || str_ends_with($column, '_fund_id'),
+        ],
+        'asset categories' => [
+            AssetCategoryReferenceRegistry::class,
+            'asset_categories',
+            fn (string $column): bool => $column === 'asset_category_id' || str_ends_with($column, '_asset_category_id'),
         ],
         'payment terms' => [
             PaymentTermReferenceRegistry::class,

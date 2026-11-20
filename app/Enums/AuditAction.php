@@ -180,6 +180,12 @@ enum AuditAction: string
     case ContactCreated = 'contact.created';
     case ContactUpdated = 'contact.updated';
     case ContactDeleted = 'contact.deleted';
+
+    case ItemDeleted = 'item.deleted';
+    case TaxCodeDeleted = 'tax_code.deleted';
+    case PaymentMethodDeleted = 'payment_method.deleted';
+    case PaymentTermDeleted = 'payment_term.deleted';
+    case ListRecordDeleted = 'list_record.deleted';
     case ContactMerged = 'contact.merged';
 
     case OpeningBalanceApplied = 'opening_balance.applied';

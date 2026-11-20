@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Lists\DeleteListRecord;
 use App\Contracts\ClientSafeException;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
@@ -162,6 +163,20 @@ abstract class ApiController extends Controller
         app(TransactionDeleter::class)->delete($document, is_string($reason) ? $reason : null, $actor instanceof User ? $actor : null, 'api');
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Delete a list record for good through DeleteListRecord, which refuses
+     * (409, with the reasons) while anything still uses it. The API's calls
+     * are deliberate, so it doesn't ask for the record to be made inactive
+     * first, as the web app does.
+     */
+    protected function deleteListRecord(Model $record): void
+    {
+        $key = app()->bound('current_api_key') ? app('current_api_key') : null;
+        $actor = $key instanceof CompanyApiKey ? $key->createdByUser : null;
+
+        app(DeleteListRecord::class)->handle($record, $actor instanceof User ? $actor : null, requireInactive: false);
     }
 
     /**
