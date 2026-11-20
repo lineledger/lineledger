@@ -201,7 +201,7 @@ final class TransactionDeleter
                     'original_id' => (int) $locked->getKey(),
                     'document_table' => $locked->getTable(),
                     'document_number' => $summary['document_number'],
-                    'bank_account_id' => null,
+                    'bank_account_id' => $summary['bank_account_id'] ?? null,
                     'max_entry_seq' => $this->maxEntrySequence($entries),
                     'document_date' => $summary['document_date'],
                     'contact_name' => $summary['contact_name'],
@@ -245,7 +245,8 @@ final class TransactionDeleter
      */
     private function journalEntries(Model $document, bool $lock = false): Collection
     {
-        $entryId = $document->getAttribute('journal_entry_id');
+        // A journal entry is its own document.
+        $entryId = $document instanceof JournalEntry ? $document->getKey() : $document->getAttribute('journal_entry_id');
 
         if ($entryId === null) {
             return new Collection;
@@ -288,7 +289,11 @@ final class TransactionDeleter
      */
     private function stateOf(Model $document, Collection $entries): DeletedTransactionState
     {
-        if ($entries->isEmpty()) {
+        if (DeletableDocumentType::forModel($document)?->postsToLedger() === false) {
+            return DeletedTransactionState::Unposted;
+        }
+
+        if ($entries->isEmpty() || ($document instanceof JournalEntry && ! $document->isPosted())) {
             return DeletedTransactionState::Draft;
         }
 
@@ -325,7 +330,7 @@ final class TransactionDeleter
      */
     private function ensureOpenPeriods(Model $document, Company $company, Collection $entries, DeletedTransactionState $state): void
     {
-        if ($state === DeletedTransactionState::Draft) {
+        if (in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
             return;
         }
 
@@ -348,7 +353,7 @@ final class TransactionDeleter
         $noun = $handler->type()->noun();
         $blockers = [];
 
-        if ($state !== DeletedTransactionState::Draft && ! $company->allowsTransactionDeletion()) {
+        if (! in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true) && ! $company->allowsTransactionDeletion()) {
             $blockers[] = new DeletionBlocker(__('This organization only allows deleting drafts. A posted or voided transaction can be voided, or an owner can allow deleting under Organization settings.'));
         }
 
@@ -360,7 +365,9 @@ final class TransactionDeleter
         }
 
         foreach ($entries as $entry) {
-            $ownedByDocument = $entry->source_type === $document::class && (int) $entry->source_id === (int) $document->getKey();
+            $ownedByDocument = $document instanceof JournalEntry
+                ? (int) $entry->id === (int) $document->getKey()
+                : $entry->source_type === $document::class && (int) $entry->source_id === (int) $document->getKey();
             $isOwnReversal = $entry->reverses_entry_id !== null && $entries->contains('id', $entry->reverses_entry_id);
 
             if (! $ownedByDocument && ! $isOwnReversal) {
@@ -368,7 +375,7 @@ final class TransactionDeleter
             }
         }
 
-        if ($state !== DeletedTransactionState::Draft) {
+        if (! in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
             $lines = $entries->flatMap(fn (JournalEntry $e) => $e->lines);
             $entryIds = array_map('intval', $entries->modelKeys());
             $lineIds = $lines->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
@@ -411,7 +418,7 @@ final class TransactionDeleter
      */
     private function warnings(Model $document, Company $company, Collection $entries, DeletedTransactionState $state): array
     {
-        if ($state === DeletedTransactionState::Draft) {
+        if (in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
             return [];
         }
 

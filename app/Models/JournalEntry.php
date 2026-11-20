@@ -151,6 +151,26 @@ class JournalEntry extends Model
     }
 
     /**
+     * Source types whose entries the journal may delete like manual ones: a
+     * bank-feed entry (its statement line goes back to review) and a
+     * QuickBooks-imported one. Every other source owns its entry.
+     *
+     * @var list<string>
+     */
+    public const JOURNAL_DELETABLE_SOURCES = [BankStatementImport::class, 'qbd_import'];
+
+    /**
+     * Whether Delete on the journal page may remove this entry: a manual,
+     * bank-feed or imported entry, not the reversal a void wrote (that goes
+     * with the voided entry).
+     */
+    public function isDeletableInJournal(): bool
+    {
+        return ! $this->isVoidReversal()
+            && ($this->source_type === null || in_array($this->source_type, self::JOURNAL_DELETABLE_SOURCES, true));
+    }
+
+    /**
      * Whether the general journal may edit this entry at all: manual entries,
      * plus the source-linked types listed in {@see JOURNAL_EDITABLE_SOURCES}.
      */

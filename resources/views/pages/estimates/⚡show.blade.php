@@ -7,6 +7,7 @@ use App\Enums\EstimateStatus;
 use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Estimate;
@@ -19,6 +20,7 @@ use Livewire\Component;
 use App\Support\Access\RecordRedirect;
 
 new #[Title('Estimate')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -220,6 +222,14 @@ new #[Title('Estimate')] class extends Component {
                         </flux:menu.item>
                         @endcallable
                     @endif
+                    @if ($this->canOfferDelete)
+                        <flux:menu.separator />
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
+                        </flux:menu.item>
+                        @endcallable
+                    @endif
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -323,4 +333,6 @@ new #[Title('Estimate')] class extends Component {
     @if ($estimate->memo)
         <flux:text class="mt-2 text-muted-foreground">{{ $estimate->memo }}</flux:text>
     @endif
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$estimate" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

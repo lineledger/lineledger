@@ -6,6 +6,7 @@ use App\Models\Cheque;
 use App\Models\Company;
 use App\Models\DeletedTransaction;
 use App\Models\PayrollCheque;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -227,6 +228,26 @@ class DocumentNumberGenerator
             ->limit(self::RECENT_CHEQUES)
             ->pluck('cheque_no');
 
+        // A cheque deleted since the newest one was written still used its
+        // number: count on from it, as from any other cheque.
+        $deleted = DeletedTransaction::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->whereIn('document_table', ['cheques', 'payroll_cheques'])
+            ->where('bank_account_id', $bankAccountId)
+            ->orderByDesc('id')
+            ->first(['document_number', 'created_at']);
+
+        $newestLive = Cheque::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->where('bank_account_id', $bankAccountId)
+            ->orderByDesc('id')
+            ->value('created_at');
+
+        if ($deleted !== null && $deleted->document_number !== null
+            && ($newestLive === null || $deleted->created_at >= CarbonImmutable::parse($newestLive))) {
+            $recent->prepend($deleted->document_number);
+        }
+
         $candidate = '1001';
 
         foreach ($recent as $number) {
@@ -264,7 +285,14 @@ class DocumentNumberGenerator
             }
         }
 
-        return false;
+        // A deleted cheque's paper may already be written: its number stays
+        // spent on that bank account.
+        return DeletedTransaction::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->whereIn('document_table', ['cheques', 'payroll_cheques'])
+            ->where('bank_account_id', $bankAccountId)
+            ->where('document_number', $number)
+            ->exists();
     }
 
     /**

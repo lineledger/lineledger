@@ -4,15 +4,9 @@ namespace App\Services\Deletion;
 
 use App\Enums\DeletableDocumentType;
 use App\Models\BankReconciliation;
-use App\Models\Bill;
-use App\Models\BillPayment;
-use App\Models\Cheque;
-use App\Models\CreditMemo;
 use App\Models\CurrencyRevaluation;
-use App\Models\Deposit;
 use App\Models\Donation;
 use App\Models\DonationReceipt;
-use App\Models\Expense;
 use App\Models\Grant;
 use App\Models\GrantRecognition;
 use App\Models\OpeningBalanceState;
@@ -22,11 +16,21 @@ use App\Models\PayRun;
 use App\Models\StockAdjustment;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
-use App\Models\Transfer;
-use App\Models\VendorCredit;
+use App\Services\Deletion\Handlers\BillDeletionHandler;
+use App\Services\Deletion\Handlers\BillPaymentDeletionHandler;
+use App\Services\Deletion\Handlers\ChequeDeletionHandler;
+use App\Services\Deletion\Handlers\CreditMemoDeletionHandler;
 use App\Services\Deletion\Handlers\CustomerReceiptDeletionHandler;
+use App\Services\Deletion\Handlers\DepositDeletionHandler;
+use App\Services\Deletion\Handlers\EstimateDeletionHandler;
+use App\Services\Deletion\Handlers\ExpenseDeletionHandler;
 use App\Services\Deletion\Handlers\InvoiceDeletionHandler;
+use App\Services\Deletion\Handlers\JournalEntryDeletionHandler;
+use App\Services\Deletion\Handlers\PurchaseOrderDeletionHandler;
+use App\Services\Deletion\Handlers\SalesOrderDeletionHandler;
 use App\Services\Deletion\Handlers\SalesReceiptDeletionHandler;
+use App\Services\Deletion\Handlers\TransferDeletionHandler;
+use App\Services\Deletion\Handlers\VendorCreditDeletionHandler;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
@@ -47,6 +51,18 @@ final class DeletableDocuments
             DeletableDocumentType::Invoice->value => InvoiceDeletionHandler::class,
             DeletableDocumentType::SalesReceipt->value => SalesReceiptDeletionHandler::class,
             DeletableDocumentType::CustomerReceipt->value => CustomerReceiptDeletionHandler::class,
+            DeletableDocumentType::CreditMemo->value => CreditMemoDeletionHandler::class,
+            DeletableDocumentType::Bill->value => BillDeletionHandler::class,
+            DeletableDocumentType::BillPayment->value => BillPaymentDeletionHandler::class,
+            DeletableDocumentType::VendorCredit->value => VendorCreditDeletionHandler::class,
+            DeletableDocumentType::Expense->value => ExpenseDeletionHandler::class,
+            DeletableDocumentType::Cheque->value => ChequeDeletionHandler::class,
+            DeletableDocumentType::Deposit->value => DepositDeletionHandler::class,
+            DeletableDocumentType::Transfer->value => TransferDeletionHandler::class,
+            DeletableDocumentType::JournalEntry->value => JournalEntryDeletionHandler::class,
+            DeletableDocumentType::Estimate->value => EstimateDeletionHandler::class,
+            DeletableDocumentType::SalesOrder->value => SalesOrderDeletionHandler::class,
+            DeletableDocumentType::PurchaseOrder->value => PurchaseOrderDeletionHandler::class,
         ];
     }
 
@@ -62,14 +78,6 @@ final class DeletableDocuments
         $planned = 'Delete is planned for this type (issue #241); until then, void it.';
 
         return [
-            Bill::class => $planned,
-            BillPayment::class => $planned,
-            Cheque::class => $planned,
-            CreditMemo::class => $planned,
-            Deposit::class => $planned,
-            Expense::class => $planned,
-            Transfer::class => $planned,
-            VendorCredit::class => $planned,
             StockAdjustment::class => $planned,
             TaxReturnPayment::class => $planned,
             Donation::class => $planned,

@@ -66,6 +66,47 @@ final class DocumentReferenceRegistry
                 'cheques.refunded_receipt_id' => self::BLOCKS,
                 'donation_receipts.customer_receipt_id' => self::BLOCKS,
             ],
+            'credit_memos' => [
+                'credit_memo_lines.credit_memo_id' => self::OWNED,
+                'cheques.credit_memo_id' => self::BLOCKS,
+                'customer_receipts.credit_memo_id' => self::BLOCKS,
+            ],
+            'bills' => [
+                'bill_lines.bill_id' => self::OWNED,
+                'bill_payment_applications.bill_id' => self::BLOCKS,
+                'bank_statement_lines.suggested_bill_id' => self::RESET,
+                'bank_statement_lines.suggested_bill_allocations' => self::RESET,
+                'inbox_items.promoted_document_id' => self::RESET,
+            ],
+            'bill_payments' => [
+                'bill_payment_applications.bill_payment_id' => self::OWNED,
+            ],
+            'vendor_credits' => [
+                'vendor_credit_lines.vendor_credit_id' => self::OWNED,
+            ],
+            'expenses' => [
+                'expense_lines.expense_id' => self::OWNED,
+                'inbox_items.promoted_document_id' => self::RESET,
+            ],
+            'cheques' => [
+                'cheque_lines.cheque_id' => self::OWNED,
+            ],
+            'deposits' => [
+                'deposit_lines.deposit_id' => self::OWNED,
+            ],
+            'transfers' => [],
+            'estimates' => [
+                'estimate_lines.estimate_id' => self::OWNED,
+            ],
+            'sales_orders' => [
+                'sales_order_lines.sales_order_id' => self::OWNED,
+                'invoices.sales_order_id' => self::BLOCKS, // and invoice lines on its lines
+                'estimates.converted_sales_order_id' => self::RESET,
+            ],
+            'purchase_orders' => [
+                'purchase_order_lines.purchase_order_id' => self::OWNED,
+                'bills.purchase_order_id' => self::BLOCKS, // and bill lines on its lines
+            ],
             'journal_entries' => [
                 'journal_lines.journal_entry_id' => self::OWNED,
                 'journal_entries.reverses_entry_id' => self::OWNED,

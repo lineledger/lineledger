@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Delete for every other transaction you can void** (#241, after 1.5.0-rc.3
+  brought it to invoices, sales receipts and payments). Credit memos, bills
+  and reimbursements, bill payments, vendor credits, expenses, cheques,
+  deposits, transfers and manual journal entries now have Delete, whether
+  draft, posted or voided, and so do estimates, sales orders and purchase
+  orders. Deleting a bill payment shows its bills as owing again; deleting a
+  deposit returns its payments to Undeposited Funds; deleting a bank-feed
+  journal entry puts its statement line back for review; deleting a bill or
+  expense the inbox made sends the inbox document back to review with its
+  file. It is refused, with a link, while a payment is applied to the bill, a
+  refund pays back the credit memo, an invoice or bill came from the order, an
+  accrual reversal points at the journal entry, or the payment is in a year
+  whose T4A slips are finalized. A voided journal entry's reversal goes with
+  it, never on its own. A deleted cheque's number stays spent on its bank
+  account. "Delete draft" on journal entries and reimbursements is now this
+  Delete, and removes the draft for real. If a document is posted or voided
+  elsewhere while its Delete dialog is open, confirming shows what deleting it
+  would do now and asks again.
+
 ## [1.5.0-rc.3] - 2026-11-20
 
 **Highlights.** The third release candidate for 1.5.0, on the next channel

@@ -10,11 +10,13 @@ use App\Enums\PredefinedRole;
 use App\Enums\Section;
 use App\Models\Account;
 use App\Models\BankReconciliation;
+use App\Models\Bill;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\CustomerReceipt;
 use App\Models\Invoice;
+use App\Models\Item;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\MembershipRole;
@@ -656,4 +658,26 @@ function userWithCompanies(int $count, string $currency = 'CAD'): array
     });
 
     return [$user, $companies];
+}
+
+/**
+ * Everything a delete must put back exactly: each account's posted total and
+ * cached balance, each contact's AR and AP, each invoice's paid cache.
+ *
+ * @return array<string, mixed>
+ */
+function deletionLedgerState(Company $company): array
+{
+    return [
+        'posted' => DB::table('journal_lines as l')->join('journal_entries as e', 'e.id', '=', 'l.journal_entry_id')
+            ->where('e.company_id', $company->id)->where('e.is_posted', true)
+            ->groupBy('l.account_id')->orderBy('l.account_id')
+            ->selectRaw('l.account_id, SUM(l.debit_cents) - SUM(l.credit_cents) AS net')
+            ->pluck('net', 'l.account_id')->map(fn ($v) => (int) $v)->filter()->all(),
+        'cached' => Account::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->pluck('balance_cents', 'id')->map(fn ($v) => (int) $v)->filter()->all(),
+        'contacts' => Contact::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'ar_balance_cents', 'ap_balance_cents'])->map(fn ($c) => [(int) $c->ar_balance_cents, (int) $c->ap_balance_cents])->all(),
+        'invoices' => Invoice::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'amount_paid_cents', 'status'])->map(fn ($i) => [(int) $i->amount_paid_cents, $i->status->value])->all(),
+        'bills' => Bill::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'amount_paid_cents', 'status'])->map(fn ($b) => [(int) $b->amount_paid_cents, $b->status->value])->all(),
+        'items' => Item::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'qty_on_hand_cached', 'unit_cost_cents_cached'])->map(fn ($i) => [(string) $i->qty_on_hand_cached, (int) $i->unit_cost_cents_cached])->all(),
+    ];
 }

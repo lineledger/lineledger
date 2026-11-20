@@ -216,6 +216,6 @@ it('guards exactly the show page methods that change the record', function (stri
     expect($guarded)->toBe($expected);
 })->with([
     'member' => ['pages::members.show', ['renew']],
-    'estimate' => ['pages::estimates.show', ['accept', 'convert', 'convertToSalesOrder', 'reject']],
-    'sales order' => ['pages::sales-orders.show', ['cancelOrder', 'fulfill']],
+    'estimate' => ['pages::estimates.show', ['accept', 'confirmDelete', 'convert', 'convertToSalesOrder', 'reject']],
+    'sales order' => ['pages::sales-orders.show', ['cancelOrder', 'confirmDelete', 'fulfill']],
 ]);

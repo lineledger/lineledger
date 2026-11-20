@@ -4,6 +4,7 @@ use App\Enums\BillStatus;
 use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Bill;
 use App\Models\Company;
@@ -15,6 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Reimbursement')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -48,22 +50,6 @@ new #[Title('Reimbursement')] class extends Component {
         $this->redirectRoute('reimbursements.index', ['company' => $this->company->slug], navigate: true);
     }
 
-    #[Requires(null, PermissionAction::Delete)]
-    #[GuardsEditLock]
-    public function deleteDraft(): void
-    {
-        if ($this->bill->journal_entry_id) {
-            Flux::toast(variant: 'danger', text: __('A posted reimbursement cannot be deleted. Void it instead.'));
-
-            return;
-        }
-
-        $this->bill->lines()->delete();
-        $this->bill->delete();
-
-        Flux::toast(variant: 'success', text: __('Draft deleted.'));
-        $this->redirectRoute('reimbursements.index', ['company' => $this->company->slug], navigate: true);
-    }
 }; ?>
 
 <section class="w-full">
@@ -131,11 +117,14 @@ new #[Title('Reimbursement')] class extends Component {
                             {{ __('Void') }}
                         </flux:menu.item>
                         @endcallable
-                    @elseif ($bill->status === BillStatus::Draft)
-                        <flux:menu.separator />
-                        @callable($this, 'deleteDraft')
-                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft reimbursement?') }}" data-test="delete-reimbursement-button">
-                            {{ __('Delete draft') }}
+                    @endif
+                    @if ($this->canOfferDelete)
+                        @if ($bill->status === BillStatus::Void || $bill->status === BillStatus::Draft)
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
                         </flux:menu.item>
                         @endcallable
                     @endif
@@ -197,4 +186,6 @@ new #[Title('Reimbursement')] class extends Component {
     </div>
 
     @if ($bill->memo) <flux:text class="mt-4 text-muted-foreground">{{ $bill->memo }}</flux:text> @endif
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$bill" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

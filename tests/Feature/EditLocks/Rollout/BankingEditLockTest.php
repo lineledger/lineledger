@@ -218,7 +218,7 @@ it('guards exactly the banking show page methods that change the record', functi
 
     expect($guarded)->toBe($methods);
 })->with([
-    'cheques' => ['pages::cheques.show', ['void']],
-    'deposits' => ['pages::deposits.show', ['post', 'void']],
-    'transfers' => ['pages::transfers.show', ['void']],
+    'cheques' => ['pages::cheques.show', ['confirmDelete', 'void']],
+    'deposits' => ['pages::deposits.show', ['confirmDelete', 'post', 'void']],
+    'transfers' => ['pages::transfers.show', ['confirmDelete', 'void']],
 ]);

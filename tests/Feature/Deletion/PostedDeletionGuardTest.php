@@ -46,8 +46,12 @@ it('guards every posting document model', function (string $class) {
     TaxReturnPayment::class,
 ]);
 
-it('guards every deletable type', function () {
+it('guards every deletable type that owns a journal entry', function () {
     foreach (DeletableDocumentType::cases() as $type) {
+        if (! $type->postsToLedger() || $type === DeletableDocumentType::JournalEntry) {
+            continue; // estimates and orders never post; a journal entry guards itself (booted())
+        }
+
         expect(class_uses_recursive($type->modelClass()))->toHaveKey(GuardsPostedDeletion::class);
     }
 });

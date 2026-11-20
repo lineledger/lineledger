@@ -19,6 +19,9 @@ enum DeletedTransactionState: string
     /** Deleted by an older release, which only hid it (soft delete). */
     case Legacy = 'legacy';
 
+    /** An estimate or order, which never posts to the ledger. */
+    case Unposted = 'unposted';
+
     public function label(): string
     {
         return match ($this) {
@@ -26,6 +29,7 @@ enum DeletedTransactionState: string
             self::Posted => __('Posted'),
             self::Voided => __('Voided'),
             self::Legacy => __('Draft (earlier release)'),
+            self::Unposted => __('Not posted'),
         };
     }
 }

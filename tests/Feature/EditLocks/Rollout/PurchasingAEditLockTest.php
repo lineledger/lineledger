@@ -95,10 +95,10 @@ dataset('purchasing A edit-locked forms', [
 ]);
 
 dataset('purchasing A edit-locked show pages', [
-    'bill' => ['pages::bills.show', 'bill', 'bill', ['reconcile', 'void']],
-    'bill payment' => ['pages::bill-payments.show', 'payment', 'bill payment', ['void']],
-    'expense' => ['pages::expenses.show', 'expense', 'expense', ['void']],
-    'purchase order' => ['pages::purchase-orders.show', 'purchaseOrder', 'purchase order', ['cancelOrder', 'receive']],
+    'bill' => ['pages::bills.show', 'bill', 'bill', ['confirmDelete', 'reconcile', 'void']],
+    'bill payment' => ['pages::bill-payments.show', 'payment', 'bill payment', ['confirmDelete', 'void']],
+    'expense' => ['pages::expenses.show', 'expense', 'expense', ['confirmDelete', 'void']],
+    'purchase order' => ['pages::purchase-orders.show', 'purchaseOrder', 'purchase order', ['cancelOrder', 'confirmDelete', 'receive']],
 ]);
 
 it('takes the lock when the record is opened for editing', function (string $component, string $param, string $saveMethod) {

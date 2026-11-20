@@ -122,21 +122,21 @@ it('deletes a draft reimbursement from the show page', function () {
     ]);
 
     Livewire::test('pages::reimbursements.show', ['company' => $this->company, 'bill' => $bill])
-        ->call('deleteDraft')
+        ->call('confirmDelete')
         ->assertRedirect(route('reimbursements.index', ['company' => $this->company->slug]));
 
-    expect(Bill::query()->whereKey($bill->id)->exists())->toBeFalse()
+    expect(Bill::withTrashed()->whereKey($bill->id)->exists())->toBeFalse()
         ->and($bill->lines()->count())->toBe(0);
 });
 
-it('refuses to delete a posted reimbursement and keeps it intact', function () {
+it('deletes a posted reimbursement and returns to the reimbursements list', function () {
     $bill = makePostedReimbursement($this);
 
     Livewire::test('pages::reimbursements.show', ['company' => $this->company, 'bill' => $bill])
-        ->call('deleteDraft')
-        ->assertNoRedirect();
+        ->call('confirmDelete')
+        ->assertRedirect(route('reimbursements.index', ['company' => $this->company->slug]));
 
-    expect(Bill::query()->whereKey($bill->id)->exists())->toBeTrue();
+    expect(Bill::withTrashed()->whereKey($bill->id)->exists())->toBeFalse();
 });
 
 it('saves two taxes on a reimbursement line via the multi-select picker', function () {
