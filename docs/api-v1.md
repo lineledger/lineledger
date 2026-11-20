@@ -507,6 +507,10 @@ curl -s "https://your-host/api/v1/invoices/$INVOICE_ID" \
   -H "Authorization: Bearer $KEY" | jq '.data.status'   # → "paid"
 ```
 
+An invoice also takes an optional `customer_po` — the customer's purchase-order
+number, up to 100 characters, shown as "Customer PO #" on the invoice — on create and
+update, and returns it. Like every optional field on `PATCH`, leaving it out clears it.
+
 An invoice reports `balance_cents` — what is still owed by the server's own
 arithmetic (total, less receipts applied, less anything reconciled away by a
 journal entry) — so clients need not compute `total_cents - amount_paid_cents`.
