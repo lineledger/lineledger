@@ -44,6 +44,109 @@ newest first.
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
 
+## 1.4.4 → 1.5.0-rc.3
+
+Released 2026-11-20, on the **next channel** only (see How upgrades work → Channels).
+The third release candidate for 1.5.0. On top of 1.5.0-rc.2 it adds deleting
+transactions as in QuickBooks Desktop, a filing and payment deadlines calendar,
+erasing an organization 30 days after its owner deletes it, and nightly organization
+backups from the command line with `backup:verify` to prove they restore. Run it on an
+install you can restore from a backup.
+
+PHP `^8.5`, Laravel 13 and every dependency are the same as in 1.5.0-rc.2. **No config
+or env changes are required.** `COMPANY_PURGE_AFTER_DAYS` (default 30) is optional; add
+it to `.env` only to change the grace period. `docker-compose.yml`, `backup.sh` and
+`restore.sh` are unchanged. Two new scheduled commands run under the scheduler you
+already have: `deadlines:notify` hourly and `companies:purge-deleted` daily at 03:00.
+What `app:upgrade` does depends on where you come from:
+
+- **From 1.5.0-rc.2:** three migrations, `2026_11_18_100000_create_deadlines_tables`,
+  `2026_11_20_100000_add_purge_at_to_companies_table` and
+  `2026_11_20_200000_create_deleted_transactions_table`. No backfills.
+- **From 1.5.0-rc.1:** the same, plus 1.4.4's GIFI code correction (see 1.4.4 →
+  1.5.0-rc.2 below).
+- **From 1.4.4:** the three migrations, plus the roles tables and `access:sync-roles`
+  described under 1.4.3 → 1.5.0-rc.1 below.
+- **From 1.4.3 or earlier:** read the 1.4.3 → 1.4.4 and 1.4.3 → 1.5.0-rc.1 sections, and
+  the sections for any release you skip, then come straight here.
+
+### What people will notice
+
+- **Delete** in the Actions menu of invoices, sales receipts and customer payments, for
+  roles with the Delete permission (the one Void uses), whether draft, posted or voided.
+  A deleted transaction leaves the books and every report; the audit log and the new
+  Reports → Voided/Deleted Transactions keep the record. Owners can switch deleting
+  posted and voided transactions off under the organization's settings (Deleting
+  transactions); drafts can always be deleted. A sales receipt's Delete draft is now
+  Delete, and removes the draft for real.
+- **The API refuses to delete list records still in use.** `DELETE` on a tax code,
+  payment method, payment terms, customer, vendor, employee or account that something
+  still uses now answers 409 naming where, and a system account can't be deleted. An
+  integration that relied on those deletes needs to deactivate instead.
+  `DELETE /api/v1/journal-entries/{id}` answers 422 for an entry another document
+  created. Plain `DELETE` on a posted document still voids it, as before.
+- **Deadlines** in the sidebar, with reminder emails from 07:00 in each organization's
+  timezone. Roles you customized don't get the new Deadlines permission automatically.
+- **Deleting an organization** now erases it after the grace period. Restoring it from
+  Admin → Companies before then cancels the purge.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.5.0-rc.3` in the filenames. Keep it
+until you know you're staying on 1.5: it is the way back to 1.5.0-rc.1, 1.4.3 or
+earlier.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.5.0-rc.3, or LINELEDGER_VERSION=next to take each
+# release candidate (and then 1.5.0) as it ships.
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+### DigitalOcean Droplet
+
+```bash
+lineledger upgrade              # already on the next channel
+lineledger upgrade 1.5.0-rc.3   # from stable; then lineledger channel next, optionally
+```
+
+### DigitalOcean App Platform
+
+Already on the `next` image tag: deploy again once the 1.5.0-rc.3 image is built. From
+stable, change every component's image tag from `latest` to `next` in the app's spec,
+then deploy. The pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Check out `v1.5.0-rc.3`, or deploy the `next` branch, with the unchanged deploy script.
+Then run `php artisan app:upgrade --verify` and `php artisan queue:restart`. Make sure
+the scheduler runs (`* * * * * php artisan schedule:run`), so deadline emails and the
+organization purge happen.
+
+### Check it worked
+
+- The footer of every page shows `v1.5.0-rc.3`.
+- `php artisan migrate:status` (Docker: prefix it with `docker compose exec app`) shows
+  the three migrations above as `Ran`.
+- An invoice's Actions menu offers **Delete**, and Reports → Accountant & Taxes lists
+  **Voided/Deleted Transactions**.
+- `php artisan integrity:check` reports `Ledger integrity OK.`
+- Coming from 1.4.4: the checks under 1.4.3 → 1.5.0-rc.1 below.
+
+### Rolling back
+
+Going back to **1.5.0-rc.2** or **1.4.4** doesn't need a restore: the new tables and
+column go unused. Transactions deleted on 1.5.0-rc.3 stay deleted (the audit log keeps
+the record), deadline emails stop, and an organization an owner deleted is held rather
+than erased. The older auto-numbering doesn't know deleted numbers, so it could hand one
+out again. Going back to 1.4.4 is otherwise on the terms under 1.4.4 → 1.5.0-rc.2 below.
+
+Going back to **1.5.0-rc.1** or **1.4.3** needs the backup, as under 1.4.4 → 1.5.0-rc.2.
+
 ## 1.4.4 → 1.5.0-rc.2
 
 Released 2026-11-17, on the **next channel** only (see How upgrades work → Channels).

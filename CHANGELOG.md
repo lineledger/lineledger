@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc.3] - 2026-11-20
+
+**Highlights.** The third release candidate for 1.5.0, on the next channel
+only. It adds deleting invoices, sales receipts and customer payments as
+QuickBooks Desktop does, with a Voided/Deleted Transactions report and the
+deletion kept in the audit log; a filing and payment deadlines calendar;
+erasing an organization 30 days after its owner deletes it; and nightly
+organization backups from the command line, with `backup:verify` to prove they
+restore. The API now refuses to delete list records still in use. Three
+migrations, no backfills; see `UPGRADING.md`.
+
 ### Added
 
 - **Delete a transaction, as in QuickBooks Desktop** (#241). Invoices, sales
@@ -2016,7 +2027,8 @@ general ledger as the single source of truth.
   set them only if you're moving to object storage, then run
   `php artisan storage:check`. See the README's **Object storage** section.
 
-[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...HEAD
+[Unreleased]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.3...HEAD
+[1.5.0-rc.3]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.2...v1.5.0-rc.3
 [1.5.0-rc.2]: https://github.com/lineledger/lineledger/compare/v1.5.0-rc.1...v1.5.0-rc.2
 [1.5.0-rc.1]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.5.0-rc.1
 [1.4.4]: https://github.com/lineledger/lineledger/compare/v1.4.3...v1.4.4
