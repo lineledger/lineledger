@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use Laravel\Mcp\Request;
+use Tests\Support\Mcp\StatementOfAccountFixture;
 
 /*
  | These tests avoid hardcoding any specific AccountSubtype case name. Instead
@@ -143,4 +144,35 @@ it('AccountBalance: errors when the accounting:read ability is missing', functio
 
     expect($response->isError())->toBeTrue();
     expect((string) $response->content())->toContain('accounting:read');
+});
+
+it('AccountBalance: pages through the ledger and narrows it by reference or contact', function () {
+    $soa = new StatementOfAccountFixture;
+    $fullService = $soa->fullServiceInvoice();
+    $repatriation = $soa->repatriationInvoice();
+    overpaymentReceipt($fullService->contact, 100000, $fullService, '2026-10-15');
+    bindMcpTenant($soa->company);
+
+    $ar = Account::query()->where('subtype', AccountSubtype::AccountsReceivable->value)->orderBy('code')->firstOrFail();
+    $ask = fn (array $args): string => (string) (new AccountBalanceTool)->handle(new Request([
+        'account' => $ar->code, 'start' => '2026-01-01', 'end' => '2026-12-31', ...$args,
+    ]))->content();
+
+    expect($ask(['limit' => 1]))
+        ->toContain('most recent first (1–1 of 3)')
+        ->toContain('2 more line(s) not shown — pass offset=1');
+
+    expect($ask(['limit' => 1, 'offset' => 2]))
+        ->toContain('(3–3 of 3)')
+        ->toContain($fullService->journalEntry->entry_no)
+        ->not->toContain('more line(s) not shown');
+
+    // The invoice's AR line carries "AR — <customer>"; its entry memo names the invoice.
+    expect($ask(['reference' => 'inv 90/001']))
+        ->toContain('(1–1 of 1)')
+        ->toContain($repatriation->journalEntry->entry_no);
+
+    expect($ask(['contact' => 'Example, Robin']))
+        ->toContain('for contact Example, Robin - 90/002, most recent first (1–2 of 2)')
+        ->not->toContain($repatriation->journalEntry->entry_no);
 });

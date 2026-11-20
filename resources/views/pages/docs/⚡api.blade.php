@@ -175,7 +175,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
 
         <flux:heading size="md" class="mt-6">{{ __('Tools') }}</flux:heading>
         <flux:text>
-            {{ __('The server exposes twenty read-only tools. Each one runs the same reporting service that powers the matching page in the web app, so the numbers always agree. The assistant picks whichever fits the question, and every figure is already in your home currency. The first column gives each tool\'s title and, beneath it, the name your MCP client may show when it asks permission to call it.') }}
+            {{ __('The server exposes twenty-four read-only tools. Each one runs the same reporting service that powers the matching page in the web app, so the numbers always agree. The assistant picks whichever fits the question. Report figures are in your home currency; an invoice\'s or payment\'s amounts are in its own currency. The first column gives each tool\'s title and, beneath it, the name your MCP client may show when it asks permission to call it.') }}
         </flux:text>
 
         <table>
@@ -224,7 +224,7 @@ X-Api-Key: YOUR_API_KEY</code></pre>
                 </tr>
                 <tr>
                     <td>{{ __('Account Balance & Activity') }}<br><code>account-balance-tool</code></td>
-                    <td>{{ __('Balance and recent ledger activity for a single account by name or code.') }}</td>
+                    <td>{{ __('Balance and ledger activity for a single account by name or code, most recent first, paged with limit and offset and narrowed by contact or reference.') }}</td>
                     <td>{{ __('Useful for "what\'s in chequing right now?" questions.') }}</td>
                 </tr>
                 <tr>
@@ -239,13 +239,28 @@ X-Api-Key: YOUR_API_KEY</code></pre>
                 </tr>
                 <tr>
                     <td>{{ __('Find Contact') }}<br><code>find-contact-tool</code></td>
-                    <td>{{ __('One customer or vendor with their AR and AP balances and a recent-activity summary.') }}</td>
+                    <td>{{ __('One customer or vendor with their address, email and phone, their AR and AP balances, and a recent-activity summary.') }}</td>
                     <td>{{ __('Looks up by partial name.') }}</td>
                 </tr>
                 <tr>
                     <td>{{ __('List invoices') }}<br><code>list-invoices-tool</code></td>
-                    <td>{{ __('Invoices filtered by status, customer, sales rep, or issue-date range, newest first, each showing the rep credited (or "no rep").') }}</td>
+                    <td>{{ __('Invoices filtered by status, number, customer, sales rep, or issue-date range, newest first, each showing its total, balance due, and the rep credited (or "no rep").') }}</td>
                     <td>{{ __('Handy for "what\'s overdue?" and "what did Jane sell this month?" questions.') }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Get invoice') }}<br><code>get-invoice-tool</code></td>
+                    <td>{{ __('One invoice in full: every line as typed, with quantity, unit price, account, tax codes and flags (G, P, E…), tax by code, totals, payments applied, balance due, and the customer\'s address.') }}</td>
+                    <td>{{ __('By invoice number or API id; pass format json for a machine-readable object.') }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Search invoice lines') }}<br><code>invoice-lines-tool</code></td>
+                    <td>{{ __('Lines across many invoices matching an item, customer, description, account, or date window, with counts and totals.') }}</td>
+                    <td>{{ __('Answers "which invoices billed this item?"') }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Customer payments') }}<br><code>customer-payments-tool</code></td>
+                    <td>{{ __('One customer\'s receipts and the invoices each paid, refunds, credit memos, and the unapplied credit they hold.') }}</td>
+                    <td>{{ __('Answers "did they pay, and how?"') }}</td>
                 </tr>
                 <tr>
                     <td>{{ __('Sales Tax Summary') }}<br><code>sales-tax-tool</code></td>

@@ -500,7 +500,7 @@ class ReportCalculator
     }
 
     /**
-     * @return array{lines: Collection<int, array{date: string, entry_no: string, memo: string, debit: int, credit: int, running: int}>, opening: int, closing: int}
+     * @return array{lines: Collection<int, array{date: string, entry_no: string, memo: ?string, entry_memo: ?string, contact_id: ?int, debit: int, credit: int, running: int}>, opening: int, closing: int}
      */
     public function generalLedger(Account $account, CarbonInterface $start, CarbonInterface $end): array
     {
@@ -540,6 +540,8 @@ class ReportCalculator
                 'date' => $line->journalEntry->entry_date->toDateString(),
                 'entry_no' => $line->journalEntry->entry_no,
                 'memo' => $line->memo ?? $line->journalEntry->memo,
+                'entry_memo' => $line->journalEntry->memo,
+                'contact_id' => $line->contact_id,
                 'debit' => (int) $line->debit_cents,
                 'credit' => (int) $line->credit_cents,
                 'running' => $running,

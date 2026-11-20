@@ -8,6 +8,7 @@ use App\Mcp\Concerns\AnswersBusinessQuestions;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Services\Reporting\ContactStatementBuilder;
+use App\Support\Mcp\ContactCardPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -20,7 +21,7 @@ class FindContactTool extends Tool
 
     protected string $title = 'Find Contact';
 
-    protected string $description = 'Look up a single customer or vendor by name and report their accounts-receivable and accounts-payable balances plus a short recent-activity statement summary. All figures are in the company\'s home currency. This tool is read-only and never modifies any data.';
+    protected string $description = 'Look up a single customer or vendor by name and report their contact details (billing and shipping address, email, phone, terms, API id), their accounts-receivable and accounts-payable balances, and a short recent-activity statement summary. All figures are in the company\'s home currency. This tool is read-only and never modifies any data.';
 
     public function handle(Request $request): Response
     {
@@ -41,13 +42,11 @@ class FindContactTool extends Tool
             return Response::error('Please provide a contact name to search for.');
         }
 
-        $term = '%'.str_replace(['%', '_'], ['\%', '\_'], $name).'%';
-
+        // Customers, vendors and other names only: an employee-only contact's
+        // personal details belong to the Employees area, not this lookup.
         $matches = Contact::query()
-            ->where(function ($query) use ($term): void {
-                $query->whereRaw('LOWER(display_name) LIKE LOWER(?)', [$term])
-                    ->orWhereRaw('LOWER(company_name) LIKE LOWER(?)', [$term]);
-            })
+            ->where(fn ($q) => $q->where('is_customer', true)->orWhere('is_vendor', true)->orWhere('is_other_name', true))
+            ->where(fn ($query) => $this->whereContains($this->whereContains($query, 'display_name', $name), 'company_name', $name, 'or'))
             ->orderBy('display_name')
             ->limit(25)
             ->get();
@@ -91,6 +90,13 @@ class FindContactTool extends Tool
             $out .= " ({$roles})";
         }
         $out .= "\n";
+
+        // Address, email and phone show to a connection that may view a role
+        // this contact holds — a customer's to Customers, a vendor's to Vendors.
+        if ($this->seesContactDetails($contact)) {
+            $contact->loadMissing(ContactCardPresenter::RELATIONS);
+            $out .= ContactCardPresenter::toText($contact, 'Contact details')."\n";
+        }
         // Balances and the running statement show only to a connection that
         // may see that side's balances (View balance on Customers / Vendors).
         $seesReceivables = $this->actorSeesBalances(Activity::Customers);
@@ -151,6 +157,19 @@ class FindContactTool extends Tool
         }
 
         return $out;
+    }
+
+    private function seesContactDetails(Contact $contact): bool
+    {
+        if ($contact->is_customer && $this->requirePermission(Activity::Customers) === null) {
+            return true;
+        }
+
+        if ($contact->is_vendor && $this->requirePermission(Activity::Vendors) === null) {
+            return true;
+        }
+
+        return $contact->is_other_name && $this->requirePermission([Activity::Customers, Activity::Vendors]) === null;
     }
 
     /**

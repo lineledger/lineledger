@@ -6,12 +6,14 @@ use App\Enums\Activity;
 use App\Enums\PermissionAction;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
+use App\Models\Contact;
 use App\Models\User;
 use App\Services\Reporting\ReportCalculator;
 use App\Support\Access\PermissionSet;
 use App\Support\Access\Requirement;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -143,6 +145,86 @@ trait AnswersBusinessQuestions
     protected function money(int $cents): string
     {
         return Money::fromCents($cents, $this->company()->currency_code)->format();
+    }
+
+    /**
+     * Human-readable currency in a document's own currency (an invoice, bill
+     * or payment may be in a foreign currency); the home currency when the
+     * document carries none.
+     */
+    protected function moneyIn(int $cents, ?string $currency): string
+    {
+        $code = $currency !== null && $currency !== '' ? $currency : $this->company()->currency_code;
+
+        return Money::fromCents($cents, $code)->format();
+    }
+
+    /**
+     * Narrow $query to rows whose $column contains $term, matching the term
+     * literally: a "%" or "_" the caller typed is not a wildcard. The ESCAPE
+     * clause is spelled out because SQLite has no default escape character
+     * (a bare backslash escape only works on MySQL). $column is always a
+     * column name written in code, never caller input.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    protected function whereContains(Builder $query, string $column, string $term, string $boolean = 'and'): Builder
+    {
+        $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($term));
+
+        return $query->whereRaw("LOWER({$column}) LIKE ? ESCAPE '!'", ['%'.$escaped.'%'], $boolean);
+    }
+
+    /**
+     * Resolve one customer from what a caller typed: a numeric API id, an
+     * exact display name, or a name fragment that matches exactly one
+     * customer. Returns the contact, or a plain-language message (no match,
+     * or several to choose from, each with its API id).
+     */
+    protected function resolveCustomer(string $needle): Contact|string
+    {
+        $needle = trim($needle);
+
+        if ($needle === '') {
+            return 'Please name the customer (a name, a fragment of one, or its API id).';
+        }
+
+        $customers = fn (): Builder => Contact::query()->where('is_customer', true);
+
+        if (ctype_digit($needle) && ($byId = $customers()->find((int) $needle)) instanceof Contact) {
+            return $byId;
+        }
+
+        $exact = $customers()->whereRaw('LOWER(display_name) = ?', [mb_strtolower($needle)])->get();
+
+        if ($exact->count() === 1) {
+            return $exact->first();
+        }
+
+        $matches = $customers()
+            ->where(fn (Builder $q) => $this->whereContains($this->whereContains($q, 'display_name', $needle), 'company_name', $needle, 'or'))
+            ->orderBy('display_name')
+            ->limit(11)
+            ->get();
+
+        if ($matches->count() === 1) {
+            return $matches->first();
+        }
+
+        if ($matches->isEmpty()) {
+            return "No customer matched \"{$needle}\".";
+        }
+
+        $list = $matches->take(10)
+            ->map(fn (Contact $c): string => "- {$c->display_name} (API id {$c->id})")
+            ->implode("\n");
+
+        $more = $matches->count() > 10 ? "\n…and more. Narrow the name, or pass the API id." : '';
+
+        return "Several customers match \"{$needle}\". Pass one of these API ids, or a more specific name:\n{$list}{$more}";
     }
 
     /**

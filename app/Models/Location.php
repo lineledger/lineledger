@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * A QuickBooks-style "Location" — a reporting dimension transactions can be
  * tagged with, alongside {@see Classification}.
+ *
+ * @property string $name
  */
 #[Fillable(['company_id', 'name', 'is_active'])]
 class Location extends Model

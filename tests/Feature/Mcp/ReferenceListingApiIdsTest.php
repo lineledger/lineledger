@@ -12,6 +12,9 @@ use App\Mcp\Resources\PaymentMethodsResource;
 use App\Mcp\Resources\TaxCodesResource;
 use App\Mcp\Servers\BusinessQaServer;
 use App\Mcp\Tools\ContactsDirectoryTool;
+use App\Mcp\Tools\CustomerPaymentsTool;
+use App\Mcp\Tools\GetInvoiceTool;
+use App\Mcp\Tools\InvoiceLinesTool;
 use App\Mcp\Tools\ItemsCatalogTool;
 use App\Mcp\Tools\PaymentMethodsTool;
 use App\Mcp\Tools\TaxCodesTool;
@@ -203,7 +206,11 @@ it('ApiIds: the reference tools keep the names docs/api-v1.md points callers at'
     expect((new ItemsCatalogTool)->name())->toBe('items-catalog-tool')
         ->and((new TaxCodesTool)->name())->toBe('tax-codes-tool')
         ->and((new ContactsDirectoryTool)->name())->toBe('contacts-directory-tool')
-        ->and((new PaymentMethodsTool)->name())->toBe('payment-methods-tool');
+        ->and((new PaymentMethodsTool)->name())->toBe('payment-methods-tool')
+        // The Q&A server's instructions and the docs page call these by name.
+        ->and((new GetInvoiceTool)->name())->toBe('get-invoice-tool')
+        ->and((new InvoiceLinesTool)->name())->toBe('invoice-lines-tool')
+        ->and((new CustomerPaymentsTool)->name())->toBe('customer-payments-tool');
 });
 
 it('ApiIds: every reference listing is registered as a tool as well as a resource', function () {

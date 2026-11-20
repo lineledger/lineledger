@@ -12,9 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * @property CreditMemoStatus|null $status
+ * @property string|null $currency_code
+ * @property Carbon|null $credit_memo_date
  */
 #[Fillable([
     'company_id', 'contact_id', 'sales_rep_id', 'credit_memo_no', 'credit_memo_date',

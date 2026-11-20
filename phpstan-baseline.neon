@@ -811,18 +811,6 @@ parameters:
 			path: app/Mcp/Tools/AccountBalanceTool.php
 
 		-
-			message: '#^Method App\\Mcp\\Tools\\AccountBalanceTool\:\:schema\(\) should return array\<string, Illuminate\\Contracts\\JsonSchema\\JsonSchema\> but returns array\<string, Illuminate\\JsonSchema\\Types\\StringType\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Mcp/Tools/AccountBalanceTool.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Mcp/Tools/AccountBalanceTool.php
-
-		-
 			message: '#^Method App\\Mcp\\Tools\\AccountsPayableTool\:\:schema\(\) should return array\<string, Illuminate\\Contracts\\JsonSchema\\JsonSchema\> but returns array\<string, Illuminate\\JsonSchema\\Types\\IntegerType\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1099,18 +1087,6 @@ parameters:
 			path: app/Models/CompanyInvitation.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\CreditMemo\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/CreditMemo.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\CustomerReceipt\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/CustomerReceipt.php
-
-		-
 			message: '#^Cannot call method isExpirable\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1347,7 +1323,7 @@ parameters:
 		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
-			count: 3
+			count: 2
 			path: app/Services/Assets/AssetSourcePrefiller.php
 
 		-
@@ -2035,12 +2011,6 @@ parameters:
 			path: app/Services/Posting/ChequePoster.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\CreditMemo\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Services/Posting/CreditMemoPoster.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\CreditMemo\:\:\$fx_rate\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2125,12 +2095,6 @@ parameters:
 			path: app/Services/Posting/PayrollChequePoster.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\CustomerReceipt\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 4
-			path: app/Services/Posting/ReceiptPoster.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\CustomerReceipt\:\:\$fx_rate\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2211,7 +2175,7 @@ parameters:
 		-
 			message: '#^Cannot call method format\(\) on string\.$#'
 			identifier: method.nonObject
-			count: 6
+			count: 4
 			path: app/Services/Printing/ChequePdfRenderer.php
 
 		-
@@ -2581,7 +2545,7 @@ parameters:
 			path: app/Services/Reporting/ReportCalculator.php
 
 		-
-			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:generalLedger\(\) should return array\{lines\: Illuminate\\Support\\Collection\<int, array\{date\: string, entry_no\: string, memo\: string, debit\: int, credit\: int, running\: int\}\>, opening\: int, closing\: int\} but returns array\{lines\: Illuminate\\Support\\Collection\<int, array\{date\: mixed, entry_no\: string, memo\: string\|null, debit\: int, credit\: int, running\: int\}\>, opening\: int, closing\: int\}\.$#'
+			message: '#^Method App\\Services\\Reporting\\ReportCalculator\:\:generalLedger\(\) should return array\{lines\: Illuminate\\Support\\Collection\<int, array\{date\: string, entry_no\: string, memo\: string\|null, entry_memo\: string\|null, contact_id\: int\|null, debit\: int, credit\: int, running\: int\}\>, opening\: int, closing\: int\} but returns array\{lines\: Illuminate\\Support\\Collection\<int, array\{date\: mixed, entry_no\: string, memo\: string\|null, entry_memo\: string\|null, contact_id\: int\|null, debit\: int, credit\: int, running\: int\}\>, opening\: int, closing\: int\}\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Services/Reporting/ReportCalculator.php
