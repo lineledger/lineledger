@@ -32,7 +32,7 @@ newest first.
   `banking:backfill-line-memos` and `banking:backfill-reconciliation-stamps`; 1.2.0 through
   1.3.1 add none; 1.4.0 adds `backup:repair-encrypted-columns` and
   `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds
-  `access:sync-roles`). Each
+  `access:sync-roles` and `deletions:purge-soft-deleted`). Each
   backfill is idempotent, so a second run changes nothing. `--dry-run` runs the same
   steps without writing anything; `--verify` ends with an `integrity:check` that reports
   but never emails; `--company=<id-or-slug>` limits the backfills to one organization.
@@ -43,6 +43,127 @@ newest first.
   `APP_KEY` decrypts every stored secret and session; `PASSKEYS_USER_HANDLE_SECRET`
   anchors every registered passkey. Both stay exactly as they were, and both are in
   every backup you take.
+
+## 1.4.4 → 1.5.0-rc.4
+
+Released 2026-11-20, on the **next channel** only (see How upgrades work → Channels).
+The fourth release candidate for 1.5.0. On top of 1.5.0-rc.3 it finishes Delete as
+QuickBooks Desktop does it: every other transaction that can be voided, estimates and
+orders, inventory and fundraising documents, payroll, list records nobody uses, and the
+API. Run it on an install you can restore from a backup.
+
+PHP `^8.5`, Laravel 13 and every dependency are the same as in 1.5.0-rc.3. **No config
+or env changes are required**, and `docker-compose.yml`, `backup.sh` and `restore.sh`
+are unchanged. There are **no migrations**. `app:upgrade` runs one new data step,
+`deletions:purge-soft-deleted`, which **permanently** finishes the deletes earlier
+releases only hid (soft delete):
+
+- a hidden draft is removed for good, leaving a "Draft (earlier release)" record on
+  Reports → Voided/Deleted Transactions and in the audit log, and its number stays
+  reserved;
+- a hidden row that holds a journal entry or a Stripe payment, or that something still
+  links to, is listed in the output and left alone;
+- a hidden account, contact, item or asset category nothing uses is deleted; one still
+  in use comes back as inactive (the contact API used to hide contacts that had
+  history), so the documents naming it open again.
+
+Run `php artisan app:upgrade --dry-run` first to see the counts for each organization.
+What `app:upgrade` does depends on where you come from:
+
+- **From 1.5.0-rc.3:** the new step only.
+- **From 1.5.0-rc.2:** rc.3's three migrations (see 1.4.4 → 1.5.0-rc.3 below), then the
+  new step.
+- **From 1.5.0-rc.1:** the same, plus 1.4.4's GIFI code correction (see 1.4.4 →
+  1.5.0-rc.2 below).
+- **From 1.4.4:** rc.3's three migrations, the roles tables and `access:sync-roles`
+  described under 1.4.3 → 1.5.0-rc.1 below, then the new step.
+- **From 1.4.3 or earlier:** read the 1.4.3 → 1.4.4 and 1.4.3 → 1.5.0-rc.1 sections, and
+  the sections for any release you skip, then come straight here.
+
+### What people will notice
+
+- **Delete** on every transaction that can be voided, not just invoices, sales receipts
+  and customer payments: credit memos, bills and reimbursements, bill payments, vendor
+  credits, expenses, cheques, deposits, transfers and manual journal entries, plus
+  estimates, sales orders and purchase orders, stock adjustments (a button on each row
+  of the Stock adjustments list), tax payments, donations and grants, pay runs, payroll
+  cheques and remittances. It uses the role's Delete permission and the organization's
+  Deleting transactions setting, as in rc.3. A donation whose official receipt was
+  issued can only be voided. A posted pay run can be deleted only newest first, while
+  no remittance covers its pay date, its slips aren't finalized and none of its cheques
+  is posted. Journal entries' and reimbursements' Delete draft is now Delete.
+- **Inactive list records nobody uses can be deleted** from the list pages (accounts,
+  customers, vendors, employees, items, tax codes, payment methods and terms, classes,
+  locations, funds and asset categories).
+- **API:**
+  - `DELETE …?permanent=true` deletes a document for good (204, or 409 with
+    `blockers`), and `POST …/void` voids one.
+  - Plain `DELETE` on a posted document still voids it, now with a `Deprecation` header.
+  - Plain `DELETE` on a draft now deletes it for real instead of hiding it.
+  - `DELETE` on a list record removes it for good, without asking for it to be inactive
+    first, and answers 409 while it is still used. A contact is no longer only hidden.
+
+  An integration that relied on a deleted draft or contact staying in the database
+  needs to change.
+
+### Before you start
+
+Take a backup as usual. Docker: `./backup.sh`. Forge / bare metal: the `mysqldump` and
+`storage/` commands under 1.1.0 → 1.2.0, with `1.5.0-rc.4` in the filenames. **Keep it:**
+it is the only way to get back the hidden rows the new step removes.
+
+### Docker
+
+```bash
+./backup.sh
+# In .env, set LINELEDGER_VERSION=1.5.0-rc.4, or LINELEDGER_VERSION=next to take each
+# release candidate (and then 1.5.0) as it ships.
+docker compose pull && docker compose up -d
+docker compose exec app php artisan app:upgrade --verify
+```
+
+To see what the new step would remove before it runs, set `MIGRATE_ON_BOOT=false` in
+`.env` first, run `docker compose exec app php artisan app:upgrade --dry-run`, then the
+command above.
+
+### DigitalOcean Droplet
+
+```bash
+lineledger upgrade              # already on the next channel
+lineledger upgrade 1.5.0-rc.4   # from stable; then lineledger channel next, optionally
+```
+
+### DigitalOcean App Platform
+
+Already on the `next` image tag: deploy again once the 1.5.0-rc.4 image is built. From
+stable, change every component's image tag from `latest` to `next` in the app's spec,
+then deploy. The pre-deploy job runs `app:upgrade`.
+
+### Forge / bare metal
+
+Check out `v1.5.0-rc.4`, or deploy the `next` branch, with the unchanged deploy script.
+Then run `php artisan app:upgrade --verify` and `php artisan queue:restart`.
+
+### Check it worked
+
+- The footer of every page shows `v1.5.0-rc.4`.
+- The `app:upgrade` output has a step **Soft-deleted records** with one line per
+  organization, and a second run purges and deletes nothing more.
+- A bill's Actions menu offers **Delete**, and an inactive item on Settings → Lists →
+  Items has a delete button.
+- `php artisan integrity:check` reports `Ledger integrity OK.`
+- Coming from 1.4.4: the checks under 1.4.3 → 1.5.0-rc.1 below.
+
+### Rolling back
+
+Going back to **1.5.0-rc.3**, **1.5.0-rc.2** or **1.4.4** doesn't need a restore for the
+schema: rc.4 adds no tables or columns. What rc.4 deleted stays deleted (the audit log
+and the Voided/Deleted report keep the record), including the hidden rows the new step
+removed; restore the backup if you need those back. Contacts and other list records the
+step brought back stay visible, as inactive. Going back to 1.4.4 is otherwise on the
+terms under 1.4.4 → 1.5.0-rc.3 below.
+
+Going back to **1.5.0-rc.1** or **1.4.3** needs the backup, as under 1.4.4 → 1.5.0-rc.2.
 
 ## 1.4.4 → 1.5.0-rc.3
 
