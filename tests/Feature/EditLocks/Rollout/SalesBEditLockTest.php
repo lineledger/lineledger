@@ -133,7 +133,7 @@ it('guards exactly the show page methods that change the record', function (stri
 
     expect($guarded)->toBe($expected);
 })->with([
-    'credit memo' => ['pages::credit-memos.show', ['deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
+    'credit memo' => ['pages::credit-memos.show', ['confirmDelete', 'deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
     'receipt' => ['pages::receipts.show', ['confirmDelete', 'deleteRefundCheque', 'deleteRefundReceipt', 'submitRefund', 'void']],
     'sales receipt' => ['pages::sales-receipts.show', ['confirmDelete', 'void']],
     'recurring' => ['pages::recurring.show', ['deleteSchedule', 'generateNow', 'pauseSchedule', 'resumeSchedule']],

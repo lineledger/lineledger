@@ -42,21 +42,21 @@ afterEach(function () {
     app()->forgetInstance('current_company');
 });
 
-it('offers Delete draft on a manual draft entry', function () {
+it('offers Delete, not Void, on a manual draft entry', function () {
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->draft])
-        ->assertSeeHtml('data-test="delete-entry-button"')
+        ->assertSeeHtml('data-test="delete-transaction-button"')
         ->assertDontSeeHtml('data-test="void-entry-button"');
 });
 
-it('offers Void, not Delete draft, on a posted entry', function () {
+it('offers Void and Delete on a posted manual entry', function () {
     $posted = app(JournalPoster::class)->post($this->draft);
 
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $posted->fresh()])
         ->assertSeeHtml('data-test="void-entry-button"')
-        ->assertDontSeeHtml('data-test="delete-entry-button"');
+        ->assertSeeHtml('data-test="delete-transaction-button"');
 });
 
-it('does not offer Delete draft on a source-linked draft', function () {
+it('does not offer Delete on a source-linked draft', function () {
     $deposit = Deposit::create([
         'bank_account_id' => $this->draft->lines->last()->account_id,
         'deposit_no' => 'DEP-DRAFT-1',
@@ -65,14 +65,14 @@ it('does not offer Delete draft on a source-linked draft', function () {
     $this->draft->update(['source_type' => Deposit::class, 'source_id' => $deposit->id]);
 
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->draft->fresh()])
-        ->assertDontSeeHtml('data-test="delete-entry-button"');
+        ->assertDontSeeHtml('data-test="delete-transaction-button"');
 });
 
 it('deletes a draft and its lines, then returns to the journal', function () {
     $lineIds = $this->draft->lines->pluck('id')->all();
 
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->draft])
-        ->call('deleteDraft')
+        ->call('confirmDelete')
         ->assertDispatched('toast-show')
         ->assertRedirect(route('journal.index', ['company' => $this->company->slug]));
 
@@ -98,24 +98,27 @@ it('records the deletion of the entry and each line in the audit trail', functio
         ->and($deletedLineIds)->toBe($lineIds);
 });
 
-it('refuses to delete a posted entry, leaving it and the ledger untouched', function () {
+it('deletes a posted manual entry and its lines through Delete', function () {
     $posted = app(JournalPoster::class)->post($this->draft);
 
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $posted->fresh()])
-        ->call('deleteDraft')
-        ->assertDispatched('toast-show')
-        ->assertNoRedirect();
+        ->call('confirmDelete')
+        ->assertRedirect(route('journal.index', ['company' => $this->company->slug]));
 
-    expect(JournalEntry::query()->whereKey($posted->id)->exists())->toBeTrue()
-        ->and(JournalLine::query()->where('journal_entry_id', $posted->id)->count())->toBe(2);
+    expect(JournalEntry::query()->whereKey($posted->id)->exists())->toBeFalse()
+        ->and(JournalLine::query()->where('journal_entry_id', $posted->id)->exists())->toBeFalse();
 });
 
-it('refuses to delete an entry that was posted after the page loaded', function () {
-    $page = Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->draft]);
+it('asks again when the entry was posted after the dialog opened', function () {
+    $page = Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->draft])
+        ->call('prepareDelete')
+        ->assertSet('deletionPreview.state', 'draft');
 
     app(JournalPoster::class)->post($this->draft->fresh());
 
-    $page->call('deleteDraft')->assertNoRedirect();
+    $page->call('confirmDelete')
+        ->assertNoRedirect()
+        ->assertSet('deletionPreview.state', 'posted');
 
     expect(JournalEntry::query()->whereKey($this->draft->id)->exists())->toBeTrue();
 });

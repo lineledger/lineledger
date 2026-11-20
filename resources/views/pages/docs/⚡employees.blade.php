@@ -128,7 +128,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
         </flux:text>
 
         <flux:text>
-            {{ __('A posted reimbursement shows its status badge, a GL entry link to the journal entry it created, the lines with their tax breakdown, and the Paid and Owed totals. The Actions menu lets you Print it, Edit it, Void it, or — for a draft that has not been posted yet — Delete draft. Editing a posted reimbursement rewrites the same journal entry in place; the button reads Save changes rather than Post reimbursement.') }}
+            {{ __('A posted reimbursement shows its status badge, a GL entry link to the journal entry it created, the lines with their tax breakdown, and the Paid and Owed totals. The Actions menu lets you Print it, Edit it, Void it, or Delete it. Editing a posted reimbursement rewrites the same journal entry in place; the button reads Save changes rather than Post reimbursement.') }}
         </flux:text>
 
         <x-docs.figure
@@ -138,7 +138,7 @@ new #[Title('Documentation — Employees')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="warning">
-            {{ __('A posted reimbursement should not simply be deleted — that would leave a gap in your numbered REIM records. To cancel one, void it: the app reverses the ledger entry and keeps the voided reimbursement on file for your audit trail. Only drafts that were never posted can be deleted outright.') }}
+            {{ __('To cancel a posted reimbursement but keep it on file, void it: the app reverses the ledger entry and keeps the voided reimbursement for your audit trail. If it should never have been entered, delete it instead: it leaves your books as if never entered, its REIM number is not handed out again, and the audit log keeps a record of it.') }}
         </x-docs.callout>
 
         {{-- ───────────────────────── Payroll ───────────────────────── --}}

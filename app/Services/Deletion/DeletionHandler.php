@@ -44,7 +44,7 @@ interface DeletionHandler
     /**
      * The tombstone's summary columns.
      *
-     * @return array{document_number: ?string, document_date: ?string, contact_name: ?string, total_cents: int, currency_code: ?string}
+     * @return array{document_number: ?string, document_date: ?string, contact_name: ?string, total_cents: int, currency_code: ?string, bank_account_id?: ?int}
      */
     public function summary(Model $document): array;
 

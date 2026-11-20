@@ -160,7 +160,7 @@ new #[Title('Documentation — Vendors')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="warning">
-            {{ __('A posted bill should never simply be deleted — that would leave a gap in your records. To cancel a posted bill, void it: the app reverses the ledger entry (and any stock it received) and keeps the voided bill on file for your audit trail. A voided bill cannot be edited.') }}
+            {{ __('To cancel a posted bill but keep it on file, void it: the app reverses the ledger entry (and any stock it received) and keeps the voided bill for your audit trail. A voided bill cannot be edited. If it should never have been entered, delete it instead (see Deleting a transaction in the Accounting guide); a bill with payments applied has to lose those first.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note">

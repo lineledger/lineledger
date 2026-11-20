@@ -4,6 +4,7 @@ use App\Enums\ExpenseStatus;
 use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
 use App\Models\Company;
@@ -21,6 +22,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new #[Title('Expense')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
     use WithFileUploads;
 
@@ -163,6 +165,16 @@ new #[Title('Expense')] class extends Component {
                         </flux:menu.item>
                         @endcallable
                     @endif
+                    @if ($this->canOfferDelete)
+                        @if ($expense->status !== ExpenseStatus::Posted)
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
+                        </flux:menu.item>
+                        @endcallable
+                    @endif
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -250,4 +262,6 @@ new #[Title('Expense')] class extends Component {
             @endcallable
         @endif
     </div>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$expense" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

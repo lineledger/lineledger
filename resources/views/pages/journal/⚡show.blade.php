@@ -1,14 +1,12 @@
 <?php
 
-use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\ReverseJournalEntry;
 use App\Enums\AccountSubtype;
 use App\Enums\PermissionAction;
-use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\PeriodLockedException;
-use App\Exceptions\Posting\PostedDocumentDeletionException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\JournalEntry;
@@ -26,6 +24,7 @@ use Livewire\Component;
 use App\Support\Access\RecordRedirect;
 
 new #[Title('Journal entry')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -149,25 +148,6 @@ new #[Title('Journal entry')] class extends Component {
         $this->redirectRoute('journal.index', ['company' => $this->company->slug], navigate: true);
     }
 
-    /**
-     * Permanently remove a draft. It never reached the ledger, so unlike void
-     * there is no reversing entry — the entry and its lines are simply gone.
-     */
-    #[Requires(null, PermissionAction::Delete)]
-    #[GuardsEditLock]
-    public function deleteDraft(DeleteDraftJournalEntry $action): void
-    {
-        try {
-            $action->handle($this->entry);
-        } catch (PostedDocumentDeletionException|LinkedJournalEntryException) {
-            Flux::toast(variant: 'danger', text: __('Only a draft entry can be deleted. Void a posted entry instead.'));
-
-            return;
-        }
-
-        Flux::toast(variant: 'success', text: __('Draft deleted.'));
-        $this->redirectRoute('journal.index', ['company' => $this->company->slug], navigate: true);
-    }
 
     /**
      * Create a draft accrual reversal of this posted entry and open it for review.
@@ -288,11 +268,16 @@ new #[Title('Journal entry')] class extends Component {
                         <flux:menu.item icon="x-circle" variant="danger" wire:click="void" wire:confirm="{{ __('Void this entry? A reversing entry will be posted.') }}" data-test="void-entry-button">
                             {{ __('Void') }}
                         </flux:menu.item>
-                    @elseif (! $entry->isPosted() && $this->isManagedHere())
-                        <flux:menu.separator />
-                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteDraft" wire:confirm="{{ __('Delete this draft entry? It has not been posted, so nothing is reversed — it is removed permanently.') }}" data-test="delete-entry-button">
-                            {{ __('Delete draft') }}
+                    @endif
+                    @if ($entry->isDeletableInJournal() && $this->canOfferDelete)
+                        @if (! ($entry->isPosted() && ! $entry->isVoided() && $this->isManagedHere()))
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
                         </flux:menu.item>
+                        @endcallable
                     @endif
                 </flux:menu>
             </flux:dropdown>
@@ -392,4 +377,6 @@ new #[Title('Journal entry')] class extends Component {
             :auditable-id="$entry->id"
         />
     </div>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$entry" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

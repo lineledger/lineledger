@@ -224,21 +224,21 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             <a class="underline" href="{{ route('docs.fixed-assets') }}" wire:navigate>{{ __('Fixed assets') }}</a>{{ __('.') }}
         </flux:text>
 
-        <flux:heading size="md" class="mt-6">{{ __('Deleting a draft entry') }}</flux:heading>
+        <flux:heading size="md" class="mt-6">{{ __('Deleting an entry') }}</flux:heading>
         <flux:text>
-            {{ __('A draft never reached your books, so it does not need a reversing entry. Open a manual draft and choose Delete draft from the Actions menu, then confirm: the entry and its lines are removed and the deletion is recorded in the audit log. Delete draft appears only on drafts; once an entry is posted, Void takes its place. An entry created by another document is managed from that document instead.') }}
+            {{ __('Open a manual entry and choose Delete from the Actions menu. A draft never reached your books, so deleting it simply removes it; a posted or voided entry leaves your books with its lines (and, for a voided one, the void’s reversing entry), as described under Deleting a transaction below. Either way the deletion is recorded in the audit log. A bank-feed entry can be deleted the same way, and its statement line goes back for review. An entry created by another document is managed from that document instead, and the reversing entry a void wrote goes only with the entry it reverses.') }}
         </flux:text>
 
         <flux:heading size="md" class="mt-6" id="deleting-a-transaction">{{ __('Deleting a transaction') }}</flux:heading>
         <flux:text>
-            {{ __('Delete removes a transaction as if it was never entered, the way QuickBooks Desktop’s Edit › Delete does. It is offered on invoices, sales receipts and customer payments, whether draft, posted or voided: open one and choose Delete from the Actions menu. The dialog says what will happen, lists anything to deal with first, and takes an optional reason. Once you confirm, the document, its lines and its journal entries (for a voided one, the void’s reversing entry too) leave your books and every report, and any stock it moved goes back. Deleting a payment shows the invoices it paid as owing again.') }}
+            {{ __('Delete removes a transaction as if it was never entered, the way QuickBooks Desktop’s Edit › Delete does. It is offered on invoices, sales receipts, customer payments, credit memos, bills and reimbursements, bill payments, vendor credits, expenses, cheques, deposits, transfers and manual journal entries, whether draft, posted or voided, and on estimates, sales orders and purchase orders: open one and choose Delete from the Actions menu. The dialog says what will happen, lists anything to deal with first, and takes an optional reason. Once you confirm, the document, its lines and its journal entries (for a voided one, the void’s reversing entry too) leave your books and every report, and any stock it moved goes back. Deleting a payment shows the invoices or bills it paid as owing again, and deleting a deposit returns the payments it held to Undeposited Funds.') }}
         </flux:text>
         <flux:text class="mt-2">{{ __('A delete is refused, with a link to what stands in the way, while:') }}</flux:text>
         <ul class="list-disc ps-6 space-y-1">
-            <li>{{ __('another record depends on it: a payment applied to the invoice, a deposit holding the receipt, a refund paying back a payment’s credit, or a fixed asset created from it. Deal with that record first;') }}</li>
+            <li>{{ __('another record depends on it: a payment applied to the invoice or bill, a deposit holding the receipt, a refund paying back a credit, a fixed asset created from it, or an invoice or bill generated from the order. Deal with that record first;') }}</li>
             <li>{{ __('a completed bank reconciliation ticked one of its lines, or a filed tax return includes it. Undo the reconciliation or void the return first;') }}</li>
             <li>{{ __('the stock of an item on it has moved since, through a later sale, purchase or adjustment. Deleting would change what those cost, so void it instead;') }}</li>
-            <li>{{ __('it is a card payment received through Stripe, or an official donation receipt was made for it. Void it instead.') }}</li>
+            <li>{{ __('it is a card payment received through Stripe, an official donation receipt was made for it, or it is a vendor payment in a year whose T4A slips are finalized. Void it instead, or unfinalize the year.') }}</li>
         </ul>
         <flux:text class="mt-2">
             {{ __('Deleting takes the transaction out of its own period, so one dated on or before the lock date counts as a change to the closed books: in Block mode, someone whose role allows changes in a closed period confirms with their password; in Warn mode, you confirm.') }}
@@ -247,7 +247,7 @@ new #[Title('Documentation — Accounting')] class extends Component {}; ?>
             {{ __('Nothing disappears without a trace. The audit log records the deletion with a full copy of what was deleted, who deleted it, when and why, and the chain still verifies. Reports › Voided/Deleted Transactions lists every transaction voided or deleted in a period, and opens a deleted one as it stood. A deleted document’s number, and its journal entry’s number, are never handed out again automatically, though you can type a document number back in by hand. An old link to a deleted document opens that record instead.') }}
         </flux:text>
         <x-docs.callout type="note">
-            {{ __('Delete needs the same Delete permission as Void. An owner can turn off deleting posted and voided transactions in the organization settings, for void-only books; drafts can always be deleted. Bills, cheques, deposits, journal entries and the other transaction types are voided for now; Delete is coming to them.') }}
+            {{ __('Delete needs the same Delete permission as Void. An owner can turn off deleting posted and voided transactions in the organization settings, for void-only books; drafts, estimates and orders can always be deleted. Stock adjustments, tax-return payments, fundraising and payroll are voided for now; Delete is coming to them. A deleted cheque’s number stays spent on its bank account.') }}
         </x-docs.callout>
 
         <flux:heading size="md" class="mt-6">{{ __('Source-linked entries') }}</flux:heading>

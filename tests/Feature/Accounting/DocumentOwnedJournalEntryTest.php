@@ -116,7 +116,8 @@ it('withholds void and reverse on the journal page for the reversal a void wrote
 
     Livewire::actingAs(actAsCompanyOwner($this->company))
         ->test('pages::journal.show', ['company' => $this->company, 'entry' => $reversal])
-        ->assertDontSee(__('Void'), escape: false)
+        ->assertDontSeeHtml('data-test="void-entry-button"')
+        ->assertDontSeeHtml('data-test="delete-transaction-button"')
         ->call('void')
         ->assertForbidden();
 

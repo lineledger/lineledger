@@ -195,6 +195,14 @@ class CheckLedgerIntegrity extends Command
         $issues = [];
 
         foreach (DeletableDocumentType::cases() as $type) {
+            // A journal entry is its own document, and estimates and orders
+            // never post: neither half can go missing.
+            $draftStatus = $type->draftStatus();
+
+            if ($draftStatus === null) {
+                continue;
+            }
+
             $class = $type->modelClass();
             $table = (new $class)->getTable();
 
@@ -219,7 +227,7 @@ class CheckLedgerIntegrity extends Command
             $unlinked = DB::table($table.' as d')
                 ->where('d.company_id', $companyId)
                 ->whereNull('d.deleted_at')
-                ->where('d.status', '!=', $type->draftStatus())
+                ->where('d.status', '!=', $draftStatus)
                 ->where(fn ($q) => $q->whereNull('d.journal_entry_id')
                     ->orWhereNotExists(fn ($q) => $q->select(DB::raw(1))->from('journal_entries as e')->whereColumn('e.id', 'd.journal_entry_id')))
                 ->orderBy('d.id')

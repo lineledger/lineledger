@@ -189,8 +189,8 @@ it('guards exactly the show page methods that change the record', function (stri
 
     expect($guarded)->toBe($methods);
 })->with([
-    'vendor credit' => ['pages::vendor-credits.show', ['post', 'void']],
-    'reimbursement' => ['pages::reimbursements.show', ['deleteDraft', 'void']],
+    'vendor credit' => ['pages::vendor-credits.show', ['confirmDelete', 'post', 'void']],
+    'reimbursement' => ['pages::reimbursements.show', ['confirmDelete', 'void']],
     'pay run' => ['pages::payroll.pay-runs.show', ['post', 'recalculate', 'resetAdjust', 'saveAdjust', 'voidCheque', 'voidRun', 'writeCheques']],
 ]);
 
@@ -217,7 +217,7 @@ it('refuses a show page action while another member is editing', function (array
             'untouched' => fn (): bool => $record->fresh()->status === VendorCreditStatus::Draft,
         ];
     },
-    'reimbursement: deleteDraft' => function () {
+    'reimbursement: confirmDelete' => function () {
         $record = ($this->makeReimbursement)();
 
         return [
@@ -225,7 +225,7 @@ it('refuses a show page action while another member is editing', function (array
             'params' => ['company' => $this->company, 'bill' => $record],
             'record' => $record,
             'noun' => 'reimbursement',
-            'action' => 'deleteDraft',
+            'action' => 'confirmDelete',
             'untouched' => fn (): bool => Bill::query()->whereKey($record->id)->exists(),
         ];
     },

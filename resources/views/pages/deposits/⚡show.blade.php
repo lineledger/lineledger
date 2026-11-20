@@ -5,6 +5,7 @@ use App\Enums\PermissionAction;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Deposit;
@@ -15,6 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Deposit')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -141,6 +143,13 @@ new #[Title('Deposit')] class extends Component {
                 </flux:button>
                 @endcallable
             @endif
+            @if ($this->canOfferDelete)
+                @callable($this, 'prepareDelete')
+                <flux:button variant="ghost" icon="trash" wire:click="prepareDelete" data-test="delete-transaction-button">
+                    {{ __('Delete') }}
+                </flux:button>
+                @endcallable
+            @endif
         </div>
     </div>
 
@@ -181,4 +190,6 @@ new #[Title('Deposit')] class extends Component {
     </div>
 
     @if ($deposit->memo) <flux:text class="mt-4 text-muted-foreground">{{ $deposit->memo }}</flux:text> @endif
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$deposit" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

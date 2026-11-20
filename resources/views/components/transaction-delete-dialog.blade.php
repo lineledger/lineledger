@@ -17,8 +17,8 @@
         <div>
             <flux:heading size="lg">{{ __('Delete :document :no?', ['document' => $type->noun(), 'no' => $number]) }}</flux:heading>
             <flux:text class="mt-2" data-test="delete-transaction-explanation">
-                @if ($state === \App\Enums\DeletedTransactionState::Draft->value)
-                    {{ __('This draft never reached your books. Deleting it removes it for good; the audit log records that it was deleted, by whom and when.') }}
+                @if (in_array($state, [\App\Enums\DeletedTransactionState::Draft->value, \App\Enums\DeletedTransactionState::Unposted->value], true))
+                    {{ __('This :document never reached your books. Deleting it removes it for good; the audit log records that it was deleted, by whom and when.', ['document' => $type->noun()]) }}
                 @else
                     {{ __('This removes the :document and its journal entries from your books and every report, as if it was never entered. A record of what was deleted, by whom and when, stays in the audit log and on the Voided/Deleted Transactions report. This can\'t be undone.', ['document' => $type->noun()]) }}
                 @endif

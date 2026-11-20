@@ -140,7 +140,8 @@ Route::prefix('{company}')
 
         Route::livewire('journal', 'pages::journal.index')->name('journal.index');
         Route::livewire('journal/create', 'pages::journal.form')->name('journal.create');
-        Route::livewire('journal/{entry}', 'pages::journal.show')->name('journal.show');
+        Route::livewire('journal/{entry}', 'pages::journal.show')->name('journal.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::JournalEntry));
         Route::livewire('journal/{entry}/edit', 'pages::journal.form')->name('journal.edit');
 
         // Journal entry templates
@@ -183,21 +184,24 @@ Route::prefix('{company}')
         // Estimates
         Route::livewire('estimates', 'pages::estimates.index')->name('estimates.index');
         Route::livewire('estimates/create', 'pages::estimates.form')->name('estimates.create');
-        Route::livewire('estimates/{estimate}', 'pages::estimates.show')->name('estimates.show');
+        Route::livewire('estimates/{estimate}', 'pages::estimates.show')->name('estimates.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Estimate));
         Route::livewire('estimates/{estimate}/edit', 'pages::estimates.form')->name('estimates.edit');
         Route::get('estimates/{estimate}/print', PrintEstimateController::class)->name('estimates.print');
 
         // Sales orders
         Route::livewire('sales-orders', 'pages::sales-orders.index')->name('sales-orders.index');
         Route::livewire('sales-orders/create', 'pages::sales-orders.form')->name('sales-orders.create');
-        Route::livewire('sales-orders/{salesOrder}', 'pages::sales-orders.show')->name('sales-orders.show');
+        Route::livewire('sales-orders/{salesOrder}', 'pages::sales-orders.show')->name('sales-orders.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::SalesOrder));
         Route::livewire('sales-orders/{salesOrder}/edit', 'pages::sales-orders.form')->name('sales-orders.edit');
         Route::get('sales-orders/{salesOrder}/print', PrintSalesOrderController::class)->name('sales-orders.print');
 
         // Credit memos
         Route::livewire('credit-memos', 'pages::credit-memos.index')->name('credit-memos.index');
         Route::livewire('credit-memos/create', 'pages::credit-memos.form')->name('credit-memos.create');
-        Route::livewire('credit-memos/{credit_memo}', 'pages::credit-memos.show')->name('credit-memos.show');
+        Route::livewire('credit-memos/{credit_memo}', 'pages::credit-memos.show')->name('credit-memos.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::CreditMemo));
         Route::get('credit-memos/{credit_memo}/print', PrintCreditMemoController::class)->name('credit-memos.print');
         Route::livewire('credit-memos/{credit_memo}/edit', 'pages::credit-memos.form')->name('credit-memos.edit');
 
@@ -227,7 +231,8 @@ Route::prefix('{company}')
         Route::livewire('vendors', 'pages::vendors.index')->name('vendors.index');
         Route::livewire('bills', 'pages::bills.index')->name('bills.index');
         Route::livewire('bills/create', 'pages::bills.form')->name('bills.create');
-        Route::livewire('bills/{bill}', 'pages::bills.show')->name('bills.show');
+        Route::livewire('bills/{bill}', 'pages::bills.show')->name('bills.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Bill));
         Route::livewire('bills/{bill}/edit', 'pages::bills.form')->name('bills.edit');
         Route::get('bills/{bill}/print', PrintBillController::class)->name('bills.print');
 
@@ -235,7 +240,8 @@ Route::prefix('{company}')
         Route::livewire('bill-payments/create', 'pages::bill-payments.form')->name('bill-payments.create');
         // Cross-vendor batch pay — registered before {payment} so "batch" isn't captured as an id.
         Route::livewire('bill-payments/batch', 'pages::bill-payments.batch')->name('bill-payments.batch');
-        Route::livewire('bill-payments/{payment}', 'pages::bill-payments.show')->name('bill-payments.show');
+        Route::livewire('bill-payments/{payment}', 'pages::bill-payments.show')->name('bill-payments.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::BillPayment));
         Route::livewire('bill-payments/{payment}/edit', 'pages::bill-payments.form')->name('bill-payments.edit');
         Route::get('bill-payments/{payment}/print-cheque', PrintChequeController::class)->name('bill-payments.print-cheque');
         Route::get('bill-payments/{payment}/print', PrintBillPaymentController::class)->name('bill-payments.print');
@@ -243,20 +249,23 @@ Route::prefix('{company}')
         // Pay-now expenses (card / Interac / EFT / cash); coexists with cheques.
         Route::livewire('expenses', 'pages::expenses.index')->name('expenses.index');
         Route::livewire('expenses/create', 'pages::expenses.form')->name('expenses.create');
-        Route::livewire('expenses/{expense}', 'pages::expenses.show')->name('expenses.show');
+        Route::livewire('expenses/{expense}', 'pages::expenses.show')->name('expenses.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Expense));
         Route::livewire('expenses/{expense}/edit', 'pages::expenses.form')->name('expenses.edit');
 
         // Purchase orders
         Route::livewire('purchase-orders', 'pages::purchase-orders.index')->name('purchase-orders.index');
         Route::livewire('purchase-orders/create', 'pages::purchase-orders.form')->name('purchase-orders.create');
-        Route::livewire('purchase-orders/{purchaseOrder}', 'pages::purchase-orders.show')->name('purchase-orders.show');
+        Route::livewire('purchase-orders/{purchaseOrder}', 'pages::purchase-orders.show')->name('purchase-orders.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::PurchaseOrder));
         Route::livewire('purchase-orders/{purchaseOrder}/edit', 'pages::purchase-orders.form')->name('purchase-orders.edit');
         Route::get('purchase-orders/{purchaseOrder}/print', PrintPurchaseOrderController::class)->name('purchase-orders.print');
 
         // Vendor credits
         Route::livewire('vendor-credits', 'pages::vendor-credits.index')->name('vendor-credits.index');
         Route::livewire('vendor-credits/create', 'pages::vendor-credits.form')->name('vendor-credits.create');
-        Route::livewire('vendor-credits/{vendor_credit}', 'pages::vendor-credits.show')->name('vendor-credits.show');
+        Route::livewire('vendor-credits/{vendor_credit}', 'pages::vendor-credits.show')->name('vendor-credits.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::VendorCredit));
         Route::get('vendor-credits/{vendor_credit}/print', PrintVendorCreditController::class)->name('vendor-credits.print');
         Route::livewire('vendor-credits/{vendor_credit}/edit', 'pages::vendor-credits.form')->name('vendor-credits.edit');
 
@@ -264,7 +273,8 @@ Route::prefix('{company}')
         Route::livewire('employees', 'pages::employees.index')->name('employees.index');
         Route::livewire('reimbursements', 'pages::reimbursements.index')->name('reimbursements.index');
         Route::livewire('reimbursements/create', 'pages::reimbursements.form')->name('reimbursements.create');
-        Route::livewire('reimbursements/{bill}', 'pages::reimbursements.show')->name('reimbursements.show');
+        Route::livewire('reimbursements/{bill}', 'pages::reimbursements.show')->name('reimbursements.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Bill));
         Route::livewire('reimbursements/{bill}/edit', 'pages::reimbursements.form')->name('reimbursements.edit');
         Route::get('reimbursements/{bill}/print', PrintBillController::class)->name('reimbursements.print');
 
@@ -297,18 +307,21 @@ Route::prefix('{company}')
         // Banking
         Route::livewire('cheques', 'pages::cheques.index')->name('cheques.index');
         Route::livewire('cheques/create', 'pages::cheques.form')->name('cheques.create');
-        Route::livewire('cheques/{cheque}', 'pages::cheques.show')->name('cheques.show');
+        Route::livewire('cheques/{cheque}', 'pages::cheques.show')->name('cheques.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Cheque));
         Route::livewire('cheques/{cheque}/edit', 'pages::cheques.form')->name('cheques.edit');
         Route::get('cheques/{cheque}/print', ChequesPrintChequeController::class)->name('cheques.print');
 
         Route::livewire('deposits', 'pages::deposits.index')->name('deposits.index');
         Route::livewire('deposits/create', 'pages::deposits.form')->name('deposits.create');
-        Route::livewire('deposits/{deposit}', 'pages::deposits.show')->name('deposits.show');
+        Route::livewire('deposits/{deposit}', 'pages::deposits.show')->name('deposits.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Deposit));
         Route::livewire('deposits/{deposit}/edit', 'pages::deposits.form')->name('deposits.edit');
 
         Route::livewire('transfers', 'pages::transfers.index')->name('transfers.index');
         Route::livewire('transfers/create', 'pages::transfers.form')->name('transfers.create');
-        Route::livewire('transfers/{transfer}', 'pages::transfers.show')->name('transfers.show');
+        Route::livewire('transfers/{transfer}', 'pages::transfers.show')->name('transfers.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Transfer));
         Route::livewire('transfers/{transfer}/edit', 'pages::transfers.form')->name('transfers.edit');
 
         Route::livewire('banking/register', 'pages::banking.register')->name('banking.register');

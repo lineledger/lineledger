@@ -40,26 +40,6 @@ beforeEach(function () {
     $this->deleter = app(TransactionDeleter::class);
 });
 
-/**
- * Everything a delete must put back exactly: each account's posted total and
- * cached balance, each contact's AR and AP, each invoice's paid cache.
- *
- * @return array<string, mixed>
- */
-function deletionLedgerState(Company $company): array
-{
-    return [
-        'posted' => DB::table('journal_lines as l')->join('journal_entries as e', 'e.id', '=', 'l.journal_entry_id')
-            ->where('e.company_id', $company->id)->where('e.is_posted', true)
-            ->groupBy('l.account_id')->orderBy('l.account_id')
-            ->selectRaw('l.account_id, SUM(l.debit_cents) - SUM(l.credit_cents) AS net')
-            ->pluck('net', 'l.account_id')->map(fn ($v) => (int) $v)->filter()->all(),
-        'cached' => Account::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->pluck('balance_cents', 'id')->map(fn ($v) => (int) $v)->filter()->all(),
-        'contacts' => Contact::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'ar_balance_cents', 'ap_balance_cents'])->map(fn ($c) => [(int) $c->ar_balance_cents, (int) $c->ap_balance_cents])->all(),
-        'invoices' => Invoice::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'amount_paid_cents', 'status'])->map(fn ($i) => [(int) $i->amount_paid_cents, $i->status->value])->all(),
-    ];
-}
-
 function deletionInvoice(int $cents = 10000, ?string $date = null, bool $post = true): Invoice
 {
     $date ??= now()->toDateString();

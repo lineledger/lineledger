@@ -11,6 +11,7 @@ use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
 use App\Services\Deletion\DeletionBlocker;
 use App\Services\Deletion\TransactionDeleter;
+use App\Services\Posting\PeriodLockOverride;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
@@ -28,7 +29,9 @@ use Livewire\Attributes\Locked;
  * confirmDelete() deletes through {@see TransactionDeleter}, offering the
  * period-lock override when the transaction is dated in a closed period.
  *
- * The page needs a `public Company $company` and uses ShowsEditLock.
+ * The page needs a `public Company $company` and uses ShowsEditLock, whose
+ * editLockRecord() names the document unless the page overrides
+ * deletableDocument().
  */
 trait DeletesTransaction
 {
@@ -45,9 +48,17 @@ trait DeletesTransaction
     public string $deleteReason = '';
 
     /**
-     * The document Delete acts on.
+     * The document Delete acts on: by default the record the page's edit lock
+     * guards (ShowsEditLock::editLockRecord()).
      */
-    abstract protected function deletableDocument(): Model;
+    protected function deletableDocument(): Model
+    {
+        $record = $this->editLockRecord();
+
+        abort_unless($record instanceof Model, 404);
+
+        return $record;
+    }
 
     /**
      * Whether the Actions menu offers Delete: always on a draft, and on a
@@ -82,6 +93,21 @@ trait DeletesTransaction
 
         $number = (string) $document->getAttribute($type->numberColumn());
 
+        // The dialog described the document as it stood when it opened. If it
+        // has since been posted or voided somewhere else, show what deleting
+        // it now would do and ask again.
+        if ($this->deletionPreview !== null && ! PeriodLockOverride::isActive()) {
+            $current = $deleter->preview($document->fresh() ?? $document)->toArray();
+
+            if ($current['state'] !== $this->deletionPreview['state']) {
+                $this->deletionPreview = $current;
+                Flux::modal('delete-transaction')->show();
+                Flux::toast(variant: 'warning', text: __('This :document changed since you opened the dialog. Check what deleting it does now, then confirm again.', ['document' => $type->noun()]));
+
+                return;
+            }
+        }
+
         try {
             $deleter->delete($document, $this->deleteReason);
         } catch (PeriodLockedException $e) {
@@ -112,6 +138,6 @@ trait DeletesTransaction
         Flux::modal('delete-transaction')->close();
         Flux::toast(variant: 'success', text: __(':document :no deleted.', ['document' => $type->label(), 'no' => $number]));
 
-        $this->redirectRoute($type->indexRoute(), ['company' => $this->company->slug], navigate: true);
+        $this->redirectRoute($type->indexRouteFor($document), ['company' => $this->company->slug], navigate: true);
     }
 }

@@ -139,7 +139,7 @@ it('refuses deleting a draft journal entry someone is editing', function () {
 
     $this->actingAs($this->bob);
     Livewire::test('pages::journal.show', ['company' => $this->company, 'entry' => $this->entry->fresh()])
-        ->call('deleteDraft')
+        ->call('confirmDelete')
         ->assertDispatched('toast-show')
         ->assertNoRedirect();
 
@@ -179,7 +179,7 @@ it('guards exactly the show page methods that change the record', function (stri
 
     expect($guarded)->toBe($methods);
 })->with([
-    'journal entry' => ['pages::journal.show', ['deleteDraft', 'reverse', 'void']],
+    'journal entry' => ['pages::journal.show', ['confirmDelete', 'reverse', 'void']],
     'recurring journal entry' => ['pages::recurring-journal.show', ['deleteSchedule', 'generateNow', 'pauseSchedule', 'resumeSchedule']],
 ]);
 
