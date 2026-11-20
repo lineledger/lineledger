@@ -477,6 +477,15 @@ class PayRunPoster
      *     used-YTD up: the hours it carries (a dollar policy has no hours side),
      *     and the accrued pay it settled at posting (frozen on the earning).
      */
+    /**
+     * Take back what posting the run added to (and drew from) each employee's
+     * accrual balances: deleting a posted run, as voiding one does.
+     */
+    public function reverseAccrualBalances(PayRun $payRun): void
+    {
+        $this->applyAccrualBalances($payRun, -1);
+    }
+
     protected function applyAccrualBalances(PayRun $payRun, int $sign): void
     {
         $payRun->loadMissing('lines.accruals', 'lines.earnings', 'lines.profile');

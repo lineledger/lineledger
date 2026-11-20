@@ -8,9 +8,6 @@ use App\Models\CurrencyRevaluation;
 use App\Models\DonationReceipt;
 use App\Models\GrantRecognition;
 use App\Models\OpeningBalanceState;
-use App\Models\PayrollCheque;
-use App\Models\PayrollRemittance;
-use App\Models\PayRun;
 use App\Models\TaxReturn;
 use App\Services\Deletion\Handlers\BillDeletionHandler;
 use App\Services\Deletion\Handlers\BillPaymentDeletionHandler;
@@ -24,6 +21,9 @@ use App\Services\Deletion\Handlers\ExpenseDeletionHandler;
 use App\Services\Deletion\Handlers\GrantDeletionHandler;
 use App\Services\Deletion\Handlers\InvoiceDeletionHandler;
 use App\Services\Deletion\Handlers\JournalEntryDeletionHandler;
+use App\Services\Deletion\Handlers\PayrollChequeDeletionHandler;
+use App\Services\Deletion\Handlers\PayrollRemittanceDeletionHandler;
+use App\Services\Deletion\Handlers\PayRunDeletionHandler;
 use App\Services\Deletion\Handlers\PurchaseOrderDeletionHandler;
 use App\Services\Deletion\Handlers\SalesOrderDeletionHandler;
 use App\Services\Deletion\Handlers\SalesReceiptDeletionHandler;
@@ -67,25 +67,23 @@ final class DeletableDocuments
             DeletableDocumentType::TaxReturnPayment->value => TaxReturnPaymentDeletionHandler::class,
             DeletableDocumentType::Donation->value => DonationDeletionHandler::class,
             DeletableDocumentType::Grant->value => GrantDeletionHandler::class,
+            DeletableDocumentType::PayRun->value => PayRunDeletionHandler::class,
+            DeletableDocumentType::PayrollCheque->value => PayrollChequeDeletionHandler::class,
+            DeletableDocumentType::PayrollRemittance->value => PayrollRemittanceDeletionHandler::class,
         ];
     }
 
     /**
      * Records that own a journal entry but can only be voided (or are managed
-     * by their own screen), each with the reason. Types still to come under
-     * Delete say so; the rest stay void-only on purpose.
+     * by their own screen), each with the reason. They stay void-only on
+     * purpose.
      *
      * @return array<class-string<Model>, string>
      */
     public static function voidOnly(): array
     {
-        $planned = 'Delete is planned for this type (issue #241); until then, void it.';
-
         return [
             GrantRecognition::class => 'Part of its grant; it goes when the grant does.',
-            PayRun::class => $planned,
-            PayrollCheque::class => $planned,
-            PayrollRemittance::class => $planned,
             TaxReturn::class => 'A filed return is a legal filing: it is voided, never deleted.',
             DonationReceipt::class => 'An issued official donation receipt must be kept (CRA); it is voided, never deleted.',
             CurrencyRevaluation::class => 'System entry: the revaluation run owns and rebuilds it.',

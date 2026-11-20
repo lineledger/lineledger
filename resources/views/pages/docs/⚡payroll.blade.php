@@ -256,7 +256,7 @@ new #[Title('Documentation — Payroll')] class extends Component {}; ?>
             <li>{{ __('Select Calculate. The app computes gross pay and every deduction and opens the pay run for review. (Save draft keeps it without calculating.)') }}</li>
             <li>{{ __('Check each line — Gross, CPP, EI, Fed tax, Prov tax, and Net. Use Adjust on a line to override any single deduction, or Recalculate after a change; Edit takes you back to the form.') }}</li>
             <li>{{ __('Select Post pay run to record the wages, deductions, and employer cost in the general ledger. Each employee’s annual CPP, EI, QPP, and QPIP maximums count every posted pay run and every calculated one that comes before it (by pay date, then the order the runs were created), so runs post in that order: the app holds a run back until an earlier calculated run for the same employees is posted or saved back as a draft, and asks you to recalculate when another run was posted or voided after this one was calculated.') }}</li>
-            <li>{{ __('Select Write cheques, confirm the Bank account, and enter the Starting cheque number. One cheque is written per employee with positive net pay, numbered sequentially. Select Print beside any cheque for pre-printed cheque stock, or Void a single cheque to reverse just its bank entry if you misprint one.') }}</li>
+            <li>{{ __('Select Write cheques, confirm the Bank account, and enter the Starting cheque number. One cheque is written per employee with positive net pay, numbered sequentially. Select Print beside any cheque for pre-printed cheque stock, or Void a single cheque to reverse just its bank entry if you misprint one. The bin deletes a cheque as if never written, so a new one can be written for that employee; its number stays spent on the bank account.') }}</li>
             <li>{{ __('Select Stub on any line to open that employee’s pay statement — see Pay statements below.') }}</li>
         </ol>
 
@@ -272,6 +272,10 @@ new #[Title('Documentation — Payroll')] class extends Component {}; ?>
 
         <x-docs.callout type="note" heading="{{ __('Taking vacation you have accrued') }}">
             {{ __('Under Accrue to liability, vacation pay is expensed as it is earned: each run debits Vacation Pay Expense, credits Vacation Payable, and adds to the employee’s vacation pay balance. When they take that vacation — on a time-off policy whose Code is vacation, or on a Dollars policy of its own — the pay is still paid and taxed as gross pay, but the part their balance covers is charged to Vacation Payable (or the policy’s own liability account) instead of to wages, and their balance goes down by the same amount. A policy named Vacation is given that code automatically; for any other name, enter vacation as its Code. A salaried employee’s salary keeps paying through vacation, so the hours taken, at their hourly rate, are settled the same way. Pay beyond what has accrued is still paid, and is expensed as wages: the dollar balance stops at zero, though the hours balance can go below it. Voiding the run puts it all back. Under Pay on every cheque nothing accrues, so the vacation pay on each cheque is simply wages.') }}
+        </x-docs.callout>
+
+        <x-docs.callout type="warning" heading="{{ __('Deleting a pay run') }}">
+            {{ __('Delete on a pay run removes it as if it was never run: its journal entry, its draft and voided cheques and their entries, the vacation and time-off it accrued, and its hold on the time entries it paid. Because every later run counts it in the year-to-date, a posted run can be deleted only while no later posted run in the year pays the same employees (delete the newest first), no recorded remittance covers its pay date, and the year’s T4 and RL-1 slips aren’t finalized. Void or delete its posted cheques first. A run that was only calculated can always be deleted. Recalculate any later calculated run afterwards. The record of the deleted run is shown only to members who can open pay runs.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
@@ -393,7 +397,7 @@ new #[Title('Documentation — Payroll')] class extends Component {}; ?>
             <li>{{ __('Open Payroll → PD7A (or the Revenu Québec remittance or Workers’ comp report) and pick the Remitting period. The tiles show what is due, the period’s due date, and whether it is Remitted or Not remitted.') }}</li>
             <li>{{ __('Pay the agency — for the CRA, enter the totals on your PD7A statement in My Business Account; for Quebec, on the TPZ-1015.R.14 in My Account for businesses.') }}</li>
             <li>{{ __('Select Record remittance. Choose the bank account under Paid from, set the Payment date, put the confirmation number in Reference, and select Record payment.') }}</li>
-            <li>{{ __('Open Payroll → Remittance history to see every remittance by Agency, Period, Due, Paid, Amount, and Status. Select Void on one recorded by mistake; its journal entry is reversed and the period can be recorded again.') }}</li>
+            <li>{{ __('Open Payroll → Remittance history to see every remittance by Agency, Period, Due, Paid, Amount, and Status. Select Void on one recorded by mistake; its journal entry is reversed and the period can be recorded again. The bin deletes one as if never recorded.') }}</li>
         </ol>
 
         <x-docs.figure

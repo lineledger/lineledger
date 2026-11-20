@@ -3,17 +3,27 @@
 use App\Enums\PermissionAction;
 use App\Enums\RemittanceStatus;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Models\Company;
 use App\Models\PayrollRemittance;
+use App\Services\Deletion\TransactionDeleter;
 use App\Services\Posting\PayrollRemittancePoster;
 use App\Support\Money;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Remittance history')] class extends Component {
+    use DeletesTransaction;
+
     public Company $company;
+
+    /** The remittance the Delete dialog is about. */
+    #[Locked]
+    public ?int $deletingRemittanceId = null;
 
     public function mount(Company $company): void
     {
@@ -45,6 +55,31 @@ new #[Title('Remittance history')] class extends Component {
         unset($this->remittances);
 
         Flux::toast(variant: 'success', text: __('Remittance voided.'));
+    }
+
+    /**
+     * Open the Delete dialog for one remittance.
+     */
+    #[Requires(null, PermissionAction::Delete)]
+    public function prepareDeleteRemittance(int $id, TransactionDeleter $deleter): void
+    {
+        $this->deletingRemittanceId = (int) PayrollRemittance::query()->findOrFail($id)->id;
+
+        $this->prepareDelete($deleter);
+    }
+
+    protected function deletableDocument(): Model
+    {
+        return PayrollRemittance::query()->findOrFail($this->deletingRemittanceId);
+    }
+
+    /**
+     * The remittance the Delete dialog is open for, if any.
+     */
+    #[Computed]
+    public function deletingRemittance(): ?PayrollRemittance
+    {
+        return $this->deletingRemittanceId !== null ? PayrollRemittance::query()->find($this->deletingRemittanceId) : null;
     }
 
     public function money(int $cents): string
@@ -98,6 +133,11 @@ new #[Title('Remittance history')] class extends Component {
                                 >{{ __('Void') }}</flux:button>
                                 @endcallable
                             @endif
+                            @if ($company->allowsTransactionDeletion())
+                                @callable($this, 'prepareDeleteRemittance')
+                                <flux:button variant="ghost" size="sm" icon="trash" wire:click="prepareDeleteRemittance({{ $remittance->id }})" :aria-label="__('Delete')" data-test="delete-remittance-button" />
+                                @endcallable
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -106,4 +146,8 @@ new #[Title('Remittance history')] class extends Component {
             </tbody>
         </table>
     </div>
+    @if ($this->deletingRemittance)
+        <x-transaction-delete-dialog :preview="$deletionPreview" :document="$this->deletingRemittance" />
+    @endif
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>
