@@ -122,6 +122,9 @@ class UpgradeCommand extends Command
             // Give every organization its predefined roles and convert members
             // still on the original roles (nobody's access changes).
             ['Users and roles', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('access:sync-roles', $dryRun)],
+            // Finish the deletes earlier releases only hid (soft delete): purge
+            // drafts and unused list records, restore used ones as inactive.
+            ['Soft-deleted records', fn (): array => $this->afterMigrating($dryRun) ?? $this->backfill('deletions:purge-soft-deleted', $dryRun)],
         ];
 
         if ($this->option('verify')) {

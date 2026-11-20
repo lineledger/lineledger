@@ -32,4 +32,13 @@ enum DeletedTransactionState: string
             self::Unposted => __('Not posted'),
         };
     }
+
+    /**
+     * Whether the transaction never reached the ledger: a draft, an estimate
+     * or order, or a draft an earlier release only hid.
+     */
+    public function neverPosted(): bool
+    {
+        return in_array($this, [self::Draft, self::Unposted, self::Legacy], true);
+    }
 }

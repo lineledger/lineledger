@@ -92,14 +92,18 @@ final class DeleteListRecord
     /**
      * @throws DeletionBlockedException
      */
-    public function handle(Model $record, ?User $actor = null, bool $requireInactive = true): void
+    /**
+     * @param  bool  $legacy  the record was soft-deleted by an earlier release
+     *                        and the upgrade is removing it for good
+     */
+    public function handle(Model $record, ?User $actor = null, bool $requireInactive = true, bool $legacy = false): void
     {
         $kind = $this->kind($record);
 
         // Never inside a transaction (EditLockManager is compare-and-set).
         $this->locks->assertWritable($record, $actor);
 
-        DB::transaction(function () use ($record, $kind, $requireInactive): void {
+        DB::transaction(function () use ($record, $kind, $requireInactive, $legacy): void {
             $locked = $record->newQueryWithoutScopes()->whereKey($record->getKey())->lockForUpdate()->first();
 
             if ($locked === null) {
@@ -137,7 +141,7 @@ final class DeleteListRecord
             });
 
             $this->audit->record((int) $locked->getAttribute('company_id'), $kind['audit'], $locked, [
-                'kind' => 'list_record',
+                'kind' => $legacy ? 'legacy_soft_delete' : 'list_record',
                 'type' => class_basename($locked),
                 'record' => $snapshot,
             ]);

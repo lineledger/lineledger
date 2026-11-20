@@ -26,6 +26,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -128,7 +129,12 @@ final class TransactionDeleter
 
         try {
             $tombstone = DB::transaction(function () use ($document, $handler, $company, $reason, $actor, $via, $work): DeletedTransaction {
-                $locked = $document->newQuery()->whereKey($document->getKey())->lockForUpdate()->first();
+                // withTrashed(): the upgrade's purge deletes what an earlier
+                // release only hid (soft delete).
+                $locked = $document->newQueryWithoutScope(SoftDeletingScope::class)
+                    ->whereKey($document->getKey())
+                    ->lockForUpdate()
+                    ->first();
 
                 if ($locked === null) {
                     throw new DeletionBlockedException([new DeletionBlocker(__('This :document has already been deleted.', ['document' => $handler->type()->noun()]))]);
@@ -287,6 +293,11 @@ final class TransactionDeleter
      */
     private function stateOf(Model $document, Collection $entries): DeletedTransactionState
     {
+        // Hidden by an earlier release, which only soft-deleted drafts.
+        if ($entries->isEmpty() && $document->getAttribute('deleted_at') !== null) {
+            return DeletedTransactionState::Legacy;
+        }
+
         if (DeletableDocumentType::forModel($document)?->postsToLedger() === false) {
             return DeletedTransactionState::Unposted;
         }
@@ -328,7 +339,7 @@ final class TransactionDeleter
      */
     private function ensureOpenPeriods(Model $document, Company $company, Collection $entries, DeletedTransactionState $state): void
     {
-        if (in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
+        if ($state->neverPosted()) {
             return;
         }
 
@@ -351,7 +362,7 @@ final class TransactionDeleter
         $noun = $handler->type()->noun();
         $blockers = [];
 
-        if (! in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true) && ! $company->allowsTransactionDeletion()) {
+        if (! $state->neverPosted() && ! $company->allowsTransactionDeletion()) {
             $blockers[] = new DeletionBlocker(__('This organization only allows deleting drafts. A posted or voided transaction can be voided, or an owner can allow deleting under Organization settings.'));
         }
 
@@ -375,7 +386,7 @@ final class TransactionDeleter
             }
         }
 
-        if (! in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
+        if (! $state->neverPosted()) {
             $lines = $entries->flatMap(fn (JournalEntry $e) => $e->lines);
             $entryIds = array_map('intval', $entries->modelKeys());
             $lineIds = $lines->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
@@ -418,7 +429,7 @@ final class TransactionDeleter
      */
     private function warnings(Model $document, Company $company, Collection $entries, DeletedTransactionState $state): array
     {
-        if (in_array($state, [DeletedTransactionState::Draft, DeletedTransactionState::Unposted], true)) {
+        if ($state->neverPosted()) {
             return [];
         }
 

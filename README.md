@@ -798,7 +798,7 @@ docker compose exec app php artisan app:upgrade --verify   # 4. confirm, and pro
 The app container's entrypoint runs `php artisan app:upgrade` on every boot —
 pending migrations, then the post-upgrade data steps the releases ship (since 1.1.0,
 the two `banking:backfill-*` commands; 1.2.0 through 1.3.1 add none; 1.4.0 adds
-`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds `access:sync-roles`) — and the workers wait for it to become
+`backup:repair-encrypted-columns` and `currency:backfill-reversal-memos`; 1.4.1 through 1.4.4 add none; 1.5.0 adds `access:sync-roles` and `deletions:purge-soft-deleted`) — and the workers wait for it to become
 healthy. Set `MIGRATE_ON_BOOT=false` in `.env` if you would rather the container
 boot on the old schema and run `docker compose exec app php artisan app:upgrade`
 yourself once the backup is confirmed. Step 4 is idempotent: with nothing left to
