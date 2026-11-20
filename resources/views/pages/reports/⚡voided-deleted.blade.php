@@ -105,7 +105,7 @@ new #[Title('Voided/Deleted Transactions')] class extends Component {
                 $rows[] = [
                     'action' => 'deleted',
                     'when' => CarbonImmutable::parse($record->created_at),
-                    'by' => $record->deletedBy?->name,
+                    'by' => $record->deleted_via === 'upgrade' ? __('Upgrade') : $record->deletedBy?->name,
                     'type' => $record->document_type->label(),
                     'number' => $record->document_number,
                     'date' => $record->document_date?->toDateString(),

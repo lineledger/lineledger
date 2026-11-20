@@ -436,7 +436,7 @@ new #[Title('Documentation — Reports')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Voided/Deleted Transactions') }}</flux:heading>
         <flux:text>
-            {{ __('Every transaction voided or deleted in a period, newest first, with who did it and when, like the QuickBooks Desktop report of the same name. A voided transaction is still in your books, its entry and the void’s reversing entry netting to zero, and its row opens the document. A deleted one is gone from your books; its row opens the record kept of it: the document and journal lines as they stood, struck through, the reason given, and its audit trail. Anyone who can see the financial reports can open it.') }}
+            {{ __('Every transaction voided or deleted in a period, newest first, with who did it and when, like the QuickBooks Desktop report of the same name. A voided transaction is still in your books, its entry and the void’s reversing entry netting to zero, and its row opens the document. A deleted one is gone from your books; its row opens the record kept of it: the document and journal lines as they stood, struck through, the reason given, and its audit trail. Anyone who can see the financial reports can open it, except a payroll record, which only members who can open pay runs see. Drafts an earlier release only hid were removed for good by the upgrade to 1.5 and show here as Draft (earlier release), by Upgrade.') }}
         </flux:text>
 
         {{-- ─────────────────── List reports ─────────────────── --}}

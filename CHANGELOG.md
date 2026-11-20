@@ -66,6 +66,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cheques go with it. A deleted payroll cheque reopens a Paid run and frees
   the employee for a new cheque. Deleted payroll records are shown only to
   members who can open pay runs.
+- **Upgrade: finish the deletes earlier releases only hid.** `app:upgrade`
+  runs a new step, `deletions:purge-soft-deleted`. Drafts that Delete draft
+  only hid before (soft delete) are removed for good. Each one leaves a
+  "Draft (earlier release)" record on the Voided/Deleted Transactions
+  report and in the audit log, and its number stays reserved. A soft-deleted
+  row that holds a journal entry or a Stripe payment is listed and left
+  alone. Soft-deleted accounts, contacts, items and asset categories nothing
+  uses are deleted. Ones still in use come back as inactive (the contact API
+  used to hide contacts that had history), so their documents open again.
+  `--dry-run` reports what it would do.
 
 ## [1.5.0-rc.3] - 2026-11-20
 

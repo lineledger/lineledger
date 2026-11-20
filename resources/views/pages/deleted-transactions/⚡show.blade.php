@@ -77,9 +77,13 @@ new #[Title('Deleted transaction')] class extends Component {
 
     <flux:callout variant="danger" icon="trash" class="mb-6" data-test="deleted-transaction-banner">
         <flux:callout.heading>
-            {{ __('Deleted by :name on :when.', ['name' => $record->deletedBy?->name ?? __('someone no longer on file'), 'when' => $record->created_at?->setTimezone($tz)->format('Y-m-d H:i')]) }}
-            @if ($record->deleted_via === 'api')
-                {{ __('(through the API)') }}
+            @if ($record->deleted_via === 'upgrade')
+                {{ __('Removed for good by the upgrade on :when. An earlier release had only hidden it.', ['when' => $record->created_at?->setTimezone($tz)->format('Y-m-d H:i')]) }}
+            @else
+                {{ __('Deleted by :name on :when.', ['name' => $record->deletedBy?->name ?? __('someone no longer on file'), 'when' => $record->created_at?->setTimezone($tz)->format('Y-m-d H:i')]) }}
+                @if ($record->deleted_via === 'api')
+                    {{ __('(through the API)') }}
+                @endif
             @endif
         </flux:callout.heading>
         <flux:callout.text>
