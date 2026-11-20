@@ -297,12 +297,15 @@ it('imports a company logo from the bundle onto the public disk', function () {
 
     $returned = (new AttachmentImporter)->importCompanyLogo($this->company->id, $this->workDir);
 
-    expect($returned)->toBe('company-logos/logo.png');
-    Storage::disk('public')->assertExists('company-logos/logo.png');
-    expect(Storage::disk('public')->get('company-logos/logo.png'))->toBe('PNG-BYTES');
+    // A name of its own, never the source's: a copy next to its original
+    // must not share (and so be able to delete) the original's file.
+    expect($returned)->toMatch('#^company-logos/[A-Za-z0-9]{40}\.png$#');
+    Storage::disk('public')->assertExists($returned);
+    Storage::disk('public')->assertMissing('company-logos/logo.png');
+    expect(Storage::disk('public')->get($returned))->toBe('PNG-BYTES');
 
     $fresh = DB::table('companies')->where('id', $this->company->id)->first();
-    expect($fresh->logo_path)->toBe('company-logos/logo.png');
+    expect($fresh->logo_path)->toBe($returned);
 });
 
 it('imports a company document logo from the bundle onto the public disk', function () {
@@ -311,12 +314,15 @@ it('imports a company document logo from the bundle onto the public disk', funct
 
     $returned = (new AttachmentImporter)->importCompanyDocumentLogo($this->company->id, $this->workDir);
 
-    expect($returned)->toBe('company-logos/doc.png');
-    Storage::disk('public')->assertExists('company-logos/doc.png');
-    expect(Storage::disk('public')->get('company-logos/doc.png'))->toBe('DOC-PNG-BYTES');
+    // A name of its own, never the source's: a copy next to its original
+    // must not share (and so be able to delete) the original's file.
+    expect($returned)->toMatch('#^company-logos/[A-Za-z0-9]{40}\.png$#');
+    Storage::disk('public')->assertExists($returned);
+    Storage::disk('public')->assertMissing('company-logos/doc.png');
+    expect(Storage::disk('public')->get($returned))->toBe('DOC-PNG-BYTES');
 
     $fresh = DB::table('companies')->where('id', $this->company->id)->first();
-    expect($fresh->document_logo_path)->toBe('company-logos/doc.png');
+    expect($fresh->document_logo_path)->toBe($returned);
 });
 
 it('returns null when the bundle has no company logo', function () {

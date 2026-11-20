@@ -730,9 +730,10 @@ it('round-trips a company through export and import', function () {
         ->and($proposalB->confirmed_journal_entry_id)->toBe($jeB->id);
 
     // ---- 8. Audit-log chain verifies on Company B. ----
-    // With UNIQUE(company_id, row_hash) the bundle's hashes are copied verbatim,
-    // so VerifyAccountingAuditCommand re-derives sha256(previous_hash . hash_input)
-    // and finds zero discrepancies. This is the portable-audit-chain property.
+    // The importer re-hashes the chain over Company B's own ids as the rows go
+    // in (they restore last, once every row they name has its new id), so
+    // VerifyAccountingAuditCommand re-derives sha256(previous_hash . hash_input)
+    // and finds zero discrepancies.
     Artisan::call('audit:verify', ['company' => $companyB->id]);
     $verifierOutput = Artisan::output();
     expect(Artisan::call('audit:verify', ['company' => $companyB->id]))

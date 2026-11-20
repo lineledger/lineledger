@@ -45,11 +45,25 @@ class ExportCompanyDataJob implements ShouldQueue
         // creating() looks at the bound `current_company`. The export is
         // read-only against tenant rows, but services we pass through (e.g.
         // model boot callbacks) may still touch it.
+        //
+        // Put back whatever was bound before, however the export ends: a queue
+        // worker runs job after job in one process, and the next job must not
+        // find this organization still bound (CompanyScope would quietly scope
+        // its queries to it).
+        $previous = app()->bound('current_company') ? app('current_company') : null;
         app()->instance('current_company', $this->backup->company);
 
-        $this->backup->forceFill(['status' => CompanyBackupStatus::Running])->save();
+        try {
+            $this->backup->forceFill(['status' => CompanyBackupStatus::Running])->save();
 
-        $exporter->export($this->backup);
+            $exporter->export($this->backup);
+        } finally {
+            if ($previous !== null) {
+                app()->instance('current_company', $previous);
+            } else {
+                app()->forgetInstance('current_company');
+            }
+        }
     }
 
     public function failed(Throwable $e): void

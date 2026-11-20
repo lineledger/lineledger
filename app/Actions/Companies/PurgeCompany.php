@@ -55,20 +55,6 @@ class PurgeCompany
         'accounting_audit_logs',
     ];
 
-    /**
-     * Backup-excluded tables whose own FKs mean they must go before their
-     * parents. Any other excluded table is appended after these; they are leaves
-     * that only reference core tables, which the registry pass deletes later.
-     *
-     * @var list<string>
-     */
-    private const EXCLUDED_CHILDREN_FIRST = [
-        'bank_statement_lines',
-        'bank_statement_imports',
-        'budget_lines',
-        'budgets',
-    ];
-
     public function handle(Company $company): void
     {
         $companyId = $company->id;
@@ -150,8 +136,9 @@ class PurgeCompany
             self::PRESERVED_TABLES,
         );
 
-        $order = array_values(array_intersect(self::EXCLUDED_CHILDREN_FIRST, $excluded));
-        $order = array_merge($order, array_values(array_diff($excluded, $order)));
+        // The excluded tables are leaves that only reference core tables, which
+        // the registry pass deletes after them.
+        $order = array_values($excluded);
 
         // Registry order is parents-first for inserts, so reverse it. 'companies'
         // heads that list and is force-deleted separately.

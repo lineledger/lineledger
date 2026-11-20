@@ -580,8 +580,9 @@ Not scheduled — run these by hand when you need them:
 | `audit:verify {company?} [--full] [--no-alert]` | Verify the accounting audit-log **hash chain**; checks one organization, or all when omitted. A normal run resumes from the last saved checkpoint — pass `--full` to re-verify from genesis when you suspect tampering; `--no-alert` reports without logging or emailing. (Also runs nightly as part of `integrity:check`.) |
 | `integrity:check {company?} [--fix] [--no-alert]` | The nightly reconciliation check, on demand: hash chain, double-entry balance, account-balance cache, invoice/bill paid caches, tax on control-account cheque lines, and voids that leave foreign-currency units behind. `--fix` recomputes drifted account-balance **and** document paid caches in place (the cheque-tax check is report-only: open the cheque and save it; so is the void check: run `currency:backfill-reversal-memos`); `--no-alert` reports without emailing. |
 | `ops:monitor-failed-jobs [--window=] [--no-alert]` | Run the hourly failed-jobs digest by hand over a custom look-back window (minutes). |
-| `backup:export --company=<id> [--sync]` | Produce a ZIP backup of one organization on the configured backup disk; `--sync` runs in-process so exceptions surface in the shell (handy for smoke tests). |
-| `backup:import <file> --user=<id> [--sync] [--dry-run]` | Restore a backup ZIP into a **new** organization owned by the given user. `--dry-run` inspects the bundle without writing. |
+| `backup:export [<id or slug>…] [--all] [--output=<dir> [--keep=<n>]] [--verify] [--sync]` | Back up organizations to ZIP bundles. Without `--output`: an in-app backup on the configured backup disk (listed under Settings → Backup & Export for 7 days), queued unless `--sync`. With `--output`: straight into `<dir>/<slug>/<slug>-<UTC time>Z.zip` plus a `.sha256`, for a nightly cron; `--keep` prunes each organization's oldest. `--verify` runs `backup:verify` on each new backup. `--company=<id>` still works. See [Organization backups](#organization-backups). |
+| `backup:import <file> --owner=<id or email> [--sync] [--verify] [--dry-run]` | Restore a backup ZIP into a **new** organization owned by the given user (also `backup:restore`; `--user` still works). `--verify` restores synchronously, then compares every restored row with the backup. `--dry-run` inspects the bundle without writing. |
+| `backup:verify <zip>… [--quick] [--json]` | Prove a backup restores, completely: checks the ZIP (files, hashes, references, books, audit chain), then restores it in a database transaction that is always rolled back and compares every row. `--quick` skips the trial restore. Non-zero exit on any failure. |
 | `storage:check [--skip-probes]` | Audit the storage configuration and **prove** it: round-trips a throwaway object through every configured disk, then fetches it over plain HTTP with no credentials to confirm logos are public and attachments/backups are not. See [Object storage](#object-storage). |
 | `security:monitor [--window=] [--no-alert]` | Run the hourly anomaly scan by hand over a custom look-back window. |
 | `rates:fetch [--date=]` / `rates:health [--no-alert]` | Fetch FX rates for a specific date, or check freshness without emailing. `GET /health/fx` is the unauthenticated HTTP counterpart for an uptime monitor. |
@@ -891,6 +892,62 @@ restoring them needs a privileged (root) MySQL user.
 The in-app backup feature (Settings → **Backup & Export**) writes per-organization
 archives to `storage/app/private/backups` inside the `storage` volume — copy those
 off-host too.
+
+#### Organization backups
+
+The database dump above restores the whole instance. To keep each organization
+as its own portable ZIP, one you can restore into a new organization here or on
+another LineLedger install, run `backup:export` nightly:
+
+```bash
+# crontab -e on the host (a Forge server: add it as a Scheduled Job)
+0 2 * * * cd /path/to/lineledger && php artisan backup:export --all --output=/var/backups/lineledger --keep=14 --verify
+
+# Docker: run it inside the app container, from the directory holding docker-compose.yml.
+# The output lands in the storage volume; copy it off-host with the rest.
+0 2 * * * cd /path/to/compose-dir && docker compose exec -T app php artisan backup:export --all --output=/app/storage/app/private/nightly --keep=14 --verify
+```
+
+Each organization gets `<output>/<slug>/<slug>-<UTC time>Z.zip` and a
+`<same>.zip.sha256` beside it, so `sha256sum -c` confirms a copy. Both files are
+written atomically and are readable by their owner only. `--keep=14` deletes
+all but each organization's 14 newest backups, and only after a backup that
+succeeded (and verified, with `--verify`).
+
+**Protect that directory.** A backup holds the organization's whole ledger, and
+its employees' SINs in plain text.
+
+**`--verify`** proves each new backup restores completely. It first checks the
+ZIP itself:
+
+- every table file is present, with its recorded hash and row count;
+- every attachment file is inside;
+- every reference resolves;
+- the books balance;
+- the audit chain is intact.
+
+Then it restores the backup into a new organization **inside a database
+transaction that is always rolled back**. It compares every restored row with
+the backup, column by column, and checks the copy's account totals, ledger
+integrity and files. Nothing is left behind: no organization, user or file.
+The transaction holds its locks until it ends, so run verification off-peak
+(2 a.m. above). To check a backup later, or one copied off-host:
+
+```bash
+php artisan backup:verify /var/backups/lineledger/acme/acme-20261120-020000Z.zip   # --quick: the ZIP only, no database writes
+```
+
+Every command exits non-zero when a backup or its verification fails, so cron
+mail (or your scheduler's failure alert) tells you. To restore, into a **new**
+organization owned by you, with every row then compared with the backup:
+
+```bash
+php artisan backup:restore /var/backups/lineledger/acme/acme-20261120-020000Z.zip --owner=you@example.com --verify
+```
+
+A restore onto another install matches people by email. Work by someone with
+no account there is attributed to whoever restores, and their personal
+settings are left out.
 
 ### HTTPS / reverse proxy
 

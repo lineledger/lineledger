@@ -3,30 +3,16 @@
 namespace App\Services\Backup;
 
 use App\Enums\CompanyBackupStatus;
-use App\Models\Bill;
-use App\Models\BillPayment;
-use App\Models\Cheque;
+use App\Models\Company;
 use App\Models\CompanyBackup;
-use App\Models\CreditMemo;
-use App\Models\CustomerReceipt;
-use App\Models\Deposit;
-use App\Models\Estimate;
-use App\Models\Expense;
 use App\Models\Invoice;
-use App\Models\Item;
-use App\Models\JournalEntry;
-use App\Models\PurchaseOrder;
-use App\Models\SalesOrder;
-use App\Models\SalesReceipt;
-use App\Models\StockAdjustment;
-use App\Models\TaxReturn;
-use App\Models\VendorCredit;
+use App\Models\User;
 use App\Support\Storage\StorageDisks;
 use Carbon\CarbonImmutable;
 use Closure;
 use FilesystemIterator;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RecursiveDirectoryIterator;
@@ -76,7 +62,70 @@ final class CompanyExporter
         }
 
         $company = $backup->company;
-        $companyId = (int) $backup->company_id;
+
+        try {
+            $exportedBy = $backup->requestedBy ?? $company->owner();
+            if ($exportedBy === null) {
+                throw new RuntimeException(
+                    "CompanyBackup #{$backup->id} has no requested_by_user_id and the company has no Owner member; "
+                    .'cannot stamp manifest.exported_by.'
+                );
+            }
+
+            $zipRelativePath = sprintf(
+                'backups/%d/%d-%s.zip',
+                $company->id,
+                $backup->id,
+                CarbonImmutable::now('UTC')->format('Ymd-His'),
+            );
+            // ZipArchive writes to a real filesystem path, and hash_file()/filesize()
+            // need one too, so the archive is always assembled locally. Only the
+            // finished artifact is handed to the configured backup disk.
+            $zipAbsolutePath = Storage::disk('local')->path($zipRelativePath);
+
+            $bundle = $this->buildBundle($company, $exportedBy, $zipAbsolutePath);
+
+            $backupDisk = StorageDisks::backups();
+            $this->publishArchive($zipAbsolutePath, $zipRelativePath, $backupDisk);
+
+            $backup->forceFill([
+                'status' => CompanyBackupStatus::Ready,
+                'disk' => $backupDisk,
+                'file_path' => $zipRelativePath,
+                'file_size_bytes' => $bundle['bytes'],
+                'sha256' => $bundle['sha256'],
+                'row_counts' => $bundle['row_counts'],
+                'app_version' => (string) config('version.app'),
+                'schema_version' => (int) config('version.schema'),
+                'error_message' => null,
+                'expires_at' => CarbonImmutable::now()->addDays(7),
+            ])->save();
+
+            return $backup->fresh() ?? $backup;
+        } catch (Throwable $e) {
+            $backup->forceFill([
+                'status' => CompanyBackupStatus::Failed,
+                'error_message' => Str::limit($e->getMessage(), 65000),
+            ])->save();
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Write `$company`'s backup bundle to `$zipAbsolutePath` (a local path),
+     * stamped as made by `$exportedBy`. No backup row is involved: this is the
+     * whole export, for a caller that keeps the file itself (the CLI writing
+     * nightly backups to a directory).
+     *
+     * Everything the bundle holds is read inside one transaction, so on MySQL
+     * it is a single consistent snapshot even while people keep working.
+     *
+     * @return array{sha256: string, bytes: int, row_counts: array<string, int>}
+     */
+    public function buildBundle(Company $company, User $exportedBy, string $zipAbsolutePath): array
+    {
+        $companyId = (int) $company->id;
 
         $previousBinding = app()->bound('current_company') ? app('current_company') : null;
         app()->instance('current_company', $company);
@@ -95,45 +144,36 @@ final class CompanyExporter
         $this->ensureDirectory($workDir.'/files');
 
         try {
-            // 1. Files first — gives us the path-rewrite map for attachments
-            //    and the relative logo path for the companies row transform.
-            $attachmentResult = $this->attachments->exportAttachments($companyId, $workDir);
-            $logoRelativePath = $this->attachments->exportCompanyLogo($company, $workDir);
-            $documentLogoRelativePath = $this->attachments->exportCompanyDocumentLogo($company, $workDir);
+            [$tablesIndex, $attachmentResult, $usersResult] = $this->inSnapshot(function () use ($company, $companyId, $workDir): array {
+                // 1. Files first — gives us the path-rewrite map for attachments
+                //    and the relative logo path for the companies row transform.
+                $attachmentResult = $this->attachments->exportAttachments($companyId, $workDir);
+                $logoRelativePath = $this->attachments->exportCompanyLogo($company, $workDir);
+                $documentLogoRelativePath = $this->attachments->exportCompanyDocumentLogo($company, $workDir);
 
-            // 2. Walk every registered table in dependency order, writing JSONL.
-            $tablesIndex = [];
+                // 2. Walk every registered table in dependency order, writing JSONL.
+                $tablesIndex = [];
 
-            foreach (BackupTableRegistry::tables() as $entry) {
-                $table = $entry['table'];
-                $model = $entry['model'];
+                foreach (BackupTableRegistry::tables() as $entry) {
+                    $table = $entry['table'];
 
-                $rowTransform = $this->rowTransformFor($table, $attachmentResult, $logoRelativePath, $documentLogoRelativePath);
-                $scope = $this->scopeFor($table, $companyId);
+                    $tablesIndex[$table] = $this->jsonl->write(
+                        modelClass: $entry['model'],
+                        companyId: $companyId,
+                        workDir: $workDir,
+                        tableName: $table,
+                        rowTransform: $this->rowTransformFor($table, $attachmentResult, $logoRelativePath, $documentLogoRelativePath),
+                    );
+                }
 
-                $tablesIndex[$table] = $this->jsonl->write(
-                    modelClass: $model,
-                    companyId: $companyId,
-                    workDir: $workDir,
-                    tableName: $table,
-                    rowTransform: $rowTransform,
-                    scope: $scope,
-                );
-            }
+                // 3. users.json
+                $usersResult = $this->users->exportReferencedUsers($companyId, $workDir);
 
-            // 3. users.json
-            $usersResult = $this->users->exportReferencedUsers($companyId, $workDir);
+                return [$tablesIndex, $attachmentResult, $usersResult];
+            });
 
             // 4. manifest.json — composed from everything above.
-            $exportedBy = $backup->requestedBy ?? $company->owner();
-            if ($exportedBy === null) {
-                throw new RuntimeException(
-                    "CompanyBackup #{$backup->id} has no requested_by_user_id and the company has no Owner member; "
-                    .'cannot stamp manifest.exported_by.'
-                );
-            }
-
-            $manifestResult = $this->manifest->write([
+            $this->manifest->write([
                 'company' => $company,
                 'exportedBy' => $exportedBy,
                 'tables' => $tablesIndex,
@@ -148,55 +188,22 @@ final class CompanyExporter
                 ],
             ], $workDir);
 
-            unset($manifestResult); // Result captured inside manifest.json; not needed by caller.
-
             // 5. ZIP it.
-            $zipRelativePath = sprintf(
-                'backups/%d/%d-%s.zip',
-                $companyId,
-                $backup->id,
-                CarbonImmutable::now('UTC')->format('Ymd-His'),
-            );
-            // ZipArchive writes to a real filesystem path, and hash_file()/filesize()
-            // need one too, so the archive is always assembled locally. Only the
-            // finished artifact is handed to the configured backup disk.
-            $zipAbsolutePath = Storage::disk('local')->path($zipRelativePath);
             $this->ensureDirectory(dirname($zipAbsolutePath));
-
             $this->zipDirectory($workDir, $zipAbsolutePath);
 
             $sha256 = hash_file('sha256', $zipAbsolutePath);
             $bytes = filesize($zipAbsolutePath);
 
-            $backupDisk = StorageDisks::backups();
-            $this->publishArchive($zipAbsolutePath, $zipRelativePath, $backupDisk);
-
-            $rowCounts = [];
-            foreach ($tablesIndex as $tableName => $info) {
-                $rowCounts[$tableName] = (int) $info['rows'];
+            if ($sha256 === false || $bytes === false) {
+                throw new RuntimeException("Unable to read back the backup archive at {$zipAbsolutePath}.");
             }
 
-            $backup->forceFill([
-                'status' => CompanyBackupStatus::Ready,
-                'disk' => $backupDisk,
-                'file_path' => $zipRelativePath,
-                'file_size_bytes' => $bytes !== false ? (int) $bytes : null,
-                'sha256' => $sha256 !== false ? $sha256 : null,
-                'row_counts' => $rowCounts,
-                'app_version' => (string) config('version.app'),
-                'schema_version' => (int) config('version.schema'),
-                'error_message' => null,
-                'expires_at' => CarbonImmutable::now()->addDays(7),
-            ])->save();
-
-            return $backup->fresh() ?? $backup;
-        } catch (Throwable $e) {
-            $backup->forceFill([
-                'status' => CompanyBackupStatus::Failed,
-                'error_message' => Str::limit($e->getMessage(), 65000),
-            ])->save();
-
-            throw $e;
+            return [
+                'sha256' => $sha256,
+                'bytes' => (int) $bytes,
+                'row_counts' => array_map(static fn (array $info): int => (int) $info['rows'], $tablesIndex),
+            ];
         } finally {
             $this->removeDirectory($workDir);
 
@@ -206,6 +213,34 @@ final class CompanyExporter
                 app()->forgetInstance('current_company');
             }
         }
+    }
+
+    /**
+     * Run `$read` inside one read transaction, so every table it reads comes
+     * from the same moment: a payment posted halfway through an export can't
+     * land in the journal but miss its invoice.
+     *
+     * MySQL gets REPEATABLE READ explicitly (some managed servers default to
+     * READ COMMITTED, which would not give one snapshot). Inside a caller's
+     * own transaction the reads already share its view. SQLite is left alone:
+     * without WAL, a long read transaction there would block every writer.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $read
+     * @return T
+     */
+    private function inSnapshot(Closure $read): mixed
+    {
+        $connection = DB::connection();
+
+        if ($connection->transactionLevel() > 0 || ! in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return $read();
+        }
+
+        $connection->statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+
+        return $connection->transaction($read);
     }
 
     /**
@@ -262,105 +297,6 @@ final class CompanyExporter
             },
             default => null,
         };
-    }
-
-    /**
-     * Returns the query-scope closure for child tables that do not carry a
-     * `company_id` column themselves. Filters via a subquery against the
-     * parent model's company-scoped ids.
-     *
-     * Returns null for any table the writer can resolve itself (the
-     * `companies` row-id branch, or any table whose schema has `company_id`).
-     */
-    private function scopeFor(string $table, int $companyId): ?Closure
-    {
-        return match ($table) {
-            'journal_lines' => fn (Builder $q) => $q->whereIn(
-                'journal_entry_id',
-                $this->parentIds(JournalEntry::class, $companyId),
-            ),
-            'invoice_lines' => fn (Builder $q) => $q->whereIn(
-                'invoice_id',
-                $this->parentIds(Invoice::class, $companyId),
-            ),
-            'item_components' => fn (Builder $q) => $q->whereIn(
-                'item_id',
-                $this->parentIds(Item::class, $companyId),
-            ),
-            'sales_receipt_lines' => fn (Builder $q) => $q->whereIn(
-                'sales_receipt_id',
-                $this->parentIds(SalesReceipt::class, $companyId),
-            ),
-            'estimate_lines' => fn (Builder $q) => $q->whereIn(
-                'estimate_id',
-                $this->parentIds(Estimate::class, $companyId),
-            ),
-            'sales_order_lines' => fn (Builder $q) => $q->whereIn(
-                'sales_order_id',
-                $this->parentIds(SalesOrder::class, $companyId),
-            ),
-            'credit_memo_lines' => fn (Builder $q) => $q->whereIn(
-                'credit_memo_id',
-                $this->parentIds(CreditMemo::class, $companyId),
-            ),
-            'bill_lines' => fn (Builder $q) => $q->whereIn(
-                'bill_id',
-                $this->parentIds(Bill::class, $companyId),
-            ),
-            'purchase_order_lines' => fn (Builder $q) => $q->whereIn(
-                'purchase_order_id',
-                $this->parentIds(PurchaseOrder::class, $companyId),
-            ),
-            'vendor_credit_lines' => fn (Builder $q) => $q->whereIn(
-                'vendor_credit_id',
-                $this->parentIds(VendorCredit::class, $companyId),
-            ),
-            'cheque_lines' => fn (Builder $q) => $q->whereIn(
-                'cheque_id',
-                $this->parentIds(Cheque::class, $companyId),
-            ),
-            'expense_lines' => fn (Builder $q) => $q->whereIn(
-                'expense_id',
-                $this->parentIds(Expense::class, $companyId),
-            ),
-            'tax_return_lines' => fn (Builder $q) => $q->whereIn(
-                'tax_return_id',
-                $this->parentIds(TaxReturn::class, $companyId),
-            ),
-            'stock_adjustment_lines' => fn (Builder $q) => $q->whereIn(
-                'stock_adjustment_id',
-                $this->parentIds(StockAdjustment::class, $companyId),
-            ),
-            'receipt_applications' => fn (Builder $q) => $q->whereIn(
-                'customer_receipt_id',
-                $this->parentIds(CustomerReceipt::class, $companyId),
-            ),
-            'bill_payment_applications' => fn (Builder $q) => $q->whereIn(
-                'bill_payment_id',
-                $this->parentIds(BillPayment::class, $companyId),
-            ),
-            'deposit_lines' => fn (Builder $q) => $q->whereIn(
-                'deposit_id',
-                $this->parentIds(Deposit::class, $companyId),
-            ),
-            // recurring_document_lines and recurring_journal_entry_lines DO have
-            // their own company_id — let the writer resolve them via the default branch.
-            default => null,
-        };
-    }
-
-    /**
-     * Sub-builder of parent-table ids scoped to a company id, with global
-     * scopes disabled so the company filter is the only tenancy clause.
-     *
-     * @param  class-string<Model>  $modelClass
-     */
-    private function parentIds(string $modelClass, int $companyId): Builder
-    {
-        return $modelClass::query()
-            ->withoutGlobalScopes()
-            ->where('company_id', $companyId)
-            ->select('id');
     }
 
     /**

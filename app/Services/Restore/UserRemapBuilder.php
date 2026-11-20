@@ -23,13 +23,16 @@ use Illuminate\Support\Facades\DB;
 final class UserRemapBuilder
 {
     /**
+     * With `$matchByEmail` false nobody matches, as on an instance none of the
+     * bundle's users have an account on: everyone falls back to the importer.
+     *
      * @param  array<int, array{id:int,email:string,name:string}>  $bundleUsers  Decoded users.json payload.
      * @return array{
      *     map: array<int, int>,
      *     matches: array<int, array{old_id:int, email:string, name:string, target_user_id:int, match:'email'|'fallback'}>
      * }
      */
-    public function build(array $bundleUsers, User $importingUser): array
+    public function build(array $bundleUsers, User $importingUser, bool $matchByEmail = true): array
     {
         if ($bundleUsers === []) {
             return ['map' => [], 'matches' => []];
@@ -51,7 +54,7 @@ final class UserRemapBuilder
         // [lowercased email => user id]
         $lookup = [];
 
-        if ($loweredEmails !== []) {
+        if ($matchByEmail && $loweredEmails !== []) {
             $rows = User::query()
                 ->whereIn(DB::raw('LOWER(email)'), $loweredEmails)
                 ->get(['id', 'email']);

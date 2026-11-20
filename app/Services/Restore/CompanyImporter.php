@@ -20,17 +20,14 @@ use App\Support\Encryption\EncryptedColumns;
 use App\Support\Gifi\GifiCodeCorrections;
 use App\Support\Storage\TemporaryLocalFile;
 use Carbon\CarbonImmutable;
-use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use JsonException;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
 use Throwable;
-use ZipArchive;
 
 /**
  * Inverse of {@see CompanyExporter}.
@@ -72,20 +69,39 @@ final class CompanyImporter
      */
     private array $encryptedColumns = [];
 
+    /**
+     * Per model class, the columns it casts to JSON. Worked out once per class.
+     *
+     * @var array<class-string<Model>, list<string>>
+     */
+    private array $jsonColumns = [];
+
+    /**
+     * Per table, whether each column accepts null. Worked out once per table.
+     *
+     * @var array<string, array<string, bool>>
+     */
+    private array $nullableColumns = [];
+
     public function __construct(
         private readonly BundleInspector $inspector,
         private readonly JsonlTableReader $reader,
         private readonly UserRemapBuilder $userRemap,
         private readonly AttachmentImporter $attachments,
         private readonly LegacyRoleConverter $roleConverter,
+        private readonly BundleExtractor $extractor,
     ) {}
 
     /**
      * Run the restore end-to-end. Returns the same row, freshly persisted.
      * Throws on failure (caller — Job or CLI — sees the failed status the
      * service has already written, plus a re-thrown exception).
+     *
+     * Pass a {@see RestoreTrace} to keep what the import did (the old → new id
+     * map, the user map, the rows left out); the backup verifier pairs every
+     * bundle row with its copy through it.
      */
-    public function import(CompanyRestore $restore): CompanyRestore
+    public function import(CompanyRestore $restore, ?RestoreTrace $trace = null): CompanyRestore
     {
         if (! in_array($restore->status, [
             CompanyRestoreStatus::Pending,
@@ -102,14 +118,25 @@ final class CompanyImporter
             'started_at' => $restore->started_at ?? now(),
         ])->save();
 
-        if ($restore->file_path === null || $restore->file_path === '') {
-            throw new RuntimeException("CompanyRestore #{$restore->id} has no file_path.");
-        }
-
         $disk = $restore->storageDisk();
 
-        if (! Storage::disk($disk)->exists($restore->file_path)) {
-            throw new RuntimeException("Restore bundle missing from disk [{$disk}]: {$restore->file_path}");
+        try {
+            if ($restore->file_path === null || $restore->file_path === '') {
+                throw new RuntimeException("CompanyRestore #{$restore->id} has no file_path.");
+            }
+
+            if (! Storage::disk($disk)->exists($restore->file_path)) {
+                throw new RuntimeException("Restore bundle missing from disk [{$disk}]: {$restore->file_path}");
+            }
+        } catch (Throwable $e) {
+            // Without this the row would sit in Running forever: the queued
+            // job's failed() hook catches it, but a synchronous CLI run doesn't.
+            $restore->forceFill([
+                'status' => CompanyRestoreStatus::Failed,
+                'error_message' => Str::limit($e->getMessage(), 65000),
+            ])->save();
+
+            throw $e;
         }
 
         // ZipArchive needs a real path. On object storage that is a temporary
@@ -117,15 +144,17 @@ final class CompanyImporter
         return TemporaryLocalFile::with(
             $disk,
             $restore->file_path,
-            fn (string $zipAbsolute) => $this->importBundle($restore, $zipAbsolute),
+            fn (string $zipAbsolute) => $this->importBundle($restore, $zipAbsolute, $trace ?? new RestoreTrace),
         );
     }
 
     /**
      * Steps 1–9 of the class docblock, against a local copy of the bundle.
      */
-    private function importBundle(CompanyRestore $restore, string $zipAbsolute): CompanyRestore
+    private function importBundle(CompanyRestore $restore, string $zipAbsolute, RestoreTrace $trace): CompanyRestore
     {
+        $idMapper = $trace->ids;
+
         $tmpRoot = storage_path('app/private/restores/tmp');
         if (! is_dir($tmpRoot) && ! @mkdir($tmpRoot, 0755, true) && ! is_dir($tmpRoot)) {
             throw new RuntimeException("Unable to create restore tmp root: {$tmpRoot}");
@@ -138,14 +167,14 @@ final class CompanyImporter
 
         $previousBinding = app()->bound('current_company') ? app('current_company') : null;
 
-        try {
-            $this->extractZip($zipAbsolute, $extractedDir);
+        $extractRoot = $extractedDir;
 
+        try {
             // A bundle re-zipped by macOS Finder nests every entry under a single
-            // wrapping folder (plus __MACOSX cruft); rebase onto the real root so
-            // the per-table reads below resolve. A flat, exported bundle is left
-            // untouched. The inspector handles the same case against the ZIP.
-            $extractedDir = $this->resolveContentRoot($extractedDir);
+            // wrapping folder (plus __MACOSX cruft); the extractor returns the real
+            // root so the per-table reads below resolve. The inspector handles the
+            // same case against the ZIP. Cleanup removes the whole extraction.
+            $extractedDir = $this->extractor->extract($zipAbsolute, $extractRoot);
 
             // Re-validate the manifest (mirrors the inspect-on-upload pass) — schema
             // version, user-match plan, warnings. The {@see BundleInspector} also
@@ -159,13 +188,24 @@ final class CompanyImporter
             // guide still carries the old, mislabelled codes on its accounts.
             $correctGifiCodes = GifiCodeCorrections::bundleNeedsCorrection($manifest);
 
-            // Per-table sha256 integrity check, before we touch the DB.
+            // Every table file the manifest lists, and only those, each
+            // matching its sha256, before we touch the DB.
+            $this->verifyTableFiles($extractedDir, $manifestTables);
             $this->verifyTableHashes($extractedDir, $manifestTables);
+            $this->verifyUsersFile($extractedDir, $manifest);
 
             // users.json → [oldUserId => newUserId] map.
             $bundleUsers = $this->readBundleUsers($extractedDir);
-            $remap = $this->userRemap->build($bundleUsers, $restore->requestedBy);
+            $remap = $this->userRemap->build($bundleUsers, $restore->requestedBy, $trace->matchUsersByEmail);
             $userIdMap = $remap['map'];
+            $fallbackUserIds = array_values(array_map(
+                static fn (array $match): int => $match['old_id'],
+                array_filter($remap['matches'], static fn (array $match): bool => $match['match'] === 'fallback'),
+            ));
+
+            $trace->userIdMap = $userIdMap;
+            $trace->fallbackUserIds = $fallbackUserIds;
+            $trace->importingUserId = (int) $restore->requested_by_user_id;
 
             // Read the original (untransformed) Company row from the bundle once;
             // we'll need it both for the shell create AND for the post-loop account-id
@@ -177,8 +217,6 @@ final class CompanyImporter
                 );
             }
 
-            $idMapper = new IdMapper;
-
             // Create the shell with a temporary transformer (no IdMapper entries yet
             // — account FKs in the row will be null-or-unchanged for now; we'll
             // overwrite them after the table loop populates IdMapper).
@@ -187,6 +225,7 @@ final class CompanyImporter
                 userIdMap: $userIdMap,
                 importingUserId: (int) $restore->requested_by_user_id,
                 newCompanyId: 0,
+                fallbackUserIds: $fallbackUserIds,
             );
 
             $shellResult = $shellTransformer->transform('companies', $rawCompanyRow);
@@ -205,8 +244,10 @@ final class CompanyImporter
             $shellRow['logo_path'] = null;
 
             // A copy never inherits its source's scheduled purge
-            // (companies:purge-deleted): it starts out as a live organization.
+            // (companies:purge-deleted) or its deletion: a backup of an
+            // organization pending purge restores as a live organization.
             $shellRow['purge_at'] = null;
+            $shellRow['deleted_at'] = null;
 
             // Strip account-FK columns from the shell insert — they reference
             // accounts we haven't restored yet. Re-applied after the table loop.
@@ -224,10 +265,12 @@ final class CompanyImporter
             $shellRow['created_at'] = $shellRow['created_at'] ?? $now;
             $shellRow['updated_at'] = $now;
 
-            $shellPayload = $this->prepareRowForInsert($this->encryptColumns(Company::class, $shellRow));
+            $shellPayload = $this->prepareRowForInsert(Company::class, $this->encryptColumns(Company::class, $shellRow));
 
             $stepResults = [];
             $deferredFkUpdates = [];
+            $orphanedRefs = [];
+            $jsonIdRows = [];
 
             $newCompany = DB::transaction(function () use (
                 $extractedDir,
@@ -241,6 +284,10 @@ final class CompanyImporter
                 $restore,
                 &$stepResults,
                 &$deferredFkUpdates,
+                &$orphanedRefs,
+                &$jsonIdRows,
+                $trace,
+                $fallbackUserIds,
             ): Company {
                 // The shell goes in inside the transaction, so a failure at
                 // any later step rolls it back with everything else.
@@ -258,11 +305,14 @@ final class CompanyImporter
 
                 app()->instance('current_company', $newCompany);
 
+                $trace->companyId = (int) $newCompany->id;
+
                 $rowTransformer = new RowTransformer(
                     idMapper: $idMapper,
                     userIdMap: $userIdMap,
                     importingUserId: (int) $restore->requested_by_user_id,
                     newCompanyId: (int) $newCompany->id,
+                    fallbackUserIds: $fallbackUserIds,
                 );
 
                 AuditMute::silence(function () use (
@@ -275,6 +325,9 @@ final class CompanyImporter
                     $rawCompanyRow,
                     &$stepResults,
                     &$deferredFkUpdates,
+                    &$orphanedRefs,
+                    &$jsonIdRows,
+                    $trace,
                 ): void {
                     foreach (BackupTableRegistry::tables() as $entry) {
                         $tableName = $entry['table'];
@@ -292,7 +345,9 @@ final class CompanyImporter
                         $jsonlPath = $extractedDir.'/data/'.$tableName.'.jsonl';
 
                         if (! is_file($jsonlPath)) {
-                            // Source company had zero rows for this table.
+                            // A table the bundle predates (verifyTableFiles has
+                            // already refused a file the manifest lists but the
+                            // ZIP lacks).
                             $stepResults[$tableName] = ['rows' => 0, 'inserted' => 0, 'skipped' => 0];
 
                             continue;
@@ -310,8 +365,16 @@ final class CompanyImporter
                         foreach ($this->reader->read($jsonlPath) as $row) {
                             $result = $rowTransformer->transform($tableName, $row);
 
+                            if (! $result['skip']) {
+                                $result['skip'] = $this->applyDanglingPolicy($tableName, $result);
+                            }
+
                             if ($result['skip']) {
                                 $skipped++;
+
+                                if ($result['old_id'] !== null) {
+                                    $trace->skipped[$tableName][] = $result['old_id'];
+                                }
 
                                 continue;
                             }
@@ -320,7 +383,26 @@ final class CompanyImporter
                                 $result['row']['gifi_code'] = GifiCodeCorrections::correct((string) $result['row']['gifi_code']);
                             }
 
-                            $payload = $this->prepareRowForInsert($this->encryptColumns($modelClass, $result['row']));
+                            $payload = $this->prepareRowForInsert($modelClass, $this->encryptColumns($modelClass, $result['row']));
+
+                            // A deferred reference rides as null until the
+                            // post-loop pass patches it. A column that can't be
+                            // null (attachments.attachable_id: polymorphic, so no
+                            // FK constraint to trip) holds 0 meanwhile.
+                            foreach ($result['deferred'] as $column => $_reference) {
+                                if (($payload[$column] ?? null) === null && ! $this->isNullable($tableName, $column)) {
+                                    $payload[$column] = 0;
+                                }
+                            }
+
+                            foreach ($result['orphans'] as $column => $reference) {
+                                $orphanedRefs[] = [
+                                    'table' => $tableName,
+                                    'column' => $column,
+                                    'id' => $reference['id'],
+                                    'table_referenced' => $reference['table'],
+                                ];
+                            }
 
                             if ($tableName === 'accounting_audit_logs') {
                                 [$payload, $auditPrevHash] = $this->rebuildAuditChainEntry($payload, $auditPrevHash);
@@ -332,19 +414,29 @@ final class CompanyImporter
                                 $idMapper->set($tableName, $result['old_id'], $newId);
                             }
 
-                            // Park any cross-cycle FK values for the post-loop UPDATE.
-                            // The parent ids these point at don't exist yet (e.g. an
-                            // estimate's converted_invoice_id, an invoice's
-                            // recurring_document_id). See RowTransformer::DEFERRED_FK_COLUMNS.
-                            if ($result['deferred'] !== []) {
-                                foreach ($result['deferred'] as $column => $oldParentId) {
-                                    $deferredFkUpdates[] = [
-                                        'table' => $tableName,
-                                        'new_id' => $newId,
-                                        'column' => $column,
-                                        'old_parent_id' => $oldParentId,
-                                    ];
-                                }
+                            // Ids inside JSON columns are remapped once every
+                            // table is in; keep what that pass needs.
+                            if (isset(RowTransformer::JSON_ID_PATHS[$tableName])) {
+                                $jsonIdRows[] = [
+                                    'table' => $tableName,
+                                    'new_id' => $newId,
+                                    'row' => array_intersect_key($result['row'], $this->jsonIdColumns($tableName)),
+                                ];
+                            }
+
+                            // Park every reference to a row not restored yet for
+                            // the post-loop UPDATE: cross-cycle FKs (an estimate's
+                            // converted_invoice_id), self-references (a voided
+                            // entry's reversed_by_entry_id) and polymorphic sources
+                            // restored later (a journal entry's invoice).
+                            foreach ($result['deferred'] as $column => $reference) {
+                                $deferredFkUpdates[] = [
+                                    'table' => $tableName,
+                                    'new_id' => $newId,
+                                    'column' => $column,
+                                    'parent_table' => $reference['table'],
+                                    'old_parent_id' => $reference['id'],
+                                ];
                             }
 
                             $inserted++;
@@ -371,7 +463,11 @@ final class CompanyImporter
                     // that the row transformer can NOW resolve via the populated
                     // IdMapper (default_inventory_asset_account_id, etc.).
                     $companyUpdate = $rowTransformer->transform('companies', $rawCompanyRow);
-                    $updateRow = $this->prepareRowForInsert($this->encryptColumns(Company::class, $companyUpdate['row']));
+                    $companyUpdateRow = array_replace(
+                        $companyUpdate['row'],
+                        $rowTransformer->remapJsonIds('companies', $companyUpdate['row']),
+                    );
+                    $updateRow = $this->prepareRowForInsert(Company::class, $this->encryptColumns(Company::class, $companyUpdateRow));
 
                     // Don't overwrite the freshly-generated slug or the (about to
                     // be set) logo_path — both are handled separately — nor the
@@ -381,6 +477,7 @@ final class CompanyImporter
                         $updateRow['slug'],
                         $updateRow['logo_path'],
                         $updateRow['purge_at'],
+                        $updateRow['deleted_at'],
                         $updateRow['id'],
                         $updateRow['created_at'],
                     );
@@ -391,36 +488,81 @@ final class CompanyImporter
                         ->update($updateRow);
 
                     // ---- Deferred FK pass ----
-                    // Cross-cycle FKs that couldn't be set on the primary insert
-                    // (the parent row didn't exist yet — e.g. estimates.converted_invoice_id
-                    // pointing forward into invoices). Now that the whole table loop
-                    // has populated IdMapper, look up the new parent ids and patch
-                    // the child rows.
+                    // References that couldn't be set on the primary insert because
+                    // the row they name hadn't been restored yet. Now that the whole
+                    // table loop has populated IdMapper, look up the new ids and
+                    // patch the rows.
                     $deferredApplied = 0;
                     $deferredOrphaned = 0;
+                    $patches = [];
                     foreach ($deferredFkUpdates as $update) {
-                        $parentTable = RowTransformer::DEFERRED_FK_COLUMNS[$update['table']][$update['column']] ?? null;
-
-                        $newParentId = $parentTable !== null
-                            ? $idMapper->get($parentTable, $update['old_parent_id'])
-                            : null;
+                        $newParentId = $idMapper->get($update['parent_table'], $update['old_parent_id']);
 
                         if ($newParentId === null) {
-                            // Orphan reference (parent table was excluded, empty, or
-                            // the bundle had a dangling id). Leave the column null.
+                            // The bundle names a row it doesn't hold. A nullable
+                            // column stays null; one that can't be null follows
+                            // its dangling-reference policy, and its placeholder
+                            // never survives the restore otherwise.
+                            $orphanedRefs[] = [
+                                'table' => $update['table'],
+                                'column' => $update['column'],
+                                'id' => $update['old_parent_id'],
+                                'table_referenced' => $update['parent_table'],
+                            ];
                             $deferredOrphaned++;
+
+                            if (! $this->isNullable($update['table'], $update['column'])) {
+                                $this->applyDeferredDanglingPolicy($update, $trace);
+                            }
 
                             continue;
                         }
 
-                        DB::table($update['table'])
-                            ->where('id', $update['new_id'])
-                            ->update([$update['column'] => $newParentId]);
+                        $patches[$update['table']][$update['column']][$update['new_id']] = $newParentId;
                         $deferredApplied++;
+                    }
+
+                    // Nearly every journal entry is patched (its source document
+                    // restores later), so the patches go in batches, not a
+                    // statement per row.
+                    foreach ($patches as $patchTable => $columns) {
+                        foreach ($columns as $column => $values) {
+                            $this->patchColumn($patchTable, $column, $values);
+                        }
                     }
                     $stepResults['_deferred_fks'] = [
                         'applied' => $deferredApplied,
                         'orphaned' => $deferredOrphaned,
+                    ];
+
+                    // ---- JSON id pass ----
+                    // Ids held inside JSON columns (FIFO layers an issue consumed,
+                    // lines a reconciliation marked, a saved report's account), now
+                    // that every table they can point at is in.
+                    $jsonUpdated = 0;
+                    foreach ($jsonIdRows as $jsonRow) {
+                        $changes = $rowTransformer->remapJsonIds($jsonRow['table'], $jsonRow['row']);
+
+                        if ($changes === []) {
+                            continue;
+                        }
+
+                        $modelForTable = BackupTableRegistry::modelFor($jsonRow['table']);
+
+                        DB::table($jsonRow['table'])
+                            ->where('id', $jsonRow['new_id'])
+                            ->update($this->prepareRowForInsert($modelForTable, $changes));
+                        $jsonUpdated++;
+                    }
+                    $stepResults['_json_ids'] = ['updated' => $jsonUpdated];
+
+                    // References to rows the bundle doesn't hold, restored as
+                    // null. A source id is never copied through: on this
+                    // instance it names another organization's row, or none.
+                    $trace->orphans = $orphanedRefs;
+                    $stepResults['_orphaned_refs'] = [
+                        'count' => count($orphanedRefs),
+                        'samples' => array_slice($orphanedRefs, 0, 20),
                     ];
                 });
 
@@ -481,7 +623,7 @@ final class CompanyImporter
 
             throw $e;
         } finally {
-            $this->removeDirectory($extractedDir);
+            $this->extractor->remove($extractRoot);
 
             if ($previousBinding !== null) {
                 app()->instance('current_company', $previousBinding);
@@ -492,81 +634,66 @@ final class CompanyImporter
     }
 
     /**
-     * Extract the ZIP at `$zipAbsolute` into `$extractedDir`. Throws on any
-     * ZipArchive failure so the caller can surface a precise error.
+     * The bundle holds a data file for every table its manifest lists, and no
+     * table file the manifest doesn't list. The exporter writes a file for each
+     * table even with no rows, so a missing one is a damaged bundle (a restore
+     * would otherwise go ahead without that table), and an unlisted one has no
+     * hash to check it against.
+     *
+     * @param  array<string, mixed>  $manifestTables
      */
-    private function extractZip(string $zipAbsolute, string $extractedDir): void
+    private function verifyTableFiles(string $extractedDir, array $manifestTables): void
     {
-        $zip = new ZipArchive;
-        $openResult = $zip->open($zipAbsolute);
-
-        if ($openResult !== true) {
-            throw new RuntimeException(
-                "Unable to open backup ZIP at {$zipAbsolute} (ZipArchive error code: {$openResult})."
-            );
-        }
-
-        try {
-            $this->assertSafeZipEntries($zip);
-
-            if (! $zip->extractTo($extractedDir)) {
-                throw new RuntimeException("Failed to extract backup ZIP to {$extractedDir}.");
+        foreach (array_keys($manifestTables) as $tableName) {
+            if (BackupTableRegistry::modelFor((string) $tableName) === null) {
+                continue; // a table this version doesn't restore (the inspector warns)
             }
-        } finally {
-            $zip->close();
+
+            if (! is_file($extractedDir.'/data/'.$tableName.'.jsonl')) {
+                throw new BundleValidationException(sprintf(
+                    'The backup is damaged: its manifest lists table %s, but data/%s.jsonl is missing.',
+                    $tableName,
+                    $tableName,
+                ));
+            }
         }
-    }
 
-    /**
-     * Reject a hostile archive *before* extraction. An entry with an absolute
-     * path, a `..` traversal segment, or a drive/UNC prefix could otherwise make
-     * `ZipArchive::extractTo()` write outside `$extractedDir` (a "zip slip").
-     * Modern libzip guards this internally, but the bundle is fully
-     * attacker-controlled (any authenticated user can upload one), so we make
-     * the boundary explicit and version-independent.
-     */
-    private function assertSafeZipEntries(ZipArchive $zip): void
-    {
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $name = (string) $zip->getNameIndex($i);
-            $normalized = str_replace('\\', '/', $name);
+        foreach (glob($extractedDir.'/data/*.jsonl') ?: [] as $file) {
+            $tableName = basename($file, '.jsonl');
 
-            if ($normalized === ''
-                || str_starts_with($normalized, '/')
-                || preg_match('#^[a-zA-Z]:#', $normalized) === 1
-                || in_array('..', explode('/', $normalized), true)
-            ) {
-                throw new BundleValidationException(
-                    "Refusing to extract unsafe archive entry: {$name}"
-                );
+            if (! array_key_exists($tableName, $manifestTables)) {
+                throw new BundleValidationException(sprintf(
+                    'The backup is damaged: data/%s.jsonl is not listed in its manifest.',
+                    $tableName,
+                ));
             }
         }
     }
 
     /**
-     * Return the directory that actually holds `manifest.json`. Handles a bundle
-     * that was extracted then re-compressed by macOS Finder, which wraps every
-     * entry in a single folder alongside a `__MACOSX/` sidecar. Falls back to the
-     * extraction root when there is no single wrapping folder, leaving the
-     * downstream manifest checks to report the problem.
+     * `users.json` matches the hash the manifest recorded for it. A bundle from
+     * before the manifest recorded one passes.
+     *
+     * @param  array<string, mixed>  $manifest
      */
-    private function resolveContentRoot(string $extractedDir): string
+    private function verifyUsersFile(string $extractedDir, array $manifest): void
     {
-        if (is_file($extractedDir.'/manifest.json')) {
-            return $extractedDir;
+        $expected = $manifest['users']['sha256'] ?? null;
+
+        if (! is_string($expected) || $expected === '') {
+            return;
         }
 
-        foreach (glob($extractedDir.'/*', GLOB_ONLYDIR) ?: [] as $dir) {
-            if (basename($dir) === '__MACOSX') {
-                continue;
-            }
+        $path = $extractedDir.'/users.json';
+        $actual = is_file($path) ? hash_file('sha256', $path) : false;
 
-            if (is_file($dir.'/manifest.json')) {
-                return $dir;
-            }
+        if ($actual === false || ! hash_equals($expected, $actual)) {
+            throw new BundleValidationException(sprintf(
+                'Integrity check failed for users.json (expected sha256 %s, got %s).',
+                $expected,
+                $actual === false ? 'missing' : $actual,
+            ));
         }
-
-        return $extractedDir;
     }
 
     /**
@@ -665,12 +792,27 @@ final class CompanyImporter
      * datetime strings untouched — this is the boundary where we serialise
      * them for the underlying DB driver.
      *
+     * A column the model casts to JSON is encoded whatever the PHP type of its
+     * value: `user_preferences.value` holds bare scalars, which bound raw would
+     * land as `0`/`1` for a boolean or as invalid JSON for a string.
+     *
+     * @param  class-string<Model>  $modelClass
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
-    private function prepareRowForInsert(array $row): array
+    private function prepareRowForInsert(string $modelClass, array $row): array
     {
+        $this->jsonColumns[$modelClass] ??= self::jsonCastColumns($modelClass);
+
         foreach ($row as $column => $value) {
+            if ($value !== null && in_array($column, $this->jsonColumns[$modelClass], true)) {
+                $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+                $row[$column] = $encoded === false ? null : $encoded;
+
+                continue;
+            }
+
             if (is_array($value)) {
                 $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -685,6 +827,168 @@ final class CompanyImporter
         }
 
         return $row;
+    }
+
+    /**
+     * The columns `$modelClass` casts to JSON (`array`, `json`, `object`,
+     * `collection`, or an `As*` JSON cast class). Encrypted casts are left out:
+     * {@see self::encryptColumns()} has already turned those into ciphertext.
+     *
+     * @param  class-string<Model>  $modelClass
+     * @return list<string>
+     */
+    public static function jsonCastColumns(string $modelClass): array
+    {
+        $columns = [];
+
+        foreach ((new $modelClass)->getCasts() as $column => $cast) {
+            $base = strtolower(explode(':', $cast, 2)[0]);
+
+            if (in_array($base, ['array', 'json', 'object', 'collection'], true)
+                || str_contains($cast, 'AsArrayObject')
+                || str_contains($cast, 'AsCollection')
+            ) {
+                $columns[] = (string) $column;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Decide what happens to a row with a reference to a row the bundle
+     * doesn't hold. A nullable column simply restores null. One that can't be
+     * null follows {@see RowTransformer::DANGLING_REFERENCE_POLICY}: `zero`
+     * keeps the row pointing at nothing, `skip` leaves the row out (returns
+     * true). Anything else fails the restore.
+     *
+     * @param  array{row: array<string, mixed>, old_id: ?int, skip: bool, deferred: array<string, array{table: string, id: int}>, orphans: array<string, array{table: string, id: int}>}  $result  Mutated: a `zero` column is set to 0.
+     */
+    private function applyDanglingPolicy(string $table, array &$result): bool
+    {
+        foreach ($result['orphans'] as $column => $reference) {
+            if ($this->isNullable($table, $column)) {
+                continue;
+            }
+
+            $policy = RowTransformer::DANGLING_REFERENCE_POLICY[$table][$column] ?? null;
+
+            if ($policy === 'zero') {
+                $result['row'][$column] = 0;
+
+                continue;
+            }
+
+            if ($policy === 'skip') {
+                return true;
+            }
+
+            throw new RuntimeException(sprintf(
+                '%s #%d: %s names %s #%d, which is not in the backup.',
+                $table,
+                (int) $result['old_id'],
+                $column,
+                $reference['table'],
+                $reference['id'],
+            ));
+        }
+
+        return false;
+    }
+
+    /**
+     * {@see self::applyDanglingPolicy()} for a deferred reference that never
+     * resolved: the row is already in, holding the placeholder 0.
+     *
+     * @param  array{table: string, new_id: int, column: string, parent_table: string, old_parent_id: int}  $update
+     */
+    private function applyDeferredDanglingPolicy(array $update, RestoreTrace $trace): void
+    {
+        $policy = RowTransformer::DANGLING_REFERENCE_POLICY[$update['table']][$update['column']] ?? null;
+
+        if ($policy === 'zero') {
+            return;
+        }
+
+        if ($policy === 'skip') {
+            DB::table($update['table'])->where('id', $update['new_id'])->delete();
+
+            $oldId = array_search($update['new_id'], $trace->ids->table($update['table']), true);
+
+            if ($oldId !== false) {
+                $trace->ids->forget($update['table'], (int) $oldId);
+                $trace->skipped[$update['table']][] = (int) $oldId;
+            }
+
+            return;
+        }
+
+        throw new RuntimeException(sprintf(
+            '%s #%d: %s names %s #%d, which is not in the backup.',
+            $update['table'],
+            $update['new_id'],
+            $update['column'],
+            $update['parent_table'],
+            $update['old_parent_id'],
+        ));
+    }
+
+    /**
+     * The columns {@see RowTransformer::remapJsonIds()} reads for `$table`:
+     * its JSON columns holding ids, and any its `when` conditions test.
+     *
+     * @return array<string, true>
+     */
+    private function jsonIdColumns(string $table): array
+    {
+        $columns = [];
+
+        foreach (RowTransformer::JSON_ID_PATHS[$table] ?? [] as $spec) {
+            $columns[$spec['column']] = true;
+
+            foreach (array_keys($spec['when'] ?? []) as $condition) {
+                $columns[$condition] = true;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Set `$table.$column` on many rows at once: `$values` is row id => value,
+     * all integers (restored ids), so they go straight into a CASE.
+     *
+     * @param  array<int, int>  $values
+     */
+    private function patchColumn(string $table, string $column, array $values): void
+    {
+        foreach (array_chunk($values, 500, true) as $chunk) {
+            $cases = implode(' ', array_map(
+                static fn (int $id, int $value): string => "WHEN {$id} THEN {$value}",
+                array_keys($chunk),
+                $chunk,
+            ));
+
+            DB::table($table)
+                ->whereIn('id', array_keys($chunk))
+                ->update([$column => DB::raw("CASE id {$cases} END")]);
+        }
+    }
+
+    /**
+     * Whether `$table.$column` accepts null.
+     */
+    private function isNullable(string $table, string $column): bool
+    {
+        if (! isset($this->nullableColumns[$table])) {
+            $this->nullableColumns[$table] = [];
+
+            foreach (Schema::getColumns($table) as $definition) {
+                $this->nullableColumns[$table][$definition['name']] = (bool) $definition['nullable'];
+            }
+        }
+
+        return $this->nullableColumns[$table][$column] ?? true;
     }
 
     /**
@@ -841,28 +1145,5 @@ final class CompanyImporter
             ->max() ?? 0;
 
         return $base.'-'.($maxSuffix + 1);
-    }
-
-    /**
-     * Recursively delete the extract directory. Best-effort: warnings are
-     * suppressed because the orchestrator has already done the meaningful
-     * work and we don't want a stat error to mask a real exception.
-     */
-    private function removeDirectory(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $entry) {
-            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
-        }
-
-        @rmdir($dir);
     }
 }

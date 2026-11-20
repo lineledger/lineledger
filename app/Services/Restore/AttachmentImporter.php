@@ -7,6 +7,7 @@ use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -173,8 +174,13 @@ final class AttachmentImporter
         }
 
         $sourceAbsolute = $candidates[0];
-        $safeFilename = $this->safeFilename(basename($sourceAbsolute));
-        $targetPath = self::LOGO_DIRECTORY.'/'.$safeFilename;
+
+        // A name of its own, as an upload gets. Reusing the source's name would
+        // make a copy restored next to its original share the original's file,
+        // and changing or purging either organization's logo would delete the
+        // other's.
+        $extension = strtolower(pathinfo($this->safeFilename(basename($sourceAbsolute)), PATHINFO_EXTENSION));
+        $targetPath = self::LOGO_DIRECTORY.'/'.Str::random(40).($extension === '' ? '' : '.'.$extension);
 
         $this->copyToDisk($sourceAbsolute, StorageDisks::logos(), $targetPath);
 

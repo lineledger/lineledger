@@ -55,6 +55,15 @@ new #[Title('Documentation — Self-hosting & upgrades')] class extends Componen
             <a class="underline" href="{{ route('docs.creating-a-company') }}" wire:navigate>{{ __('Create an organization') }}</a>
             {{ __('for restoring one into a new organization.') }}
         </flux:text>
+        <flux:text class="mt-3">
+            {{ __('Organization backups can also run on a schedule, from the command line, with no Owner involved. backup:export --all --output=/path/to/folder --keep=14 --verify, run nightly from cron (on Docker, through docker compose exec -T app php artisan), writes each organization’s ZIP into its own folder with a checksum beside it and keeps the newest 14.') }}
+        </flux:text>
+        <flux:text class="mt-3">
+            {{ __('--verify proves each new backup restores completely. It checks the ZIP itself (every table file and its hash, the attachment files, the references between records, balanced books, and an intact audit chain). Then it restores the backup inside a database transaction that is always rolled back, compares every restored row with the backup, and leaves nothing behind. Run it off-peak: the transaction holds its locks until it ends.') }}
+        </flux:text>
+        <flux:text class="mt-3">
+            {{ __('backup:verify checks any backup the same way, and backup:restore restores one into a new organization. A backup holds an organization’s whole ledger and its employees’ SINs, so keep the folder private.') }}
+        </flux:text>
 
         {{-- ─────────────────── Back up before you upgrade ────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Back up before you upgrade') }}</flux:heading>
