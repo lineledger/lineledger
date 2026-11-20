@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Business Q&A MCP server can read what is on an invoice.** Three new
+  read-only tools: `get-invoice-tool` returns one invoice in full — every line
+  as typed (description, quantity, unit price, account, tax codes and G/P/E
+  tax flags, and whether the line is a service, a pass-through disbursement or
+  tax), tax by code, totals, the payments applied, the balance due and the
+  customer's address — as text or, with `format: json`, as one object;
+  `invoice-lines-tool` searches lines across invoices by item, customer,
+  description, account and dates, with counts and totals; and
+  `customer-payments-tool` lists a customer's payments and what each paid,
+  card and cheque refunds, credit memos, and the credit they still hold. An
+  assistant no longer has to rebuild an invoice from account ledgers.
+- **`find-contact-tool` returns contact details:** billing and shipping
+  address, email, phone, terms and API id, shown only to a connection that may
+  view that customer or vendor. Tax numbers and notes stay out.
+- **`account-balance-tool` pages and filters.** `limit` (up to 500) and
+  `offset` replace the fixed ten most recent lines, the answer says how many
+  more there are, and `contact` and `reference` (an entry number, or a
+  document number in the memo) narrow the lines. On a payroll line hidden from
+  the connection, `reference` and `contact` match the entry number only.
+- **`list-invoices-tool`** shows each invoice's API id and balance due and
+  filters by invoice number.
+
+### Fixed
+
+- `list-invoices-tool` labelled a foreign-currency invoice's total as home
+  currency; totals now print in the invoice's own currency.
+- MCP name searches (`find-contact-tool` and the new tools) treat `%` and `_`
+  literally on SQLite too, not only on MySQL.
+
 ## [1.5.0-rc.4] - 2026-11-20
 
 **Highlights.** The fourth release candidate for 1.5.0, on the next channel

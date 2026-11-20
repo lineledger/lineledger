@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * @property ReceiptStatus|null $status
  * @property Carbon|null $receipt_date
+ * @property string|null $currency_code
  */
 #[Fillable([
     'company_id', 'contact_id', 'credit_memo_id', 'refunded_receipt_id', 'from_invoice_id',

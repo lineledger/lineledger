@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $due_date
  * @property string|null $currency_code
  * @property string|null $fx_rate
+ * @property int|null $home_total_cents
  * @property InvoiceStatus|null $status
  */
 #[Fillable([

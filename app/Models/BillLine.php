@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int|null $line_discount_cents
+ */
 #[Fillable([
     'bill_id', 'item_id', 'purchase_order_line_id', 'account_id', 'description',
     'quantity', 'unit_price_cents', 'line_discount_cents', 'line_discount_pct', 'tax_code_id', 'secondary_tax_code_id', 'secondary_tax_cents', 'secondary_tax_override_cents',

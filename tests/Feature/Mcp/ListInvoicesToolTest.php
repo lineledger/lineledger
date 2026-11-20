@@ -151,3 +151,31 @@ it('ListInvoices: shows the sales rep and can filter by it', function () {
     expect($filtered)->toContain('INV-WITH-REP')
         ->and($filtered)->not->toContain('INV-NO-REP');
 });
+
+it('ListInvoices: shows the balance due, filters by number, and prints each invoice in its own currency', function () {
+    $company = Company::factory()->create(['currency_code' => 'CAD']);
+    app()->instance('current_company', $company);
+    $customer = Contact::factory()->create(['company_id' => $company->id, 'is_customer' => true, 'display_name' => 'Acme Co']);
+
+    $cad = Invoice::create([
+        'company_id' => $company->id, 'contact_id' => $customer->id, 'invoice_no' => 'INV 90/002',
+        'invoice_date' => '2026-05-01', 'due_date' => '2026-05-31', 'status' => 'partial',
+        'total_cents' => 100000, 'amount_paid_cents' => 40000,
+    ]);
+    Invoice::create([
+        'company_id' => $company->id, 'contact_id' => $customer->id, 'invoice_no' => 'INV-USD-7',
+        'invoice_date' => '2026-05-02', 'due_date' => '2026-06-01', 'status' => 'posted',
+        'currency_code' => 'USD', 'fx_rate' => '1.35', 'total_cents' => 5000, 'home_total_cents' => 6750,
+    ]);
+    bindMcpTenant($company);
+
+    $all = (string) (new ListInvoicesTool)->handle(new Request([]))->content();
+    expect($all)
+        ->toContain("INV 90/002 (API id {$cad->id})")
+        ->toContain('total CA$1,000.00 | balance due CA$600.00')
+        ->toContain('total $50.00 | balance due $50.00')
+        ->toContain('each invoice\'s own currency');
+
+    $byNumber = (string) (new ListInvoicesTool)->handle(new Request(['number' => '90/002']))->content();
+    expect($byNumber)->toContain('INV 90/002')->not->toContain('INV-USD-7');
+});

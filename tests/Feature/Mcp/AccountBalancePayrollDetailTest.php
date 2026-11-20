@@ -67,3 +67,40 @@ it('reads payroll memos as "Payroll" for a key whose creator cannot open pay run
 
     expect($activity())->toContain('Payroll cheque 7 — Jane Employee');
 });
+
+it('does not match a hidden payroll line by the employee named in its memo', function () {
+    $company = Company::factory()->create();
+    $creator = User::factory()->create();
+    $membership = $company->memberships()->create([
+        'user_id' => $creator->id,
+        'role' => CompanyRole::Custom,
+        'sections' => [Section::Accounting->value, Section::Reports->value],
+    ]);
+
+    ['key' => $key] = CompanyApiKey::mint($company->refresh(), 'Ledger key', $creator->id);
+    app()->instance('current_company', $company);
+    app()->instance('current_api_key', $key);
+
+    $bank = Account::query()->where('subtype', AccountSubtype::Bank->value)->orderBy('code')->firstOrFail();
+    $expense = Account::query()->where('subtype', AccountSubtype::Expense->value)->orderBy('code')->firstOrFail();
+
+    $entry = JournalEntry::create([
+        'entry_no' => 'PAY-0008',
+        'entry_date' => $company->currentDateTime()->toDateString(),
+        'memo' => 'Payroll cheque 8 — Jane Employee',
+        'source_type' => PayrollCheque::class,
+        'is_posted' => true,
+    ]);
+    JournalLine::create(['journal_entry_id' => $entry->id, 'account_id' => $expense->id, 'debit_cents' => 1000, 'credit_cents' => 0, 'line_order' => 0]);
+    JournalLine::create(['journal_entry_id' => $entry->id, 'account_id' => $bank->id, 'debit_cents' => 0, 'credit_cents' => 1000, 'memo' => 'Payroll cheque 8 — Jane Employee', 'line_order' => 1]);
+
+    $search = fn (string $reference): string => (string) (new AccountBalanceTool)->handle(new Request(['account' => $bank->code, 'period' => 'ytd', 'reference' => $reference]))->content();
+
+    // The entry number still finds it; the employee's name does not.
+    expect($search('PAY-0008'))->toContain('PAY-0008')
+        ->and($search('Jane'))->toContain('No ledger lines in this period for reference "Jane"');
+
+    $membership->update(['sections' => [Section::Accounting->value, Section::Reports->value, Section::Payroll->value]]);
+
+    expect($search('Jane'))->toContain('PAY-0008');
+});
