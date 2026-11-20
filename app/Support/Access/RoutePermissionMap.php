@@ -143,6 +143,8 @@ final class RoutePermissionMap
         'reports.budget-overview' => Activity::Budgets,
         'reports.budget-vs-actual-by-month' => Activity::Budgets,
         'reports.audit-log' => Activity::AuditLog,
+        'reports.voided-deleted' => Activity::ReportsFinancial,
+        'deleted-transactions' => Activity::ReportsFinancial,
         'tax-returns' => Activity::TaxReturns,
         'budgets' => Activity::Budgets,
 

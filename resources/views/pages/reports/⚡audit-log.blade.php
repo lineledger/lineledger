@@ -225,7 +225,14 @@ new #[Title('Audit Logs')] class extends Component {
                             <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->toDayDateTimeString() }}</td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->action->value }}</td>
                             <td class="px-3 py-2 text-xs">
-                                {{ class_basename($row->auditable_type) }} #{{ $row->auditable_id }}
+                                @if ($row->auditable_type === \App\Models\DeletedTransaction::class && ($deletedType = \App\Enums\DeletableDocumentType::tryFrom((string) ($row->payload['document_type'] ?? ''))))
+                                    {{-- A deletion: name what was deleted from the payload, which outlives the document. --}}
+                                    <a href="{{ route('deleted-transactions.show', ['company' => $company->slug, 'deletedTransaction' => $row->auditable_id]) }}" wire:navigate class="underline" data-test="audit-deleted-target">
+                                        {{ __(':document :no (deleted)', ['document' => $deletedType->label(), 'no' => (string) ($row->payload['document_number'] ?? '')]) }}
+                                    </a>
+                                @else
+                                    {{ class_basename($row->auditable_type) }} #{{ $row->auditable_id }}
+                                @endif
                             </td>
                             <td class="px-3 py-2">
                                 @if ($row->apiKey)

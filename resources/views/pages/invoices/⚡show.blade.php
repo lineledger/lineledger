@@ -12,6 +12,7 @@ use App\Enums\ReceiptStatus;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\IssuesCustomerRefunds;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Attachment;
@@ -21,14 +22,14 @@ use App\Models\CustomerReceipt;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\ReceiptApplication;
-use App\Services\Sales\PaymentRequestScheduleStatus;
-use App\Support\Money;
-use App\Support\Tax\LineTaxBreakdown;
 use App\Services\AttachmentService;
 use App\Services\Posting\ChequePoster;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\InvoiceReconciler;
 use App\Services\Posting\ReceiptPoster;
+use App\Services\Sales\PaymentRequestScheduleStatus;
+use App\Support\Money;
+use App\Support\Tax\LineTaxBreakdown;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +43,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new #[Title('Invoice')] class extends Component {
+    use DeletesTransaction;
     use IssuesCustomerRefunds;
     use ShowsEditLock;
     use WithFileUploads;
@@ -95,6 +97,11 @@ new #[Title('Invoice')] class extends Component {
     ];
 
     protected function editLockRecord(): ?Model
+    {
+        return $this->invoice;
+    }
+
+    protected function deletableDocument(): Model
     {
         return $this->invoice;
     }
@@ -629,6 +636,16 @@ new #[Title('Invoice')] class extends Component {
                         </flux:menu.item>
                         @endcallable
                     @endif
+                    @if ($this->canOfferDelete)
+                        @if ($invoice->status === InvoiceStatus::Void || $invoice->status === InvoiceStatus::Draft)
+                            <flux:menu.separator />
+                        @endif
+                        @callable($this, 'prepareDelete')
+                        <flux:menu.item icon="trash" variant="danger" wire:click="prepareDelete" data-test="delete-transaction-button">
+                            {{ __('Delete') }}
+                        </flux:menu.item>
+                        @endcallable
+                    @endif
                 </flux:menu>
             </flux:dropdown>
         </div>
@@ -984,4 +1001,6 @@ new #[Title('Invoice')] class extends Component {
             </div>
         </form>
     </flux:modal>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$invoice" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

@@ -53,6 +53,7 @@ $oldReach = fn (CompanyRole $role, ?array $sections): array => match ($role) {
 $newWithRoles = [
     'settings.users-and-roles', 'settings.roles.create', 'settings.roles.edit', 'reports.role-permissions',
     'deadlines.index', 'deadlines.create', 'deadlines.suggestions', 'deadlines.show', 'deadlines.edit',
+    'deleted-transactions.show',
 ];
 
 $memberships = [

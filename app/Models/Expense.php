@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Enums\ExpenseStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -28,7 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class Expense extends Model
 {
-    use BelongsToCompany, SoftDeletes;
+    use BelongsToCompany, GuardsPostedDeletion, SoftDeletes;
 
     /**
      * The bank (asset), credit-card, or loan (liability) account the money came from.

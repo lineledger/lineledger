@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Exceptions\Posting\PostedDocumentDeletionException;
+use App\Services\Deletion\TransactionDeleter;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,6 +51,14 @@ class JournalEntry extends Model
      */
     protected static function booted(): void
     {
+        // A posted entry leaves the ledger only with its document, through
+        // TransactionDeleter; anywhere else, void it. Drafts delete freely.
+        static::deleting(function (JournalEntry $entry): void {
+            if ($entry->isPosted() && ! TransactionDeleter::running()) {
+                throw PostedDocumentDeletionException::for($entry);
+            }
+        });
+
         static::saved(function (JournalEntry $entry): void {
             if ($entry->wasChanged('is_posted') || $entry->wasChanged('entry_date')) {
                 JournalLine::query()

@@ -452,6 +452,11 @@ final class RowTransformer
             'reverses_entry_id' => 'journal_entries',
             'reversed_by_entry_id' => 'journal_entries',
         ],
+        // A deleted transaction's record: the only live reference is the bank
+        // account whose cheque numbers it reserves (original_id is history).
+        'deleted_transactions' => [
+            'bank_account_id' => 'accounts',
+        ],
         'accounting_audit_logs' => [
             'journal_entry_id' => 'journal_entries',
             'api_key_id' => 'company_api_keys',
@@ -835,6 +840,7 @@ final class RowTransformer
         'company_members' => ['sections' => 'none'],
         'company_invitations' => ['sections' => 'none'],
         'accounting_audit_logs' => ['payload' => 'snapshot'],
+        'deleted_transactions' => ['snapshot' => 'snapshot'], // what was deleted, as it stood
         'mcp_write_proposals' => ['payload' => 'snapshot'],
         'currency_revaluations' => ['rate_snapshot' => 'none'], // keyed by currency code
         'invoice_settings' => ['statement_columns' => 'none'],

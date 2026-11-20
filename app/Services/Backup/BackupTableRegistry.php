@@ -37,6 +37,7 @@ use App\Models\Deadline;
 use App\Models\DeadlineNotificationLog;
 use App\Models\DeadlineNotificationSetting;
 use App\Models\DeadlineOccurrence;
+use App\Models\DeletedTransaction;
 use App\Models\Deposit;
 use App\Models\DepositLine;
 use App\Models\DocumentFolder;
@@ -407,6 +408,11 @@ final class BackupTableRegistry
             ['table' => 'bank_import_profiles', 'model' => BankImportProfile::class, 'group' => 'reconciliation'],
             ['table' => 'bank_statement_imports', 'model' => BankStatementImport::class, 'group' => 'reconciliation'],
             ['table' => 'bank_statement_lines', 'model' => BankStatementLine::class, 'group' => 'reconciliation'],
+
+            // Deleted transactions (tombstones). Just before the audit trail:
+            // the audit row about each delete names its tombstone as auditable,
+            // so the tombstone must be restored first.
+            ['table' => 'deleted_transactions', 'model' => DeletedTransaction::class, 'group' => 'gl'],
 
             // === The audit trail (must come very last) ===
             // Every row is hash-chained and immutable (DB triggers block UPDATE),

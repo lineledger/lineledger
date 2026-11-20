@@ -190,6 +190,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <li>{{ __('Warn if duplicate bill number is used — when entering a bill, warns if this supplier already has a bill with the same reference number. You can still save it.') }}</li>
             <li>{{ __('Getting-started tips — Show tips restarts the dashboard tour from the first tip, for new users who dismissed it too soon.') }}</li>
             <li>{{ __('Daily insight — “Write my daily insight with AI” sends only summarized totals — never customer names, transaction details, or descriptions — to Anthropic to word the note on your dashboard. When off, insights still appear using LineLedger’s built-in wording. The block appears only when your operator has enabled the AI layer.') }}</li>
+            <li>{{ __('Deleting transactions — Allow deleting posted and voided transactions lets members whose role includes Delete remove them as if they were never entered, while the audit log keeps a record. Turn it off for void-only books; drafts can always be deleted. Each change to it is recorded in the audit log.') }}</li>
             <li>{{ __('Cheque print alignment — Horizontal offset and Vertical offset, in points (1 pt = 1/72 in), nudge printed cheque text onto your pre-printed stock. Print a cheque, measure the drift, then adjust; leave both blank for the default.') }}</li>
         </ul>
 

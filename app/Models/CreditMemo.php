@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToCompany;
+use App\Concerns\GuardsPostedDeletion;
 use App\Concerns\TracksCustomerRefunds;
 use App\Enums\CreditMemoStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,7 +25,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class CreditMemo extends Model
 {
-    use BelongsToCompany, SoftDeletes, TracksCustomerRefunds;
+    use BelongsToCompany, GuardsPostedDeletion, SoftDeletes, TracksCustomerRefunds;
 
     /**
      * @return BelongsTo<Contact, $this>

@@ -3,6 +3,7 @@
 namespace App\Services\Posting;
 
 use App\Models\Company;
+use App\Models\DeletedTransaction;
 use App\Models\JournalEntry;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +28,14 @@ class EntryNumberGenerator
             if ($last && preg_match('/JE-(\d+)/', $last->entry_no, $m)) {
                 $nextSeq = ((int) $m[1]) + 1;
             }
+
+            // A deleted transaction's entry numbers are never handed out again:
+            // the audit trail and the Voided/Deleted report still name them.
+            $deleted = (int) DeletedTransaction::withoutGlobalScopes()
+                ->where('company_id', $company->id)
+                ->max('max_entry_seq');
+
+            $nextSeq = max($nextSeq, $deleted + 1);
 
             // The newest entry usually holds the highest number, but not
             // always: a number typed by hand can sit below the sequence. Step

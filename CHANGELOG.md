@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Delete a transaction, as in QuickBooks Desktop** (#241). Invoices, sales
+  receipts and customer payments now have **Delete** in their Actions menu,
+  whether draft, posted or voided. A deleted transaction leaves your books and
+  every report as if it was never entered: its lines and journal entries go
+  (for a voided one, the void's reversing entry too), any stock it moved comes
+  back, and a payment's invoices show as owing again. Nothing disappears
+  without a trace:
+  - the audit log records each deletion with a full copy of what was deleted,
+    who deleted it, when and why, and its chain still verifies;
+  - the new **Voided/Deleted Transactions** report (Accountant & Taxes) lists
+    every transaction voided or deleted in a period, and opens a deleted one
+    as it stood, struck through, with its audit trail. An old link to a
+    deleted document opens that record too;
+  - a deleted document's number, and its journal entry's number, are never
+    handed out again automatically.
+
+  The confirmation lists anything that has to be dealt with first, with a link
+  to each: a payment applied to the invoice, a deposit holding the receipt, a
+  refund of a payment's credit, a fixed asset made from it, a completed bank
+  reconciliation or a filed tax return that includes it, stock of an item on it
+  that has moved since, a Stripe card payment, or an official donation receipt.
+  A transaction dated in a closed period needs the same override as any other
+  change there. Delete uses the role's existing **Delete** permission (the one
+  Void uses). An owner can switch off deleting posted and voided transactions
+  under organization settings, for void-only books; drafts can always be
+  deleted. Deleting a draft is now a real delete everywhere it is offered,
+  rather than hiding the row. Other transaction types keep Void for now.
+- `integrity:check` reports a journal entry whose invoice, sales receipt or
+  payment no longer exists, and a posted or voided one whose journal entry
+  no longer exists.
+
 - **Deadlines: a filing and payment calendar for each organization.** A new
   Deadlines item sits under Dashboard in the sidebar. Each deadline (a GST/HST
   return, a PST remittance, payroll source deductions, WCB reports, employer
