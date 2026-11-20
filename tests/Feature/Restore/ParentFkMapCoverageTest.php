@@ -43,12 +43,13 @@ beforeEach(function () {
         'contacts.employee_id', // employee number, free text
         'journal_entries.source_external_id', // QuickBooks TxnID carried over by the migration
         'customer_receipts.stripe_payment_intent_id', // Stripe PaymentIntent handle
+        'bank_statement_lines.external_id', // the bank's own transaction id (OFX FITID)
     ];
 
-    // Polymorphic ids the transformer deliberately leaves alone. See the
-    // matching comment on the table's BackupTableRegistry entry.
+    // Polymorphic ids the transformer remaps in a per-table quirk, because
+    // the type column holds a kind rather than a class name.
     $this->polymorphicNotRemapped = [
-        'inbox_items.promoted_document_id',
+        'inbox_items.promoted_document_id', // RowTransformer::INBOX_PROMOTED_DOCUMENT_TABLES
     ];
 
     // Known un-remapped soft references — documented here, not endorsed.

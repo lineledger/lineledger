@@ -2,6 +2,7 @@
 
 namespace App\Services\Restore;
 
+use App\Actions\Documents\PromoteInboxItem;
 use App\Enums\McpProposalStatus;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Backup\ReferencedUsersExporter;
@@ -26,11 +27,19 @@ use Throwable;
  *     through the email-match map built by {@see UserRemapBuilder}. Unknown
  *     ids fall back to the importing user, mirroring the exporter contract.
  *  4. Remap parent foreign keys via {@see IdMapper} using the per-table
- *     {@see self::PARENT_FK_MAP}. Unknown ids are left intact (the orchestrator
- *     surfaces orphaned references; we never crash on missing parents).
+ *     {@see self::PARENT_FK_MAP}.
  *  5. Polymorphic `*_type` / `*_id` pairs (`journal_entries.source`, etc.) are
  *     translated by resolving the FQCN to its Eloquent table and looking up
  *     the new id in `IdMapper`. Unknown types are passed through untouched.
+ *
+ *     A reference (4 or 5) whose row isn't in `IdMapper` yet is one of two
+ *     things. If its table restores at or after this one (a self-reference such
+ *     as `reversed_by_entry_id`, or a source document restored later), it is
+ *     **deferred**: inserted as null and patched in by the orchestrator once
+ *     every table is in. If its table has already been restored, the row it
+ *     names isn't in the bundle: it is an **orphan**, inserted as null and
+ *     reported. A source id is never copied through, since on this instance it
+ *     names another organization's row, or none.
  *  6. Per-table quirks (`companies`, `attachments`, `company_api_keys`,
  *     `company_invitations`, `customer_receipts`, `mcp_write_proposals`,
  *     `document_folders`, `company_members`) are applied last. They include
@@ -532,6 +541,37 @@ final class RowTransformer
             'attachment_id' => 'attachments',
             'suggested_contact_id' => 'contacts',
         ],
+        'budgets' => [
+            'class_id' => 'classifications',
+            'location_id' => 'locations',
+            'fund_id' => 'funds',
+        ],
+        'budget_lines' => [
+            'budget_id' => 'budgets',
+            'account_id' => 'accounts',
+        ],
+        // Bank-feed imports. created_by_user_id is remapped by the generic
+        // `*_user_id` pass.
+        'bank_import_profiles' => [
+            'account_id' => 'accounts',
+        ],
+        'bank_statement_imports' => [
+            'account_id' => 'accounts',
+            'bank_reconciliation_id' => 'bank_reconciliations',
+            'bank_import_profile_id' => 'bank_import_profiles',
+            'attachment_id' => 'attachments',
+        ],
+        'bank_statement_lines' => [
+            'bank_statement_import_id' => 'bank_statement_imports',
+            'account_id' => 'accounts',
+            'matched_journal_line_id' => 'journal_lines',
+            'created_journal_entry_id' => 'journal_entries',
+            'suggested_account_id' => 'accounts',
+            'suggested_contact_id' => 'contacts',
+            'suggested_bill_id' => 'bills',
+            'suggested_tax_code_id' => 'tax_codes',
+            'suggested_secondary_tax_code_id' => 'tax_codes',
+        ],
         // Agentic-MCP proposals. user_id is remapped by the generic `*_user_id`
         // pass; company_id by the generic company swap.
         'mcp_write_proposals' => [
@@ -719,6 +759,130 @@ final class RowTransformer
     ];
 
     /**
+     * Row ids held inside JSON columns: table => list of {column, path, table}
+     * (see {@see JsonIdPaths} for the path syntax), optionally only on rows
+     * whose columns match `when`.
+     *
+     * The orchestrator remaps these once every table is restored
+     * ({@see self::remapJsonIds()}), since several point at tables restored
+     * later (`consumed_layers` → `stock_layers`). Until then the row carries
+     * the bundle's value: a JSON column has no constraint to trip.
+     *
+     * `document_folders.viewer_member_ids` is remapped by its own quirk below.
+     * Every other JSON column on a backed-up table is in
+     * {@see self::JSON_WITHOUT_IDS}; the arch test fails on one in neither.
+     *
+     * @var array<string, list<array{column: string, path: string, table: string, when?: array<string, string>}>>
+     */
+    public const JSON_ID_PATHS = [
+        'companies' => [
+            // Remembered reconciliation accounts, keyed by bank account id.
+            ['column' => 'settings', 'path' => 'reconciliation.defaults.*.service_charge_account_id', 'table' => 'accounts'],
+            ['column' => 'settings', 'path' => 'reconciliation.defaults.*.interest_account_id', 'table' => 'accounts'],
+            ['column' => 'settings', 'path' => 'reconciliation.defaults.{key}', 'table' => 'accounts'],
+        ],
+        'stock_movements' => [
+            // The FIFO layers an issue consumed; a reversal puts the quantity back on them.
+            ['column' => 'consumed_layers', 'path' => '*.layer_id', 'table' => 'stock_layers'],
+        ],
+        'tax_returns' => [
+            ['column' => 'excluded_journal_line_ids', 'path' => '*', 'table' => 'journal_lines'],
+        ],
+        'bank_reconciliations' => [
+            ['column' => 'marked_line_ids', 'path' => '*', 'table' => 'journal_lines'],
+        ],
+        'bank_statement_lines' => [
+            ['column' => 'suggested_bill_allocations', 'path' => '*.bill_id', 'table' => 'bills'],
+        ],
+        'payroll_slip_filing_lines' => [
+            // The slip's own copy of the employee, alongside the contact_id column.
+            ['column' => 'data', 'path' => 'contact_id', 'table' => 'contacts'],
+        ],
+        'memorized_reports' => self::REPORT_SETTINGS_IDS,
+        'report_package_items' => self::REPORT_SETTINGS_IDS,
+        'user_preferences' => [
+            // The bank account a screen last showed (App\Support\Banking\LastBankAccount).
+            ['column' => 'value', 'path' => '', 'table' => 'accounts', 'when' => ['pref_key' => 'banking.last_account']],
+        ],
+    ];
+
+    /**
+     * The id filters a saved report keeps (App\Support\Reporting\ReportSettings).
+     *
+     * @var list<array{column: string, path: string, table: string}>
+     */
+    private const REPORT_SETTINGS_IDS = [
+        ['column' => 'settings', 'path' => 'accountId', 'table' => 'accounts'],
+        ['column' => 'settings', 'path' => 'contactId', 'table' => 'contacts'],
+        ['column' => 'settings', 'path' => 'classId', 'table' => 'classifications'],
+        ['column' => 'settings', 'path' => 'locationId', 'table' => 'locations'],
+        ['column' => 'settings', 'path' => 'fundId', 'table' => 'funds'],
+    ];
+
+    /**
+     * JSON columns on backed-up tables that hold no row ids to remap, so they
+     * restore exactly as the bundle has them. Two kinds:
+     *
+     *  - `none`: no ids at all (labels, amounts, codes, emails, settings).
+     *  - `snapshot`: ids frozen as historical record, never acted on again. The
+     *    audit payload feeds the rebuilt hash chain; an MCP proposal's payload
+     *    is history once the restore has expired every pending one.
+     *
+     * @var array<string, array<string, 'none'|'snapshot'>>
+     */
+    public const JSON_WITHOUT_IDS = [
+        'company_api_keys' => ['abilities' => 'none'],
+        'company_members' => ['sections' => 'none'],
+        'company_invitations' => ['sections' => 'none'],
+        'accounting_audit_logs' => ['payload' => 'snapshot'],
+        'mcp_write_proposals' => ['payload' => 'snapshot'],
+        'currency_revaluations' => ['rate_snapshot' => 'none'], // keyed by currency code
+        'invoice_settings' => ['statement_columns' => 'none'],
+        'tax_returns' => ['reconciliation' => 'none', 'vat_boxes' => 'none'],
+        'payroll_remittances' => ['breakdown' => 'none'],
+        'payroll_slip_filings' => ['summary' => 'none'],
+        'deadlines' => ['annual_dates' => 'none', 'notify_days_before' => 'none'],
+        'report_email_schedules' => ['recipients' => 'none'], // email addresses
+        'grid_preferences' => ['visible_columns' => 'none'],
+        'daily_insights' => ['facts' => 'none'],
+        'inbox_items' => ['extracted' => 'none'], // OCR output
+        'bank_import_profiles' => ['mapping' => 'none'],
+        'bank_statement_imports' => ['mapping' => 'none', 'parse_meta' => 'none'],
+        'bank_statement_lines' => ['raw' => 'none'],
+    ];
+
+    /**
+     * What a restore does with a reference column that can't be null when the
+     * row it names isn't in the bundle. Unlisted, such a reference fails the
+     * restore.
+     *
+     *  - `zero`: keep the row, pointing at nothing. Audit rows routinely name
+     *    records deleted since (a reposted document's old lines, a merged
+     *    contact), and the trail must keep them.
+     *  - `skip`: leave the row out. An attachment whose record is gone has
+     *    nothing left to attach to.
+     *
+     * @var array<string, array<string, 'zero'|'skip'>>
+     */
+    public const DANGLING_REFERENCE_POLICY = [
+        'accounting_audit_logs' => ['auditable_id' => 'zero'],
+        'attachments' => ['attachable_id' => 'skip'],
+    ];
+
+    /**
+     * `inbox_items.promoted_document_type` holds the promotion kind
+     * ({@see PromoteInboxItem}), not a class name, so the generic polymorphic
+     * pass can't resolve it. Kind => table of the document it became.
+     *
+     * @var array<string, string>
+     */
+    public const INBOX_PROMOTED_DOCUMENT_TABLES = [
+        'bill' => 'bills',
+        'reimbursement' => 'bills',
+        'expense' => 'expenses',
+    ];
+
+    /**
      * Cross-cycle FK columns that cannot satisfy forward-topological order
      * in {@see BackupTableRegistry::tables()} — they reference a table that
      * comes LATER in the import sequence (e.g. estimates.converted_invoice_id
@@ -831,24 +995,87 @@ final class RowTransformer
     ];
 
     /**
+     * Tables of one person's own settings in an organization, unique per
+     * (organization, user[, key]). A row whose user matched nobody here would
+     * land on the importing user, so it is left out instead: someone else's
+     * preferences aren't the importer's, and two such users would collide on
+     * the unique key and fail the restore.
+     *
+     * @var list<string>
+     */
+    public const PERSONAL_TABLES = [
+        'nav_preferences',
+        'grid_preferences',
+        'user_preferences',
+        'report_favorites',
+        'deadline_notification_settings',
+    ];
+
+    /**
+     * Bundle user ids that matched nobody here (set: id => true).
+     *
+     * @var array<int, true>
+     */
+    private readonly array $fallbackUsers;
+
+    /** The row's `user_id` as the bundle had it, before the user remap. */
+    private ?int $sourceUserId = null;
+
+    /**
      * @param  array<int, int>  $userIdMap  oldUserId => newUserId, including fallback entries.
+     * @param  list<int>  $fallbackUserIds  Bundle user ids no user here matched by email.
      */
     public function __construct(
         private readonly IdMapper $idMapper,
         private readonly array $userIdMap,
         private readonly int $importingUserId,
         private readonly int $newCompanyId,
-    ) {}
+        array $fallbackUserIds = [],
+    ) {
+        $this->fallbackUsers = array_fill_keys($fallbackUserIds, true);
+    }
+
+    /**
+     * Where each registry table restores, by name. Built once.
+     *
+     * @var array<string, int>|null
+     */
+    private static ?array $registryPositions = null;
+
+    /**
+     * Model class => its table, as {@see self::morphTable()} resolved it.
+     *
+     * @var array<string, string|null>
+     */
+    private static array $morphTables = [];
+
+    /**
+     * References deferred or orphaned by the row being transformed.
+     *
+     * @var array<string, array{table: string, id: int}>
+     */
+    private array $deferred = [];
+
+    /** @var array<string, array{table: string, id: int}> */
+    private array $orphans = [];
 
     /**
      * Transform a single row read from `data/{table}.jsonl` into the payload
      * the orchestrator will insert.
      *
+     * `deferred` lists the references to patch in once every table is restored
+     * (column => the table and old id it names); the row carries null for each
+     * until then. `orphans` lists references to rows that aren't in the bundle,
+     * restored as null.
+     *
      * @param  array<string, mixed>  $row
-     * @return array{row: array<string, mixed>, old_id: ?int, skip: bool, deferred: array<string, int>}
+     * @return array{row: array<string, mixed>, old_id: ?int, skip: bool, deferred: array<string, array{table: string, id: int}>, orphans: array<string, array{table: string, id: int}>}
      */
     public function transform(string $table, array $row): array
     {
+        $this->deferred = [];
+        $this->orphans = [];
+
         // 1. Capture and drop the row's `id` — the target DB will auto-increment.
         $oldId = $this->extractOldId($row);
 
@@ -858,6 +1085,8 @@ final class RowTransformer
         }
 
         // 3. User id remap.
+        $userId = $row['user_id'] ?? null;
+        $this->sourceUserId = is_int($userId) || (is_string($userId) && ctype_digit($userId)) ? (int) $userId : null;
         $row = $this->remapUserColumns($row);
 
         // 4. Parent FK remap.
@@ -867,32 +1096,130 @@ final class RowTransformer
         $row = $this->remapPolymorphicPairs($table, $row);
 
         // 6. Strip cross-cycle FKs for later post-pass UPDATE.
-        $deferred = $this->extractDeferredForeignKeys($table, $row);
+        $this->extractDeferredForeignKeys($table, $row);
 
         // 7. Per-table quirks (and `skip` decisions).
         $result = $this->applyTableQuirks($table, $row, $oldId);
-        $result['deferred'] = $deferred;
+        $result['deferred'] = $this->deferred;
+        $result['orphans'] = $this->orphans;
 
         return $result;
     }
 
     /**
-     * Strip and return any DEFERRED_FK_COLUMNS values for this row. The
-     * orchestrator will UPDATE them in after the main table loop populates
-     * IdMapper for the target tables.
+     * The row's JSON columns with every id in {@see self::JSON_ID_PATHS} passed
+     * through the id map; ids that don't map are dropped. Only the columns this
+     * changes are returned, so the caller can UPDATE just those.
+     *
+     * Call it once IdMapper holds every table, with the row as the bundle has
+     * it (arrays decoded).
      *
      * @param  array<string, mixed>  $row
-     * @return array<string, int> [columnName => oldParentId] — both passed by reference, so $row is mutated.
+     * @return array<string, mixed>
      */
-    private function extractDeferredForeignKeys(string $table, array &$row): array
+    public function remapJsonIds(string $table, array $row): array
     {
-        $deferredColumns = self::DEFERRED_FK_COLUMNS[$table] ?? [];
-        if ($deferredColumns === []) {
-            return [];
+        $changed = [];
+
+        foreach (self::JSON_ID_PATHS[$table] ?? [] as $spec) {
+            if (! self::jsonSpecApplies($spec, $row)) {
+                continue;
+            }
+
+            $column = $spec['column'];
+            $current = array_key_exists($column, $changed) ? $changed[$column] : ($row[$column] ?? null);
+
+            if ($current === null) {
+                continue;
+            }
+
+            $changed[$column] = JsonIdPaths::remap(
+                $current,
+                $spec['path'],
+                fn (int $oldId): ?int => $this->idMapper->get($spec['table'], $oldId),
+            );
         }
 
-        $captured = [];
-        foreach ($deferredColumns as $column => $_parentTable) {
+        return array_filter(
+            $changed,
+            static fn (mixed $value, string $column): bool => $value !== ($row[$column] ?? null),
+            ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
+    /**
+     * Whether a {@see self::JSON_ID_PATHS} entry covers this row.
+     *
+     * @param  array{column: string, path: string, table: string, when?: array<string, string>}  $spec
+     * @param  array<string, mixed>  $row
+     */
+    public static function jsonSpecApplies(array $spec, array $row): bool
+    {
+        foreach ($spec['when'] ?? [] as $column => $expected) {
+            if (($row[$column] ?? null) !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Where `$table` restores in {@see BackupTableRegistry::tables()}; a table
+     * outside the registry sorts after all of them.
+     */
+    public static function registryPosition(string $table): int
+    {
+        self::$registryPositions ??= array_flip(array_column(BackupTableRegistry::tables(), 'table'));
+
+        return self::$registryPositions[$table] ?? PHP_INT_MAX;
+    }
+
+    /**
+     * The table a reference column on `$table` points at, from
+     * {@see self::PARENT_FK_MAP} or {@see self::DEFERRED_FK_COLUMNS}.
+     */
+    public static function referenceTarget(string $table, string $column): ?string
+    {
+        return self::PARENT_FK_MAP[$table][$column]
+            ?? self::DEFERRED_FK_COLUMNS[$table][$column]
+            ?? null;
+    }
+
+    /**
+     * Resolve one reference to its id on this instance. Mapped: the new id.
+     * Otherwise the reference is recorded as deferred or orphaned (see the
+     * class docblock) and null is returned for the row to carry meanwhile.
+     */
+    private function resolveReference(string $table, string $column, string $targetTable, int $oldId): ?int
+    {
+        $newId = $this->idMapper->get($targetTable, $oldId);
+
+        if ($newId !== null) {
+            return $newId;
+        }
+
+        $targetPosition = self::registryPosition($targetTable);
+
+        if ($targetPosition !== PHP_INT_MAX && $targetPosition >= self::registryPosition($table)) {
+            $this->deferred[$column] = ['table' => $targetTable, 'id' => $oldId];
+        } else {
+            $this->orphans[$column] = ['table' => $targetTable, 'id' => $oldId];
+        }
+
+        return null;
+    }
+
+    /**
+     * Strip the DEFERRED_FK_COLUMNS values still set on this row (the generic
+     * pass has already deferred any it saw unmapped) and record them for the
+     * orchestrator's post-loop UPDATE.
+     *
+     * @param  array<string, mixed>  $row  Mutated: each captured column is nulled.
+     */
+    private function extractDeferredForeignKeys(string $table, array &$row): void
+    {
+        foreach (self::DEFERRED_FK_COLUMNS[$table] ?? [] as $column => $parentTable) {
             if (! array_key_exists($column, $row)) {
                 continue;
             }
@@ -900,14 +1227,10 @@ final class RowTransformer
             $value = $row[$column];
             $row[$column] = null;
 
-            if (is_int($value) && $value > 0) {
-                $captured[$column] = $value;
-            } elseif (is_string($value) && ctype_digit($value)) {
-                $captured[$column] = (int) $value;
+            if ((is_int($value) && $value > 0) || (is_string($value) && ctype_digit($value))) {
+                $this->deferred[$column] = ['table' => $parentTable, 'id' => (int) $value];
             }
         }
-
-        return $captured;
     }
 
     /**
@@ -955,7 +1278,7 @@ final class RowTransformer
         return $row;
     }
 
-    private function isUserColumn(string $column): bool
+    public static function isUserColumn(string $column): bool
     {
         if (in_array($column, self::USER_ID_EXACT, true)) {
             return true;
@@ -987,13 +1310,7 @@ final class RowTransformer
                 continue;
             }
 
-            $newId = $this->idMapper->get($targetTable, (int) $value);
-
-            if ($newId !== null) {
-                $row[$column] = $newId;
-            }
-            // If the parent id wasn't recorded, leave the column untouched.
-            // The orchestrator's post-insert reconciliation flags orphans.
+            $row[$column] = $this->resolveReference($table, $column, $targetTable, (int) $value);
         }
 
         return $row;
@@ -1022,27 +1339,22 @@ final class RowTransformer
                 continue;
             }
 
-            if (! is_string($type) || ! class_exists($type)) {
-                // Unrecognized polymorphic class (renamed model, removed feature, etc.).
-                // Leave both columns alone; orchestrator will surface the orphan.
-                continue;
-            }
-
-            $targetTable = $this->resolveMorphTable($type);
-
-            if ($targetTable === null) {
-                continue;
-            }
-
             if (! is_int($id) && ! (is_string($id) && ctype_digit($id))) {
                 continue;
             }
 
-            $newId = $this->idMapper->get($targetTable, (int) $id);
+            $targetTable = is_string($type) ? self::morphTable($type) : null;
 
-            if ($newId !== null) {
-                $row[$idCol] = $newId;
+            if ($targetTable === null) {
+                // A class this instance doesn't have (a renamed model, a newer
+                // version's feature): the row it names can't be found here.
+                $this->orphans[$idCol] = ['table' => (string) $type, 'id' => (int) $id];
+                $row[$idCol] = null;
+
+                continue;
             }
+
+            $row[$idCol] = $this->resolveReference($table, $idCol, $targetTable, (int) $id);
         }
 
         return $row;
@@ -1053,21 +1365,29 @@ final class RowTransformer
      * instance against the DB. Returns null if the class can't be instantiated
      * cleanly (defensive — never lets an unknown class crash the import).
      */
-    private function resolveMorphTable(string $fqcn): ?string
+    public static function morphTable(string $fqcn): ?string
     {
+        if (array_key_exists($fqcn, self::$morphTables)) {
+            return self::$morphTables[$fqcn];
+        }
+
+        if (! class_exists($fqcn)) {
+            return self::$morphTables[$fqcn] = null;
+        }
+
         try {
             $instance = new $fqcn;
         } catch (Throwable) {
-            return null;
+            return self::$morphTables[$fqcn] = null;
         }
 
         if (! method_exists($instance, 'getTable')) {
-            return null;
+            return self::$morphTables[$fqcn] = null;
         }
 
         $table = $instance->getTable();
 
-        return is_string($table) && $table !== '' ? $table : null;
+        return self::$morphTables[$fqcn] = is_string($table) && $table !== '' ? $table : null;
     }
 
     /**
@@ -1079,6 +1399,11 @@ final class RowTransformer
     private function applyTableQuirks(string $table, array $row, ?int $oldId): array
     {
         $skip = false;
+
+        if (in_array($table, self::PERSONAL_TABLES, true) && $this->sourceUserId !== null
+            && (isset($this->fallbackUsers[$this->sourceUserId]) || ! isset($this->userIdMap[$this->sourceUserId]))) {
+            $skip = true;
+        }
 
         switch ($table) {
             case 'companies':
@@ -1203,6 +1528,19 @@ final class RowTransformer
                     }
 
                     $row['viewer_member_ids'] = $remapped === [] ? null : $remapped;
+                }
+                break;
+
+            case 'inbox_items':
+                // The promoted document's kind isn't a class name, so the
+                // generic polymorphic pass skipped it. Bills and expenses
+                // restore before inbox items, so the id maps directly.
+                $kind = $row['promoted_document_type'] ?? null;
+                $documentId = $row['promoted_document_id'] ?? null;
+                $documentTable = is_string($kind) ? (self::INBOX_PROMOTED_DOCUMENT_TABLES[$kind] ?? null) : null;
+
+                if ($documentTable !== null && (is_int($documentId) || (is_string($documentId) && ctype_digit($documentId)))) {
+                    $row['promoted_document_id'] = $this->resolveReference($table, 'promoted_document_id', $documentTable, (int) $documentId);
                 }
                 break;
 

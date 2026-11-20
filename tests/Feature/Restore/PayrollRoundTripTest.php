@@ -134,13 +134,14 @@ it('round-trips payroll data, remapping foreign keys onto the restored company',
         ->and($employeeB->payrollProfile)->not->toBeNull()
         ->and($employeeB->payrollProfile->payroll_schedule_id)->toBe(PayrollSchedule::query()->where('company_id', $companyB->id)->value('id'));
 
-    // The pay-run journal entry is restored, company-scoped, and linked via the
-    // forward FK. (The polymorphic source_id BACK-pointer is left stale on
-    // restore — an app-wide limitation shared with posted invoices/bills, since
-    // journal_entries are imported before the documents they reference.)
+    // The pay-run journal entry is restored, company-scoped, and linked both
+    // ways: the run's forward FK, and the entry's polymorphic source back to
+    // B's run (patched in once the run, restored after journal entries, is in).
     expect($runB->journal_entry_id)->not->toBeNull()
         ->and($runB->journalEntry)->not->toBeNull()
-        ->and($runB->journalEntry->company_id)->toBe($companyB->id);
+        ->and($runB->journalEntry->company_id)->toBe($companyB->id)
+        ->and($runB->journalEntry->source_type)->toBe(PayRun::class)
+        ->and($runB->journalEntry->source_id)->toBe($runB->id);
 
     // The cheque restored and links to B's run + line.
     $chequeB = $runB->cheques()->firstOrFail();

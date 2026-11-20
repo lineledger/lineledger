@@ -39,6 +39,14 @@ final class IdMapper
     }
 
     /**
+     * Drop one mapping: the restore left that row out after all.
+     */
+    public function forget(string $table, int $oldId): void
+    {
+        unset($this->map[$table][$oldId]);
+    }
+
+    /**
      * Return `true` when an `$oldId => newId` mapping exists for `$table`.
      */
     public function has(string $table, int $oldId): bool
@@ -66,5 +74,15 @@ final class IdMapper
     public function tables(): array
     {
         return array_keys($this->map);
+    }
+
+    /**
+     * Every mapping: table => [old id => new id].
+     *
+     * @return array<string, array<int, int>>
+     */
+    public function all(): array
+    {
+        return $this->map;
     }
 }

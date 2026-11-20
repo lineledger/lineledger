@@ -8,12 +8,17 @@ use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\AssetDepreciationEntry;
 use App\Models\Attachment;
+use App\Models\BankImportProfile;
 use App\Models\BankReconciliation;
 use App\Models\BankRule;
+use App\Models\BankStatementImport;
+use App\Models\BankStatementLine;
 use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\BillPayment;
 use App\Models\BillPaymentApplication;
+use App\Models\Budget;
+use App\Models\BudgetLine;
 use App\Models\CcaPool;
 use App\Models\Cheque;
 use App\Models\ChequeLine;
@@ -174,6 +179,9 @@ final class BackupTableRegistry
             ['table' => 'payment_terms', 'model' => PaymentTerm::class, 'group' => 'core'],
             ['table' => 'payment_methods', 'model' => PaymentMethod::class, 'group' => 'core'],
             ['table' => 'accounts', 'model' => Account::class, 'group' => 'core'],
+            // Budgets FK classifications/locations/funds (above); their lines FK accounts.
+            ['table' => 'budgets', 'model' => Budget::class, 'group' => 'core'],
+            ['table' => 'budget_lines', 'model' => BudgetLine::class, 'group' => 'core'],
             ['table' => 'company_currencies', 'model' => CompanyCurrency::class, 'group' => 'core'],
             ['table' => 'exchange_rates', 'model' => ExchangeRate::class, 'group' => 'core'],
             ['table' => 'tax_agencies', 'model' => TaxAgency::class, 'group' => 'core'],
@@ -202,12 +210,10 @@ final class BackupTableRegistry
             ['table' => 'journal_entry_templates', 'model' => JournalEntryTemplate::class, 'group' => 'gl'],
             ['table' => 'journal_entry_template_lines', 'model' => JournalEntryTemplateLine::class, 'group' => 'gl'],
             // API keys: label + last_four only — the token hash never leaves
-            // the instance. Restored before the audit logs that FK them: those
-            // rows are hash-chained and immutable, so api_key_id must resolve
-            // on insert rather than in the post-loop UPDATE pass. Grouped with
-            // the user affordances for the restore preview.
+            // the instance. Restored before the audit logs that FK them (see
+            // accounting_audit_logs, last). Grouped with the user affordances
+            // for the restore preview.
             ['table' => 'company_api_keys', 'model' => CompanyApiKey::class, 'group' => 'user_affordances'],
-            ['table' => 'accounting_audit_logs', 'model' => AccountingAuditLog::class, 'group' => 'gl'],
             ['table' => 'currency_revaluations', 'model' => CurrencyRevaluation::class, 'group' => 'gl'],
             // Opening Balances workspace: states FK journal_entries (above) and
             // rows FK states + accounts, so states restore before rows.
@@ -392,7 +398,40 @@ final class BackupTableRegistry
             // promoted_document_id is a polymorphic (promoted_document_type)
             // pointer to bills/expenses, intentionally left un-remapped.
             ['table' => 'inbox_items', 'model' => InboxItem::class, 'group' => 'user_affordances'],
+
+            // Bank-feed imports: the saved column mappings, each imported statement
+            // (its file is an attachment, above) and its lines. The lines are the
+            // review queue (unmatched lines still to post) and carry the
+            // fingerprints that keep a re-imported statement from duplicating
+            // them; they FK journal lines and entries, bills and reconciliations.
+            ['table' => 'bank_import_profiles', 'model' => BankImportProfile::class, 'group' => 'reconciliation'],
+            ['table' => 'bank_statement_imports', 'model' => BankStatementImport::class, 'group' => 'reconciliation'],
+            ['table' => 'bank_statement_lines', 'model' => BankStatementLine::class, 'group' => 'reconciliation'],
+
+            // === The audit trail (must come very last) ===
+            // Every row is hash-chained and immutable (DB triggers block UPDATE),
+            // so each reference has to resolve on insert: the chain is re-hashed
+            // over the restored ids as the rows go in. auditable_id names a
+            // document of any type (invoices, bills, cheques, …), so every one of
+            // them must already be restored. A record deleted since is restored
+            // as 0 (RowTransformer::DANGLING_REFERENCE_POLICY).
+            ['table' => 'accounting_audit_logs', 'model' => AccountingAuditLog::class, 'group' => 'gl'],
         ];
+    }
+
+    /**
+     * The model a registry table is read and written through, or null when the
+     * table isn't backed up.
+     *
+     * @return class-string<Model>|null
+     */
+    public static function modelFor(string $table): ?string
+    {
+        static $models = null;
+
+        $models ??= array_column(self::tables(), 'model', 'table');
+
+        return $models[$table] ?? null;
     }
 
     /**
@@ -414,19 +453,6 @@ final class BackupTableRegistry
             // restore would conflict with already-imported data.
             ['table' => 'data_migration_runs', 'reason' => 'transient import job state; not part of accounting truth'],
 
-            // Bank-statement import staging (same rationale as data_migration_runs):
-            // a processing/audit artifact, not accounting truth. The journal entries,
-            // reconciliation, and cleared flags it produces are already backed up via
-            // the GL + bank_reconciliations, and the uploaded statement file rides
-            // along as a reconciliation attachment.
-            ['table' => 'bank_statement_imports', 'reason' => 'transient statement-import staging; accounting truth lives in the GL + reconciliation'],
-            ['table' => 'bank_statement_lines', 'reason' => 'child of bank_statement_imports; excluded with parent'],
-
-            // Saved CSV/Excel column mappings — durable convenience config, not
-            // accounting truth. Promote to tables() (with FK remap) if backup parity
-            // is ever wanted; a restored company simply re-saves a mapping on first use.
-            ['table' => 'bank_import_profiles', 'reason' => 'reusable import mappings; convenience config, re-created on demand'],
-
             // Magic-link tokens for the customer payment portal — short-lived,
             // single-use, hashed. No value on restore.
             ['table' => 'portal_login_links', 'reason' => 'ephemeral signed magic-link tokens'],
@@ -445,11 +471,6 @@ final class BackupTableRegistry
             // Meta-table tracking restore jobs themselves. A backup of restore
             // history makes no sense; the restored company will track its own.
             ['table' => 'company_restores', 'reason' => 'meta-table tracking the restore feature; self-referential'],
-
-            // Budgets — not in Phase 1 scope. Add to tables() (and PARENT_FK_MAP,
-            // DEFERRED_FK_COLUMNS as needed) if/when backup parity is required.
-            ['table' => 'budgets', 'reason' => 'feature added after Phase 1; not yet in backup scope'],
-            ['table' => 'budget_lines', 'reason' => 'child of budgets; excluded with parent'],
 
             // Cross-company reporting groups (instance-global concept).
             // Excluded per plan: per-company export must not leak other companies'

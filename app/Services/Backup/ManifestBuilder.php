@@ -64,6 +64,9 @@ final class ManifestBuilder
                 'count' => (int) $files['count'],
                 'total_bytes' => (int) $files['total_bytes'],
                 'missing_count' => $missingCount,
+                // Attachments whose file was already gone when the backup ran,
+                // so a verifier can tell them from a file the bundle lost.
+                'missing_ids' => array_values(array_map('intval', $files['missing'] ?? [])),
             ],
             'users' => [
                 'count' => (int) $users['count'],

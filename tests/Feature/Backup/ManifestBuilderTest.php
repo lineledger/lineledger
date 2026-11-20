@@ -82,6 +82,7 @@ it('builds a manifest matching the documented shape', function () {
         'count' => 312,
         'total_bytes' => 48201234,
         'missing_count' => 2,
+        'missing_ids' => [101, 202],
     ]);
 
     expect($manifest['users'])->toBe([

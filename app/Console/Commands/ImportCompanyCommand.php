@@ -2,13 +2,16 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RendersBackupVerification;
 use App\Enums\CompanyRestoreStatus;
 use App\Jobs\RestoreCompanyDataJob;
 use App\Models\CompanyRestore;
 use App\Models\User;
+use App\Services\Backup\Verification\BackupVerifier;
 use App\Services\Restore\BundleInspector;
 use App\Services\Restore\CompanyImporter;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Services\Restore\RestoreTrace;
 use App\Support\Storage\StorageDisks;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -16,28 +19,38 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Operational entry point for the bundle importer. Three modes:
+ * Restore an organization backup into a NEW organization on this instance
+ * (never over an existing one). Also available as `backup:restore`.
  *
- *   php artisan backup:import /path/to/bundle.zip --user=1            # queue
- *   php artisan backup:import /path/to/bundle.zip --user=1 --sync     # in-process
- *   php artisan backup:import /path/to/bundle.zip --dry-run           # inspect only
+ *   php artisan backup:restore /path/to/bundle.zip --owner=you@example.com --verify
+ *       # restore here, then compare every restored row with the backup
+ *   php artisan backup:import /path/to/bundle.zip --owner=1            # queue
+ *   php artisan backup:import /path/to/bundle.zip --owner=1 --sync     # in-process
+ *   php artisan backup:import /path/to/bundle.zip --dry-run            # inspect only
  *
- * `--sync` runs the importer in-process so exceptions surface in the shell —
- * what you reach for during smoke testing. `--dry-run` runs the inspector
- * only and dumps the preview as JSON; no CompanyRestore row is created and
- * no DB writes happen.
+ * `--owner` (or `--user`) takes a user id or email; that user owns the copy.
+ * `--sync` runs the importer in-process so exceptions surface in the shell.
+ * `--verify` implies `--sync`. `--dry-run` runs the inspector only and dumps
+ * the preview as JSON; no CompanyRestore row is created and no DB writes happen.
  */
 class ImportCompanyCommand extends Command
 {
+    use RendersBackupVerification;
+
     protected $signature = 'backup:import
-        {file : Absolute path to the backup ZIP}
-        {--user= : User id who will own the restored company (required unless --dry-run)}
+        {file : Path to the backup ZIP}
+        {--owner= : Id or email of the user who will own the restored organization (required unless --dry-run)}
+        {--user= : The same as --owner}
         {--sync : Run the import synchronously instead of dispatching the queued job}
+        {--verify : Restore synchronously, then compare every restored row with the backup}
         {--dry-run : Inspect the bundle and print the preview as JSON without touching the DB}';
 
-    protected $description = 'Restore a Phase 1 backup ZIP into a new Company on this instance.';
+    protected $description = 'Restore an organization backup ZIP into a new organization on this instance.';
 
-    public function handle(): int
+    /** @var list<string> */
+    protected $aliases = ['backup:restore'];
+
+    public function handle(BackupVerifier $verifier): int
     {
         $file = (string) $this->argument('file');
 
@@ -51,18 +64,18 @@ class ImportCompanyCommand extends Command
             return $this->runDryRun($file);
         }
 
-        $userOption = $this->option('user');
+        $userOption = $this->ownerOption();
 
-        if ($userOption === null || $userOption === '') {
-            $this->error('--user=<id> is required (omit only with --dry-run).');
+        if ($userOption === null) {
+            $this->error('--owner=<id or email> is required (omit only with --dry-run).');
 
             return self::FAILURE;
         }
 
-        $user = User::query()->find((int) $userOption);
+        $user = $this->findUser($userOption);
 
         if ($user === null) {
-            $this->error("No user with id [{$userOption}].");
+            $this->error("No user with id or email [{$userOption}].");
 
             return self::FAILURE;
         }
@@ -73,14 +86,23 @@ class ImportCompanyCommand extends Command
         $disk = StorageDisks::backups();
         $relativePath = 'restores/cli-'.Str::random(8).'-'.basename($file);
 
-        $contents = @file_get_contents($file);
-        if ($contents === false) {
+        // Streamed: a bundle is unbounded in size.
+        $stream = @fopen($file, 'rb');
+        if ($stream === false) {
             $this->error("Unable to read bundle file: {$file}");
 
             return self::FAILURE;
         }
 
-        if (! Storage::disk($disk)->put($relativePath, $contents)) {
+        try {
+            $stored = Storage::disk($disk)->writeStream($relativePath, $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        if ($stored === false) {
             $this->error("Unable to persist bundle onto the [{$disk}] disk at {$relativePath}.");
 
             return self::FAILURE;
@@ -91,13 +113,13 @@ class ImportCompanyCommand extends Command
             'status' => CompanyRestoreStatus::Ready,
             'file_path' => $relativePath,
             'disk' => $disk,
-            'file_size_bytes' => strlen($contents),
-            'sha256' => hash('sha256', $contents),
+            'file_size_bytes' => (int) filesize($file),
+            'sha256' => (string) hash_file('sha256', $file),
         ]);
 
         $this->line(sprintf('Created CompanyRestore #%d for user %d.', $restore->id, $user->id));
 
-        if (! $this->option('sync')) {
+        if (! $this->option('sync') && ! $this->option('verify')) {
             RestoreCompanyDataJob::dispatch($restore->fresh());
             $this->info(sprintf('Restore #%d queued.', $restore->id));
 
@@ -109,8 +131,10 @@ class ImportCompanyCommand extends Command
             'started_at' => now(),
         ])->save();
 
+        $trace = new RestoreTrace;
+
         try {
-            app(CompanyImporter::class)->import($restore);
+            app(CompanyImporter::class)->import($restore, $trace);
         } catch (Throwable $e) {
             $this->error(sprintf('Restore #%d failed: %s', $restore->id, $e->getMessage()));
             $this->line($e->getTraceAsString());
@@ -143,7 +167,38 @@ class ImportCompanyCommand extends Command
             }
         }
 
-        return self::SUCCESS;
+        if (! $this->option('verify')) {
+            return self::SUCCESS;
+        }
+
+        $this->line('Comparing the restored organization with the backup…');
+        $report = $verifier->verifyRestored($file, $trace);
+        $this->renderVerification($report);
+
+        return $report->passed() ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function ownerOption(): ?string
+    {
+        foreach (['owner', 'user'] as $option) {
+            $value = $this->option($option);
+
+            if ($value !== null && $value !== '') {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A user by id (all digits) or by email (case-insensitive).
+     */
+    private function findUser(string $value): ?User
+    {
+        return ctype_digit($value)
+            ? User::query()->find((int) $value)
+            : User::query()->whereRaw('LOWER(email) = ?', [strtolower($value)])->first();
     }
 
     /**
@@ -151,9 +206,9 @@ class ImportCompanyCommand extends Command
      */
     private function runDryRun(string $file): int
     {
-        $userOption = $this->option('user');
-        $user = $userOption !== null && $userOption !== ''
-            ? User::query()->find((int) $userOption)
+        $userOption = $this->ownerOption();
+        $user = $userOption !== null
+            ? $this->findUser($userOption)
             : User::query()->orderBy('id')->first();
 
         if ($user === null) {

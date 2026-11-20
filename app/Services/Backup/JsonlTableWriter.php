@@ -7,7 +7,6 @@ use App\Support\Encryption\EncryptedColumns;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -31,10 +30,14 @@ use RuntimeException;
  * scope so the orchestrator does not need to bind `current_company`,
  * keeping the writer safe to call from queues and unit tests.
  *
- * Child tables that have no direct `company_id` column (e.g.
- * `journal_lines`, `receipt_applications`, `bill_payment_applications`)
- * must be filtered via the caller-supplied `$scope` closure, which is
- * applied to the query builder in place of the default company filter.
+ * Which rows belong to the organization comes from {@see BackupScopes}
+ * (child tables without a `company_id` filter through their parent), unless the
+ * caller passes its own `$scope` closure.
+ *
+ * Columns a model hides from serialisation (`$hidden`) are only written when
+ * {@see self::HIDDEN_COLUMNS} says so: a hidden column is usually a secret, so
+ * leaving one out is the safe default, and the arch test makes every hidden
+ * column on a backed-up model an explicit decision.
  */
 final class JsonlTableWriter
 {
@@ -48,6 +51,32 @@ final class JsonlTableWriter
      * restored by this version as if its ciphertext were the value.
      */
     public const ENCRYPTED_COLUMN_ENCODING = 'plaintext';
+
+    /**
+     * Every column a backed-up model hides from serialisation, and whether the
+     * bundle carries it anyway (`true`) or leaves it out (`false`).
+     *
+     *  - `contacts.portal_password`: the employee portal password, already a
+     *    one-way hash. Without it every restored employee is locked out of the
+     *    portal until someone resets their password.
+     *  - `company_api_keys.token_hash`: the key's secret. A restored key comes
+     *    back revoked with a hash nobody holds ({@see RowTransformer}), so the
+     *    original hash would only be a liability in the bundle.
+     *
+     * @var array<string, array<string, bool>>
+     */
+    public const HIDDEN_COLUMNS = [
+        'contacts' => ['portal_password' => true],
+        'company_api_keys' => ['token_hash' => false],
+    ];
+
+    /**
+     * Per model class: the hidden columns to make visible, and the encrypted
+     * columns to write as plaintext. Worked out once per class.
+     *
+     * @var array<class-string<Model>, array{visible: list<string>, encrypted: list<string>}>
+     */
+    private array $columnPlans = [];
 
     /**
      * Stream every row of `$modelClass` for `$companyId` to
@@ -95,7 +124,7 @@ final class JsonlTableWriter
         $rowCount = 0;
         $byteCount = 0;
 
-        $encryptedColumns = $this->exportedEncryptedColumns($modelClass);
+        $encryptedColumns = $this->columnPlan($modelClass, $tableName)['encrypted'];
         $unreadable = array_fill_keys($encryptedColumns, 0);
 
         try {
@@ -104,14 +133,8 @@ final class JsonlTableWriter
 
             if ($scope !== null) {
                 $scope($query);
-            } elseif ($tableName === 'companies') {
-                $query->where('id', $companyId);
-            } elseif (Schema::hasColumn($tableName, 'company_id')) {
-                $query->where('company_id', $companyId);
             } else {
-                throw new RuntimeException(
-                    "Table [{$tableName}] has no company_id column and no \$scope closure was provided."
-                );
+                BackupScopes::apply($query, $tableName, $companyId);
             }
 
             $query->chunkById(5000, function ($chunk) use (
@@ -121,11 +144,11 @@ final class JsonlTableWriter
                 &$byteCount,
                 &$unreadable,
                 $rowTransform,
-                $encryptedColumns,
+                $tableName,
             ): void {
                 foreach ($chunk as $model) {
                     /** @var Model $model */
-                    $row = $this->rowFor($model, $encryptedColumns, $unreadable);
+                    $row = $this->serializeRow($model, $tableName, $unreadable);
 
                     if ($rowTransform !== null) {
                         $row = $rowTransform($row, $model);
@@ -172,28 +195,37 @@ final class JsonlTableWriter
     }
 
     /**
-     * The row as `toArray()` serialises it, except for the encrypted columns.
-     * `toArray()` would decrypt those through the cast too, but the cast throws on
-     * a value that no longer decrypts, and one such SIN would fail the whole
-     * backup. So they are hidden from `toArray()` and read from the raw attribute
-     * instead: ciphertext is decrypted, a value that does not decrypt is written
-     * as null and counted, and a value an older restore stored unencrypted is
-     * written as it is (it is already the plaintext).
+     * The row as the bundle carries it: what `toArray()` serialises, plus the
+     * hidden columns {@see self::HIDDEN_COLUMNS} exports, except for the
+     * encrypted columns. `toArray()` would decrypt those through the cast too,
+     * but the cast throws on a value that no longer decrypts, and one such SIN
+     * would fail the whole backup. So they are hidden from `toArray()` and read
+     * from the raw attribute instead: ciphertext is decrypted, a value that does
+     * not decrypt is written as null and counted, and a value an older restore
+     * stored unencrypted is written as it is (it is already the plaintext).
      *
-     * @param  list<string>  $encryptedColumns
+     * Public so the backup verifier serialises live rows exactly as a bundle
+     * holds them.
+     *
      * @param  array<string, int>  $unreadable  Per-column count, incremented in place.
      * @return array<string, mixed>
      */
-    private function rowFor(Model $model, array $encryptedColumns, array &$unreadable): array
+    public function serializeRow(Model $model, string $tableName, array &$unreadable = []): array
     {
-        if ($encryptedColumns === []) {
+        $plan = $this->columnPlan($model::class, $tableName);
+
+        if ($plan['visible'] !== []) {
+            $model->makeVisible($plan['visible']);
+        }
+
+        if ($plan['encrypted'] === []) {
             return $model->toArray();
         }
 
         $raw = $model->getAttributes();
-        $row = $model->makeHidden($encryptedColumns)->toArray();
+        $row = $model->makeHidden($plan['encrypted'])->toArray();
 
-        foreach ($encryptedColumns as $column) {
+        foreach ($plan['encrypted'] as $column) {
             if (! array_key_exists($column, $raw)) {
                 continue;
             }
@@ -201,7 +233,7 @@ final class JsonlTableWriter
             $value = EncryptedColumns::read($model::class, $raw[$column]);
 
             if ($value['state'] === EncryptedValueState::Unreadable) {
-                $unreadable[$column]++;
+                $unreadable[$column] = ($unreadable[$column] ?? 0) + 1;
             }
 
             $row[$column] = $value['plaintext'];
@@ -211,22 +243,33 @@ final class JsonlTableWriter
     }
 
     /**
-     * The model's encrypted columns that `toArray()` would include. One the model
-     * hides from serialisation stays out of the bundle, as it always has.
+     * The hidden columns this table exports, and its encrypted columns that end
+     * up in the bundle. An encrypted column the model hides stays out unless
+     * {@see self::HIDDEN_COLUMNS} exports it.
      *
      * @param  class-string<Model>  $modelClass
-     * @return list<string>
+     * @return array{visible: list<string>, encrypted: list<string>}
      */
-    private function exportedEncryptedColumns(string $modelClass): array
+    private function columnPlan(string $modelClass, string $tableName): array
     {
+        if (isset($this->columnPlans[$modelClass])) {
+            return $this->columnPlans[$modelClass];
+        }
+
         $model = new $modelClass;
-        $hidden = $model->getHidden();
+        $exportedHidden = array_keys(array_filter(self::HIDDEN_COLUMNS[$tableName] ?? []));
+        $hidden = array_values(array_diff($model->getHidden(), $exportedHidden));
         $visible = $model->getVisible();
 
-        return array_values(array_filter(
+        $encrypted = array_values(array_filter(
             EncryptedColumns::of($modelClass),
             static fn (string $column): bool => ! in_array($column, $hidden, true)
                 && ($visible === [] || in_array($column, $visible, true)),
         ));
+
+        return $this->columnPlans[$modelClass] = [
+            'visible' => array_values(array_intersect($exportedHidden, $model->getHidden())),
+            'encrypted' => $encrypted,
+        ];
     }
 }

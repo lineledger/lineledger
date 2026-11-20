@@ -45,7 +45,8 @@ class CheckLedgerIntegrity extends Command
     protected $signature = 'integrity:check
         {company? : Company ID; checks all companies when omitted}
         {--fix : Recompute drifted account-balance and document paid caches in place}
-        {--no-alert : Report failures without emailing}';
+        {--no-alert : Report failures without emailing}
+        {--no-log : Report failures without writing them to the application log (for a caller that reports them itself)}';
 
     protected $description = 'Verify ledger integrity: audit hash chain, double-entry balance, account-balance cache, invoice/bill paid caches, tax on control-account cheque lines, and foreign-currency units left behind by voids.';
 
@@ -103,7 +104,9 @@ class CheckLedgerIntegrity extends Command
             return self::SUCCESS;
         }
 
-        Log::error('Ledger integrity check failed.', $issuesByCompany);
+        if (! $this->option('no-log')) {
+            Log::error('Ledger integrity check failed.', $issuesByCompany);
+        }
 
         if (! $this->option('no-alert')) {
             $this->sendAlert($issuesByCompany);

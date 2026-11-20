@@ -13,7 +13,7 @@ use Carbon\CarbonImmutable;
  * @param  array<int, int>  $userIdMap
  * @param  array<string, array<int, int>>  $idMap
  */
-function buildTransformer(array $userIdMap = [], array $idMap = [], int $importingUserId = 999, int $newCompanyId = 7): RowTransformer
+function buildTransformer(array $userIdMap = [], array $idMap = [], int $importingUserId = 999, int $newCompanyId = 7, array $fallbackUserIds = []): RowTransformer
 {
     $mapper = new IdMapper;
 
@@ -23,7 +23,7 @@ function buildTransformer(array $userIdMap = [], array $idMap = [], int $importi
         }
     }
 
-    return new RowTransformer($mapper, $userIdMap, $importingUserId, $newCompanyId);
+    return new RowTransformer($mapper, $userIdMap, $importingUserId, $newCompanyId, $fallbackUserIds);
 }
 
 it('captures old id and drops the id column', function () {
@@ -152,11 +152,13 @@ it('remaps parent foreign keys via the IdMapper for child tables', function () {
 
     expect($result['row']['invoice_id'])->toBe(42)
         ->and($result['row']['item_id'])->toBe(30)
-        // account_id was not mapped — left untouched.
-        ->and($result['row']['account_id'])->toBe(50);
+        // accounts restore before invoice lines, so account 50 isn't in the
+        // bundle: an orphan, restored as null rather than the source id.
+        ->and($result['row']['account_id'])->toBeNull()
+        ->and($result['orphans'])->toBe(['account_id' => ['table' => 'accounts', 'id' => 50]]);
 });
 
-it('leaves parent foreign keys untouched when the IdMapper has no entry', function () {
+it('never copies a source id through for a parent restored earlier but missing from the bundle', function () {
     $transformer = buildTransformer();
 
     $result = $transformer->transform('invoice_lines', [
@@ -164,8 +166,27 @@ it('leaves parent foreign keys untouched when the IdMapper has no entry', functi
         'invoice_id' => 7,
     ]);
 
-    // No mapping recorded, no crash, value passes through.
-    expect($result['row']['invoice_id'])->toBe(7);
+    // On this instance id 7 names another organization's invoice, or none.
+    expect($result['row']['invoice_id'])->toBeNull()
+        ->and($result['orphans'])->toBe(['invoice_id' => ['table' => 'invoices', 'id' => 7]])
+        ->and($result['deferred'])->toBe([]);
+});
+
+it('defers a self-reference to a row restored later', function () {
+    // A voided entry points at its reversal, which has a higher id.
+    $transformer = buildTransformer(idMap: ['journal_entries' => [1 => 10]]);
+
+    $result = $transformer->transform('journal_entries', [
+        'id' => 2,
+        'company_id' => 5,
+        'reverses_entry_id' => 1,
+        'reversed_by_entry_id' => 3,
+    ]);
+
+    expect($result['row']['reverses_entry_id'])->toBe(10)
+        ->and($result['row']['reversed_by_entry_id'])->toBeNull()
+        ->and($result['deferred'])->toBe(['reversed_by_entry_id' => ['table' => 'journal_entries', 'id' => 3]])
+        ->and($result['orphans'])->toBe([]);
 });
 
 it('translates polymorphic source_type/source_id on journal_entries', function () {
@@ -185,7 +206,7 @@ it('translates polymorphic source_type/source_id on journal_entries', function (
         ->and($result['row']['source_id'])->toBe(50);
 });
 
-it('leaves polymorphic fields unchanged when the type is unknown', function () {
+it('treats a polymorphic id of an unknown type as an orphan', function () {
     $transformer = buildTransformer(idMap: ['invoices' => [5 => 50]]);
 
     $result = $transformer->transform('journal_entries', [
@@ -196,10 +217,12 @@ it('leaves polymorphic fields unchanged when the type is unknown', function () {
     ]);
 
     expect($result['row']['source_type'])->toBe('App\\Models\\RenamedNoLongerExists')
-        ->and($result['row']['source_id'])->toBe(5);
+        ->and($result['row']['source_id'])->toBeNull()
+        ->and($result['orphans'])->toBe(['source_id' => ['table' => 'App\\Models\\RenamedNoLongerExists', 'id' => 5]]);
 });
 
-it('leaves polymorphic fields alone when the id is not mapped yet', function () {
+it('defers a polymorphic id whose document restores later', function () {
+    // Journal entries restore before the invoices they post.
     $transformer = buildTransformer(); // empty IdMapper
 
     $result = $transformer->transform('journal_entries', [
@@ -209,7 +232,65 @@ it('leaves polymorphic fields alone when the id is not mapped yet', function () 
         'source_id' => 999,
     ]);
 
-    expect($result['row']['source_id'])->toBe(999);
+    expect($result['row']['source_id'])->toBeNull()
+        ->and($result['deferred'])->toBe(['source_id' => ['table' => 'invoices', 'id' => 999]]);
+});
+
+it('remaps the ids inside JSON columns once every table is in, dropping ids that do not map', function () {
+    $transformer = buildTransformer(idMap: [
+        'stock_layers' => [11 => 110, 12 => 120],
+        'journal_lines' => [5 => 50],
+        'accounts' => [3 => 30, 4 => 40],
+    ]);
+
+    expect($transformer->remapJsonIds('stock_movements', [
+        'consumed_layers' => [['layer_id' => 11, 'qty' => '2'], ['layer_id' => 12, 'qty' => '1']],
+    ]))->toBe(['consumed_layers' => [['layer_id' => 110, 'qty' => '2'], ['layer_id' => 120, 'qty' => '1']]]);
+
+    expect($transformer->remapJsonIds('bank_reconciliations', ['marked_line_ids' => [5, 6]]))
+        ->toBe(['marked_line_ids' => [50]]);
+
+    // Reconciliation defaults are keyed by bank account id, and hold account ids.
+    expect($transformer->remapJsonIds('companies', [
+        'settings' => ['locale' => 'fr', 'reconciliation' => ['defaults' => [
+            3 => ['service_charge_account_id' => 4, 'interest_account_id' => 9],
+        ]]],
+    ]))->toBe(['settings' => ['locale' => 'fr', 'reconciliation' => ['defaults' => [
+        30 => ['service_charge_account_id' => 40, 'interest_account_id' => null],
+    ]]]]);
+
+    // A bare id, only on the preference that holds one.
+    expect($transformer->remapJsonIds('user_preferences', ['pref_key' => 'banking.last_account', 'value' => 3]))
+        ->toBe(['value' => 30])
+        ->and($transformer->remapJsonIds('user_preferences', ['pref_key' => 'reports.columns', 'value' => 3]))
+        ->toBe([]);
+});
+
+it('leaves out the personal preferences of a user who matched nobody here', function () {
+    // Bundle user 42 matched; 17 fell back to the importer (999).
+    $transformer = buildTransformer(userIdMap: [42 => 4200, 17 => 999], importingUserId: 999, fallbackUserIds: [17]);
+
+    $matched = $transformer->transform('user_preferences', ['id' => 1, 'company_id' => 5, 'user_id' => 42, 'pref_key' => 'a', 'value' => 1]);
+    $fallback = $transformer->transform('user_preferences', ['id' => 2, 'company_id' => 5, 'user_id' => 17, 'pref_key' => 'a', 'value' => 1]);
+    $unknown = $transformer->transform('nav_preferences', ['id' => 3, 'company_id' => 5, 'user_id' => 555]);
+    $notPersonal = $transformer->transform('memorized_reports', ['id' => 4, 'company_id' => 5, 'user_id' => 17]);
+
+    expect($matched['skip'])->toBeFalse()
+        ->and($matched['row']['user_id'])->toBe(4200)
+        ->and($fallback['skip'])->toBeTrue()
+        ->and($unknown['skip'])->toBeTrue()
+        ->and($notPersonal['skip'])->toBeFalse()
+        ->and($notPersonal['row']['user_id'])->toBe(999);
+});
+
+it('remaps the document an inbox item was promoted to', function () {
+    $transformer = buildTransformer(idMap: ['bills' => [8 => 80], 'expenses' => [9 => 90]]);
+
+    $bill = $transformer->transform('inbox_items', ['id' => 1, 'company_id' => 5, 'promoted_document_type' => 'reimbursement', 'promoted_document_id' => 8]);
+    $expense = $transformer->transform('inbox_items', ['id' => 2, 'company_id' => 5, 'promoted_document_type' => 'expense', 'promoted_document_id' => 9]);
+
+    expect($bill['row']['promoted_document_id'])->toBe(80)
+        ->and($expense['row']['promoted_document_id'])->toBe(90);
 });
 
 it('applies companies-row quirks: drops slug, logo_path, stripe_*, switches inbox email off and captures old id', function () {

@@ -56,8 +56,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings → Users and roles.** Removing someone, or taking away their access,
   unassigns their open deadlines.
 - The Business Q&A MCP server gains `upcoming-deadlines-tool` (read-only).
+- **Nightly organization backups from the command line, and a way to prove
+  they restore.**
+  - `backup:export` now takes organizations by slug as well as id, several at
+    once, or `--all`.
+  - With `--output=<dir>` it writes each backup straight into a directory,
+    which suits a nightly cron:
+    - each file lands at `<dir>/<slug>/<slug>-<UTC time>Z.zip`, written
+      atomically and readable by its owner only;
+    - a `sha256sum`-format checksum sits beside it;
+    - `--keep=<n>` deletes all but each organization's newest *n*.
+  - Without `--output` it makes the in-app backup as before.
+  - The new `backup:verify <zip>…` proves a backup restores, and restores
+    completely:
+    - It checks the ZIP itself: every table file is present and matches its
+      recorded hash and row count, every attachment file is inside, every
+      reference resolves, the books balance and the audit chain is intact.
+    - Then it restores the backup for real inside a database transaction that
+      is always rolled back. It compares every restored row with the backup,
+      column by column, and checks the copy's account totals, ledger integrity
+      and files.
+    - `--quick` skips the trial restore. `--json` is for scripts.
+  - `backup:export --verify` does the same for each backup it has just made.
+    Every command exits non-zero on a failure, so a scheduler can alert on it.
+  - `backup:import` is now also `backup:restore`. It takes `--owner=<id or
+    email>`, and with `--verify` it compares the restored organization with the
+    backup. See README → Backups.
 
 ### Changed
+
+- **Organization backups now include budgets and the bank feed.** Budgets,
+  saved bank-import mappings, imported statements and their lines were left out
+  of backups. That meant the bank-feed review queue, and the fingerprints that
+  stop a re-imported statement from creating duplicates, were lost on restore.
+- **Backups keep employee portal passwords.** Every restored employee used to
+  lose portal access until someone reset their password. A backup now reads
+  every table from a single consistent snapshot on MySQL, and records which
+  attachments had no file when it was taken.
+- **A restore refuses a damaged backup** that its per-file checks used to let
+  through: a table file the manifest lists but the ZIP lacks, a table file the
+  manifest doesn't list, or a `users.json` that doesn't match its hash.
 
 - **Deleting an organization now erases its data after a 30-day grace period.**
   When an owner deletes an organization, members still lose access at once, but
@@ -96,6 +134,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first posts and reposts, and voiding reverses it. A percentage discount on a
   negative-quantity line is ignored, as on every document (the line-discount
   rule is shared), so enter the re-charge at its net price.
+
+### Fixed
+
+- **Restored organizations are now exact copies.** A restore copied some
+  references with the ids they had in the original organization, wherever the
+  row they named was restored later. On the same server those ids named the
+  original's rows; on another server they named nothing, or failed the restore
+  outright. Affected:
+  - the source document of every posted journal entry;
+  - a voided entry's link to its reversal;
+  - the record each audit-trail row is about;
+  - a stock adjustment's stock movements, so voiding a restored adjustment
+    reversed its entry but not its stock;
+  - the FIFO layers a sale consumed;
+  - an inbox document's link to its item;
+  - parent accounts, contacts, item categories and folders created after
+    their children.
+
+  These references are now completed once every table is in.
+- **Ids inside settings are now remapped:**
+  - a reconciliation's marked lines;
+  - a tax return's excluded lines;
+  - the remembered reconciliation accounts;
+  - the last bank account a screen showed;
+  - a saved report's account, contact, class, location and fund filters.
+
+  A reference to a record deleted before the backup now restores empty rather
+  than pointing elsewhere.
+- **A restore next to the original no longer shares its logo files.** Before,
+  changing or purging either organization's logo deleted the other's.
+- **A restore no longer fails on certain users and settings:**
+  - two people from the backup who have no account on this server had
+    preferences that collided, so the restore failed. Those preferences are
+    now left out;
+  - a text or yes/no user preference failed the whole restore on MySQL.
+- **A backup of a deleted organization restores as a live one.** Previously
+  the copy came back deleted.
+- A queue worker no longer keeps an organization bound after exporting it.
+- A failed `backup:import --sync` is marked failed rather than left running.
 
 ## [1.5.0-rc.2] - 2026-11-17
 
