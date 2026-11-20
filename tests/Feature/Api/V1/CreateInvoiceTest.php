@@ -268,3 +268,37 @@ it('rejects a sales rep from another company', function () {
         ->assertStatus(422)
         ->assertJsonValidationErrors(['sales_rep_id']);
 });
+
+it('stores and returns the Customer PO #', function () {
+    $this->postJson('/api/v1/invoices', [
+        'contact_id' => $this->customer->id,
+        'invoice_date' => '2026-05-20',
+        'customer_po' => 'PO-2026-0412',
+        'lines' => [[
+            'quantity' => '1',
+            'unit_price_cents' => 5000,
+            'account_id' => $this->income->id,
+        ]],
+    ], ['Authorization' => "Bearer {$this->plain}"])
+        ->assertStatus(201)
+        ->assertJsonPath('data.customer_po', 'PO-2026-0412');
+
+    expect(Invoice::query()->withoutGlobalScopes()->firstOrFail()->customer_po)->toBe('PO-2026-0412');
+});
+
+it('refuses a Customer PO # longer than the column holds', function () {
+    $this->postJson('/api/v1/invoices', [
+        'contact_id' => $this->customer->id,
+        'invoice_date' => '2026-05-20',
+        'customer_po' => str_repeat('9', 101),
+        'lines' => [[
+            'quantity' => '1',
+            'unit_price_cents' => 5000,
+            'account_id' => $this->income->id,
+        ]],
+    ], ['Authorization' => "Bearer {$this->plain}"])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('customer_po');
+
+    expect(Invoice::query()->withoutGlobalScopes()->count())->toBe(0);
+});

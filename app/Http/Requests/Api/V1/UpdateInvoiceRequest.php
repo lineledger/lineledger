@@ -44,6 +44,8 @@ class UpdateInvoiceRequest extends FormRequest
             'terms_id' => ['nullable', 'integer', $inCompany('payment_terms')],
             'form_style_id' => ['nullable', 'integer', $inCompany('form_styles')],
             'memo' => ['nullable', 'string'],
+            // The customer's purchase-order number, the invoice's "Customer PO #".
+            'customer_po' => ['nullable', 'string', 'max:100'],
 
             'lines' => ['required', 'array', 'min:1', 'max:1000'],
             'lines.*.description' => ['nullable', 'string', 'max:1000'],
