@@ -49,9 +49,12 @@ class AssetCategoryController extends ApiController
         return new AssetCategoryResource($category);
     }
 
+    /**
+     * Delete an unused asset category for good (409 while an asset is in it).
+     */
     public function destroy(AssetCategory $assetCategory): JsonResponse
     {
-        $assetCategory->delete();
+        $this->deleteListRecord($assetCategory);
 
         return response()->json(null, 204);
     }

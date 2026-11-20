@@ -49,9 +49,14 @@ class ItemController extends ApiController
         return new ItemResource($item);
     }
 
+    /**
+     * Delete an unused item for good (409 while a document, stock or a
+     * bundle still names it). The API skips the web app's "make it inactive
+     * first".
+     */
     public function destroy(Item $item): JsonResponse
     {
-        $item->delete();
+        $this->deleteListRecord($item);
 
         return response()->json(null, 204);
     }

@@ -58,7 +58,7 @@ class PaymentTermController extends ApiController
     {
         $this->refuseWhileReferenced(PaymentTermReferenceRegistry::class, (int) $paymentTerm->id, __('payment terms'));
 
-        $paymentTerm->delete();
+        $this->deleteListRecord($paymentTerm);
 
         return response()->json(null, 204);
     }

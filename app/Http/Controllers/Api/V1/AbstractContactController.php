@@ -71,7 +71,7 @@ abstract class AbstractContactController extends ApiController
         // no page can load. A portal sign-in link is not a use.
         $this->refuseWhileReferenced(ContactReferenceRegistry::class, (int) $contact->id, __('contact'), ['portal_login_links.contact_id']);
 
-        $contact->delete();
+        $this->deleteListRecord($contact);
 
         return response()->json(null, 204);
     }

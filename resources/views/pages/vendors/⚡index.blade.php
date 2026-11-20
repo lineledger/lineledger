@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\Contacts\MergeContacts;
 use App\Enums\AccountType;
 use App\Enums\JurisdictionCapability;
@@ -31,6 +33,13 @@ use Livewire\WithFileUploads;
 
 new #[Title('Vendors')] class extends Component
 {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Contact::query()->where('is_vendor', true);
+    }
+
     use HoldsEditLock;
     use WithPagination;
     use WithFileUploads;
@@ -673,6 +682,11 @@ new #[Title('Vendors')] class extends Component
                                         {{ $vendor->is_active ? __('Deactivate') : __('Activate') }}
                                     </flux:menu.item>
                                     @endcallable
+                                    @if (! $vendor->is_active)
+                                        @callable($this, 'deleteListRecord')
+                                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteListRecord({{ $vendor->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $vendor->display_name]) }}" data-test="delete-list-record">{{ __('Delete') }}</flux:menu.item>
+                                        @endcallable
+                                    @endif
                                 </flux:menu>
                             </flux:dropdown>
                         </td>

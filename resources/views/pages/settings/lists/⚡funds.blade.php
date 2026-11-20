@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\MasterData\SaveFund;
 use App\Enums\FundType;
 use App\Livewire\Attributes\RequiresSave;
@@ -13,6 +15,13 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Funds')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Fund::query();
+    }
+
     use HoldsEditLock;
 
     public Company $company;
@@ -117,6 +126,11 @@ new #[Title('Funds')] class extends Component {
                             <td class="px-4 py-2">{{ $f->fund_type->label() }}</td>
                             <td class="px-4 py-2 text-right">
                                 <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $f->id }})" />
+                                @if (! $f->is_active)
+                                    @callable($this, 'deleteListRecord')
+                                    <flux:button variant="ghost" size="sm" icon="trash" wire:click="deleteListRecord({{ $f->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $f->name]) }}" data-test="delete-list-record" />
+                                    @endcallable
+                                @endif
                             </td>
                         </tr>
                     @empty

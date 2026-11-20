@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Livewire\Attributes\RequiresSave;
 use App\Livewire\Concerns\HoldsEditLock;
 use App\Models\Company;
@@ -12,6 +14,13 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 new #[Title('Employees')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Contact::query()->where('is_employee', true);
+    }
+
     use HoldsEditLock;
     use WithPagination;
     public Company $company;
@@ -247,6 +256,11 @@ new #[Title('Employees')] class extends Component {
                         <td class="px-4 py-2 text-right font-mono">{{ number_format($employee->ap_balance_cents / 100, 2) }}</td>
                         <td class="px-4 py-2 text-right">
                             <flux:button variant="ghost" size="sm" icon="pencil" wire:click="openEdit({{ $employee->id }})" />
+                            @if (! $employee->is_active)
+                                @callable($this, 'deleteListRecord')
+                                <flux:button variant="ghost" size="sm" icon="trash" wire:click="deleteListRecord({{ $employee->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $employee->display_name]) }}" data-test="delete-list-record" />
+                                @endcallable
+                            @endif
                         </td>
                     </tr>
                 @empty

@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\Accounting\MergeAccounts;
 use App\Actions\Accounting\PostAccountOpeningBalance;
 use App\Actions\Accounting\SaveAccount;
@@ -36,6 +38,13 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new #[Title('Chart of Accounts')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Account::query();
+    }
+
     use HoldsEditLock;
     use WithFileUploads;
 
@@ -1093,6 +1102,11 @@ new #[Title('Chart of Accounts')] class extends Component {
                                                         {{ $account->is_active ? __('Deactivate') : __('Activate') }}
                                                     </flux:menu.item>
                                                     @endcallable
+                                                    @if (! $account->is_active)
+                                                        @callable($this, 'deleteListRecord')
+                                                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteListRecord({{ $account->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $account->name]) }}" data-test="delete-list-record">{{ __('Delete') }}</flux:menu.item>
+                                                        @endcallable
+                                                    @endif
                                                     <flux:menu.item icon="arrows-pointing-in" wire:click="openMerge({{ $account->id }})" data-test="merge-account-button">
                                                         {{ __('Merge…') }}
                                                     </flux:menu.item>

@@ -76,6 +76,10 @@ new #[Title('Documentation — Lists')] class extends Component {}; ?>
             {{ __('Every list here has an Active switch. Mark an item, tax code, payment term, or payment method as inactive and it stops showing up in new pickers — but every invoice, bill, or journal entry that already used it keeps displaying it as before. Hiding a stale choice from the dropdown will never silently rewrite history.') }}
         </x-docs.callout>
 
+        <x-docs.callout type="note" heading="{{ __('Deleting a record you never used') }}">
+            {{ __('A record entered by mistake can be deleted once it is inactive and nothing uses it: no transaction, template, budget, saved report or other record names it. Make it inactive, switch on Show inactive, and select the bin on its row (accounts, customers and vendors have Delete in the row’s menu). If something still uses it, the app says what and leaves it in place; keep it inactive, or merge it into another record where that is offered. Built-in records the app relies on, such as system accounts and the default fund, can’t be deleted. The audit log keeps a copy of what was deleted. Through the API a record doesn’t have to be inactive first, but it still must be unused.') }}
+        </x-docs.callout>
+
         <x-docs.callout type="note" heading="{{ __('Bundles group items together') }}">
             {{ __('A Bundle item is a saved group of other items — say a service plus the parts it uses. Under Bundle components, select Add component and pick each item and its Qty. Choosing the bundle on an invoice expands it into one line per component, so each part still books to its own account and adjusts its own stock.') }}
         </x-docs.callout>

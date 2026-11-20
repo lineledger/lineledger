@@ -59,7 +59,7 @@ class TaxCodeController extends ApiController
     {
         $this->refuseWhileReferenced(TaxCodeReferenceRegistry::class, (int) $taxCode->id, __('tax code'));
 
-        $taxCode->delete();
+        $this->deleteListRecord($taxCode);
 
         return response()->json(null, 204);
     }

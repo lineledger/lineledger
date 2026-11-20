@@ -71,7 +71,7 @@ new #[Title('Documentation — Vendors')] class extends Component {}; ?>
 
         <flux:heading size="md" class="mt-6">{{ __('Deactivate or merge a vendor') }}</flux:heading>
         <flux:text>
-            {{ __('When you stop buying from a vendor, open the row’s actions menu (the … button) and choose Deactivate instead of deleting: they disappear from selectors but their history stays intact for your reports. Toggle Show inactive on the list to find them again, and choose Activate to bring them back.') }}
+            {{ __('When you stop buying from a vendor, open the row’s actions menu (the … button) and choose Deactivate: they disappear from selectors but their history stays intact for your reports. Toggle Show inactive on the list to find them again, and choose Activate to bring them back. A vendor entered by mistake, with nothing recorded against them, can then be deleted from the same menu.') }}
         </flux:text>
         <flux:text>
             {{ __('If the same supplier was entered twice — “Office Supply Co.” and “Office Supply Company” — choose Merge… on the duplicate, pick the vendor to Merge into (only active vendors in the same currency are offered), tick I understand this cannot be undone, and select Merge. All bills, payments, and other history move to the vendor you chose, and the duplicate is deactivated and removed from the list.') }}

@@ -81,7 +81,7 @@ class AccountController extends ApiController
         // soft-deleted account would leave each of them pointing nowhere.
         $this->refuseWhileReferenced(AccountReferenceRegistry::class, (int) $account->id, __('account'));
 
-        $account->delete();
+        $this->deleteListRecord($account);
 
         return response()->json(null, 204);
     }

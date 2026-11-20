@@ -59,7 +59,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         />
 
         <x-docs.callout type="tip">
-            {{ __('Set a credit limit and the invoice form will warn you when a new invoice would push the customer over it. It is only a heads-up — you can still bill past the limit. When you stop doing business with a customer, mark them inactive instead of deleting: they disappear from selectors but their history stays intact. In a hurry? The Customer box on a new invoice lets you type a name to add a customer on the spot, and the payee picker on a cheque or expense offers “Create … as a new customer”, which opens this form with the name already filled in.') }}
+            {{ __('Set a credit limit and the invoice form will warn you when a new invoice would push the customer over it. It is only a heads-up — you can still bill past the limit. When you stop doing business with a customer, mark them inactive: they disappear from selectors but their history stays intact. A customer entered by mistake, with nothing recorded against them, can then be deleted from the row’s menu. In a hurry? The Customer box on a new invoice lets you type a name to add a customer on the spot, and the payee picker on a cheque or expense offers “Create … as a new customer”, which opens this form with the name already filled in.') }}
         </x-docs.callout>
 
         <x-docs.callout type="note" heading="{{ __('One person edits a record at a time') }}">
@@ -127,7 +127,7 @@ new #[Title('Documentation — Customers')] class extends Component {}; ?>
         />
 
         <flux:text>
-            {{ __('A draft stays out of your books, and you can open it and change it as often as you like. There is no Delete option for a draft invoice in the app, so a draft you no longer need stays on the Invoices list with its Draft badge. Posting locks the amounts into your books and assigns the invoice its place on your reports and the customer’s statement.') }}
+            {{ __('A draft stays out of your books, and you can open it and change it as often as you like. A draft you no longer need can be deleted from the Actions menu. Posting locks the amounts into your books and assigns the invoice its place on your reports and the customer’s statement.') }}
         </flux:text>
 
         <x-docs.callout type="note" heading="{{ __('What posting does to your books') }}">

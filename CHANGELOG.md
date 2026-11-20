@@ -46,6 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   require. A tax payment the filed return's snapshot includes is refused. The
   API's `DELETE …?permanent=true` covers stock adjustments and tax payments
   too.
+- **Delete list records nobody uses.** An account, customer, vendor, employee,
+  item, tax code, payment method, payment term, class, location, fund or asset
+  category entered by mistake can be deleted once it is inactive and nothing
+  uses it (no transaction, template, budget or saved report names it). The
+  list pages show a delete button on inactive rows; a refusal says what still
+  uses the record. An employee never paid goes with their payroll setup, a
+  bundle with its own components. The audit log keeps a copy.
+- **API:** `DELETE` on items, asset categories, accounts, contacts, tax codes,
+  payment methods and terms now removes the record for good, and refuses
+  (409) one that is still used or that the app relies on. It doesn't require
+  the record to be inactive first. Contacts were previously soft-deleted.
 
 ## [1.5.0-rc.3] - 2026-11-20
 

@@ -58,7 +58,7 @@ class PaymentMethodController extends ApiController
     {
         $this->refuseWhileReferenced(PaymentMethodReferenceRegistry::class, (int) $paymentMethod->id, __('payment method'));
 
-        $paymentMethod->delete();
+        $this->deleteListRecord($paymentMethod);
 
         return response()->json(null, 204);
     }

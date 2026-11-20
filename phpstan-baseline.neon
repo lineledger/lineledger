@@ -721,6 +721,12 @@ parameters:
 			path: app/Listeners/Security/SecurityLogListener.php
 
 		-
+			message: '#^Trait App\\Livewire\\Concerns\\DeletesListRecords is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Livewire/Concerns/DeletesListRecords.php
+
+		-
 			message: '#^Trait App\\Livewire\\Concerns\\DeletesTransaction is used zero times and is not analysed\.$#'
 			identifier: trait.unused
 			count: 1

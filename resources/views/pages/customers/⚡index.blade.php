@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Livewire\Concerns\DeletesListRecords;
 use App\Actions\Contacts\MergeContacts;
 use App\Actions\Sales\PostCustomerOpeningBalance;
 use App\Enums\PermissionAction;
@@ -29,6 +31,13 @@ use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 
 new #[Title('Customers')] class extends Component {
+    use DeletesListRecords;
+
+    protected function listRecordQuery(): Builder
+    {
+        return Contact::query()->where('is_customer', true);
+    }
+
     use HoldsEditLock;
     use WithPagination;
     use WithFileUploads;
@@ -777,6 +786,11 @@ new #[Title('Customers')] class extends Component {
                                         {{ $customer->is_active ? __('Deactivate') : __('Activate') }}
                                     </flux:menu.item>
                                     @endcallable
+                                    @if (! $customer->is_active)
+                                        @callable($this, 'deleteListRecord')
+                                        <flux:menu.item icon="trash" variant="danger" wire:click="deleteListRecord({{ $customer->id }})" wire:confirm="{{ __('Delete :name for good? Only a record nothing uses can be deleted, and the audit log keeps a copy.', ['name' => $customer->display_name]) }}" data-test="delete-list-record">{{ __('Delete') }}</flux:menu.item>
+                                        @endcallable
+                                    @endif
                                 </flux:menu>
                             </flux:dropdown>
                         </td>
