@@ -85,6 +85,8 @@ enum AuditAction: string
 
     case EstimateDeleted = 'estimate.deleted';
 
+    case StockAdjustmentDeleted = 'stock_adjustment.deleted';
+
     case DepositCreated = 'deposit.created';
     case DepositUpdated = 'deposit.updated';
     case DepositDeleted = 'deposit.deleted';

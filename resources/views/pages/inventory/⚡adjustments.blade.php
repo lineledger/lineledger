@@ -5,17 +5,21 @@ use App\Enums\Activity;
 use App\Enums\PermissionAction;
 use App\Enums\StockAdjustmentReason;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Models\Classification;
 use App\Models\Company;
 use App\Models\Item;
 use App\Models\Location;
 use App\Models\StockAdjustment;
 use App\Rules\MoneyString;
+use App\Services\Deletion\TransactionDeleter;
 use App\Services\Posting\StockAdjustmentPoster;
 use App\Support\Money;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -23,8 +27,14 @@ use Livewire\WithPagination;
 
 new #[Title('Stock adjustments')] class extends Component
 {
+    use DeletesTransaction;
     use WithPagination;
+
     public Company $company;
+
+    /** The adjustment the Delete dialog is about. */
+    #[Locked]
+    public ?int $deletingAdjustmentId = null;
 
     #[Url(as: 'q')]
     public string $search = '';
@@ -118,6 +128,31 @@ new #[Title('Stock adjustments')] class extends Component
         abort_unless($adj->company_id === $this->company->id, 403);
         app(StockAdjustmentPoster::class)->void($adj);
         Flux::toast(variant: 'success', text: __('Adjustment voided.'));
+    }
+
+    /**
+     * Open the Delete dialog for one adjustment of the list.
+     */
+    #[Requires(Activity::InventoryAdjustments, PermissionAction::Delete)]
+    public function prepareDeleteAdjustment(int $id, TransactionDeleter $deleter): void
+    {
+        $this->deletingAdjustmentId = (int) StockAdjustment::query()->findOrFail($id)->id;
+
+        $this->prepareDelete($deleter);
+    }
+
+    protected function deletableDocument(): Model
+    {
+        return StockAdjustment::query()->findOrFail($this->deletingAdjustmentId);
+    }
+
+    /**
+     * The adjustment the Delete dialog is open for, if any.
+     */
+    #[Computed]
+    public function deletingAdjustment(): ?StockAdjustment
+    {
+        return $this->deletingAdjustmentId !== null ? StockAdjustment::query()->find($this->deletingAdjustmentId) : null;
     }
 
     #[Computed]
@@ -247,6 +282,11 @@ new #[Title('Stock adjustments')] class extends Component
                                     wire:confirm="{{ __('Void this adjustment?') }}" />
                                 @endcallable
                             @endif
+                            @if ($adj->journal_entry_id === null || $company->allowsTransactionDeletion())
+                                @callable($this, 'prepareDeleteAdjustment')
+                                <flux:button variant="ghost" size="sm" icon="trash" wire:click="prepareDeleteAdjustment({{ $adj->id }})" :aria-label="__('Delete')" data-test="delete-adjustment-button" />
+                                @endcallable
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -332,4 +372,8 @@ new #[Title('Stock adjustments')] class extends Component
             </div>
         </form>
     </flux:modal>
+    @if ($this->deletingAdjustment)
+        <x-transaction-delete-dialog :preview="$deletionPreview" :document="$this->deletingAdjustment" />
+    @endif
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

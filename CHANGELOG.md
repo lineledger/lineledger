@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   header pointing at `POST …/void`; on a draft it now deletes it for real and
   keeps the record. The deleted transaction's page says when a delete came
   through the API.
+- **Delete stock adjustments, tax payments, donations and grants.** A stock
+  adjustment comes out with its stock movements while nothing has moved that
+  item since; the Stock adjustments list has a delete button on each row. A
+  grant goes with its award entry and every revenue recognition. A donation
+  takes its draft official receipt with it, but one an official receipt was
+  issued for (or issued and later voided) can only be voided, as CRA rules
+  require. A tax payment the filed return's snapshot includes is refused. The
+  API's `DELETE …?permanent=true` covers stock adjustments and tax payments
+  too.
 
 ## [1.5.0-rc.3] - 2026-11-20
 

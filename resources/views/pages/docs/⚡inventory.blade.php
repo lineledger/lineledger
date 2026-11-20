@@ -159,7 +159,7 @@ new #[Title('Documentation — Inventory')] class extends Component {}; ?>
         <x-docs.figure
             src="{{ asset('docs/screenshots/inventory/adjustments.png') }}"
             alt="{{ __('The Stock adjustments list showing the Opening balance adjustment ADJ-000001 with one line and a Posted status') }}"
-            caption="{{ __('The Stock adjustments list. Each entry shows its number, date, reason, line count, and status — Posted, Draft, or Voided. Search by number or notes; the × at the end of a posted row voids it.') }}"
+            caption="{{ __('The Stock adjustments list. Each entry shows its number, date, reason, line count, and status — Posted, Draft, or Voided. Search by number or notes; the × at the end of a posted row voids it, and the bin deletes it as if never entered while nothing has moved that item since.') }}"
         />
 
         <x-docs.callout type="note" heading="{{ __('What an adjustment does to your books') }}">

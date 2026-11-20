@@ -3,6 +3,7 @@
 use App\Enums\PermissionAction;
 use App\Livewire\Attributes\GuardsEditLock;
 use App\Livewire\Attributes\Requires;
+use App\Livewire\Concerns\DeletesTransaction;
 use App\Livewire\Concerns\ShowsEditLock;
 use App\Models\Company;
 use App\Models\Grant;
@@ -16,6 +17,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Grant')] class extends Component {
+    use DeletesTransaction;
     use ShowsEditLock;
 
     public Company $company;
@@ -149,6 +151,11 @@ new #[Title('Grant')] class extends Component {
                     @endcallable
                 @endif
             @endif
+            @if ($this->canOfferDelete)
+                @callable($this, 'prepareDelete')
+                <flux:button variant="ghost" icon="trash" wire:click="prepareDelete" data-test="delete-transaction-button">{{ __('Delete') }}</flux:button>
+                @endcallable
+            @endif
         </div>
     </div>
 
@@ -215,4 +222,6 @@ new #[Title('Grant')] class extends Component {
             </div>
         </form>
     </flux:modal>
+    <x-transaction-delete-dialog :preview="$deletionPreview" :document="$grant" />
+    <x-period-lock-override :company="$company" :message="$periodLockMessage" />
 </section>

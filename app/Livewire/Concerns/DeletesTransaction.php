@@ -138,6 +138,6 @@ trait DeletesTransaction
         Flux::modal('delete-transaction')->close();
         Flux::toast(variant: 'success', text: __(':document :no deleted.', ['document' => $type->label(), 'no' => $number]));
 
-        $this->redirectRoute($type->indexRouteFor($document), ['company' => $this->company->slug], navigate: true);
+        $this->redirectRoute($type->indexRouteFor($document), ['company' => $this->company->slug, ...$type->indexRouteParametersFor($document)], navigate: true);
     }
 }

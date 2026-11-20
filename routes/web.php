@@ -342,7 +342,8 @@ Route::prefix('{company}')
         // features_fundraising flag; official receipts additionally gate on charity status).
         Route::livewire('donations', 'pages::donations.index')->name('donations.index');
         Route::livewire('donations/create', 'pages::donations.form')->name('donations.create');
-        Route::livewire('donations/{donation}', 'pages::donations.show')->name('donations.show');
+        Route::livewire('donations/{donation}', 'pages::donations.show')->name('donations.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Donation));
         Route::livewire('donations/{donation}/edit', 'pages::donations.form')->name('donations.edit');
 
         Route::livewire('donation-receipts', 'pages::donation-receipts.index')->name('donation-receipts.index');
@@ -353,7 +354,8 @@ Route::prefix('{company}')
 
         Route::livewire('grants', 'pages::grants.index')->name('grants.index');
         Route::livewire('grants/create', 'pages::grants.form')->name('grants.create');
-        Route::livewire('grants/{grant}', 'pages::grants.show')->name('grants.show');
+        Route::livewire('grants/{grant}', 'pages::grants.show')->name('grants.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::Grant));
         Route::livewire('grants/{grant}/edit', 'pages::grants.form')->name('grants.edit');
 
         // Reports
@@ -433,7 +435,8 @@ Route::prefix('{company}')
         Route::livewire('tax-returns/{tax_return}', 'pages::tax-returns.show')->name('tax-returns.show');
         Route::livewire('tax-returns/{tax_return}/edit', 'pages::tax-returns.form')->name('tax-returns.edit');
         Route::livewire('tax-returns/{tax_return}/payments/create', 'pages::tax-returns.payment-form')->name('tax-returns.payments.create');
-        Route::livewire('tax-returns/{tax_return}/payments/{payment}', 'pages::tax-returns.payment-show')->name('tax-returns.payments.show');
+        Route::livewire('tax-returns/{tax_return}/payments/{payment}', 'pages::tax-returns.payment-show')->name('tax-returns.payments.show')
+            ->missing(DeletedRecordRedirect::for(DeletableDocumentType::TaxReturnPayment));
         Route::livewire('reports/ar-aging', 'pages::reports.ar-aging')->name('reports.ar-aging');
         Route::livewire('reports/open-invoices', 'pages::reports.open-invoices')->name('reports.open-invoices');
         Route::livewire('reports/unattributed-ar', 'pages::reports.unattributed-ar')->name('reports.unattributed-ar');

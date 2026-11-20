@@ -20,6 +20,15 @@ interface DeletionHandler
     public function type(): DeletableDocumentType;
 
     /**
+     * The journal entries the document posted: usually its one entry, a grant
+     * its award entry and each recognition's, a journal entry itself.
+     * TransactionDeleter adds the reversal a void wrote for each.
+     *
+     * @return list<int>
+     */
+    public function journalEntryIds(Model $document): array;
+
+    /**
      * Other records that still point at the document and must be dealt with
      * first (a payment applied to an invoice, a deposit holding a receipt).
      *
