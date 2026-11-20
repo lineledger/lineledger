@@ -107,12 +107,46 @@ class JournalEntry extends Model
     }
 
     /**
+     * Whether a void wrote this entry: it reverses an entry that was voided and
+     * that names this entry as its reversal. JournalPoster::void() gives the
+     * reversal no source of its own, so without this check it would look like a
+     * manual entry. It belongs to that void (of a document or of a manual
+     * entry), and the general journal must not void, reverse, rewrite or delete
+     * it on its own.
+     *
+     * A draft accrual reversal (Reverse) also carries reverses_entry_id, but its
+     * original is not voided, so it stays an ordinary manual entry.
+     */
+    public function isVoidReversal(): bool
+    {
+        if ($this->reverses_entry_id === null) {
+            return false;
+        }
+
+        $original = $this->reverses;
+
+        return $original !== null
+            && $original->isVoided()
+            && (int) $original->reversed_by_entry_id === (int) $this->id;
+    }
+
+    /**
+     * A manual entry the general journal fully manages (edit, void, reverse,
+     * delete): no source document, and not the reversal a void wrote. The one
+     * gate the journal page, the journal form and the API all ask.
+     */
+    public function isManualEntry(): bool
+    {
+        return $this->source_type === null && ! $this->isVoidReversal();
+    }
+
+    /**
      * Whether the general journal may edit this entry at all: manual entries,
      * plus the source-linked types listed in {@see JOURNAL_EDITABLE_SOURCES}.
      */
     public function isEditableInJournal(): bool
     {
-        return $this->source_type === null
+        return $this->isManualEntry()
             || in_array($this->source_type, self::JOURNAL_EDITABLE_SOURCES, true);
     }
 

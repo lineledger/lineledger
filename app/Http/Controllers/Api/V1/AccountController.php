@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\StoreAccountRequest;
 use App\Http\Requests\Api\V1\UpdateAccountRequest;
 use App\Http\Resources\Api\V1\AccountResource;
 use App\Models\Account;
+use App\Services\Merge\AccountReferenceRegistry;
 use App\Support\Access\ApiViewer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,9 +69,17 @@ class AccountController extends ApiController
 
     public function destroy(Account $account): JsonResponse
     {
+        if ($account->is_system) {
+            $this->conflict(__('This is a system account the app relies on, so it can\'t be deleted.'));
+        }
+
         if ($account->journalLines()->exists()) {
             $this->conflict('Account has transactions; deactivate instead.');
         }
+
+        // Sub-accounts, item and bank-rule defaults, budgets, templates…: a
+        // soft-deleted account would leave each of them pointing nowhere.
+        $this->refuseWhileReferenced(AccountReferenceRegistry::class, (int) $account->id, __('account'));
 
         $account->delete();
 

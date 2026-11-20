@@ -173,6 +173,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the copy came back deleted.
 - A queue worker no longer keeps an organization bound after exporting it.
 - A failed `backup:import --sync` is marked failed rather than left running.
+- **The reversing entry a void writes is now locked in the journal.** It
+  carried no source, so the journal treated it as a manual entry: anyone could
+  void it (bringing the voided document's amounts back), reverse it, edit it
+  or change its header. The journal page now withholds those actions, the
+  journal form sends you back to the entry, and the API refuses a `PATCH` (409)
+  or `DELETE` (422). The voided original keeps managing it.
+- **`DELETE /api/v1/journal-entries/{id}` no longer voids an entry another
+  document created.** On an invoice's, a bill's or a filed return's posted
+  entry it voided the entry behind the document's back, leaving the document
+  posted on top of a voided entry. It now answers 422, as it already did for a
+  draft; void the document instead.
+- **The API no longer deletes list records that are still in use.**
+  `DELETE` on a tax code, payment method or payment terms erased it from every
+  posted document line and ledger line that named it, and on a customer,
+  vendor, employee or account it soft-deleted a record documents still pointed
+  at. Each now answers 409, naming where the record is used; deactivate it
+  instead. A system account (Accounts Receivable, Undeposited Funds, …) can no
+  longer be deleted through the API at all. Unused records still delete.
 
 ## [1.5.0-rc.2] - 2026-11-17
 

@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreContactRequest;
 use App\Http\Requests\Api\V1\UpdateContactRequest;
 use App\Http\Resources\Api\V1\ContactResource;
 use App\Models\Contact;
+use App\Services\Merge\ContactReferenceRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -64,6 +65,11 @@ abstract class AbstractContactController extends ApiController
     public function destroy(Contact $contact): JsonResponse
     {
         abort_unless($contact->{$this->role}, 404);
+
+        // A contact still on a document, a ledger line or another record is
+        // refused: soft-deleting it would leave those pointing at a contact
+        // no page can load. A portal sign-in link is not a use.
+        $this->refuseWhileReferenced(ContactReferenceRegistry::class, (int) $contact->id, __('contact'), ['portal_login_links.contact_id']);
 
         $contact->delete();
 

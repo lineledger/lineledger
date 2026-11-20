@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Contracts\ClientSafeException;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Services\References\RecordReferences;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -75,5 +76,24 @@ abstract class ApiController extends Controller
     protected function conflict(string $message): never
     {
         throw new HttpException(Response::HTTP_CONFLICT, $message);
+    }
+
+    /**
+     * Refuse (409) to delete a list record that something still references,
+     * naming where, so the caller deactivates it instead.
+     *
+     * @param  class-string  $registry  see App\Services\References\RecordReferences
+     * @param  list<string>  $ignore  "table.column" entries that do not count as a use
+     */
+    protected function refuseWhileReferenced(string $registry, int $id, string $record, array $ignore = []): void
+    {
+        $reference = RecordReferences::firstReference($registry, $id, $ignore);
+
+        if ($reference !== null) {
+            $this->conflict(__('This :record is still used (:where), so it can\'t be deleted. Make it inactive instead.', [
+                'record' => $record,
+                'where' => RecordReferences::describe($reference),
+            ]));
+        }
     }
 }

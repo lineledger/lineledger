@@ -34,7 +34,7 @@ final class DeleteDraftJournalEntry
                 throw PostedDocumentDeletionException::for($entry);
             }
 
-            if ($entry->source_type !== null) {
+            if (! $entry->isManualEntry()) {
                 throw LinkedJournalEntryException::for($entry);
             }
 

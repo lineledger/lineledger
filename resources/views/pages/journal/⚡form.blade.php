@@ -6,6 +6,7 @@ use App\Actions\Accounting\UpdateJournalEntryHeader;
 use App\Enums\Activity;
 use App\Enums\AuditAction;
 use App\Enums\PermissionAction;
+use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\ReconciliationLockedException;
 use App\Exceptions\Posting\UnbalancedJournalException;
@@ -153,6 +154,13 @@ new #[Title('Journal entry')] class extends Component
         $this->company = $company;
 
         if ($entry && $entry->exists) {
+            if ($entry->source_type === null && $entry->isVoidReversal()) {
+                Flux::toast(text: LinkedJournalEntryException::for($entry)->getMessage());
+                $this->redirectRoute('journal.show', ['company' => $company->slug, 'entry' => $entry->id], navigate: true);
+
+                return;
+            }
+
             if (! $entry->isEditableInJournal()) {
                 $resolver = app(SourceLinkResolver::class);
                 $url = $resolver->urlFor($entry, $company)

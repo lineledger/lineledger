@@ -66,7 +66,7 @@ class JournalEntryController extends ApiController
             $this->conflict('A voided journal entry cannot be edited.');
         }
 
-        if ($journalEntry->source_type !== null) {
+        if (! $journalEntry->isManualEntry()) {
             $this->conflict(LinkedJournalEntryException::for($journalEntry)->getMessage());
         }
 
@@ -108,11 +108,21 @@ class JournalEntryController extends ApiController
 
     /**
      * Void a posted entry (reversing JE) or hard-delete a draft.
+     *
+     * Only a manual entry: an entry another document created (an invoice's, a
+     * filed return's adjustment) is voided through that document, or the
+     * document would stay posted on top of a voided entry; the reversal a void
+     * wrote belongs to that void.
      */
     public function destroy(JournalEntry $journalEntry): JsonResponse
     {
         if ($journalEntry->isVoided()) {
             $this->conflict('Journal entry is already voided.');
+        }
+
+        // 422, like the draft path (DeleteDraftJournalEntry throws the same).
+        if (! $journalEntry->isManualEntry()) {
+            throw LinkedJournalEntryException::for($journalEntry);
         }
 
         if ($journalEntry->isPosted()) {
