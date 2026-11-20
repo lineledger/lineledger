@@ -102,24 +102,26 @@ class CreditMemoController extends ApiController
     }
 
     /**
-     * Void a posted credit memo (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the creditMemo as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(CreditMemo $creditMemo): JsonResponse
+    public function destroy(Request $request, CreditMemo $creditMemo): JsonResponse
     {
-        if ($creditMemo->status === CreditMemoStatus::Void) {
-            $this->conflict('Credit memo is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $creditMemo,
+            fn () => $this->poster->void($creditMemo),
+            fn () => new CreditMemoResource($creditMemo->fresh(['lines'])),
+            'Credit memo is already voided.',
+        );
+    }
 
-        if ($creditMemo->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($creditMemo));
-
-            return (new CreditMemoResource($creditMemo->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $creditMemo->lines()->delete();
-        $creditMemo->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted creditMemo with a reversing journal entry.
+     */
+    public function void(CreditMemo $creditMemo): JsonResponse
+    {
+        return $this->voidDocument($creditMemo, fn () => $this->poster->void($creditMemo), fn () => new CreditMemoResource($creditMemo->fresh(['lines'])), 'Credit memo is already voided.');
     }
 
     /**

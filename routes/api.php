@@ -70,25 +70,25 @@ Route::middleware(['throttle:api', 'auth.api_key', 'api.permission'])
         // Contact resources share the {contact} binding (one Contact model, role-filtered).
         $resource('customers', 'contact', CustomerController::class, 'sales');
         $resource('sales-orders', 'salesOrder', SalesOrderController::class, 'sales', ['fulfill', 'cancel']);
-        $resource('invoices', 'invoice', InvoiceController::class, 'sales', ['post', 'refund']);
-        $resource('receipts', 'receipt', ReceiptController::class, 'sales', ['post']);
-        $resource('credit-memos', 'creditMemo', CreditMemoController::class, 'sales', ['post', 'refund']);
+        $resource('invoices', 'invoice', InvoiceController::class, 'sales', ['post', 'refund', 'void']);
+        $resource('receipts', 'receipt', ReceiptController::class, 'sales', ['post', 'void']);
+        $resource('credit-memos', 'creditMemo', CreditMemoController::class, 'sales', ['post', 'refund', 'void']);
 
         // ---- AP / Purchasing ----
         $resource('vendors', 'contact', VendorController::class, 'purchases');
         $resource('employees', 'contact', EmployeeController::class, 'purchases');
-        $resource('bills', 'bill', BillController::class, 'purchases', ['post']);
-        $resource('bill-payments', 'billPayment', BillPaymentController::class, 'purchases', ['post']);
+        $resource('bills', 'bill', BillController::class, 'purchases', ['post', 'void']);
+        $resource('bill-payments', 'billPayment', BillPaymentController::class, 'purchases', ['post', 'void']);
 
         // ---- Banking ----
-        $resource('cheques', 'cheque', ChequeController::class, 'banking', ['post']);
-        $resource('deposits', 'deposit', DepositController::class, 'banking', ['post']);
-        $resource('transfers', 'transfer', TransferController::class, 'banking', ['post']);
+        $resource('cheques', 'cheque', ChequeController::class, 'banking', ['post', 'void']);
+        $resource('deposits', 'deposit', DepositController::class, 'banking', ['post', 'void']);
+        $resource('transfers', 'transfer', TransferController::class, 'banking', ['post', 'void']);
         $resource('bank-reconciliations', 'bankReconciliation', BankReconciliationController::class, 'banking', ['complete']);
 
         // ---- GL + Master data ----
         $resource('accounts', 'account', AccountController::class, 'accounting');
-        $resource('journal-entries', 'journalEntry', JournalEntryController::class, 'accounting', ['post']);
+        $resource('journal-entries', 'journalEntry', JournalEntryController::class, 'accounting', ['post', 'void']);
         $resource('items', 'item', ItemController::class, 'inventory');
         $resource('tax-codes', 'taxCode', TaxCodeController::class, 'tax');
         $resource('tax-agencies', 'taxAgency', TaxAgencyController::class, 'tax');
@@ -97,8 +97,8 @@ Route::middleware(['throttle:api', 'auth.api_key', 'api.permission'])
 
         // ---- Tax / Assets / Inventory ----
         $resource('tax-returns', 'taxReturn', TaxReturnController::class, 'tax', ['file', 'void']);
-        $resource('tax-return-payments', 'taxReturnPayment', TaxReturnPaymentController::class, 'tax', ['post']);
+        $resource('tax-return-payments', 'taxReturnPayment', TaxReturnPaymentController::class, 'tax', ['post', 'void']);
         $resource('assets', 'asset', AssetController::class, 'accounting');
         $resource('asset-categories', 'assetCategory', AssetCategoryController::class, 'accounting');
-        $resource('stock-adjustments', 'stockAdjustment', StockAdjustmentController::class, 'inventory', ['post']);
+        $resource('stock-adjustments', 'stockAdjustment', StockAdjustmentController::class, 'inventory', ['post', 'void']);
     });

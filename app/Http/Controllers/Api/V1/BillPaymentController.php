@@ -97,24 +97,25 @@ class BillPaymentController extends ApiController
     }
 
     /**
-     * Void a posted payment (reversing JE, restoring bill balances) or
-     * hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the billPayment as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(BillPayment $billPayment): JsonResponse
+    public function destroy(Request $request, BillPayment $billPayment): JsonResponse
     {
-        if ($billPayment->status === BillPaymentStatus::Void) {
-            $this->conflict('Payment is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $billPayment,
+            fn () => $this->poster->void($billPayment),
+            fn () => new BillPaymentResource($billPayment->fresh(['applications'])),
+            'Payment is already voided.',
+        );
+    }
 
-        if ($billPayment->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($billPayment));
-
-            return (new BillPaymentResource($billPayment->fresh(['applications'])))->response()->setStatusCode(200);
-        }
-
-        $billPayment->applications()->delete();
-        $billPayment->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted billPayment with a reversing journal entry.
+     */
+    public function void(BillPayment $billPayment): JsonResponse
+    {
+        return $this->voidDocument($billPayment, fn () => $this->poster->void($billPayment), fn () => new BillPaymentResource($billPayment->fresh(['applications'])), 'Payment is already voided.');
     }
 }

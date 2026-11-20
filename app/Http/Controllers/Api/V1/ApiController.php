@@ -5,8 +5,16 @@ namespace App\Http\Controllers\Api\V1;
 use App\Contracts\ClientSafeException;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\CompanyApiKey;
+use App\Models\User;
+use App\Services\Deletion\DeletableDocuments;
+use App\Services\Deletion\TransactionDeleter;
 use App\Services\References\RecordReferences;
+use Closure;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -76,6 +84,91 @@ abstract class ApiController extends Controller
     protected function conflict(string $message): never
     {
         throw new HttpException(Response::HTTP_CONFLICT, $message);
+    }
+
+    /**
+     * DELETE on a document.
+     *
+     *  - `?permanent=true` deletes it as if it was never entered, whether draft,
+     *    posted or voided (TransactionDeleter): 204, or 409 with the reasons
+     *    when something still depends on it.
+     *  - Otherwise a draft is deleted the same way, and a posted document is
+     *    voided as before (200 with the document), with a Deprecation header
+     *    pointing at POST …/void, which takes over voiding in API v2.
+     *
+     * @param  Closure(): mixed  $void  the poster's void
+     * @param  Closure(): JsonResource  $resource  the document after the void
+     * @param  (Closure(): void)|null  $legacyDraftDelete  for a type Delete doesn't cover yet
+     */
+    protected function destroyDocument(Request $request, Model $document, Closure $void, Closure $resource, string $alreadyVoided, ?Closure $legacyDraftDelete = null): JsonResponse
+    {
+        if ($request->boolean('permanent')) {
+            return $this->deletePermanently($request, $document);
+        }
+
+        if ($document->getAttribute('voided_at') !== null) {
+            $this->conflict($alreadyVoided);
+        }
+
+        if ($document->getAttribute('journal_entry_id') !== null) {
+            $this->posting($void);
+
+            return $resource()->response()->setStatusCode(200)->withHeaders([
+                'Deprecation' => 'true',
+                'Link' => '<'.$request->url().'/void>; rel="successor-version"',
+            ]);
+        }
+
+        if ($legacyDraftDelete !== null && ! DeletableDocuments::supports($document)) {
+            $legacyDraftDelete();
+
+            return response()->json(null, 204);
+        }
+
+        return $this->deletePermanently($request, $document);
+    }
+
+    /**
+     * POST …/void: void a posted document with a reversing entry. A draft has
+     * nothing to reverse (delete it instead), and a voided one stays voided.
+     *
+     * @param  Closure(): mixed  $void
+     * @param  Closure(): JsonResource  $resource
+     */
+    protected function voidDocument(Model $document, Closure $void, Closure $resource, string $alreadyVoided): JsonResponse
+    {
+        if ($document->getAttribute('voided_at') !== null) {
+            $this->conflict($alreadyVoided);
+        }
+
+        if ($document->getAttribute('journal_entry_id') === null) {
+            $this->conflict('A draft has nothing to reverse; delete it instead.');
+        }
+
+        $this->posting($void);
+
+        return $resource()->response()->setStatusCode(200);
+    }
+
+    /**
+     * Delete the document through TransactionDeleter, outside any transaction
+     * (it checks the edit lock first). The API never opens a period-lock
+     * override: a closed period answers 422. An optional `reason` is kept
+     * with the record of the deletion.
+     */
+    protected function deletePermanently(Request $request, Model $document): JsonResponse
+    {
+        if (! DeletableDocuments::supports($document)) {
+            $this->conflict('This document can\'t be deleted yet; void it instead.');
+        }
+
+        $key = app()->bound('current_api_key') ? app('current_api_key') : null;
+        $actor = $key instanceof CompanyApiKey ? $key->createdByUser : null;
+        $reason = $request->input('reason');
+
+        app(TransactionDeleter::class)->delete($document, is_string($reason) ? $reason : null, $actor instanceof User ? $actor : null, 'api');
+
+        return response()->json(null, 204);
     }
 
     /**

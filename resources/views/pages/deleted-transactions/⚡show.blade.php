@@ -72,6 +72,9 @@ new #[Title('Deleted transaction')] class extends Component {
     <flux:callout variant="danger" icon="trash" class="mb-6" data-test="deleted-transaction-banner">
         <flux:callout.heading>
             {{ __('Deleted by :name on :when.', ['name' => $record->deletedBy?->name ?? __('someone no longer on file'), 'when' => $record->created_at?->setTimezone($tz)->format('Y-m-d H:i')]) }}
+            @if ($record->deleted_via === 'api')
+                {{ __('(through the API)') }}
+            @endif
         </flux:callout.heading>
         <flux:callout.text>
             {{ __('It is no longer in your books or any report. This is the record kept of it, as it stood when it was deleted.') }}

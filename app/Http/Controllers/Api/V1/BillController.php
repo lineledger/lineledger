@@ -101,23 +101,25 @@ class BillController extends ApiController
     }
 
     /**
-     * Void a posted bill (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the bill as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(Bill $bill): JsonResponse
+    public function destroy(Request $request, Bill $bill): JsonResponse
     {
-        if ($bill->status === BillStatus::Void) {
-            $this->conflict('Bill is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $bill,
+            fn () => $this->poster->void($bill),
+            fn () => new BillResource($bill->fresh(['lines'])),
+            'Bill is already voided.',
+        );
+    }
 
-        if ($bill->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($bill));
-
-            return (new BillResource($bill->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $bill->lines()->delete();
-        $bill->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted bill with a reversing journal entry.
+     */
+    public function void(Bill $bill): JsonResponse
+    {
+        return $this->voidDocument($bill, fn () => $this->poster->void($bill), fn () => new BillResource($bill->fresh(['lines'])), 'Bill is already voided.');
     }
 }

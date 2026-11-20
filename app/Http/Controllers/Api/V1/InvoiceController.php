@@ -103,24 +103,26 @@ class InvoiceController extends ApiController
     }
 
     /**
-     * Void a posted invoice (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the invoice as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(Invoice $invoice): JsonResponse
+    public function destroy(Request $request, Invoice $invoice): JsonResponse
     {
-        if ($invoice->status === InvoiceStatus::Void) {
-            $this->conflict('Invoice is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $invoice,
+            fn () => $this->poster->void($invoice),
+            fn () => new InvoiceResource($invoice->fresh(['lines'])),
+            'Invoice is already voided.',
+        );
+    }
 
-        if ($invoice->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($invoice));
-
-            return (new InvoiceResource($invoice->fresh(['lines'])))->response()->setStatusCode(200);
-        }
-
-        $invoice->lines()->delete();
-        $invoice->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted invoice with a reversing journal entry.
+     */
+    public function void(Invoice $invoice): JsonResponse
+    {
+        return $this->voidDocument($invoice, fn () => $this->poster->void($invoice), fn () => new InvoiceResource($invoice->fresh(['lines'])), 'Invoice is already voided.');
     }
 
     /**

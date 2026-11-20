@@ -97,23 +97,25 @@ class ReceiptController extends ApiController
     }
 
     /**
-     * Void a posted receipt (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the receipt as if never entered; without
+     * it a draft is deleted and a posted one voided (deprecated: POST …/void).
      */
-    public function destroy(CustomerReceipt $receipt): JsonResponse
+    public function destroy(Request $request, CustomerReceipt $receipt): JsonResponse
     {
-        if ($receipt->status === ReceiptStatus::Void) {
-            $this->conflict('Receipt is already voided.');
-        }
+        return $this->destroyDocument(
+            $request,
+            $receipt,
+            fn () => $this->poster->void($receipt),
+            fn () => new ReceiptResource($receipt->fresh(ReceiptResource::RELATIONS)),
+            'Receipt is already voided.',
+        );
+    }
 
-        if ($receipt->journal_entry_id !== null) {
-            $this->posting(fn () => $this->poster->void($receipt));
-
-            return (new ReceiptResource($receipt->fresh(ReceiptResource::RELATIONS)))->response()->setStatusCode(200);
-        }
-
-        $receipt->applications()->delete();
-        $receipt->delete();
-
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted receipt with a reversing journal entry.
+     */
+    public function void(CustomerReceipt $receipt): JsonResponse
+    {
+        return $this->voidDocument($receipt, fn () => $this->poster->void($receipt), fn () => new ReceiptResource($receipt->fresh(ReceiptResource::RELATIONS)), 'Receipt is already voided.');
     }
 }

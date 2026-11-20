@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Accounting\DeleteDraftJournalEntry;
 use App\Actions\Accounting\SaveJournalEntry;
 use App\Exceptions\Posting\LinkedJournalEntryException;
 use App\Exceptions\Posting\UnbalancedJournalException;
@@ -107,20 +106,26 @@ class JournalEntryController extends ApiController
     }
 
     /**
-     * Void a posted entry (reversing JE) or hard-delete a draft.
+     * DELETE: `?permanent=true` deletes the entry as if never entered (a manual,
+     * bank-feed or imported entry; a voided one with its reversal). Without
+     * it a draft is deleted and a posted entry voided (deprecated: POST
+     * …/void).
      *
-     * Only a manual entry: an entry another document created (an invoice's, a
-     * filed return's adjustment) is voided through that document, or the
-     * document would stay posted on top of a voided entry; the reversal a void
-     * wrote belongs to that void.
+     * Plain DELETE acts on manual entries only: an entry another document
+     * created (an invoice's, a filed return's adjustment) is voided through
+     * that document, and the reversal a void wrote belongs to that void (422,
+     * as for a linked draft).
      */
-    public function destroy(JournalEntry $journalEntry): JsonResponse
+    public function destroy(Request $request, JournalEntry $journalEntry): JsonResponse
     {
+        if ($request->boolean('permanent')) {
+            return $this->deletePermanently($request, $journalEntry);
+        }
+
         if ($journalEntry->isVoided()) {
             $this->conflict('Journal entry is already voided.');
         }
 
-        // 422, like the draft path (DeleteDraftJournalEntry throws the same).
         if (! $journalEntry->isManualEntry()) {
             throw LinkedJournalEntryException::for($journalEntry);
         }
@@ -128,12 +133,35 @@ class JournalEntryController extends ApiController
         if ($journalEntry->isPosted()) {
             $this->posting(fn () => $this->poster->void($journalEntry));
 
-            return (new JournalEntryResource($journalEntry->fresh(['lines'])))->response()->setStatusCode(200);
+            return (new JournalEntryResource($journalEntry->fresh(['lines'])))->response()->setStatusCode(200)->withHeaders([
+                'Deprecation' => 'true',
+                'Link' => '<'.$request->url().'/void>; rel="successor-version"',
+            ]);
         }
 
-        app(DeleteDraftJournalEntry::class)->handle($journalEntry);
+        return $this->deletePermanently($request, $journalEntry);
+    }
 
-        return response()->json(null, 204);
+    /**
+     * POST …/void: void a posted manual entry with a reversing entry.
+     */
+    public function void(JournalEntry $journalEntry): JsonResponse
+    {
+        if ($journalEntry->isVoided()) {
+            $this->conflict('Journal entry is already voided.');
+        }
+
+        if (! $journalEntry->isManualEntry()) {
+            throw LinkedJournalEntryException::for($journalEntry);
+        }
+
+        if (! $journalEntry->isPosted()) {
+            $this->conflict('A draft has nothing to reverse; delete it instead.');
+        }
+
+        $this->posting(fn () => $this->poster->void($journalEntry));
+
+        return (new JournalEntryResource($journalEntry->fresh(['lines'])))->response()->setStatusCode(200);
     }
 
     /**
