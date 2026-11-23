@@ -11,7 +11,6 @@ use App\Http\Middleware\EnsureSectionAccess;
 use App\Http\Middleware\EnsureSectionEnabled;
 use App\Http\Middleware\EnsureSiteAdmin;
 use App\Http\Middleware\ResolvePortalCompany;
-use App\Listeners\Security\NotifyNewDeviceLogin;
 use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
 use App\Livewire\Permissions\MethodPermissionGate;
@@ -32,7 +31,6 @@ use App\Support\Access\CurrentViewer;
 use App\Support\Http\CanonicalUrl;
 use App\Support\MailSettings;
 use Carbon\CarbonImmutable;
-use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -149,8 +147,10 @@ class AppServiceProvider extends ServiceProvider
             $modelClass::observe(AuditableObserver::class);
         }
 
+        // A subscriber has no handle() method, so discovery doesn't find it. A
+        // class in app/Listeners that has one, such as NotifyNewDeviceLogin, is
+        // registered by discovery; an Event::listen() here would run it twice.
         Event::subscribe(SecurityLogListener::class);
-        Event::listen(Login::class, NotifyNewDeviceLogin::class);
 
         // Platform-level (cross-tenant) authorization for the site admin portal.
         // Used for menu visibility and Blade @can; route access is additionally
