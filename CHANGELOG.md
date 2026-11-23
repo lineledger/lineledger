@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   response returns it. It is the same "Customer PO #" the invoice form has always
   had; the API used to drop it without saying so.
 
+### Fixed
+
+- **Deadline emails no longer fail when many go out at once.** Organizations in
+  the same timezone all send their deadline emails in the same hourly run, and on
+  Mondays that includes every member's weekly digest. Resend refuses more than 10
+  requests a second, and an organization whose job hit that limit lost the rest of
+  its emails for the day. Mail sent through Resend now waits for a free slot,
+  5 a second by default and shared by every worker (`RESEND_PER_SECOND`, `0` turns
+  it off). A deadline job whose send fails is retried after 1, 5 and 15 minutes,
+  and the retry sends only the emails that had not gone out.
+
 ## [1.5.0-rc.5] - 2026-11-20
 
 **Highlights.** The fifth release candidate for 1.5.0, on the next channel

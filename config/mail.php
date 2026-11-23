@@ -63,6 +63,9 @@ return [
 
         'resend' => [
             'transport' => 'resend',
+            // Resend allows 10 requests a second per account. Sends wait for a
+            // slot below that (App\Listeners\Mail\PaceOutgoingMail); 0 turns it off.
+            'per_second' => (int) env('RESEND_PER_SECOND', 5),
         ],
 
         'sendmail' => [

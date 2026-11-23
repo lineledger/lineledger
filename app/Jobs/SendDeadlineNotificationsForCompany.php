@@ -17,6 +17,18 @@ class SendDeadlineNotificationsForCompany implements ShouldQueue
 {
     use Queueable;
 
+    /**
+     * A send that fails (the mail provider refusing a burst, a network blip)
+     * is retried. Each email is claimed before it goes and a failure releases
+     * its claim, so a retry sends only what didn't go out. A job that fails
+     * for good loses the organization's emails until tomorrow, because the
+     * command has already claimed its day.
+     */
+    public int $tries = 4;
+
+    /** @var list<int> Seconds to wait before the second, third and fourth attempts. */
+    public array $backoff = [60, 300, 900];
+
     public function __construct(public int $companyId) {}
 
     public function handle(DeadlineNotifier $notifier): void
