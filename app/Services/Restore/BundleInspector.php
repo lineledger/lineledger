@@ -2,10 +2,12 @@
 
 namespace App\Services\Restore;
 
+use App\Enums\Country;
 use App\Models\User;
 use App\Services\Backup\BackupTableRegistry;
 use App\Services\Backup\JsonlTableWriter;
 use App\Services\Restore\Exceptions\BundleValidationException;
+use App\Support\Companies\NewCompanyCountries;
 use App\Support\Currency;
 use JsonException;
 use ZipArchive;
@@ -376,6 +378,18 @@ final class BundleInspector
                 'Bundle home currency %s is not supported. Only two-decimal currencies can be restored.',
                 $currencyCode,
             ));
+        }
+
+        // The same countries the setup wizard offers. The inspection on upload
+        // and the one the importer repeats both run this, so neither skips it.
+        if (NewCompanyCountries::restricted()) {
+            $country = Country::tryFrom(mb_strtoupper((string) ($row['address_country'] ?? '')));
+
+            if ($country === null || ! NewCompanyCountries::allows($country)) {
+                throw new BundleValidationException($country === null
+                    ? __('This site creates organizations in: :countries. The organization in this backup has no country this site recognizes, so it can’t be restored here.', ['countries' => NewCompanyCountries::describe()])
+                    : NewCompanyCountries::restoreRefusal($country));
+            }
         }
 
         return [

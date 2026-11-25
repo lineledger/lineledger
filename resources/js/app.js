@@ -49,6 +49,7 @@ document.addEventListener('alpine:init', () => {
         show: false,
         current: config.current,       // 'ca' | 'us' | 'gb'
         siblings: config.siblings || [], // [{ code, label, flag, url }, ...]
+        suggested: config.suggested || null, // sibling code matching Cloudflare's country header
 
         KEY: 'll_region',
 
@@ -85,6 +86,14 @@ document.addEventListener('alpine:init', () => {
 
             // 2. A stored preference means they've already decided — never nag.
             if (this.stored()) {
+                return;
+            }
+
+            // 3a. Their location names a sibling's country: offer it even if
+            //     they came from the marketing site, since an organization
+            //     belongs on its own country's site.
+            if (this.suggested) {
+                this.show = true;
                 return;
             }
 

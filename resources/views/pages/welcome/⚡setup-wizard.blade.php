@@ -15,6 +15,7 @@ use App\Models\Company;
 use App\Models\TaxAgency;
 use App\Rules\CompanyName;
 use App\Services\Migration\QuickBooksMigrationService;
+use App\Support\Companies\NewCompanyCountries;
 use App\Support\Currency;
 use App\Support\Defaults\ChartTemplateBuilder;
 use App\Support\SiteSettings;
@@ -163,6 +164,12 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
     #[Locked]
     public ?int $createdCompanyId = null;
 
+    // The visitor's country from Cloudflare's header, kept only when this site
+    // doesn't create organizations there but a sibling site does: the country
+    // step then points them to it more prominently.
+    #[Locked]
+    public string $visitorCountry = '';
+
     public function mount(): void
     {
         // Only the first-company welcome path bounces existing users to the picker.
@@ -201,7 +208,19 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
             default => null,
         };
 
-        $this->country = ($geoCountry ?? $hostCountry)?->value ?? '';
+        // A site that creates organizations in one country only (COMPANY_COUNTRIES)
+        // picks it; otherwise the first signal this site accepts wins.
+        $allowed = NewCompanyCountries::all();
+        $prefill = count($allowed) === 1
+            ? $allowed[0]
+            : collect([$geoCountry, $hostCountry])->first(
+                fn (?Country $country): bool => $country !== null && NewCompanyCountries::allows($country),
+            );
+
+        $this->country = $prefill?->value ?? '';
+        $this->visitorCountry = $geoCountry !== null && NewCompanyCountries::elsewhere($geoCountry) !== null
+            ? $geoCountry->value
+            : '';
 
         $this->currency = $this->defaultCurrencyForCountry($this->countryEnum());
         $this->fiscalYearStartMonth = $this->countryEnum()?->defaultFiscalYearStartMonth() ?? 1;
@@ -728,7 +747,7 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
         return match ($step) {
             1 => [
                 'companyName' => ['required', 'string', 'max:255', new CompanyName],
-                'country' => ['required', Rule::in(array_map(fn ($c) => $c->value, Country::cases()))],
+                'country' => ['required', Rule::in(NewCompanyCountries::values())],
                 'currency' => ['required', 'string', Rule::in(array_keys(Currency::selectable()))],
                 'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
                 'fiscalYearStartMonth' => ['required', 'integer', 'between:1,12'],
@@ -1078,11 +1097,13 @@ new #[Layout('layouts.onboarding'), Title('Setup your organization')] class exte
 
                         <flux:select wire:model.live="country" :label="__('Country')" data-test="wizard-country">
                             <flux:select.option value="">{{ __('Select…') }}</flux:select.option>
-                            @foreach (Country::options() as $option)
+                            @foreach (NewCompanyCountries::options() as $option)
                                 <flux:select.option value="{{ $option['value'] }}">{{ $option['label'] }}</flux:select.option>
                             @endforeach
                         </flux:select>
                         <flux:description>{{ __("Your country can't be changed after creation.") }}</flux:description>
+
+                        <x-company-country-sites :prominent="$visitorCountry !== ''" data-test="wizard-country-sites" />
 
                         @if ($this->regions !== [])
                             <flux:select wire:model="region" :label="$this->countryEnum()?->regionLabel() ?? __('Region')" data-test="wizard-region">

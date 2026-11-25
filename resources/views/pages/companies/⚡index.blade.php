@@ -3,6 +3,7 @@
 use App\Actions\Companies\CreateCompany;
 use App\Enums\Country;
 use App\Rules\CompanyName;
+use App\Support\Companies\NewCompanyCountries;
 use App\Support\Currency;
 use App\Support\UserCompany;
 use Flux\Flux;
@@ -26,6 +27,14 @@ new #[Title('Organizations')] class extends Component {
 
     public function mount(): void
     {
+        // A site that doesn't create Canadian organizations (COMPANY_COUNTRIES)
+        // starts on the first country it does.
+        if (! NewCompanyCountries::allows(Country::Canada)) {
+            $first = NewCompanyCountries::all()[0];
+            $this->country = $first->value;
+            $this->currency = $first->defaultCurrencyCode();
+        }
+
         $this->timezone = (Country::tryFrom($this->country) ?? Country::Canada)->defaultTimezone();
     }
 
@@ -61,7 +70,7 @@ new #[Title('Organizations')] class extends Component {
 
         $rules = [
             'name' => ['required', 'string', 'max:255', new CompanyName],
-            'country' => ['required', Rule::in(array_map(fn ($c) => $c->value, Country::cases()))],
+            'country' => ['required', Rule::in(NewCompanyCountries::values())],
             'currency' => ['required', 'string', Rule::in(array_keys(Currency::selectable()))],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
         ];
@@ -163,10 +172,12 @@ new #[Title('Organizations')] class extends Component {
             <flux:input wire:model="name" :label="__('Organization name')" type="text" autofocus data-test="create-company-name" />
 
             <flux:select wire:model.live="country" :label="__('Country')" data-test="create-company-country">
-                @foreach (Country::options() as $option)
+                @foreach (NewCompanyCountries::options() as $option)
                     <flux:select.option value="{{ $option['value'] }}">{{ $option['label'] }}</flux:select.option>
                 @endforeach
             </flux:select>
+
+            <x-company-country-sites data-test="create-company-country-sites" />
 
             @if ($this->regions !== [])
                 <flux:select wire:model="region" :label="$this->countryEnum()?->regionLabel() ?? __('Region')" data-test="create-company-region">
