@@ -63,6 +63,8 @@ new class extends Component
 
     public bool $insightsAiNarration = false;
 
+    public bool $bankImportAi = false;
+
     public bool $agenticWrites = false;
 
     public bool $allowTransactionDeletion = true;
@@ -173,6 +175,7 @@ new class extends Component
         $this->locale = $company->locale ?: 'en';
         $this->autoApplyCustomerCredits = (bool) $company->auto_apply_customer_credits;
         $this->insightsAiNarration = $company->insightsAiNarrationEnabled();
+        $this->bankImportAi = $company->bankImportAiEnabled();
         $this->agenticWrites = $company->agenticWritesEnabled();
         $this->allowTransactionDeletion = $company->allowsTransactionDeletion();
         $this->warnDuplicateBillNo = (bool) $company->warn_duplicate_bill_no;
@@ -449,6 +452,21 @@ new class extends Component
         $this->companyModel->setInsightsState(['ai_narration' => $value]);
 
         Flux::toast(variant: 'success', text: __('Daily insight preference saved.'));
+    }
+
+    /**
+     * Instant-save toggle for AI help with bank-statement import — the
+     * per-company opt-in half of the double gate (the operator half is
+     * config('banking.statement_import.ai.enabled') + an Anthropic key).
+     * Owner/Admin only, gated by the same `update` policy as the company form.
+     */
+    public function updatedBankImportAi(bool $value): void
+    {
+        Gate::authorize('update', $this->companyModel);
+
+        $this->companyModel->setBankingState(['ai_import' => $value]);
+
+        Flux::toast(variant: 'success', text: __('Bank import preference saved.'));
     }
 
     /**
@@ -784,6 +802,10 @@ new class extends Component
                                 </flux:button>
                             </div>
 
+                            @php
+                                $aiLocked = ! app(\App\Support\Security\SensitiveFeatureGate::class)->allows(\App\Enums\SensitiveFeature::Ai, $companyModel, auth()->user());
+                            @endphp
+
                             @if (config('insights.ai.enabled') && config('services.anthropic.key'))
                                 <div class="space-y-3 rounded-lg border border-border p-4">
                                     <div>
@@ -794,8 +816,27 @@ new class extends Component
                                         wire:model.live="insightsAiNarration"
                                         :label="__('Write my daily insight with AI')"
                                         :description="__('Sends only summarized totals — never customer names, transaction details, or descriptions — to Anthropic to write your daily insight. When off, insights still appear using LineLedger\'s built-in wording.')"
+                                        :disabled="$aiLocked && ! $insightsAiNarration"
                                         data-test="company-insights-ai-input"
                                     />
+                                    <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Ai" :company="$companyModel" />
+                                </div>
+                            @endif
+
+                            @if (config('banking.statement_import.ai.enabled') && config('services.anthropic.key'))
+                                <div class="space-y-3 rounded-lg border border-border p-4" data-test="company-bank-import-ai-section">
+                                    <div>
+                                        <flux:heading size="sm">{{ __('Bank statement import') }}</flux:heading>
+                                        <flux:subheading>{{ __('Statements are read on this server. AI can help with the ones it can\'t read on its own.') }}</flux:subheading>
+                                    </div>
+                                    <flux:switch
+                                        wire:model.live="bankImportAi"
+                                        :label="__('Use AI to read bank statements')"
+                                        :description="__('Sends a few sample rows of a CSV whose columns aren\'t recognized, or a PDF statement whose text can\'t be read, to Anthropic. When off, you map the columns yourself, or upload a CSV or OFX export instead of the PDF.')"
+                                        :disabled="$aiLocked && ! $bankImportAi"
+                                        data-test="company-bank-import-ai-input"
+                                    />
+                                    <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Ai" :company="$companyModel" />
                                 </div>
                             @endif
 
@@ -1194,6 +1235,9 @@ new class extends Component
             @endif
 
             @if ($this->permissions->canUpdateCompany)
+                @php
+                    $stripeLocked = ! app(\App\Support\Security\SensitiveFeatureGate::class)->allows(\App\Enums\SensitiveFeature::StripeConnect, $companyModel, auth()->user());
+                @endphp
                 <div class="space-y-6">
                     <div>
                         <flux:heading>{{ __('Online payments') }}</flux:heading>
@@ -1210,15 +1254,17 @@ new class extends Component
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <flux:button
-                                    :href="route('settings.stripe.connect', ['company' => $companyModel->slug])"
-                                    variant="primary"
-                                    size="sm"
-                                    icon="credit-card"
-                                    data-test="stripe-reconnect"
-                                >
-                                    {{ __('Reconnect Stripe') }}
-                                </flux:button>
+                                @unless ($stripeLocked)
+                                    <flux:button
+                                        :href="route('settings.stripe.connect', ['company' => $companyModel->slug])"
+                                        variant="primary"
+                                        size="sm"
+                                        icon="credit-card"
+                                        data-test="stripe-reconnect"
+                                    >
+                                        {{ __('Reconnect Stripe') }}
+                                    </flux:button>
+                                @endunless
                                 <form method="POST" action="{{ route('settings.stripe.disconnect', ['company' => $companyModel->slug]) }}">
                                     @csrf
                                     @method('DELETE')
@@ -1240,17 +1286,20 @@ new class extends Component
                             </form>
                         @else
                             <flux:text class="text-muted-foreground">{{ __('Not connected.') }}</flux:text>
-                            <flux:button
-                                :href="route('settings.stripe.connect', ['company' => $companyModel->slug])"
-                                variant="primary"
-                                size="sm"
-                                icon="credit-card"
-                                data-test="stripe-connect"
-                            >
-                                {{ __('Connect Stripe') }}
-                            </flux:button>
+                            @unless ($stripeLocked)
+                                <flux:button
+                                    :href="route('settings.stripe.connect', ['company' => $companyModel->slug])"
+                                    variant="primary"
+                                    size="sm"
+                                    icon="credit-card"
+                                    data-test="stripe-connect"
+                                >
+                                    {{ __('Connect Stripe') }}
+                                </flux:button>
+                            @endunless
                         @endif
                     </flux:card>
+                    <x-two-factor-required :feature="\App\Enums\SensitiveFeature::StripeConnect" :company="$companyModel" />
                 </div>
             @endif
 

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\SendScheduledReportEmailsForCompany;
 use App\Models\Company;
 use App\Services\Recurring\NextRunDateCalculator;
@@ -11,6 +12,7 @@ use Illuminate\Console\Command;
 class SendScheduledReportEmails extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'reports:send-scheduled {company? : Company ID or slug; all companies when omitted} {--sync : Send inline instead of dispatching a queued job per company}';
 
@@ -34,6 +36,10 @@ class SendScheduledReportEmails extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if (! $this->option('sync')) {
                 SendScheduledReportEmailsForCompany::dispatch($company->id);
                 $this->line(sprintf('%s — queued.', $company->slug));

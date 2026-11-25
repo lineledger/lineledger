@@ -13,6 +13,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   /api/v1/invoices` accept `customer_po` (up to 100 characters) and the invoice
   response returns it. It is the same "Customer PO #" the invoice form has always
   had; the API used to drop it without saying so.
+- **Features can be kept behind two-factor authentication.**
+  `TWO_FACTOR_REQUIRED_FOR` lists any of `customer_email` (every email to a
+  customer or employee: invoices, reminders, statements, portal sign-in links,
+  report emails to people outside the organization, recurring auto-email),
+  `ai` (receipt OCR, AI categorization, AI bank import, AI daily insights),
+  `invitations`, `api` (creating API keys, connecting an assistant over MCP)
+  and `stripe_connect`. A listed feature runs only once the organization's
+  owner, and whoever is using it, has turned on two-factor authentication.
+  Until then the person is told so and pointed at Settings → Security, AI
+  falls back to the built-in path, scheduled reminders and report emails to
+  outsiders wait, and any customer email that gets past those is held when it
+  would be sent. The switches, Invite, Create API key, Connect Stripe and the
+  email dialogs show the requirement. Empty, the default, changes nothing.
+- **Organization backups can be restored on a server shared by unrelated
+  customers.** With `RESTORE_USER_MATCHING=restorer`, a restore matches only
+  the person restoring by email; every other user in the backup is attributed
+  to them, as an unmatched user always was, so a crafted backup can no longer
+  confirm that someone else has an account on the server or make them a member
+  of the copy. `instance`, the default, matches as before.
+- **Bank-statement import has its own AI switch per organization.** With
+  `BANK_IMPORT_AI_ENABLED` and a key set, **Use AI to read bank statements** on
+  the organization's edit page decides whether that organization's statements
+  may go to Anthropic.
+- **An organization can be made read-only**, for a hosting layer to build on
+  (`App\Contracts\CompanyAccess`; a self-hosted install never has one). Every
+  member, the Owner included, can then only look: pages, the API and MCP
+  refuse every change and nothing can be posted or voided. The organization's
+  scheduled work (recurring documents, depreciation, payment reminders,
+  scheduled reports, deadline emails, time-off accrual, daily insights) and
+  inbound email skip it. Reports still run, the Owner can still export a backup
+  or delete the organization, and members can still raise a support ticket and
+  manage their own account. A card payment Stripe has already settled is still
+  recorded. Its pages carry the notice the hosting layer gives.
+
+### Changed
+
+- **Bank-statement AI is off for each organization until it is turned on.**
+  Setting `BANK_IMPORT_AI_ENABLED` used to send every organization's
+  unreadable statements to Anthropic; now an organization's Owner (or anyone
+  who can change its settings) turns on **Use AI to read bank statements**
+  first, as with receipt reading and AI daily insights.
+- **`INBOUND_EMAIL_ENABLED` is now the switch it was documented as.** It was
+  never read, so the inbound-email webhook answered whenever an organization
+  had turned email forwarding on. While it is `false`, the default, the
+  webhook answers 404: set it to `true` if you forward documents by email.
 
 ### Fixed
 
@@ -24,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   5 a second by default and shared by every worker (`RESEND_PER_SECOND`, `0` turns
   it off). A deadline job whose send fails is retried after 1, 5 and 15 minutes,
   and the retry sends only the emails that had not gone out.
+- **You can no longer delete your account while you own an organization.** It
+  left the organization with no owner, so nobody could run it or delete it.
+  Settings → Profile now lists the organizations you own; delete them first.
+- **Receipt reading is offered only when the server can do it.** Settings →
+  Inbox email showed the switch even when the operator hadn't turned receipt
+  reading on, so turning it on did nothing.
 
 ## [1.5.0-rc.5] - 2026-11-20
 

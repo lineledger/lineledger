@@ -2,6 +2,7 @@
 
 namespace App\Services\Banking\Import;
 
+use App\Enums\SensitiveFeature;
 use App\Enums\StatementLineMatchStatus;
 use App\Enums\StatementSuggestionSource;
 use App\Models\Account;
@@ -13,6 +14,7 @@ use App\Models\Contact;
 use App\Services\Classification\CategorySuggester;
 use App\Services\Classification\Contracts\TransactionClassifier;
 use App\Services\Classification\Support\DescriptionNormalizer;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Support\Collection;
 
 /**
@@ -209,7 +211,8 @@ final class StatementSuggestionPipeline
 
         $company = Company::query()->find($import->company_id);
 
-        if ($company === null || ! $company->inboxOcrEnabled()) {
+        if ($company === null || ! $company->inboxOcrEnabled()
+            || ! app(SensitiveFeatureGate::class)->allows(SensitiveFeature::Ai, $company)) {
             return;
         }
 

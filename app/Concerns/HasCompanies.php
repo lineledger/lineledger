@@ -48,6 +48,22 @@ trait HasCompanies
     }
 
     /**
+     * The organizations this user owns that must be deleted before the account
+     * can be, by name: every one not already deleted, since an organization
+     * always keeps an Owner. A legacy personal workspace isn't counted — it
+     * can't be deleted, so counting it would make the account undeletable.
+     *
+     * @return Collection<int, Company>
+     */
+    public function ownedCompaniesBlockingAccountDeletion(): Collection
+    {
+        return $this->ownedCompanies()
+            ->where('companies.is_personal', false)
+            ->orderBy('companies.name')
+            ->get();
+    }
+
+    /**
      * @return HasMany<Membership, $this>
      */
     public function companyMemberships(): HasMany
@@ -200,15 +216,16 @@ trait HasCompanies
 
     /**
      * Whether the user may manage the organization this way: through the
-     * administrative or reserved activity it maps to, or as the Owner.
+     * administrative or reserved activity it maps to, or as the Owner. The
+     * Owner-only permission (deleting the organization) asks the membership's
+     * role, so the Owner keeps it while the organization is read-only.
      */
     public function hasCompanyPermission(Company $company, CompanyPermission $permission): bool
     {
-        $permissions = $this->permissions($company);
         $requirement = $permission->requirement();
 
         return $requirement === null
-            ? $permissions->isOwner()
-            : $permissions->allows($requirement->activity, $requirement->action);
+            ? $this->ownsCompany($company)
+            : $this->permissions($company)->allows($requirement->activity, $requirement->action);
     }
 }

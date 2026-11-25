@@ -584,6 +584,8 @@ new #[Title('Customer statement')] class extends Component {
                 <flux:subheading>{{ __('They get a one-click link to view their statement online, with the PDF attached exactly as previewed.') }}</flux:subheading>
             </div>
 
+            <x-two-factor-required :feature="\App\Enums\SensitiveFeature::CustomerEmail" :company="$company" />
+
             @if (! $contact->invoice_emails_enabled)
                 <flux:callout icon="information-circle" data-test="statement-opted-out">
                     {{ __('This customer has automated invoice emails turned off. Sending now will still reach them, and will not change that setting.') }}

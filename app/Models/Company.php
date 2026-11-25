@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -222,6 +223,38 @@ class Company extends Model
         return $this->members()
             ->wherePivot('role', CompanyRole::Owner->value)
             ->first();
+    }
+
+    /**
+     * The addresses among $emails that belong to no member of this
+     * organization, lower-cased: who an email reaches outside it.
+     *
+     * @param  iterable<mixed>  $emails
+     * @return list<string>
+     */
+    public function nonMemberEmails(iterable $emails): array
+    {
+        $lowered = [];
+
+        foreach ($emails as $email) {
+            $email = mb_strtolower(trim((string) $email));
+
+            if ($email !== '') {
+                $lowered[$email] = $email;
+            }
+        }
+
+        if ($lowered === []) {
+            return [];
+        }
+
+        $members = $this->members()
+            ->whereIn(DB::raw('LOWER(users.email)'), array_values($lowered))
+            ->pluck('users.email')
+            ->map(fn (mixed $email): string => mb_strtolower((string) $email))
+            ->all();
+
+        return array_values(array_diff($lowered, $members));
     }
 
     /**
@@ -679,6 +712,34 @@ class Company extends Model
     {
         $settings = $this->settings ?? [];
         $settings['inbox'] = array_merge($settings['inbox'] ?? [], $state);
+
+        $this->forceFill(['settings' => $settings])->save();
+    }
+
+    /**
+     * Whether this company has opted in to the AI layer of bank-statement
+     * import (column mapping for an unrecognized CSV, reading a PDF the text
+     * extractor can't). The per-company half of the doubly-opt-in gate (the
+     * operator half is config('banking.statement_import.ai.enabled') + an
+     * Anthropic key — see BankingServiceProvider). Default OFF: until an
+     * owner flips it, imports stay deterministic and no statement leaves the
+     * server. Mirrors {@see self::insightsAiNarrationEnabled()}.
+     */
+    public function bankImportAiEnabled(): bool
+    {
+        return (bool) data_get($this->settings, 'banking.ai_import', false);
+    }
+
+    /**
+     * Persist the company's banking preferences, merging into the existing
+     * `settings` JSON without disturbing other keys.
+     *
+     * @param  array{ai_import?: bool}  $state
+     */
+    public function setBankingState(array $state): void
+    {
+        $settings = $this->settings ?? [];
+        $settings['banking'] = array_merge($settings['banking'] ?? [], $state);
 
         $this->forceFill(['settings' => $settings])->save();
     }

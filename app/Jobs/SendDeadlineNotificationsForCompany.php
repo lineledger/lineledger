@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Contracts\CompanyAccess;
 use App\Models\Company;
 use App\Services\Deadlines\DeadlineNotifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -37,6 +38,13 @@ class SendDeadlineNotificationsForCompany implements ShouldQueue
 
         if (! $company) {
             Log::info('Skipping deadline notifications: company no longer exists.', ['company_id' => $this->companyId]);
+
+            return;
+        }
+
+        // Read-only (CompanyAccess) since the command queued it: skipped, not failed.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Skipping deadline notifications: the organization is read-only.', ['company_id' => $company->id]);
 
             return;
         }

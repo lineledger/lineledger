@@ -76,6 +76,8 @@ new class extends Component {
             <flux:subheading>{{ __('Send an invitation to join this company.') }}</flux:subheading>
         </div>
 
+        <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Invitations" :company="$company" />
+
         <div class="space-y-4">
             <flux:input wire:model="inviteEmail" type="email" :label="__('Email address')" required data-test="invite-email" />
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Access;
 
+use App\Contracts\CompanyAccess;
 use App\Enums\CompanyRole;
 use App\Models\Company;
 use App\Models\Membership;
@@ -19,9 +20,16 @@ use App\Support\Access\PermissionSet;
  * since lost. Looks memberships up without the company global scope: callers
  * ask about companies other than the bound one (report groups, the company
  * switcher, edit locks).
+ *
+ * In a read-only organization ({@see CompanyAccess}) every member, the Owner
+ * included, resolves to view-only permissions. Every gate asks here — pages
+ * (EnsureSectionAccess), Livewire methods (MethodPermissionGate), /api/v1
+ * (EnsureApiPermission) and MCP tools — so that one change refuses every write.
  */
 class PermissionResolver
 {
+    public function __construct(private readonly CompanyAccess $access) {}
+
     /** @var array<string, Membership|null> user:company => membership */
     private array $memberships = [];
 
@@ -46,7 +54,7 @@ class PermissionResolver
     {
         $key = $this->key($user, $company);
 
-        return $this->sets[$key] ??= $this->resolve($this->membership($user, $company));
+        return $this->sets[$key] ??= $this->restrict($company, $this->resolve($this->membership($user, $company)));
     }
 
     /**
@@ -59,7 +67,17 @@ class PermissionResolver
 
         $this->memberships[$key] ??= $membership;
 
-        return $this->sets[$key] ??= $this->resolve($membership);
+        return $this->sets[$key] ??= $this->restrict($membership->company, $this->resolve($membership));
+    }
+
+    /**
+     * The cap on a connection that acts for nobody in particular (an API key
+     * with no recorded creator): null, meaning its own scopes are the only
+     * limit, or view-only while the organization is read-only.
+     */
+    public function forUnattributed(Company $company): ?PermissionSet
+    {
+        return $this->access->isReadOnly($company) ? PermissionSet::owner()->viewOnly() : null;
     }
 
     /**
@@ -100,6 +118,14 @@ class PermissionResolver
         }
 
         return PermissionSet::union(...$roles->map(fn (Role $role): PermissionSet => $role->permissionSet())->all());
+    }
+
+    /**
+     * View-only while the organization is read-only.
+     */
+    private function restrict(?Company $company, PermissionSet $permissions): PermissionSet
+    {
+        return $company !== null && $this->access->isReadOnly($company) ? $permissions->viewOnly() : $permissions;
     }
 
     private function key(User $user, Company $company): string

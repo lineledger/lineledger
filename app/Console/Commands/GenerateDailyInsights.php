@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\GenerateDailyInsightForCompany;
 use App\Models\Company;
 use App\Services\Insights\DailyInsightGenerator;
@@ -11,6 +12,7 @@ use Illuminate\Console\Command;
 class GenerateDailyInsights extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'insights:generate {company? : Company ID or slug; all companies when omitted} {--sync : Generate inline instead of dispatching a queued job per company}';
 
@@ -34,6 +36,10 @@ class GenerateDailyInsights extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if (! $this->option('sync')) {
                 GenerateDailyInsightForCompany::dispatch($company->id);
                 $this->line(sprintf('%s — queued.', $company->slug));

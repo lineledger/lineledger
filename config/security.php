@@ -27,4 +27,28 @@ return [
         'report_sample' => (float) env('CSP_REPORT_SAMPLE', 1.0),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Features that need two-factor authentication
+    |--------------------------------------------------------------------------
+    |
+    | A comma-separated list of App\Enums\SensitiveFeature values. A listed
+    | feature runs only once the organization's Owner has confirmed two-factor
+    | authentication, and, when someone is using it, that person has too:
+    |
+    |   customer_email   every email to a customer or employee
+    |   ai               receipt OCR, AI categorization, AI bank import, AI insights
+    |   invitations      inviting people into an organization
+    |   api              creating API keys, connecting an assistant over MCP
+    |   stripe_connect   connecting a Stripe account
+    |
+    | Empty (the default) changes nothing. See App\Support\Security\SensitiveFeatureGate.
+    |
+    */
+
+    'two_factor_required_for' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TWO_FACTOR_REQUIRED_FOR', '')),
+    ))),
+
 ];

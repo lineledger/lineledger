@@ -5,6 +5,8 @@ namespace App\Actions\Companies\Members;
 use App\Actions\Access\AssignMemberRoles;
 use App\Enums\CompanyRole;
 use App\Enums\SecurityEvent;
+use App\Enums\SensitiveFeature;
+use App\Exceptions\Security\TwoFactorRequiredException;
 use App\Models\Company;
 use App\Models\CompanyInvitation;
 use App\Models\InvitationRole;
@@ -14,6 +16,7 @@ use App\Notifications\Companies\CompanyInvitation as CompanyInvitationNotificati
 use App\Services\Access\LegacyRoleConverter;
 use App\Services\Audit\SecurityLogRecorder;
 use App\Support\Access\PermissionSet;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
@@ -33,15 +36,21 @@ class InviteMember
     public function __construct(
         private readonly SecurityLogRecorder $recorder,
         private readonly LegacyRoleConverter $roles,
+        private readonly SensitiveFeatureGate $gate,
     ) {}
 
     /**
      * @param  list<string>|null  $sections  section values, kept only for the Custom role
      * @param  list<int>|null  $roleIds  the roles the invitation grants; when given, they replace $role/$sections
+     *
+     * @throws TwoFactorRequiredException when the installation keeps invitations
+     *                                    behind two-factor authentication and it isn't on
      */
     public function handle(Company $company, User $actor, string $email, CompanyRole $role, ?array $sections = null, ?array $roleIds = null): CompanyInvitation
     {
         abort_if($role === CompanyRole::Owner, 403);
+
+        $this->gate->ensure(SensitiveFeature::Invitations, $company, $actor);
 
         $roles = null;
 

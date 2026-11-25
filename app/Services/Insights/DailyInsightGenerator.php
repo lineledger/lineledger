@@ -4,10 +4,12 @@ namespace App\Services\Insights;
 
 use App\Enums\InsightCategory;
 use App\Enums\OrganizationType;
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
 use App\Models\DailyInsight;
 use App\Services\Insights\Contracts\InsightDetector;
 use App\Services\Insights\Contracts\InsightNarrator;
+use App\Support\Security\SensitiveFeatureGate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 
@@ -70,8 +72,12 @@ final class DailyInsightGenerator
         }
 
         // The per-company opt-in is checked here, at call time — the bound
-        // narrator is operator-level (enabled + keyed, or template).
-        $narrator = $company->insightsAiNarrationEnabled() ? $this->narrator : $this->template;
+        // narrator is operator-level (enabled + keyed, or template) — and so is
+        // the installation's two-factor requirement for AI, if any.
+        $narrator = $company->insightsAiNarrationEnabled()
+            && app(SensitiveFeatureGate::class)->allows(SensitiveFeature::Ai, $company)
+                ? $this->narrator
+                : $this->template;
 
         $offered = array_slice($ranked, 0, max(1, (int) config('insights.ai.max_candidates', 3)));
 

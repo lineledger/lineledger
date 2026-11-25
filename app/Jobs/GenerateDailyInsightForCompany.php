@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Contracts\CompanyAccess;
 use App\Models\Company;
 use App\Services\Insights\DailyInsightGenerator;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,6 +36,13 @@ class GenerateDailyInsightForCompany implements ShouldQueue
         // failure worth a failed_jobs row and an ops alert.
         if (! $company) {
             Log::info('Skipping daily insight: company no longer exists.', ['company_id' => $this->companyId]);
+
+            return;
+        }
+
+        // Read-only (CompanyAccess) since the command queued it: skipped, not failed.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Skipping daily insight: the organization is read-only.', ['company_id' => $company->id]);
 
             return;
         }

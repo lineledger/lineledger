@@ -3,9 +3,13 @@
 namespace App\Actions\Sales;
 
 use App\Actions\Portal\IssuePortalLoginToken;
+use App\Enums\SensitiveFeature;
+use App\Exceptions\Security\TwoFactorRequiredException;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Notifications\Sales\InvoiceSharedNotification;
+use App\Support\Security\SensitiveFeatureGate;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -20,7 +24,10 @@ use Illuminate\Support\Facades\Notification;
  */
 final class SendInvoiceToCustomer
 {
-    public function __construct(protected IssuePortalLoginToken $tokens) {}
+    public function __construct(
+        protected IssuePortalLoginToken $tokens,
+        protected SensitiveFeatureGate $gate,
+    ) {}
 
     /**
      * @param  list<string>  $to  Primary recipients — each gets the magic link.
@@ -29,9 +36,15 @@ final class SendInvoiceToCustomer
      * @param  bool  $bypassOptIn  Set only on human-initiated sends.
      * @return bool Whether the invoice was sent (false when the customer has not
      *              opted in to invoice emails).
+     *
+     * @throws TwoFactorRequiredException when the installation keeps customer
+     *                                    email behind two-factor authentication and it isn't on
      */
     public function handle(Company $company, Invoice $invoice, array $to, string $message, array $cc = [], array $bcc = [], bool $bypassOptIn = false): bool
     {
+        // Whoever is signed in (nobody in a queued job, where only the owner counts).
+        $this->gate->ensure(SensitiveFeature::CustomerEmail, $company, Auth::user());
+
         $contact = $invoice->contact;
 
         // Gate before minting a portal token, so a suppressed send costs nothing.

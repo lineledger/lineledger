@@ -958,6 +958,8 @@ new #[Title('Invoice')] class extends Component {
                 <flux:subheading>{{ __('They get a one-click link to view and pay invoice :no, with the PDF attached.', ['no' => $invoice->invoice_no]) }}</flux:subheading>
             </div>
 
+            <x-two-factor-required :feature="\App\Enums\SensitiveFeature::CustomerEmail" :company="$company" />
+
             @unless ($invoice->contact?->invoice_emails_enabled)
                 <flux:callout icon="information-circle" data-test="send-invoice-opted-out">
                     {{ __('This customer has automated invoice emails turned off. Sending now will still reach them, and will not change that setting.') }}

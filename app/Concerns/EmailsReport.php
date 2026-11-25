@@ -3,10 +3,12 @@
 namespace App\Concerns;
 
 use App\Enums\PermissionAction;
+use App\Enums\SensitiveFeature;
 use App\Livewire\Attributes\Requires;
 use App\Notifications\Reports\ReportEmailNotification;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportSettings;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 
@@ -80,6 +82,18 @@ trait EmailsReport
 
         if ($invalid->isNotEmpty()) {
             $this->addError('emailRecipients', __('Invalid email address: :emails', ['emails' => $invalid->implode(', ')]));
+
+            return;
+        }
+
+        // A report to anyone outside the organization is customer email, which
+        // the installation may keep behind two-factor authentication.
+        $refusal = $this->company->nonMemberEmails($recipients) !== []
+            ? app(SensitiveFeatureGate::class)->refusal(SensitiveFeature::CustomerEmail, $this->company, Auth::user())
+            : null;
+
+        if ($refusal !== null) {
+            $this->addError('emailRecipients', $refusal);
 
             return;
         }

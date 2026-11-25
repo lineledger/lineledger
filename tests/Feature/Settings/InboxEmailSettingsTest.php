@@ -67,3 +67,28 @@ test('rotating the ingest token changes it and is audit logged', function () {
         ->where('company_id', $this->company->id)
         ->exists())->toBeTrue();
 });
+
+test('the receipt-reading switch is hidden until the operator turns receipt reading on', function () {
+    ($this->actAs)(CompanyRole::Owner);
+    config(['inbox.ai.enabled' => false, 'services.anthropic.key' => 'test-key']);
+
+    Livewire::test('pages::settings.inbox-email')
+        ->assertDontSee('Read receipts automatically')
+        ->set('ocrEnabled', true)
+        ->call('saveOcr');
+
+    expect($this->company->fresh()->inboxOcrEnabled())->toBeFalse();
+
+    config(['inbox.ai.enabled' => true, 'services.anthropic.key' => '']);
+
+    Livewire::test('pages::settings.inbox-email')->assertDontSee('Read receipts automatically');
+
+    config(['services.anthropic.key' => 'test-key']);
+
+    Livewire::test('pages::settings.inbox-email')
+        ->assertSee('Read receipts automatically')
+        ->set('ocrEnabled', true)
+        ->call('saveOcr');
+
+    expect($this->company->fresh()->inboxOcrEnabled())->toBeTrue();
+});

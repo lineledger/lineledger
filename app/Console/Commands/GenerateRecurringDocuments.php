@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\GenerateRecurringDocumentsForCompany;
 use App\Models\Company;
 use App\Models\RecurringDocument;
@@ -14,6 +15,7 @@ use Illuminate\Console\Command;
 class GenerateRecurringDocuments extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'recurring:generate {company? : Company ID or slug; all companies when omitted} {--sync : Generate inline instead of dispatching a queued job per company}';
 
@@ -37,6 +39,10 @@ class GenerateRecurringDocuments extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if (! $this->option('sync')) {
                 GenerateRecurringDocumentsForCompany::dispatch($company->id);
                 $this->line(sprintf('%s — queued.', $company->slug));

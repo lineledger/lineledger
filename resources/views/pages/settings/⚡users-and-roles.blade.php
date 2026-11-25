@@ -372,9 +372,18 @@ new #[Title('Users and roles')] class extends Component {
             <div class="mb-4 flex items-center justify-between gap-4">
                 <flux:subheading>{{ __('Each user holds one or more roles; together they decide what the user can do.') }}</flux:subheading>
                 @if ($this->can(Activity::Invitations, PermissionAction::Create))
-                    <flux:button variant="primary" icon="user-plus" wire:click="openInvite" data-test="invite-user">{{ __('Invite user') }}</flux:button>
+                    <flux:button
+                        variant="primary"
+                        icon="user-plus"
+                        wire:click="openInvite"
+                        :disabled="! app(\App\Support\Security\SensitiveFeatureGate::class)->allows(\App\Enums\SensitiveFeature::Invitations, $company, auth()->user())"
+                        data-test="invite-user"
+                    >{{ __('Invite user') }}</flux:button>
                 @endif
             </div>
+            @if ($this->can(Activity::Invitations, PermissionAction::Create))
+                <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Invitations" :company="$company" class="mb-4" />
+            @endif
 
             <flux:table data-test="user-list">
                 <flux:table.columns>

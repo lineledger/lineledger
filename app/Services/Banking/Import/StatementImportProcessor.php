@@ -3,15 +3,18 @@
 namespace App\Services\Banking\Import;
 
 use App\Enums\BankStatementImportStatus;
+use App\Enums\SensitiveFeature;
 use App\Enums\StatementLineMatchStatus;
 use App\Models\BankImportProfile;
 use App\Models\BankStatementImport;
 use App\Models\BankStatementLine;
+use App\Models\Company;
 use App\Services\Banking\Import\Contracts\StatementIntelligence;
 use App\Services\Banking\Import\DTO\ColumnMapping;
 use App\Services\Banking\Import\DTO\ParsedStatement;
 use App\Services\Banking\Import\DTO\ParseOptions;
 use App\Services\Banking\Import\Support\StatementFingerprint;
+use App\Support\Security\SensitiveFeatureGate;
 use App\Support\Storage\TemporaryLocalFile;
 use RuntimeException;
 use Throwable;
@@ -59,6 +62,7 @@ class StatementImportProcessor
     {
         $format = $import->source_format;
         $parser = $this->parsers->for($format);
+        $useAi = $this->aiAllowed($import);
 
         if ($format->needsColumnMapping() && $mapping === null) {
             $probe = $parser->sniff($path, $format);
@@ -68,7 +72,7 @@ class StatementImportProcessor
 
             // Last resort before asking the user: let the optional AI layer infer the
             // mapping from a sample. The full file is still parsed deterministically.
-            if ($mapping === null && $this->intelligence->isEnabled()) {
+            if ($mapping === null && $useAi) {
                 $mapping = $this->intelligence->inferMapping($probe->headers, $probe->sampleRows);
             }
 
@@ -81,7 +85,7 @@ class StatementImportProcessor
                         'header_signature' => $probe->headerSignature,
                         // True only when the AI layer was meant to help but the service
                         // was unreachable — lets the wizard say so instead of failing silently.
-                        'ai_unavailable' => $this->intelligence->isEnabled() && $this->intelligence->lastError() !== null,
+                        'ai_unavailable' => $useAi && $this->intelligence->lastError() !== null,
                     ],
                 ])->save();
 
@@ -93,7 +97,7 @@ class StatementImportProcessor
             $homeCurrency = $import->account?->company?->currency_code ?? 'CAD';
             $statement = $parser->parse($path, $format, new ParseOptions(
                 mapping: $mapping,
-                useAi: $this->intelligence->isEnabled(),
+                useAi: $useAi,
                 homeCurrency: $homeCurrency,
             ));
         } catch (Throwable $e) {
@@ -117,6 +121,27 @@ class StatementImportProcessor
         ])->save();
 
         $this->matcher->match($import); // advances to Ready and writes the counts
+    }
+
+    /**
+     * Whether this import may use the AI layer: the operator turned it on (the
+     * bound intelligence), the organization opted in (`banking.ai_import`) and
+     * its two-factor requirement, if any, is met. Read from the import's own
+     * organization when it runs: the processor (and its intelligence) may be
+     * resolved before a queued job binds `current_company`. Otherwise the
+     * deterministic path runs, as with AI switched off.
+     */
+    private function aiAllowed(BankStatementImport $import): bool
+    {
+        if (! $this->intelligence->isEnabled()) {
+            return false;
+        }
+
+        $company = Company::query()->find($import->company_id);
+
+        return $company !== null
+            && $company->bankImportAiEnabled()
+            && app(SensitiveFeatureGate::class)->allows(SensitiveFeature::Ai, $company);
     }
 
     /**

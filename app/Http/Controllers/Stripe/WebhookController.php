@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Stripe;
 use App\Actions\Portal\RecordStripePayment;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Services\Posting\JournalPoster;
 use App\Services\Stripe\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,8 @@ use Stripe\Webhook;
 /**
  * Receives Stripe Connect webhooks. Events carry the connected `account` id, which
  * we resolve back to a Company. Posting is idempotent on the PaymentIntent id, so
- * Stripe's at-least-once delivery is safe to replay.
+ * Stripe's at-least-once delivery is safe to replay. A settled payment is
+ * recorded even in a read-only organization (see handleSucceeded()).
  */
 class WebhookController extends Controller
 {
@@ -80,7 +82,13 @@ class WebhookController extends Controller
         // request never triggers Stripe client construction.
         $fee = app(StripePaymentService::class)->feeForPaymentIntent($company, $intent->id);
 
-        $record->handle($company, $intent->id, (int) $intent->amount, $fee, $contactId, array_values($invoiceIds));
+        // The customer's money has already moved, so the payment is recorded
+        // even when the organization is read-only (CompanyAccess): leaving it
+        // out would show a paid invoice as owing. This is the one write the
+        // posting backstop lets through.
+        JournalPoster::allowingReadOnly(
+            fn () => $record->handle($company, $intent->id, (int) $intent->amount, $fee, $contactId, array_values($invoiceIds)),
+        );
     }
 
     protected function handleDeauthorized(Company $company): void

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Contracts\CompanyAccess;
 use App\Models\Company;
 use App\Models\RecurringDocument;
 use App\Models\RecurringJournalEntry;
@@ -34,6 +35,14 @@ class GenerateRecurringDocumentsForCompany implements ShouldQueue
 
             return;
         }
+
+        // Read-only (CompanyAccess) since the command queued it: skipped, not failed.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Skipping recurring documents: the organization is read-only.', ['company_id' => $company->id]);
+
+            return;
+        }
+
         $today = $company->currentDateTime()->startOfDay();
 
         RecurringDocument::query()

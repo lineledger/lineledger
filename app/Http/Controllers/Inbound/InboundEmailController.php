@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Inbound;
 
+use App\Contracts\CompanyAccess;
 use App\Enums\InboxItemSource;
 use App\Enums\InboxItemStatus;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,8 @@ use Illuminate\Support\Str;
  * style JSON) and stages forwarded attachments as document-inbox items.
  *
  * Security model, in order — each gate fails closed:
+ *   0. The operator switch (`inbox.email.enabled`, INBOUND_EMAIL_ENABLED) is
+ *      off by default; while it is off the endpoint is a flat 404.
  *   1. The tenant is resolved from an opaque per-company routing token embedded
  *      in the forwarding address (`inbox+{token}@{domain}`); an unknown token or
  *      a company with inbound email switched off is a flat 404.
@@ -33,12 +36,17 @@ use Illuminate\Support\Str;
  *      inject documents into a tenant's books.
  *
  * Only then is each attachment decoded, stored, and queued for OCR via the same
- * {@see ProcessInboxItem} job the drag-drop uploader uses.
+ * {@see ProcessInboxItem} job the drag-drop uploader uses — unless the
+ * organization is read-only ({@see CompanyAccess}), when the email is
+ * acknowledged and nothing is staged.
  */
 class InboundEmailController extends Controller
 {
     public function __invoke(Request $request, string $token): JsonResponse
     {
+        // 0. The operator hasn't turned inbound email on: no such endpoint.
+        abort_unless((bool) config('inbox.email.enabled', false), 404);
+
         // 1. Resolve the tenant. Company is the (unscoped) tenant root, so this
         //    is a global lookup; a disabled or unknown token is indistinguishable
         //    from "no such endpoint" — a 404, never a 200.
@@ -76,6 +84,14 @@ class InboundEmailController extends Controller
             ]);
 
             abort(403, 'Sender is not a recognized member of this organization.');
+        }
+
+        // A read-only organization takes in nothing new. Acknowledged rather
+        // than refused, so the provider doesn't keep retrying the delivery.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Inbound email skipped: the organization is read-only.', ['company_id' => $company->id]);
+
+            return response()->json(['received' => true, 'staged' => 0]);
         }
 
         // 4. Stage each attachment. Bind the tenant so BelongsToCompany stamps

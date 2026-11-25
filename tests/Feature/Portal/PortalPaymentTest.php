@@ -5,6 +5,7 @@ use App\Actions\Portal\RecordStripePayment;
 use App\Enums\AccountSubtype;
 use App\Enums\InvoiceStatus;
 use App\Enums\ReceiptStatus;
+use App\Exceptions\Access\CompanyReadOnlyException;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -156,4 +157,40 @@ it('rejects a webhook with a bad signature', function () {
         ['HTTP_Stripe-Signature' => 't=1,v1=deadbeef', 'CONTENT_TYPE' => 'application/json'],
         '{"id":"evt_x","type":"payment_intent.succeeded"}',
     )->assertStatus(400);
+});
+
+it('records a settled card payment even when the organization is read-only', function () {
+    config()->set('services.stripe.webhook_secret', 'whsec_test');
+    $this->mock(StripePaymentService::class, function ($mock) {
+        $mock->shouldReceive('feeForPaymentIntent')->andReturn(290);
+    });
+
+    // The money has already moved; leaving it out would show the invoice as owing.
+    makeCompanyReadOnly($this->company);
+
+    $payload = json_encode([
+        'id' => 'evt_ro',
+        'type' => 'payment_intent.succeeded',
+        'account' => 'acct_test123',
+        'data' => ['object' => [
+            'id' => 'pi_read_only',
+            'object' => 'payment_intent',
+            'amount' => 10000,
+            'metadata' => ['contact_id' => (string) $this->customer->id, 'invoice_ids' => (string) $this->invoice->id],
+        ]],
+    ]);
+    $timestamp = time();
+    $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", 'whsec_test');
+
+    $this->call('POST', route('stripe.webhook'), [], [], [], [
+        'HTTP_Stripe-Signature' => "t={$timestamp},v1={$signature}",
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload)->assertOk();
+
+    expect(CustomerReceipt::firstWhere('stripe_payment_intent_id', 'pi_read_only')?->status)->toBe(ReceiptStatus::Posted)
+        ->and($this->invoice->fresh()->status)->toBe(InvoiceStatus::Paid);
+
+    // Nothing else gets through: the backstop is back in force after the webhook.
+    expect(fn () => app(RecordStripePayment::class)->handle($this->company, 'pi_direct', 1000, 0, $this->customer->id, [$this->invoice->id]))
+        ->toThrow(CompanyReadOnlyException::class);
 });

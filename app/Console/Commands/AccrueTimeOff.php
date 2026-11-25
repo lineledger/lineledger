@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Models\Company;
 use App\Services\Payroll\TimeOffAccrualService;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,7 @@ use Illuminate\Console\Command;
 class AccrueTimeOff extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'payroll:accrue-time-off
         {company? : Company ID or slug; all companies when omitted}
@@ -43,6 +45,10 @@ class AccrueTimeOff extends Command
         $dateOption = $this->option('date');
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             // Bind the company so BelongsToCompany stamps company_id on new balances.
             app()->instance('current_company', $company);
 

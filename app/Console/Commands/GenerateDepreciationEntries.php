@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\GenerateDepreciationForCompany;
 use App\Models\Company;
 use App\Services\Assets\DepreciationGenerator;
@@ -11,6 +12,7 @@ use Illuminate\Console\Command;
 class GenerateDepreciationEntries extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'depreciation:generate {company? : Company ID or slug; all companies when omitted} {--sync : Generate inline instead of dispatching a queued job per company}';
 
@@ -34,6 +36,10 @@ class GenerateDepreciationEntries extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if (! $this->option('sync')) {
                 GenerateDepreciationForCompany::dispatch($company->id);
                 $this->line(sprintf('%s — queued.', $company->slug));

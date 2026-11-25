@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Portal;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Enums\TimeOffRequestStatus;
 use App\Models\Company;
 use App\Models\TimeOffRequest;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
  * cancelled. Branded as the employing company and sent from the platform's
  * no-reply mailbox — same pattern as {@see EmployeePortalLoginLinkNotification}.
  */
-class TimeOffRequestDecided extends Notification implements ShouldQueue
+class TimeOffRequestDecided extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -25,6 +26,11 @@ class TimeOffRequestDecided extends Notification implements ShouldQueue
         public TimeOffRequest $request,
         public Company $company,
     ) {}
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
+    }
 
     /**
      * @return array<int, string>

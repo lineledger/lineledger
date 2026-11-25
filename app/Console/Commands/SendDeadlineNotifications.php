@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\SendDeadlineNotificationsForCompany;
 use App\Models\Company;
 use App\Services\Deadlines\DeadlineNotifier;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Cache;
 class SendDeadlineNotifications extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     /** The local hour from which an organization's daily run may start. */
     public const int SEND_FROM_HOUR = 7;
@@ -41,6 +43,10 @@ class SendDeadlineNotifications extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if ($arg === null && ! $this->dueToday($company)) {
                 continue;
             }

@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Sales;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Services\Reporting\InvoicePdfRenderer;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
  * {@see InvoiceSharedNotification}'s company-branded delivery (platform no-reply
  * From, company Reply-To) so reminders read as the company's own.
  */
-class InvoiceReminderNotification extends Notification implements ShouldQueue
+class InvoiceReminderNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -39,6 +40,11 @@ class InvoiceReminderNotification extends Notification implements ShouldQueue
         // Route-notified (a bare address), so there's no notifiable preference:
         // pin the document language here so Laravel renders the whole message in it.
         $this->locale = Locales::forDocument($invoice->contact, $company);
+    }
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
     }
 
     /**

@@ -102,9 +102,20 @@ new #[Title('Inbox email')] class extends Component
         Flux::toast(variant: 'success', text: __('A new forwarding address has been generated.'));
     }
 
+    /**
+     * Whether the receipt-reading switch is offered: the operator turned OCR
+     * on and an Anthropic key is set (the binding InboxServiceProvider makes).
+     */
+    public function ocrOffered(): bool
+    {
+        return (bool) config('inbox.ai.enabled')
+            && config('inbox.ai.driver') !== 'null'
+            && (string) config('services.anthropic.key') !== '';
+    }
+
     public function saveOcr(): void
     {
-        if ($this->company === null) {
+        if ($this->company === null || ! $this->ocrOffered()) {
             return;
         }
 
@@ -177,16 +188,20 @@ new #[Title('Inbox email')] class extends Component
                     @endif
                 </form>
 
-                <flux:separator />
+                {{-- Offered only when the operator has turned OCR on and set a key, like the daily-insight AI switch. --}}
+                @if ($this->ocrOffered())
+                    <flux:separator />
 
-                <form wire:submit="saveOcr" class="space-y-4">
-                    <flux:switch
-                        wire:model="ocrEnabled"
-                        :label="__('Read receipts automatically')"
-                        :description="__('Use AI to extract the vendor, total and date from each document so a draft is pre-filled for review.')"
-                        data-test="ocr-enabled" />
-                    <flux:button type="submit" variant="primary" data-test="save-ocr">{{ __('Save') }}</flux:button>
-                </form>
+                    <form wire:submit="saveOcr" class="space-y-4">
+                        <flux:switch
+                            wire:model="ocrEnabled"
+                            :label="__('Read receipts automatically')"
+                            :description="__('Use AI to extract the vendor, total and date from each document so a draft is pre-filled for review.')"
+                            data-test="ocr-enabled" />
+                        <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Ai" :company="$company" />
+                        <flux:button type="submit" variant="primary" data-test="save-ocr">{{ __('Save') }}</flux:button>
+                    </form>
+                @endif
             </div>
         @endif
     </x-pages::settings.layout>

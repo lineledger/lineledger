@@ -3,6 +3,7 @@
 use App\Actions\Payroll\SaveEmployeePayrollProfile;
 use App\Actions\Payroll\SavePayRun;
 use App\Actions\Sales\SaveInvoice;
+use App\Contracts\CompanyAccess;
 use App\Enums\AccountSubtype;
 use App\Enums\AccountType;
 use App\Enums\CompanyRole;
@@ -28,6 +29,7 @@ use App\Models\ReportGroupAccountMap;
 use App\Models\ReportGroupLine;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Access\PermissionResolver;
 use App\Services\Payroll\CalculatePayRun;
 use App\Services\Posting\InvoicePoster;
 use App\Services\Posting\PayRunPoster;
@@ -40,6 +42,7 @@ use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use Livewire\Mechanisms\HandleRequests\EndpointResolver;
 use Symfony\Component\Mailer\SentMessage;
+use Tests\Support\Access\ReadOnlyCompanies;
 use Tests\TestCase;
 
 /*
@@ -186,6 +189,26 @@ function predefinedRoleMember(Company $company, PredefinedRole ...$roles): User
     }
 
     return $user;
+}
+
+/**
+ * Make $company read-only, as a hosting layer's CompanyAccess would, with an
+ * optional banner notice. Swaps in a test CompanyAccess (kept for the rest of
+ * the test, so several organizations can be made read-only) and drops the
+ * permissions resolved so far.
+ */
+function makeCompanyReadOnly(Company $company, ?string $notice = null): void
+{
+    $access = app(CompanyAccess::class);
+
+    if (! $access instanceof ReadOnlyCompanies) {
+        $access = new ReadOnlyCompanies;
+        app()->instance(CompanyAccess::class, $access);
+    }
+
+    $access->add($company, $notice);
+
+    app()->forgetInstance(PermissionResolver::class);
 }
 
 /**

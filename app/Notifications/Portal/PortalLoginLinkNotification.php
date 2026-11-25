@@ -2,13 +2,14 @@
 
 namespace App\Notifications\Portal;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class PortalLoginLinkNotification extends Notification implements ShouldQueue
+class PortalLoginLinkNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -17,6 +18,11 @@ class PortalLoginLinkNotification extends Notification implements ShouldQueue
         public Company $company,
         public int $ttlMinutes,
     ) {}
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
+    }
 
     /**
      * @return array<int, string>

@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\Contact;
 use App\Models\User;
+use App\Services\Access\PermissionResolver;
 use App\Services\Reporting\ReportCalculator;
 use App\Support\Access\PermissionSet;
 use App\Support\Access\Requirement;
@@ -119,7 +120,8 @@ trait AnswersBusinessQuestions
 
     /**
      * The permissions this connection acts with, or null when nothing beyond
-     * the key's scopes applies (a key with no recorded creator).
+     * the key's scopes applies (a key with no recorded creator, outside a
+     * read-only organization).
      */
     private function actorPermissions(): ?PermissionSet
     {
@@ -136,7 +138,7 @@ trait AnswersBusinessQuestions
             return User::query()->find($key->created_by_user_id)?->permissions($company) ?? PermissionSet::none();
         }
 
-        return null;
+        return app(PermissionResolver::class)->forUnattributed($company);
     }
 
     /**
