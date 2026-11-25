@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An installation can limit the countries new organizations are created in.**
+  `COMPANY_COUNTRIES` lists any of `CA`, `US` and `GB`; left empty, all three
+  are offered, as before. The setup wizard and the organizations page then offer
+  only those countries, and a restore refuses a backup of an organization from
+  anywhere else. For an operator running one site per country (`APP_URL_CA` /
+  `_US` / `_GB`), both point to the sibling site that hosts the other countries,
+  and the signed-out country banner lists first the sibling matching Cloudflare's
+  `CF-IPCountry` header. Organizations already on the installation are
+  unaffected.
 - **Invoices take a Customer PO # through the API.** `POST` and `PATCH
   /api/v1/invoices` accept `customer_po` (up to 100 characters) and the invoice
   response returns it. It is the same "Customer PO #" the invoice form has always
