@@ -2,9 +2,11 @@
 
 namespace App\Actions\Portal;
 
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Notifications\Portal\PortalLoginLinkNotification;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Support\Str;
 
 /**
@@ -15,10 +17,19 @@ use Illuminate\Support\Str;
  */
 final class RequestPortalLoginLink
 {
-    public function __construct(protected IssuePortalLoginToken $tokens) {}
+    public function __construct(
+        protected IssuePortalLoginToken $tokens,
+        protected SensitiveFeatureGate $gate,
+    ) {}
 
     public function handle(Company $company, string $email): void
     {
+        // Customer email kept behind two-factor authentication the owner hasn't
+        // turned on: no link, and the same answer as for an unknown address.
+        if (! $this->gate->allows(SensitiveFeature::CustomerEmail, $company)) {
+            return;
+        }
+
         $contact = Contact::query()
             ->where('company_id', $company->id)
             ->portalEligible()

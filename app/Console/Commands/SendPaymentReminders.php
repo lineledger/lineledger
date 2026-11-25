@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Sales\SendInvoiceReminder;
 use App\Console\Concerns\ResolvesCompanyArgument;
+use App\Console\Concerns\SkipsReadOnlyCompanies;
 use App\Jobs\SendPaymentRemindersForCompany;
 use App\Models\Company;
 use App\Services\Reminders\DueReminderResolver;
@@ -12,6 +13,7 @@ use Illuminate\Console\Command;
 class SendPaymentReminders extends Command
 {
     use ResolvesCompanyArgument;
+    use SkipsReadOnlyCompanies;
 
     protected $signature = 'reminders:send {company? : Company ID or slug; all companies when omitted} {--sync : Send inline instead of dispatching a queued job per company}';
 
@@ -35,6 +37,10 @@ class SendPaymentReminders extends Command
         }
 
         foreach ($companies as $company) {
+            if ($this->skipsReadOnly($company)) {
+                continue;
+            }
+
             if (! $this->option('sync')) {
                 SendPaymentRemindersForCompany::dispatch($company->id);
                 $this->line(sprintf('%s — queued.', $company->slug));

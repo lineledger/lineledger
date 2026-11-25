@@ -3,9 +3,11 @@
 use App\Enums\ApiAbility;
 use App\Enums\ApiResource;
 use App\Enums\SecurityEvent;
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Services\Audit\SecurityLogRecorder;
+use App\Support\Security\SensitiveFeatureGate;
 use Flux\Flux;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -225,7 +227,7 @@ new class extends Component {
         ];
     }
 
-    public function create(SecurityLogRecorder $recorder): void
+    public function create(SecurityLogRecorder $recorder, SensitiveFeatureGate $gate): void
     {
         $this->refreshPermissions();
         $company = $this->company();
@@ -235,6 +237,8 @@ new class extends Component {
         }
 
         $validated = $this->validate($this->formRules());
+
+        $gate->ensure(SensitiveFeature::Api, $company, auth()->user());
 
         $result = CompanyApiKey::mint($company, $validated['label'], auth()->id(), $validated['abilities'] ?? [], $this->expiryFromChoice());
         $this->plaintext = $result['plaintext'];
@@ -296,7 +300,7 @@ new class extends Component {
         Flux::toast(variant: 'success', text: __('API key updated.'));
     }
 
-    public function rotate(int $keyId, SecurityLogRecorder $recorder): void
+    public function rotate(int $keyId, SecurityLogRecorder $recorder, SensitiveFeatureGate $gate): void
     {
         $this->refreshPermissions();
         $company = $this->company();
@@ -304,6 +308,8 @@ new class extends Component {
         if (! $this->canManage || ! $company) {
             return;
         }
+
+        $gate->ensure(SensitiveFeature::Api, $company, auth()->user());
 
         $old = CompanyApiKey::query()
             ->withoutGlobalScopes()
@@ -382,16 +388,21 @@ new class extends Component {
     @if ($this->company())
         <div class="mt-6 flex flex-col w-full mx-auto space-y-6 text-sm">
             @if ($canManage)
+                @php
+                    $apiLocked = ! app(\App\Support\Security\SensitiveFeatureGate::class)->allows(\App\Enums\SensitiveFeature::Api, $this->company(), auth()->user());
+                @endphp
                 <div class="flex justify-start">
                     <flux:button
                         variant="primary"
                         size="sm"
                         wire:click="openCreateModal"
+                        :disabled="$apiLocked"
                         data-test="api-key-create"
                     >
                         {{ __('Create API key') }}
                     </flux:button>
                 </div>
+                <x-two-factor-required :feature="\App\Enums\SensitiveFeature::Api" :company="$this->company()" />
             @else
                 <flux:text variant="subtle">{{ __('Only the owner and people whose role includes API keys can manage API keys.') }}</flux:text>
             @endif

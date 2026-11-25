@@ -24,6 +24,12 @@ use Laravel\Mcp\Facades\Mcp;
 | Per-tool ability checks handle scope granularity, since one web route can't vary
 | middleware per tool.
 |
+| With `api` in TWO_FACTOR_REQUIRED_FOR, the OAuth path needs two-factor
+| authentication: the consent screen and its approval on the signed-in account
+| (AppServiceProvider::configurePassport), and every request on it and on the
+| organization's owner (`mcp.company`). Creating an API key is gated where keys
+| are made (Settings → Security).
+|
 */
 
 // NOTE: OAuth discovery + dynamic client registration (Mcp::oauthRoutes()) is

@@ -2,14 +2,19 @@
 
 namespace App\Providers;
 
+use App\Contracts\CompanyAccess;
 use App\Enums\Activity;
 use App\Enums\PermissionAction;
+use App\Enums\SensitiveFeature;
+use App\Exceptions\Access\CompanyReadOnlyException;
+use App\Exceptions\Security\TwoFactorRequiredException;
 use App\Http\Middleware\EnforceTwoFactor;
 use App\Http\Middleware\EnsureCompanyMembership;
 use App\Http\Middleware\EnsurePortalAudience;
 use App\Http\Middleware\EnsureSectionAccess;
 use App\Http\Middleware\EnsureSectionEnabled;
 use App\Http\Middleware\EnsureSiteAdmin;
+use App\Http\Middleware\RequireTwoFactorForFeature;
 use App\Http\Middleware\ResolvePortalCompany;
 use App\Listeners\Security\SecurityLogListener;
 use App\Livewire\Hooks\BindCurrentCompanyHook;
@@ -28,9 +33,11 @@ use App\Services\Currency\ExchangeRateProvider;
 use App\Services\Currency\Providers\FrankfurterProvider;
 use App\Services\Currency\Providers\NullExchangeRateProvider;
 use App\Support\Access\CurrentViewer;
+use App\Support\Access\DefaultCompanyAccess;
 use App\Support\Http\CanonicalUrl;
 use App\Support\MailSettings;
 use Carbon\CarbonImmutable;
+use Flux\Flux;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -53,8 +60,10 @@ use Livewire\Component;
 use Livewire\ComponentHookRegistry;
 use Livewire\Livewire;
 use Stripe\StripeClient;
+use Throwable;
 
 use function Livewire\before;
+use function Livewire\on;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -82,6 +91,12 @@ class AppServiceProvider extends ServiceProvider
             return new StripeClient((string) config('services.stripe.secret'));
         });
 
+        // Whether an organization is read-only. It must be singletonIf, not a
+        // plain bind: discovered package providers register BEFORE the app's
+        // providers, so a hosting package that binds its own CompanyAccess has
+        // already done so by now, and a plain bind here would replace it.
+        $this->app->singletonIf(CompanyAccess::class, DefaultCompanyAccess::class);
+
         // Who may do what, resolved once per request (and per queued job).
         $this->app->scoped(PermissionResolver::class);
 
@@ -91,6 +106,20 @@ class AppServiceProvider extends ServiceProvider
         // `before` listeners run first whatever the registration order.
         before('call', function (Component $component, string $method, mixed $params): void {
             app(MethodPermissionGate::class)->authorize($component, $method, is_array($params) ? $params : []);
+        });
+
+        // A feature kept behind two-factor authentication, or a write to a
+        // read-only organization, refused inside a Livewire method or hook:
+        // tell the person why with a toast instead of an error page.
+        on('exception', function (mixed $target, Throwable $e, callable $stopPropagation): void {
+            if (! $target instanceof Component
+                || ! ($e instanceof TwoFactorRequiredException || $e instanceof CompanyReadOnlyException)) {
+                return;
+            }
+
+            Flux::toast(variant: 'danger', text: $e->clientSafeMessage());
+
+            $stopPropagation();
         });
     }
 
@@ -202,6 +231,14 @@ class AppServiceProvider extends ServiceProvider
         // after package providers, so by now Passport's routes exist. This also
         // keeps the routes in a context captured by `route:cache`.
         Mcp::oauthRoutes();
+
+        // The installation may keep MCP connections behind two-factor
+        // authentication: then the consent screen, and approving it, need it
+        // on the signed-in account (BindMcpCompany asks again, of the
+        // organization's owner too, whenever the connection is used).
+        foreach (['passport.authorizations.authorize', 'passport.authorizations.approve'] as $name) {
+            Route::getRoutes()->getByName($name)?->middleware(RequireTwoFactorForFeature::class.':'.SensitiveFeature::Api->value);
+        }
     }
 
     /**

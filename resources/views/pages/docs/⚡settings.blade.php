@@ -43,10 +43,18 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             caption="{{ __('The Profile page. The Delete account section at the bottom permanently removes your account and everything it owns.') }}"
         />
 
+        <flux:text>
+            {{ __('You can’t delete your account while you own an organization: an organization always keeps an owner. Instead of the Delete account button, the section lists the organizations you own; delete each one under Settings → Organizations first.') }}
+        </flux:text>
+
         {{-- ──────────────────────────── Security ──────────────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Security') }}</flux:heading>
         <flux:text>
             {{ __('Settings → Security gathers everything about how you sign in: Update password, Two-factor authentication, Passkeys, and Browser sessions, followed by the API keys panel for the organization you are working in and the Authorized applications panel for your whole account (see API keys below). Two-factor authentication is TOTP-based — you pair an authenticator app and enter a rotating code at sign-in. Passkeys let you sign in without a password using your device’s fingerprint, face, or PIN.') }}
+        </flux:text>
+
+        <flux:text>
+            {{ __('The person who runs your server can require two-factor authentication before some features can be used: emailing customers and employees, the AI features, inviting people, API keys and AI assistant connections, and connecting Stripe. Then both you and the organization’s owner need it turned on; until you do, the feature says so and links here.') }}
         </flux:text>
 
         <flux:heading size="md" class="mt-6">{{ __('Confirming it is you') }}</flux:heading>
@@ -182,7 +190,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         {{-- ──────────────────── Bookkeeping preferences ──────────────────── --}}
         <flux:heading size="lg" class="mt-8">{{ __('Bookkeeping and dashboard preferences') }}</flux:heading>
         <flux:text>
-            {{ __('Between the address block and the Features list, the organization edit page carries a handful of preferences that shape day-to-day bookkeeping. Most save with the form’s Save button; Show tips and the two AI switches apply the moment you use them.') }}
+            {{ __('Between the address block and the Features list, the organization edit page carries a handful of preferences that shape day-to-day bookkeeping. Most save with the form’s Save button; Show tips and the AI switches apply the moment you use them.') }}
         </flux:text>
 
         <ul class="list-disc ps-6 space-y-1">
@@ -190,6 +198,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
             <li>{{ __('Warn if duplicate bill number is used — when entering a bill, warns if this supplier already has a bill with the same reference number. You can still save it.') }}</li>
             <li>{{ __('Getting-started tips — Show tips restarts the dashboard tour from the first tip, for new users who dismissed it too soon.') }}</li>
             <li>{{ __('Daily insight — “Write my daily insight with AI” sends only summarized totals — never customer names, transaction details, or descriptions — to Anthropic to word the note on your dashboard. When off, insights still appear using LineLedger’s built-in wording. The block appears only when your operator has enabled the AI layer.') }}</li>
+            <li>{{ __('Bank statement import — “Use AI to read bank statements” lets a statement the app can’t read on its own go to Anthropic: a few sample rows of a CSV whose columns it doesn’t recognise, or a PDF whose text it can’t read. When off, you map the columns yourself, or upload a CSV or OFX export instead. The block appears only when your operator has enabled bank-import AI.') }}</li>
             <li>{{ __('Deleting transactions — Allow deleting posted and voided transactions lets members whose role includes Delete remove them as if they were never entered, while the audit log keeps a record. Turn it off for void-only books; drafts can always be deleted. Each change to it is recorded in the audit log.') }}</li>
             <li>{{ __('Cheque print alignment — Horizontal offset and Vertical offset, in points (1 pt = 1/72 in), nudge printed cheque text onto your pre-printed stock. Print a cheque, measure the drift, then adjust; leave both blank for the default.') }}</li>
         </ul>
@@ -350,7 +359,7 @@ new #[Title('Documentation — Settings')] class extends Component {}; ?>
         </flux:text>
 
         <x-docs.callout type="warning">
-            {{ __('The forwarding address only appears once your operator has configured an inbound mail domain on the server. Until then, switching on Accept documents by email shows a “not configured” notice instead of an address. Automatic reading also depends on the operator enabling the AI layer, so both you and the operator must opt in before any document is read. See') }}
+            {{ __('The forwarding address only appears once your operator has configured an inbound mail domain on the server. Until then, switching on Accept documents by email shows a “not configured” notice instead of an address. Read receipts automatically appears only once the operator has enabled the AI layer, so both you and the operator must opt in before any document is read. See') }}
             <a class="underline" href="{{ route('docs.self-hosting') }}" wire:navigate>{{ __('Self-hosting') }}</a>{{ __('.') }}
         </x-docs.callout>
 

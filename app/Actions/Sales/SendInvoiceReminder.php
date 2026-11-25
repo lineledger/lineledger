@@ -3,12 +3,16 @@
 namespace App\Actions\Sales;
 
 use App\Actions\Portal\IssuePortalLoginToken;
+use App\Enums\SensitiveFeature;
+use App\Exceptions\Security\TwoFactorRequiredException;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\InvoiceReminderLog;
 use App\Models\ReminderTier;
 use App\Notifications\Sales\InvoiceReminderNotification;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -23,15 +27,25 @@ use Illuminate\Support\Facades\Notification;
  */
 final class SendInvoiceReminder
 {
-    public function __construct(protected IssuePortalLoginToken $tokens) {}
+    public function __construct(
+        protected IssuePortalLoginToken $tokens,
+        protected SensitiveFeatureGate $gate,
+    ) {}
 
     /**
      * @param  bool  $bypassOptIn  Set only on human-initiated sends.
      * @return bool Whether a reminder was sent (false when skipped — no email, the
      *              customer has not opted in, or this tier was already logged).
+     *
+     * @throws TwoFactorRequiredException when the installation keeps customer
+     *                                    email behind two-factor authentication and it isn't on
      */
     public function handle(Company $company, Invoice $invoice, ReminderTier $tier, bool $bypassOptIn = false): bool
     {
+        // Before the tier is claimed, so a refused reminder can go out later.
+        // Whoever is signed in (nobody in the scheduled run, which checks first).
+        $this->gate->ensure(SensitiveFeature::CustomerEmail, $company, Auth::user());
+
         $contact = $invoice->contact;
         $email = $contact?->email;
 

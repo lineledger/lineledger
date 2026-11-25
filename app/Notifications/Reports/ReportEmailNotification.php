@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Reports;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Reporting\Render\ReportRenderer;
@@ -28,7 +29,7 @@ use Illuminate\Support\Str;
  * saw); scheduled sends use true (a "Last Month" view re-resolves at send
  * time, QBO semantics).
  */
-class ReportEmailNotification extends Notification implements ShouldQueue
+class ReportEmailNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -51,6 +52,11 @@ class ReportEmailNotification extends Notification implements ShouldQueue
         // Route-notified (a bare address), so there's no notifiable preference:
         // pin the document language here so Laravel renders the whole message in it.
         $this->locale = Locales::forDocument(null, $company);
+    }
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
     }
 
     /**

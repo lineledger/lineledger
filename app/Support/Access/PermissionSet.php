@@ -83,6 +83,29 @@ final class PermissionSet
         return $this->owner;
     }
 
+    /**
+     * This set with everything but looking taken away: View on each activity
+     * it opens at all, and View balance where it had it. What every member of
+     * a read-only organization keeps, the Owner included (so isOwner() is
+     * false: ask the membership's role who owns the organization).
+     */
+    public function viewOnly(): self
+    {
+        $grants = [];
+
+        foreach (Activity::cases() as $activity) {
+            if (! $this->hasAnyIn($activity)) {
+                continue;
+            }
+
+            $grants[$activity->value] = $this->allows($activity, PermissionAction::ViewBalance)
+                ? Grant::partial(PermissionAction::View, PermissionAction::ViewBalance)
+                : Grant::partial(PermissionAction::View);
+        }
+
+        return self::fromGrants($grants);
+    }
+
     public function grant(Activity $activity): Grant
     {
         if ($this->owner) {

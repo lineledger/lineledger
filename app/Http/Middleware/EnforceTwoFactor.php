@@ -33,7 +33,10 @@ class EnforceTwoFactor
             && $user !== null
             && $company->require_two_factor
             && ! $user->hasEnabledTwoFactorAuthentication()
-            && $user->permissions($company)->requiresTwoFactor()
+            // The Owner by role as well: a read-only organization leaves even
+            // the Owner view-only permissions, but they can still export its
+            // backup and delete it.
+            && ($user->permissions($company)->requiresTwoFactor() || $user->ownsCompany($company))
         ) {
             return redirect()
                 ->route('security.edit')

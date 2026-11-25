@@ -7,6 +7,7 @@ use App\Actions\Sales\SaveInvoice;
 use App\Actions\Sales\SendInvoiceToCustomer;
 use App\Enums\RecurrenceEndType;
 use App\Enums\RecurringAutomationMode;
+use App\Enums\SensitiveFeature;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Models\Account;
 use App\Models\Bill;
@@ -16,9 +17,11 @@ use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\RecurringDocument;
 use App\Services\Posting\InvoicePoster;
+use App\Support\Security\SensitiveFeatureGate;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -253,6 +256,17 @@ class RecurringDocumentGenerator
 
         $email = $created->contact?->email;
         if ($email === null || $email === '') {
+            return;
+        }
+
+        // Customer email kept behind two-factor authentication that isn't on:
+        // the invoice stays posted, unsent, as for a customer with no email.
+        if (! app(SensitiveFeatureGate::class)->allows(SensitiveFeature::CustomerEmail, $company, Auth::user())) {
+            Log::info('Recurring auto-email skipped: customer email needs two-factor authentication.', [
+                'invoice_id' => $created->id,
+                'company_id' => $company->id,
+            ]);
+
             return;
         }
 

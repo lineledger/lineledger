@@ -320,6 +320,8 @@ it('renders the import page through the app layout', function () {
 });
 
 it('uses the AI layer to map an unrecognizable CSV when it is enabled', function () {
+    $this->company->setBankingState(['ai_import' => true]);
+
     app()->instance(StatementIntelligence::class, new class implements StatementIntelligence
     {
         public function isEnabled(): bool
@@ -375,6 +377,8 @@ it('pauses at NeedsMapping for an unrecognizable CSV when AI is disabled', funct
 });
 
 it('uses AI to extract a PDF when the deterministic structurer finds nothing', function () {
+    $this->company->setBankingState(['ai_import' => true]);
+
     app()->instance(StatementIntelligence::class, new class implements StatementIntelligence
     {
         public function isEnabled(): bool
@@ -455,6 +459,8 @@ function downIntelligence(): StatementIntelligence
 }
 
 it('falls back to manual mapping and flags the outage when the AI service is down', function () {
+    $this->company->setBankingState(['ai_import' => true]);
+
     app()->instance(StatementIntelligence::class, downIntelligence());
 
     $import = makeImport($this->bank, "Col1,Col2,Col3\n2026-01-05,Payroll,2000.00\n");
@@ -466,6 +472,8 @@ it('falls back to manual mapping and flags the outage when the AI service is dow
 });
 
 it('reports a temporary AI outage when a PDF cannot be read without it', function () {
+    $this->company->setBankingState(['ai_import' => true]);
+
     app()->instance(StatementIntelligence::class, downIntelligence());
 
     $pdf = Pdf::loadHTML('<html><body><pre>Account summary. No itemised transaction rows here.</pre></body></html>')->output();

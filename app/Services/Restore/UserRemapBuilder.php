@@ -19,9 +19,20 @@ use Illuminate\Support\Facades\DB;
  *
  * The returned `matches` list powers the UI preview ("3 of 5 users matched
  * by email; the other 2 will be attributed to you").
+ *
+ * `backup.restore_user_matching` (RESTORE_USER_MATCHING) picks who step 1 may
+ * match: 'instance' (default) any user on this server; 'restorer' only the
+ * importing user, by their own email, so on a server shared by unrelated
+ * customers a crafted bundle can't confirm someone else's email or name, or
+ * make them a member of the copy. Every other bundle user falls back as in
+ * step 2.
  */
 final class UserRemapBuilder
 {
+    public const string MATCH_INSTANCE = 'instance';
+
+    public const string MATCH_RESTORER = 'restorer';
+
     /**
      * With `$matchByEmail` false nobody matches, as on an instance none of the
      * bundle's users have an account on: everyone falls back to the importer.
@@ -54,7 +65,15 @@ final class UserRemapBuilder
         // [lowercased email => user id]
         $lookup = [];
 
-        if ($matchByEmail && $loweredEmails !== []) {
+        if ($matchByEmail && $loweredEmails !== [] && self::matchesRestorerOnly()) {
+            // No query: nobody but the importer can match, so nothing about
+            // any other account on this server is looked up.
+            $own = strtolower((string) $importingUser->email);
+
+            if ($own !== '' && in_array($own, $loweredEmails, true)) {
+                $lookup[$own] = (int) $importingUser->id;
+            }
+        } elseif ($matchByEmail && $loweredEmails !== []) {
             $rows = User::query()
                 ->whereIn(DB::raw('LOWER(email)'), $loweredEmails)
                 ->get(['id', 'email']);
@@ -99,5 +118,14 @@ final class UserRemapBuilder
             'map' => $map,
             'matches' => $matches,
         ];
+    }
+
+    /**
+     * Whether the installation lets a restore match only the importing user.
+     * Anything but 'restorer' keeps the default, matching across the server.
+     */
+    public static function matchesRestorerOnly(): bool
+    {
+        return config('backup.restore_user_matching', self::MATCH_INSTANCE) === self::MATCH_RESTORER;
     }
 }

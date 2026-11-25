@@ -14,6 +14,7 @@ beforeEach(function () {
     Storage::fake('local');
     Queue::fake();
 
+    config()->set('inbox.email.enabled', true);
     config()->set('inbox.email.signing_secret', 'whsec_test_secret');
     config()->set('inbox.email.domain', 'inbox.example.com');
 
@@ -128,6 +129,26 @@ it('returns 404 for an unknown routing token', function () {
     $response = postInbound('tok_unknown', inboundPayload());
 
     $response->assertStatus(404);
+
+    expect(InboxItem::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+it('returns 404 while the operator has inbound email switched off', function () {
+    config()->set('inbox.email.enabled', false);
+
+    postInbound('tok_abc123', inboundPayload())->assertNotFound();
+
+    expect(InboxItem::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+it('acknowledges but stages nothing for a read-only organization', function () {
+    makeCompanyReadOnly($this->company);
+
+    postInbound('tok_abc123', inboundPayload())
+        ->assertOk()
+        ->assertJson(['received' => true, 'staged' => 0]);
 
     expect(InboxItem::query()->count())->toBe(0);
     Queue::assertNothingPushed();

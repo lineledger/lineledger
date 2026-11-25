@@ -4,11 +4,15 @@ namespace App\Actions\Sales;
 
 use App\Actions\Portal\IssuePortalLoginToken;
 use App\Enums\CustomerStatementType;
+use App\Enums\SensitiveFeature;
+use App\Exceptions\Security\TwoFactorRequiredException;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Notifications\Sales\CustomerStatementNotification;
 use App\Support\Reporting\StatementColumns;
+use App\Support\Security\SensitiveFeatureGate;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -23,7 +27,10 @@ use Illuminate\Support\Facades\Notification;
  */
 final class SendCustomerStatement
 {
-    public function __construct(protected IssuePortalLoginToken $tokens) {}
+    public function __construct(
+        protected IssuePortalLoginToken $tokens,
+        protected SensitiveFeatureGate $gate,
+    ) {}
 
     /**
      * $start is the activity period's first day, or the open-invoices lower
@@ -33,9 +40,14 @@ final class SendCustomerStatement
      * @param  list<string>  $to  Primary recipients — each gets the magic link.
      * @param  list<string>  $cc
      * @param  list<string>|null  $columns
+     *
+     * @throws TwoFactorRequiredException when the installation keeps customer
+     *                                    email behind two-factor authentication and it isn't on
      */
     public function handle(Company $company, Contact $contact, CustomerStatementType $type, ?CarbonImmutable $start, CarbonImmutable $end, array $to, string $message, array $cc = [], ?array $columns = null): void
     {
+        $this->gate->ensure(SensitiveFeature::CustomerEmail, $company, Auth::user());
+
         $intendedPath = route('portal.statement', ['company' => $company->slug], absolute: false);
 
         $statementUrl = $this->tokens->handle($company, $contact, $intendedPath);

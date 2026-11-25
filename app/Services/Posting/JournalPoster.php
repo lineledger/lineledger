@@ -2,12 +2,15 @@
 
 namespace App\Services\Posting;
 
+use App\Contracts\CompanyAccess;
 use App\Enums\AuditAction;
+use App\Exceptions\Access\CompanyReadOnlyException;
 use App\Exceptions\Posting\AlreadyPostedException;
 use App\Exceptions\Posting\PeriodLockedException;
 use App\Exceptions\Posting\PostingValidationException;
 use App\Exceptions\Posting\UnbalancedJournalException;
 use App\Models\Account;
+use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Audit\AccountingAuditRecorder;
@@ -23,13 +26,60 @@ use Illuminate\Support\Facades\DB;
  * Posting is atomic, balanced, respects the company lock date, and keeps every
  * line on the entry's own organization's accounts.
  * After post, the entry is immutable; corrections happen via void().
+ *
+ * A read-only organization ({@see CompanyAccess}) can't post, void or repost:
+ * its members' permissions already refuse every write, so this is the
+ * backstop. The one exception is {@see self::allowingReadOnly()}, which the
+ * Stripe webhook uses to record a card payment that has already settled.
  */
 class JournalPoster
 {
+    /** Depth of allowingReadOnly() calls in progress. */
+    private static int $readOnlyAllowed = 0;
+
     public function __construct(
         protected AccountingAuditRecorder $auditRecorder,
         protected BankReconciliationLockGuard $reconciliationLockGuard,
     ) {}
+
+    /**
+     * Run $callback with the read-only refusal lifted, for money that has
+     * already moved: a customer's card payment Stripe settled, recorded by
+     * the webhook. Nothing else should need it.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function allowingReadOnly(callable $callback): mixed
+    {
+        self::$readOnlyAllowed++;
+
+        try {
+            return $callback();
+        } finally {
+            self::$readOnlyAllowed--;
+        }
+    }
+
+    /**
+     * Refuse to change the books of a read-only organization.
+     *
+     * @throws CompanyReadOnlyException
+     */
+    public function ensureCompanyWritable(JournalEntry $entry): void
+    {
+        if (self::$readOnlyAllowed > 0) {
+            return;
+        }
+
+        $company = $entry->relationLoaded('company') ? $entry->company : Company::query()->find($entry->company_id);
+
+        if ($company instanceof Company && app(CompanyAccess::class)->isReadOnly($company)) {
+            throw new CompanyReadOnlyException;
+        }
+    }
 
     /**
      * Post an entry to the ledger.
@@ -42,6 +92,8 @@ class JournalPoster
     {
         return DB::transaction(function () use ($entry, $recompute) {
             $entry->loadMissing('lines', 'company');
+
+            $this->ensureCompanyWritable($entry);
 
             if ($entry->isPosted()) {
                 throw AlreadyPostedException::for((int) $entry->id);
@@ -110,6 +162,8 @@ class JournalPoster
     {
         return DB::transaction(function () use ($entry, $voidDate, $memo) {
             $entry->loadMissing('lines', 'company');
+
+            $this->ensureCompanyWritable($entry);
 
             if (! $entry->isPosted()) {
                 throw new \RuntimeException('Cannot void a draft entry. Delete it instead.');
@@ -188,6 +242,8 @@ class JournalPoster
     {
         $entry->loadMissing('lines', 'company');
 
+        $this->ensureCompanyWritable($entry);
+
         foreach ([CarbonImmutable::parse($entry->entry_date), $newDate] as $date) {
             if ($entry->company->isLockedFor($date)) {
                 throw PeriodLockedException::for($date, CarbonImmutable::parse($entry->company->lock_date));
@@ -207,12 +263,16 @@ class JournalPoster
      * lines are rebuilt, inside its transaction.
      *
      * It reads the saved lines rather than the loaded relation, so a line added
-     * after the entry was loaded is checked too.
+     * after the entry was loaded is checked too. Every in-place rewrite calls
+     * it, so it is also where a repost in a read-only organization is refused.
      *
      * @throws PostingValidationException
+     * @throws CompanyReadOnlyException
      */
     public function ensureLineAccountsInCompany(JournalEntry $entry): void
     {
+        $this->ensureCompanyWritable($entry);
+
         $foreign = JournalLine::query()
             ->where('journal_entry_id', $entry->id)
             ->whereNotExists(fn (QueryBuilder $accounts) => $accounts->select('accounts.id')

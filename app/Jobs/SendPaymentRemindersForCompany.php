@@ -3,9 +3,12 @@
 namespace App\Jobs;
 
 use App\Actions\Sales\SendInvoiceReminder;
+use App\Contracts\CompanyAccess;
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
 use App\Models\ReminderTier;
 use App\Services\Reminders\DueReminderResolver;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -35,6 +38,13 @@ class SendPaymentRemindersForCompany implements ShouldQueue
             return;
         }
 
+        // Read-only (CompanyAccess) since the command queued it: skipped, not failed.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Skipping payment reminders: the organization is read-only.', ['company_id' => $company->id]);
+
+            return;
+        }
+
         $this->sendDue($company, $resolver, $sender);
     }
 
@@ -47,6 +57,15 @@ class SendPaymentRemindersForCompany implements ShouldQueue
      */
     public function sendDue(Company $company, DueReminderResolver $resolver, SendInvoiceReminder $sender): int
     {
+        // Customer email kept behind two-factor authentication the owner
+        // hasn't turned on: nothing is sent or claimed, so once it is on, the
+        // next run sends what is due then.
+        if (! app(SensitiveFeatureGate::class)->allows(SensitiveFeature::CustomerEmail, $company)) {
+            Log::info('Skipping payment reminders: customer email needs the owner to turn on two-factor authentication.', ['company_id' => $company->id]);
+
+            return 0;
+        }
+
         $previous = app()->bound('current_company') ? app('current_company') : null;
         app()->instance('current_company', $company);
 

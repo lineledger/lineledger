@@ -3,6 +3,7 @@
 namespace App\Jobs\Inbox;
 
 use App\Enums\InboxItemStatus;
+use App\Enums\SensitiveFeature;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Contact;
@@ -12,6 +13,7 @@ use App\Services\Classification\CategorySuggester;
 use App\Services\Classification\Contracts\TransactionClassifier;
 use App\Services\Inbox\OCR\Contracts\ReceiptIntelligence;
 use App\Services\Inbox\OCR\ReceiptTaxMapper;
+use App\Support\Security\SensitiveFeatureGate;
 use App\Support\Storage\TemporaryLocalFile;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -109,12 +111,16 @@ class ProcessInboxItem implements ShouldQueue
     }
 
     /**
-     * Per-company opt-in, mirroring the insights narration toggle. The operator
-     * gate already lives in the provider binding; this is the tenant gate.
+     * Per-company opt-in, mirroring the insights narration toggle, plus the
+     * installation's two-factor requirement for AI, if any. The operator gate
+     * already lives in the provider binding; this is the tenant gate. Read
+     * from the item's own organization here, at call time: the intelligence
+     * this job was handed was resolved before `current_company` was bound.
      */
     private function companyOcrEnabled(Company $company): bool
     {
-        return (bool) data_get($company->settings, 'inbox.ocr_enabled', false);
+        return (bool) data_get($company->settings, 'inbox.ocr_enabled', false)
+            && app(SensitiveFeatureGate::class)->allows(SensitiveFeature::Ai, $company);
     }
 
     /**

@@ -4,6 +4,7 @@ use App\Actions\Payroll\SaveEmployeePayrollProfile;
 use App\Actions\Payroll\TerminateEmployee;
 use App\Actions\Portal\IssuePortalLoginToken;
 use App\Enums\PermissionAction;
+use App\Enums\SensitiveFeature;
 use App\Livewire\Attributes\Requires;
 use App\Notifications\Portal\EmployeePortalLoginLinkNotification;
 use App\Enums\AccountSubtype;
@@ -26,8 +27,10 @@ use App\Rules\ValidSocialInsuranceNumber;
 use App\Support\Money;
 use App\Support\Payroll\Constants\PayrollConstantsRepository;
 use App\Support\Payroll\PayrollItemType;
+use App\Support\Security\SensitiveFeatureGate;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -686,8 +689,10 @@ new #[Title('Employee payroll setup')] class extends Component {
      * (needs an email + an active profile).
      */
     #[Requires(null, PermissionAction::Modify)]
-    public function sendPortalInvite(IssuePortalLoginToken $tokens): void
+    public function sendPortalInvite(IssuePortalLoginToken $tokens, SensitiveFeatureGate $gate): void
     {
+        $gate->ensure(SensitiveFeature::CustomerEmail, $this->company, Auth::user());
+
         $eligible = Contact::query()
             ->whereKey($this->contact->id)
             ->employeePortalEligible()

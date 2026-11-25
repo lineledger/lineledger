@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Sales;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Enums\CustomerStatementType;
 use App\Models\Company;
 use App\Models\Contact;
@@ -23,7 +24,7 @@ use Illuminate\Support\Str;
  * serializes trivially; the PDF is rendered at delivery time so the job stays
  * small.
  */
-class CustomerStatementNotification extends Notification implements ShouldQueue
+class CustomerStatementNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -63,6 +64,11 @@ class CustomerStatementNotification extends Notification implements ShouldQueue
         // Route-notified (a bare address), so there's no notifiable preference:
         // pin the document language here so Laravel renders the whole message in it.
         $this->locale = Locales::forDocument($contact, $company);
+    }
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
     }
 
     /**

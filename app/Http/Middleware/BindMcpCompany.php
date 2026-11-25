@@ -2,7 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
+use App\Models\User;
+use App\Support\Security\SensitiveFeatureGate;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,6 +40,15 @@ class BindMcpCompany
             : null;
 
         abort_if($company === null || ! $user->belongsToCompany($company), 403, 'You are not a member of this company.');
+
+        // The installation may keep MCP connections behind two-factor
+        // authentication: consent already asked it of the user; this asks it
+        // of them and of the organization's owner, every time it is used.
+        $refusal = $user instanceof User
+            ? app(SensitiveFeatureGate::class)->refusal(SensitiveFeature::Api, $company, $user)
+            : null;
+
+        abort_if($refusal !== null, 403, (string) $refusal);
 
         app()->instance('current_company', $company);
 

@@ -2,8 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Contracts\CompanyAccess;
 use App\Enums\RecurrenceEndType;
 use App\Enums\Section;
+use App\Enums\SensitiveFeature;
 use App\Models\Company;
 use App\Models\MemorizedReport;
 use App\Models\ReportEmailSchedule;
@@ -12,6 +14,7 @@ use App\Notifications\Reports\ReportEmailNotification;
 use App\Services\Recurring\NextRunDateCalculator;
 use App\Support\Reporting\RenderableReports;
 use App\Support\Reporting\ReportCatalog;
+use App\Support\Security\SensitiveFeatureGate;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -42,6 +45,13 @@ class SendScheduledReportEmailsForCompany implements ShouldQueue
         // failure worth a failed_jobs row and an ops alert.
         if (! $company) {
             Log::info('Skipping scheduled report emails: company no longer exists.', ['company_id' => $this->companyId]);
+
+            return;
+        }
+
+        // Read-only (CompanyAccess) since the command queued it: skipped, not failed.
+        if (app(CompanyAccess::class)->isReadOnly($company)) {
+            Log::info('Skipping scheduled report emails: the organization is read-only.', ['company_id' => $company->id]);
 
             return;
         }
@@ -102,6 +112,19 @@ class SendScheduledReportEmailsForCompany implements ShouldQueue
 
         if ($refused !== []) {
             $this->pause($schedule, __('This schedule includes a report its owner can no longer open.'));
+
+            return 0;
+        }
+
+        // To anyone outside the organization a report is customer email, which
+        // the installation may keep behind two-factor authentication. Until the
+        // owner turns it on the schedule waits: nothing is sent or advanced.
+        if ($company->nonMemberEmails($schedule->recipients) !== []
+            && ! app(SensitiveFeatureGate::class)->allows(SensitiveFeature::CustomerEmail, $company)) {
+            Log::info('Held a scheduled report email: customer email needs the owner to turn on two-factor authentication.', [
+                'schedule_id' => $schedule->id,
+                'company_id' => $schedule->company_id,
+            ]);
 
             return 0;
         }

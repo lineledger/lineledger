@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Portal;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,7 +16,7 @@ use Illuminate\Support\Str;
  * platform, and sent from a no-reply mailbox on the platform's verified
  * domain so DKIM/SPF still align — same pattern as InvoiceSharedNotification.
  */
-class EmployeePortalLoginLinkNotification extends Notification implements ShouldQueue
+class EmployeePortalLoginLinkNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -24,6 +25,11 @@ class EmployeePortalLoginLinkNotification extends Notification implements Should
         public Company $company,
         public int $ttlMinutes,
     ) {}
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
+    }
 
     /**
      * @return array<int, string>

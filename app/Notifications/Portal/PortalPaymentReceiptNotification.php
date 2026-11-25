@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Portal;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use App\Models\CustomerReceipt;
 use App\Support\Http\CanonicalUrl;
@@ -10,7 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class PortalPaymentReceiptNotification extends Notification implements ShouldQueue
+class PortalPaymentReceiptNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -18,6 +19,11 @@ class PortalPaymentReceiptNotification extends Notification implements ShouldQue
         public CustomerReceipt $receipt,
         public Company $company,
     ) {}
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
+    }
 
     /**
      * @return array<int, string>

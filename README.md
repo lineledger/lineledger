@@ -385,7 +385,8 @@ it can't read secured/encrypted PDFs), then — when text extraction comes up em
 *and* the optional AI layer is on — it sends the PDF to the Anthropic API, whose
 model reads secured and scanned PDFs natively. Enable the AI fallback with
 `BANK_IMPORT_AI_ENABLED=true` and an `ANTHROPIC_API_KEY` (see the
-[Environment](#environment) table). With neither `pdftotext` nor AI available, PDF
+[Environment](#environment) table); each organization then opts in with **Use AI to
+read bank statements** on its edit page. With neither `pdftotext` nor AI available, PDF
 import asks the user for a CSV/OFX export instead.
 
 ## Project structure
@@ -478,13 +479,15 @@ unlock specific subsystems. Set the same keys in production via Forge → Site �
 | `AWS_ENDPOINT` / `AWS_USE_PATH_STYLE_ENDPOINT` | Point at an S3-compatible store instead of AWS (MinIO, Cloudflare R2, Backblaze B2) | — | endpoint URL + `true` |
 | `PASSKEYS_USER_HANDLE_SECRET` | Secret used to derive passkey user handles. Falls back to `APP_KEY` only when the line is **absent** — a present-but-empty value is used as-is, so leave it commented out rather than blank | any random string | a stable, secret random string (**don't rotate** — invalidates existing passkeys) |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot challenge on register, login and forgot-password. **Off until both keys are set**; `TURNSTILE_ENABLED=false` is a hard kill switch. Registration fails closed when Cloudflare is unreachable; login and password reset fail open. `PUBLIC_TURNSTILE_SITE_KEY` is accepted as an alias for the site key. See `config/turnstile.php` | — | a key pair minted per hostname in the Cloudflare dashboard |
+| `TWO_FACTOR_REQUIRED_FOR` | Features that need two-factor authentication, comma-separated: `customer_email` (every email to a customer or employee), `ai` (receipt OCR, AI categorization, AI bank import, AI daily insights), `invitations`, `api` (creating API keys, connecting an assistant over MCP) and `stripe_connect`. A listed feature runs only once the organization's owner, and whoever is using it, has two-factor authentication on. Until then the person is told to turn it on under Settings → Security, AI falls back to the built-in path, and scheduled customer email waits | empty (none) | empty, or e.g. `customer_email,api,stripe_connect` on a server shared by unrelated customers |
+| `RESTORE_USER_MATCHING` | Who the users in a restored backup are matched to by email. `instance`: any user on this server, so their work stays theirs and they become members of the copy. `restorer`: only the person restoring; everyone else's work is attributed to them, so a crafted backup can't confirm that someone else has an account here. Use `restorer` on a server shared by unrelated customers | `instance` | `instance` |
 | `REGISTER_RATE_LIMIT` / `REGISTER_RATE_DECAY` | Per-IP throttle on account creation (attempts / decay minutes). Fortify ships `POST /register` unthrottled; this is enforced in `CreateNewUser` and skipped for the very first user so a fresh install can always be bootstrapped | `5` / `10` | `5` / `10` |
 | `STRIPE_KEY` / `STRIPE_SECRET` | Stripe API keys (publishable + secret) for Connect | test keys from <https://dashboard.stripe.com/test/apikeys> | live keys |
 | `STRIPE_CLIENT_ID` | Stripe **Connect** client ID (per-organization payouts for the portal) | test Connect client ID | live Connect client ID |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret for the **Connect** webhook (`/stripe/webhook`) | from `stripe listen` | from the live webhook endpoint |
 | `EXCHANGE_RATE_DRIVER` | Multi-currency rate source | `frankfurter` (free, no key) | `frankfurter` |
 | `FRANKFURTER_BASE_URL` | Override the Frankfurter API base | default | default |
-| `BANK_IMPORT_AI_ENABLED` + `ANTHROPIC_API_KEY` | Optional AI fallback for bank-statement PDFs that `pdftotext` can't read (secured/scanned). See [Bank-statement PDF import](#bank-statement-pdf-import-poppler) | `false` | `false` unless you want it |
+| `BANK_IMPORT_AI_ENABLED` + `ANTHROPIC_API_KEY` | Optional AI fallback for bank-statement PDFs that `pdftotext` can't read (secured/scanned). Each organization also has to turn on **Use AI to read bank statements** on its edit page. See [Bank-statement PDF import](#bank-statement-pdf-import-poppler) | `false` | `false` unless you want it |
 
 > Anything left unset just disables its feature — e.g. with no Stripe keys the
 > customer portal still works but card payment is unavailable; with
@@ -510,11 +513,11 @@ you need the full set of knobs; the keys below are the ones that turn the featur
 
 | Subsystem | Turn it on with | Config |
 | --- | --- | --- |
-| **Document inbox — email forwarding** | `INBOUND_EMAIL_ENABLED=true`, `INBOUND_DOMAIN`, `INBOUND_EMAIL_SIGNING_SECRET` (the provider webhook is verified by HMAC, not CSRF) | `config/inbox.php` |
+| **Document inbox — email forwarding** | `INBOUND_EMAIL_ENABLED=true` (while it is off the webhook answers 404), `INBOUND_DOMAIN`, `INBOUND_EMAIL_SIGNING_SECRET` (the provider webhook is verified by HMAC, not CSRF) | `config/inbox.php` |
 | **Document inbox — OCR** | `INBOX_OCR_ENABLED=true` + `ANTHROPIC_API_KEY`; tune with `INBOX_OCR_MODEL` / `_DRIVER` / `_TIMEOUT` / `INBOX_MAX_KILOBYTES` | `config/inbox.php` |
 | **Agentic MCP writes** | `MCP_WRITE_ENABLED=true` **and** the per-organization **AI assistant writes (MCP)** switch on the organization edit page. `MCP_REDIRECT_DOMAINS` allow-lists OAuth redirect hosts | `config/mcp.php` |
 | **AI daily insights** | `INSIGHTS_AI_ENABLED=true` + `ANTHROPIC_API_KEY`; `INSIGHTS_AI_MODEL` / `_MAX_CANDIDATES` / `_TIMEOUT` | `config/insights.php` |
-| **Bank-import AI fallback** | `BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY`; `BANK_IMPORT_PDF_EXTRACTOR`, `BANK_IMPORT_AI_MODEL` / `_DRIVER` / `_TIMEOUT` / `_SAMPLE_ROWS`, `BANK_IMPORT_MAX_KILOBYTES`, `BANK_IMPORT_DATE_TOLERANCE_DAYS` | `config/banking.php` |
+| **Bank-import AI fallback** | `BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY` **and** the per-organization **Use AI to read bank statements** switch on the organization edit page; `BANK_IMPORT_PDF_EXTRACTOR`, `BANK_IMPORT_AI_MODEL` / `_DRIVER` / `_TIMEOUT` / `_SAMPLE_ROWS`, `BANK_IMPORT_MAX_KILOBYTES`, `BANK_IMPORT_DATE_TOLERANCE_DAYS` | `config/banking.php` |
 | **Transaction classification** | The history-based suggester is on by default; tune history depth with `CLASSIFICATION_HISTORY_DAYS`, `CLASSIFICATION_MAX_HISTORY_ROWS`, `CLASSIFICATION_DESCRIPTION_HISTORY_LIMIT`. The AI fallback (`CLASSIFICATION_AI_MAX_DESCRIPTIONS` batches it) has no switch of its own — it rides the inbox OCR gate above, so nothing leaves the server unless OCR is on | `config/classification.php` |
 | **Edit locks** (one member edits a record at a time) | On by default; `EDIT_LOCKS_ENABLED=false` switches it off. Tune with `EDIT_LOCKS_TTL_SECONDS` (lease length, 120 — keep it above 60, since hidden tabs renew about once a minute), `EDIT_LOCKS_HEARTBEAT_SECONDS` (30), `EDIT_LOCKS_IDLE_MINUTES` (15) and `EDIT_LOCKS_PRUNE_AFTER_DAYS` (7). None of these are in `.env.example`; add the ones you change | `config/edit_locks.php` |
 | **Deleted-organization grace period** | On by default: an organization its owner deletes is hidden at once and permanently erased by `companies:purge-deleted` after `COMPANY_PURGE_AFTER_DAYS` (30). A site admin can restore it until then. Not in `.env.example`; add it if you change it | `config/companies.php` |
@@ -566,6 +569,9 @@ The per-organization jobs — `recurring:generate`, `depreciation:generate`,
 `{company?}` (id or slug) plus `--sync`, so you can run one organization in-process
 when you're debugging. `payroll:accrue-time-off` takes `{company?}` and `--date=`.
 Since 1.1.0 they skip soft-deleted organizations instead of queuing work that fails.
+They, and inbound email, also skip an organization that is read-only (see
+`App\Contracts\CompanyAccess`; a self-hosted install never has one), logging it rather
+than failing, so the rest of the run goes on.
 
 Every task carries `->onFailure(SchedulerFailureAlert::for(...))`, so a command that
 throws or exits non-zero emails `OPS_ALERT_EMAIL` rather than failing silently. Most
@@ -1147,7 +1153,8 @@ DigitalOcean, any size, **PHP 8.5** (Composer pins `^8.5` and requires `ext-intl
 > should-have, not a must-have: without it the importer falls back to the bundled
 > pure-PHP `smalot/pdfparser`, which reads ordinary statement PDFs but not
 > encrypted ones; an encrypted or scanned PDF then goes to the AI layer when enabled
-> (`BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY`), and otherwise the user is
+> (`BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY`, and the organization's own
+> switch), and otherwise the user is
 > asked for a CSV/OFX export. CSV, Excel and OFX/QFX/QBO imports need no extra
 > packages. (The Docker image ships `poppler-utils`.)
 

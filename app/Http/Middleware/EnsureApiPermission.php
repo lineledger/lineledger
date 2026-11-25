@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Contracts\CompanyAccess;
 use App\Models\Company;
 use App\Models\CompanyApiKey;
 use App\Models\User;
+use App\Services\Access\PermissionResolver;
 use App\Support\Access\ApiRoutePermissionMap;
 use App\Support\Access\ApiViewer;
 use App\Support\Access\PermissionSet;
@@ -22,7 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Runs after `auth.api_key` and `api.ability` (the key's own scopes) and
  * before route-model binding. Keys with no recorded creator (made before
  * creators were recorded, or minted from the console) keep their scopes as
- * the only limit.
+ * the only limit, except that in a read-only organization every key, like
+ * every member, can only read.
  */
 class EnsureApiPermission
 {
@@ -38,12 +41,19 @@ class EnsureApiPermission
         $key = app()->bound('current_api_key') ? app('current_api_key') : null;
         $company = app()->bound('current_company') ? app('current_company') : null;
 
-        if ($requirements === null || ! $key instanceof CompanyApiKey || ! $company instanceof Company || $key->created_by_user_id === null) {
+        if ($requirements === null || ! $key instanceof CompanyApiKey || ! $company instanceof Company) {
             return $next($request);
         }
 
-        $creator = User::query()->find($key->created_by_user_id);
-        $permissions = $creator?->permissions($company);
+        if ($key->created_by_user_id === null) {
+            $permissions = app(PermissionResolver::class)->forUnattributed($company);
+
+            if ($permissions === null) {
+                return $next($request);
+            }
+        } else {
+            $permissions = User::query()->find($key->created_by_user_id)?->permissions($company);
+        }
 
         // What the key may see, for responses that carry figures its creator
         // might not be allowed (an account's balance): ApiViewer reads it.
@@ -52,8 +62,10 @@ class EnsureApiPermission
         foreach ($requirements as $anyOf) {
             if ($permissions === null || ! $permissions->allowsAny($anyOf)) {
                 return response()->json([
-                    'message' => 'The person who created this API key may not do this in the organization: '
-                        .implode(' or ', array_map('strval', $anyOf)).'.',
+                    'message' => app(CompanyAccess::class)->isReadOnly($company)
+                        ? 'This organization is read-only: its API keys can only read.'
+                        : 'The person who created this API key may not do this in the organization: '
+                            .implode(' or ', array_map('strval', $anyOf)).'.',
                 ], Response::HTTP_FORBIDDEN);
             }
         }

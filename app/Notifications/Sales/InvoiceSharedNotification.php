@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Sales;
 
+use App\Contracts\CustomerFacingNotification;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Services\Reporting\InvoicePdfRenderer;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
  * so customer replies reach them. The message body is editable per send. The PDF
  * is rendered at delivery time so the queued job stays small.
  */
-class InvoiceSharedNotification extends Notification implements ShouldQueue
+class InvoiceSharedNotification extends Notification implements CustomerFacingNotification, ShouldQueue
 {
     use Queueable;
 
@@ -40,6 +41,11 @@ class InvoiceSharedNotification extends Notification implements ShouldQueue
         // Route-notified (a bare address), so there's no notifiable preference:
         // pin the document language here so Laravel renders the whole message in it.
         $this->locale = Locales::forDocument($invoice->contact, $company);
+    }
+
+    public function sendingCompany(): Company
+    {
+        return $this->company;
     }
 
     /**

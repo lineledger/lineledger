@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Stripe;
 
 use App\Actions\Portal\EnsureStripeAccounts;
+use App\Enums\SensitiveFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Services\Stripe\StripePaymentService;
+use App\Support\Security\SensitiveFeatureGate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -18,13 +20,22 @@ use Illuminate\Support\Facades\Crypt;
  */
 class ConnectController extends Controller
 {
-    public function __construct(protected StripePaymentService $stripe) {}
+    public function __construct(
+        protected StripePaymentService $stripe,
+        protected SensitiveFeatureGate $gate,
+    ) {}
 
     /**
-     * Begin onboarding: redirect the owner to Stripe's OAuth consent screen.
+     * Begin onboarding: redirect the owner to Stripe's OAuth consent screen —
+     * unless the installation keeps Stripe behind two-factor authentication
+     * and it isn't on yet, when they're sent to turn it on instead.
      */
-    public function redirect(Company $company): RedirectResponse
+    public function redirect(Request $request, Company $company): RedirectResponse
     {
+        if (($refusal = $this->gate->refusal(SensitiveFeature::StripeConnect, $company, $request->user())) !== null) {
+            return redirect()->route('security.edit')->with('two_factor_required', $refusal);
+        }
+
         $state = Crypt::encryptString((string) $company->id);
 
         return redirect()->away(
@@ -52,6 +63,10 @@ class ConnectController extends Controller
 
         // The returning user must be an owner of the company they connected.
         abort_unless($request->user()?->companyRole($company)?->value === 'owner', 403);
+
+        if (($refusal = $this->gate->refusal(SensitiveFeature::StripeConnect, $company, $request->user())) !== null) {
+            return redirect()->route('security.edit')->with('two_factor_required', $refusal);
+        }
 
         $accountId = $this->stripe->exchangeOAuthCode((string) $request->query('code'));
 

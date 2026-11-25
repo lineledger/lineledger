@@ -39,6 +39,8 @@ return [
     | address token and stages the attachments as inbox items.
     */
     'email' => [
+        // Operator master switch. While false (default) the inbound webhook
+        // answers 404, whatever an organization has turned on.
         'enabled' => (bool) env('INBOUND_EMAIL_ENABLED', false),
 
         // The domain inbox addresses are minted under, e.g. "inbox.example.com"
