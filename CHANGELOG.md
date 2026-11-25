@@ -25,6 +25,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it off). A deadline job whose send fails is retried after 1, 5 and 15 minutes,
   and the retry sends only the emails that had not gone out.
 
+### Security
+
+- **`web-auth/webauthn-lib`, the passkey library, updated to 5.3.17**, with its
+  dependencies (Symfony serializer, property-info, property-access, string and
+  type-info 8.1.12, `webmozart/assert` 2.5.1, `doctrine/deprecations` 1.2.0,
+  `paragonie/constant_time_encoding` 3.1.5, `phpstan/phpdoc-parser` 2.4.1).
+  Only `composer.lock` changed. The advisories it fixes, all in versions before
+  5.3.13:
+  - CBOR data could make the server allocate memory before checking the length
+    it declares, a denial of service
+    ([GHSA-rxc4-cg58-jrpw](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-rxc4-cg58-jrpw)).
+  - The decoy credentials offered for unknown users could be told apart from
+    real ones, revealing which emails have an account
+    ([GHSA-8gvp-8vj9-p3q7](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-8gvp-8vj9-p3q7)).
+  - Attestation certificates sent as PEM text allowed forged packed and TPM
+    attestations and an unauthenticated denial of service
+    ([GHSA-c9p6-r72h-rp3x](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-c9p6-r72h-rp3x)).
+  - Three metadata-service checks: a REVOKED status report could be ignored
+    ([GHSA-p8cj-mmjr-5c2m](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-p8cj-mmjr-5c2m)),
+    the attestation trust path went unverified under the null AAGUID
+    ([GHSA-2jv3-c2vg-rhc4](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-2jv3-c2vg-rhc4)),
+    and a metadata BLOB that does not chain to a trust anchor was accepted
+    ([GHSA-p653-gg6c-rrjw](https://github.com/web-auth/webauthn-framework/security/advisories/GHSA-p653-gg6c-rrjw)).
+
 ## [1.5.0-rc.5] - 2026-11-20
 
 **Highlights.** The fifth release candidate for 1.5.0, on the next channel
