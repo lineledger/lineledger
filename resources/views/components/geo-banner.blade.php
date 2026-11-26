@@ -1,41 +1,17 @@
 @php
     use App\Enums\Country;
+    use App\Support\Http\SiblingSites;
 
     // The switcher only belongs on the project's own sibling deployments, so it
     // renders when — and only when — the request host is one of the hosts in
-    // config('app.app_urls'). That makes it self-configuring: a self-hosted
-    // instance on its own domain matches neither, and so never offers to send
-    // its users to someone else's app. (APP_REGION still picks the marketing
-    // site the legal links point at; it deliberately has no say here, or every
-    // self-host that set it to get the right legal documents would get the
-    // banner along with them.)
-    $appUrls = array_filter(array_map('strval', (array) config('app.app_urls', [])));
-    $hosts = array_map(
-        fn (string $url): string => mb_strtolower((string) parse_url($url, PHP_URL_HOST)),
-        $appUrls,
-    );
-
-    $region = array_search(mb_strtolower(request()->getHost()), $hosts, true);
-    $current = is_string($region) ? Country::tryFrom($region) : null;
-
-    $siblings = [];
-    if ($current !== null) {
-        foreach ($appUrls as $code => $url) {
-            if ($code === $current->value || $url === '') {
-                continue;
-            }
-            $sibling = Country::tryFrom((string) $code);
-            if ($sibling === null) {
-                continue;
-            }
-            $siblings[] = [
-                'code' => mb_strtolower($sibling->value),
-                'label' => $sibling->label(),
-                'flag' => $sibling->flag(),
-                'url' => (string) $url,
-            ];
-        }
-    }
+    // config('app.app_urls'); see SiblingSites.
+    $current = SiblingSites::current();
+    $siblings = array_map(static fn (array $site): array => [
+        'code' => mb_strtolower($site['country']->value),
+        'label' => $site['country']->label(),
+        'flag' => $site['country']->flag(),
+        'url' => $site['url'],
+    ], SiblingSites::others());
 
     // When Cloudflare's country header names a sibling's country, that sibling
     // goes first and the banner says why, even to a visitor who came from the

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The signed-out pages name their site's country.** On an operator's
+  per-country sites (`APP_URL_CA` / `_US` / `_GB`), the sign-in, registration
+  and password pages show the site's country under the logo. They also say that
+  each country's site has separate accounts that can't be moved, and link the
+  other countries' sites. An installation on any other host shows nothing new.
 - **An installation can limit the countries new organizations are created in.**
   `COMPANY_COUNTRIES` lists any of `CA`, `US` and `GB`; left empty, all three
   are offered, as before. The setup wizard and the organizations page then offer

@@ -10,6 +10,7 @@
                     <x-app-logo-icon class="h-12 w-auto" />
                     <span class="sr-only">{{ config('app.name', 'Ledger') }}</span>
                 </a>
+                <x-site-country />
                 <div class="flex flex-col gap-6">
                     {{ $slot }}
                 </div>
