@@ -39,10 +39,13 @@ test('the registration and password pages show it too, linking the same page els
 test('a sibling site that isn’t live yet is left out', function () {
     config(['app.app_urls.GB' => '']);
 
+    // Not the bare host: the page's script tags can carry the host of an
+    // earlier request in the same test process.
     $this->get('https://books.example.ca/login')
         ->assertOk()
         ->assertSee('href="https://books.example.com/login?ll=us"', false)
-        ->assertDontSee('books.example.co.uk', false);
+        ->assertDontSee('?ll=gb', false)
+        ->assertDontSee('United Kingdom');
 });
 
 test('a site with no sibling live yet names its country without the note', function () {
