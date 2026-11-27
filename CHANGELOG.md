@@ -92,6 +92,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Symfony `http-kernel`, `mailer` and `routing` updated to 8.1.12**, with
+  `http-foundation`, `mime` and `var-dumper` 8.1.12, `egulias/email-validator`
+  4.0.5 and `symfony/polyfill-php85` 1.44.0. Only `composer.lock` changed. The
+  advisories it fixes, all in versions before 8.1.12:
+  - Inline fragments let untrusted forwarded headers change the URLs that
+    `asset()` and `absolute_url()` build, an incomplete fix for CVE-2026-123339
+    ([CVE-2026-133743](https://symfony.com/cve-2026-133743)).
+  - A man in the middle could get around the mailer's `require_tls`
+    ([CVE-2026-133751](https://symfony.com/cve-2026-133751)) and inject replies
+    right after STARTTLS that the mailer trusted
+    ([CVE-2026-133755](https://symfony.com/cve-2026-133755)).
+  - The URL generator could still build URLs to another host, an incomplete fix
+    for CVE-2026-45065 ([CVE-2026-133746](https://symfony.com/cve-2026-133746)),
+    including through host placeholder values
+    ([CVE-2026-133754](https://symfony.com/cve-2026-133754)).
 - **`web-auth/webauthn-lib`, the passkey library, updated to 5.3.17**, with its
   dependencies (Symfony serializer, property-info, property-access, string and
   type-info 8.1.12, `webmozart/assert` 2.5.1, `doctrine/deprecations` 1.2.0,
