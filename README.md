@@ -515,10 +515,10 @@ you need the full set of knobs; the keys below are the ones that turn the featur
 | Subsystem | Turn it on with | Config |
 | --- | --- | --- |
 | **Document inbox — email forwarding** | `INBOUND_EMAIL_ENABLED=true` (while it is off the webhook answers 404), `INBOUND_DOMAIN`, `INBOUND_EMAIL_SIGNING_SECRET` (the provider webhook is verified by HMAC, not CSRF) | `config/inbox.php` |
-| **Document inbox — OCR** | `INBOX_OCR_ENABLED=true` + `ANTHROPIC_API_KEY`; tune with `INBOX_OCR_MODEL` / `_DRIVER` / `_TIMEOUT` / `INBOX_MAX_KILOBYTES` | `config/inbox.php` |
+| **Document inbox — OCR** | `INBOX_OCR_ENABLED=true` + `ANTHROPIC_API_KEY`; tune with `INBOX_OCR_MODEL` / `_EFFORT` / `_DRIVER` / `_TIMEOUT` / `INBOX_MAX_KILOBYTES` | `config/inbox.php` |
 | **Agentic MCP writes** | `MCP_WRITE_ENABLED=true` **and** the per-organization **AI assistant writes (MCP)** switch on the organization edit page. `MCP_REDIRECT_DOMAINS` allow-lists OAuth redirect hosts | `config/mcp.php` |
-| **AI daily insights** | `INSIGHTS_AI_ENABLED=true` + `ANTHROPIC_API_KEY`; `INSIGHTS_AI_MODEL` / `_MAX_CANDIDATES` / `_TIMEOUT` | `config/insights.php` |
-| **Bank-import AI fallback** | `BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY` **and** the per-organization **Use AI to read bank statements** switch on the organization edit page; `BANK_IMPORT_PDF_EXTRACTOR`, `BANK_IMPORT_AI_MODEL` / `_DRIVER` / `_TIMEOUT` / `_SAMPLE_ROWS`, `BANK_IMPORT_MAX_KILOBYTES`, `BANK_IMPORT_DATE_TOLERANCE_DAYS` | `config/banking.php` |
+| **AI daily insights** | `INSIGHTS_AI_ENABLED=true` + `ANTHROPIC_API_KEY`; `INSIGHTS_AI_MODEL` / `_EFFORT` / `_MAX_CANDIDATES` / `_TIMEOUT` | `config/insights.php` |
+| **Bank-import AI fallback** | `BANK_IMPORT_AI_ENABLED=true` + `ANTHROPIC_API_KEY` **and** the per-organization **Use AI to read bank statements** switch on the organization edit page; `BANK_IMPORT_PDF_EXTRACTOR`, `BANK_IMPORT_AI_MODEL` / `_EFFORT` / `_DRIVER` / `_TIMEOUT` / `_SAMPLE_ROWS`, `BANK_IMPORT_MAX_KILOBYTES`, `BANK_IMPORT_DATE_TOLERANCE_DAYS` | `config/banking.php` |
 | **Transaction classification** | The history-based suggester is on by default; tune history depth with `CLASSIFICATION_HISTORY_DAYS`, `CLASSIFICATION_MAX_HISTORY_ROWS`, `CLASSIFICATION_DESCRIPTION_HISTORY_LIMIT`. The AI fallback (`CLASSIFICATION_AI_MAX_DESCRIPTIONS` batches it) has no switch of its own — it rides the inbox OCR gate above, so nothing leaves the server unless OCR is on | `config/classification.php` |
 | **Edit locks** (one member edits a record at a time) | On by default; `EDIT_LOCKS_ENABLED=false` switches it off. Tune with `EDIT_LOCKS_TTL_SECONDS` (lease length, 120 — keep it above 60, since hidden tabs renew about once a minute), `EDIT_LOCKS_HEARTBEAT_SECONDS` (30), `EDIT_LOCKS_IDLE_MINUTES` (15) and `EDIT_LOCKS_PRUNE_AFTER_DAYS` (7). None of these are in `.env.example`; add the ones you change | `config/edit_locks.php` |
 | **Deleted-organization grace period** | On by default: an organization its owner deletes is hidden at once and permanently erased by `companies:purge-deleted` after `COMPANY_PURGE_AFTER_DAYS` (30). A site admin can restore it until then. Not in `.env.example`; add it if you change it | `config/companies.php` |
@@ -527,6 +527,11 @@ you need the full set of knobs; the keys below are the ones that turn the featur
 | **Content-Security-Policy** | Always emitted by `SecurityHeaders`; `CSP_MODE` picks `report-only` (default — observe, don't block), `enforce`, or `off` (the escape hatch for a self-host with customized assets). `CSP_REPORTING` / `CSP_REPORT_SAMPLE` control the `POST /csp-report` violation log in `storage/logs/csp.log` | `config/security.php` |
 | **Cheque print alignment** | No env vars. `config/cheque.php` holds the Intuit voucher-stock grid — every field's `[x, y]` baseline, font sizes, the `Ymd` date comb, the payee address block and the voucher columns — plus `offset_x` / `offset_y` to nudge the whole page for a printer. It is a config file, so a change needs `php artisan config:cache` (or a redeploy) to take | `config/cheque.php` |
 | **Security-alert thresholds** | `SECURITY_ALERT_WINDOW_MINUTES`, `SECURITY_ALERT_FAILED_LOGIN_THRESHOLD` (counted per IP and, separately, per email address tried), `SECURITY_ALERT_API_KEY_REVOCATION_THRESHOLD` (defaults 60 / 10 / 5) | `config/services.php` |
+
+> **AI model and effort.** The AI features default to Claude Sonnet 5.5 (`claude-sonnet-5-5`)
+> at effort `low`. A `*_MODEL` override must be a model that supports structured outputs. The
+> `*_EFFORT` knobs take `low`, `medium`, `high`, `xhigh` or `max`; set one empty to leave the
+> field out, which a model without effort support (such as Claude Haiku 4.5) needs.
 
 > **Filing T4 / T4A slips needs each organization's payroll account.** The CRA XML is
 > filed under the payroll (RP) account, payroll contact and dental benefits code (T4

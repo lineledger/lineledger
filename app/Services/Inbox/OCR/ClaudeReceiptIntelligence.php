@@ -5,13 +5,11 @@ namespace App\Services\Inbox\OCR;
 use App\Providers\InboxServiceProvider;
 use App\Services\Banking\Import\AI\ClaudeStatementIntelligence;
 use App\Services\Inbox\OCR\Contracts\ReceiptIntelligence;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Throwable;
+use App\Support\Anthropic\StructuredOutputRequest;
 
 /**
- * Claude-backed receipt/bill OCR over the Anthropic Messages API using forced
- * tool-use for validated, structured output. Mirrors
+ * Claude-backed receipt/bill OCR over the Anthropic Messages API, using
+ * structured outputs for validated JSON (see {@see StructuredOutputRequest}). Mirrors
  * {@see ClaudeStatementIntelligence}: every call
  * is defensively wrapped so any failure (network, auth, malformed output)
  * returns null and the caller leaves the item for manual entry. Bound only when
@@ -26,6 +24,7 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
         private readonly string $baseUrl,
         private readonly string $model,
         private readonly int $timeout = 60,
+        private readonly ?string $effort = 'low',
     ) {}
 
     public function isEnabled(): bool
@@ -52,7 +51,7 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
             return null;
         }
 
-        $input = $this->callTool(
+        $input = $this->request(
             system: self::EXTRACTION_SYSTEM,
             user: [
                 $source,
@@ -60,7 +59,6 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
                     .'grand total, currency, transaction date and line items from this receipt or bill. Money is in '
                     .'major units (e.g. dollars).'],
             ],
-            toolName: 'provide_receipt',
             schema: self::RECEIPT_SCHEMA,
         );
 
@@ -162,57 +160,22 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
     }
 
     /**
-     * Force a single tool call and return its validated input object, or null on
-     * any failure so the caller can fall back.
+     * Ask for one JSON object matching the schema and return it, or null on any
+     * failure so the caller can fall back. Records a transient failure in
+     * lastError().
      *
      * @param  string|array<int, array<string, mixed>>  $user  a plain string, or Anthropic content blocks
      * @param  array<string, mixed>  $schema
      * @return array<string, mixed>|null
      */
-    private function callTool(string $system, string|array $user, string $toolName, array $schema): ?array
+    private function request(string $system, string|array $user, array $schema): ?array
     {
-        $this->lastError = null;
+        $result = (new StructuredOutputRequest($this->apiKey, $this->baseUrl, $this->model, $this->timeout, $this->effort))
+            ->send($system, $user, $schema, maxTokens: 16000, logLabel: 'Receipt OCR');
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $this->apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json',
-            ])->timeout($this->timeout)->post($this->baseUrl.'/v1/messages', [
-                'model' => $this->model,
-                'max_tokens' => 8192,
-                'system' => $system,
-                'messages' => [['role' => 'user', 'content' => $user]],
-                'tools' => [[
-                    'name' => $toolName,
-                    'description' => 'Return the structured result.',
-                    'input_schema' => $schema,
-                ]],
-                'tool_choice' => ['type' => 'tool', 'name' => $toolName],
-            ]);
-        } catch (Throwable $e) {
-            // Network error / timeout — the service is unreachable. Flag it so the
-            // caller can tell the user it's temporary, and log it for operators.
-            $this->lastError = 'request_failed';
-            Log::warning('Receipt OCR request failed', ['tool' => $toolName, 'error' => $e->getMessage()]);
+        $this->lastError = $result->error;
 
-            return null;
-        }
-
-        if (! $response->successful()) {
-            $this->lastError = 'http_'.$response->status();
-            Log::warning('Receipt OCR request returned an error', ['tool' => $toolName, 'status' => $response->status()]);
-
-            return null;
-        }
-
-        foreach ((array) $response->json('content', []) as $block) {
-            if (($block['type'] ?? null) === 'tool_use' && ($block['name'] ?? null) === $toolName) {
-                return is_array($block['input'] ?? null) ? $block['input'] : null;
-            }
-        }
-
-        return null;
+        return $result->data;
     }
 
     private const EXTRACTION_SYSTEM = 'You read a single receipt or vendor bill and return its structured fields. '
@@ -243,6 +206,7 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
                         'amount' => ['type' => ['number', 'null'], 'description' => 'tax amount, major units'],
                     ],
                     'required' => [],
+                    'additionalProperties' => false,
                 ],
             ],
             'line_items' => [
@@ -254,9 +218,11 @@ final class ClaudeReceiptIntelligence implements ReceiptIntelligence
                         'amount' => ['type' => ['number', 'null'], 'description' => 'line amount, major units'],
                     ],
                     'required' => ['description'],
+                    'additionalProperties' => false,
                 ],
             ],
         ],
         'required' => [],
+        'additionalProperties' => false,
     ];
 }

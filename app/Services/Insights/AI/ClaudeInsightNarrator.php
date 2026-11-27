@@ -9,14 +9,13 @@ use App\Services\Insights\InsightCandidate;
 use App\Services\Insights\NarratedInsight;
 use App\Services\Insights\NarrationContext;
 use App\Services\Insights\TemplateInsightNarrator;
-use Illuminate\Support\Facades\Http;
+use App\Support\Anthropic\StructuredOutputRequest;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 /**
- * Claude-backed narration over the Anthropic Messages API using forced
- * tool-use for validated, structured output. Claude's job is purely
+ * Claude-backed narration over the Anthropic Messages API, using structured
+ * outputs for validated JSON (see {@see StructuredOutputRequest}). Claude's job is purely
  * editorial: pick the most interesting of the offered candidates and write
  * the copy — every figure is pre-computed and pre-formatted by a detector,
  * and any dollar amount in the output that doesn't appear verbatim among the
@@ -37,11 +36,12 @@ final class ClaudeInsightNarrator implements InsightNarrator
         private readonly string $model,
         private readonly int $timeout,
         private readonly TemplateInsightNarrator $fallback,
+        private readonly ?string $effort = 'low',
     ) {}
 
     public function narrate(array $candidates, NarrationContext $context): NarratedInsight
     {
-        $input = $this->callTool($candidates, $context);
+        $input = $this->request($candidates, $context);
 
         $narrated = $input === null ? null : $this->validate($input, $candidates);
 
@@ -50,67 +50,39 @@ final class ClaudeInsightNarrator implements InsightNarrator
 
     /**
      * @param  non-empty-list<InsightCandidate>  $candidates
-     * @return array<string, mixed>|null the tool_use input, or null on any failure
+     * @return array<string, mixed>|null the structured answer, or null on any failure
      */
-    private function callTool(array $candidates, NarrationContext $context): ?array
+    private function request(array $candidates, NarrationContext $context): ?array
     {
         $offered = array_map(fn (InsightCandidate $candidate): string => $candidate->key, $candidates);
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $this->apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json',
-            ])->timeout($this->timeout)->post($this->baseUrl.'/v1/messages', [
-                'model' => $this->model,
-                'max_tokens' => 300,
-                'system' => self::SYSTEM,
-                'messages' => [['role' => 'user', 'content' => json_encode([
-                    'today' => $context->today,
-                    'company' => $context->company,
-                    'candidates' => array_map(fn (InsightCandidate $candidate): array => [
-                        'key' => $candidate->key,
-                        'category' => $candidate->category->value,
-                        'values' => $this->transportFacts($candidate),
-                        'reference_headline' => $candidate->headline,
-                        'reference_body' => $candidate->body,
-                    ], $candidates),
-                    'recent_insights' => $context->recentInsights,
-                ], JSON_UNESCAPED_UNICODE)]],
-                'tools' => [[
-                    'name' => 'provide_daily_insight',
-                    'description' => 'Return the chosen insight with friendly copy.',
-                    'input_schema' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'chosen_key' => ['type' => 'string', 'enum' => $offered],
-                            'headline' => ['type' => 'string', 'description' => 'Max 80 characters. No trailing period.'],
-                            'body' => ['type' => 'string', 'description' => '1-2 sentences, max 280 characters.'],
-                        ],
-                        'required' => ['chosen_key', 'headline', 'body'],
-                    ],
-                ]],
-                'tool_choice' => ['type' => 'tool', 'name' => 'provide_daily_insight'],
-            ]);
-        } catch (Throwable $e) {
-            Log::warning('Daily insight AI narration request failed', ['error' => $e->getMessage()]);
+        $user = (string) json_encode([
+            'today' => $context->today,
+            'company' => $context->company,
+            'candidates' => array_map(fn (InsightCandidate $candidate): array => [
+                'key' => $candidate->key,
+                'category' => $candidate->category->value,
+                'values' => $this->transportFacts($candidate),
+                'reference_headline' => $candidate->headline,
+                'reference_body' => $candidate->body,
+            ], $candidates),
+            'recent_insights' => $context->recentInsights,
+        ], JSON_UNESCAPED_UNICODE);
 
-            return null;
-        }
+        $schema = [
+            'type' => 'object',
+            'properties' => [
+                'chosen_key' => ['type' => 'string', 'enum' => $offered],
+                'headline' => ['type' => 'string', 'description' => 'Max 80 characters. No trailing period.'],
+                'body' => ['type' => 'string', 'description' => '1-2 sentences, max 280 characters.'],
+            ],
+            'required' => ['chosen_key', 'headline', 'body'],
+            'additionalProperties' => false,
+        ];
 
-        if (! $response->successful()) {
-            Log::warning('Daily insight AI narration returned an error', ['status' => $response->status()]);
-
-            return null;
-        }
-
-        foreach ((array) $response->json('content', []) as $block) {
-            if (($block['type'] ?? null) === 'tool_use' && ($block['name'] ?? null) === 'provide_daily_insight') {
-                return is_array($block['input'] ?? null) ? $block['input'] : null;
-            }
-        }
-
-        return null;
+        return (new StructuredOutputRequest($this->apiKey, $this->baseUrl, $this->model, $this->timeout, $this->effort))
+            ->send(self::SYSTEM, $user, $schema, maxTokens: 2048, logLabel: 'Daily insight AI narration')
+            ->data;
     }
 
     /**
@@ -119,9 +91,13 @@ final class ClaudeInsightNarrator implements InsightNarrator
      */
     private function validate(array $input, array $candidates): ?NarratedInsight
     {
+        // Structured outputs keeps chosen_key inside the enum but doesn't
+        // guarantee its letter case, so compare case-insensitively.
+        $chosenKey = is_string($input['chosen_key'] ?? null) ? $input['chosen_key'] : '';
+
         $chosen = null;
         foreach ($candidates as $candidate) {
-            if ($candidate->key === ($input['chosen_key'] ?? null)) {
+            if (strcasecmp($candidate->key, $chosenKey) === 0) {
                 $chosen = $candidate;
                 break;
             }

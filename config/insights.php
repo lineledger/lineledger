@@ -20,7 +20,13 @@ return [
         // server.
         'enabled' => (bool) env('INSIGHTS_AI_ENABLED', false),
 
-        'model' => env('INSIGHTS_AI_MODEL', 'claude-sonnet-4-6'),
+        // Any model that supports structured outputs.
+        'model' => env('INSIGHTS_AI_MODEL', 'claude-sonnet-5-5'),
+
+        // output_config.effort: low | medium | high | xhigh | max. Low suits
+        // this short editorial task. Set it empty to omit the field, for a
+        // model without effort support (e.g. Claude Haiku 4.5).
+        'effort' => env('INSIGHTS_AI_EFFORT', 'low'),
 
         // Nightly queue job — nobody is waiting on this request.
         'timeout' => (int) env('INSIGHTS_AI_TIMEOUT', 20),

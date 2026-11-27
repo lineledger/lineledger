@@ -106,27 +106,21 @@ it('extracts vendor, amount and date from a faked Claude OCR response', function
     $this->company->forceFill(['settings' => ['inbox' => ['ocr_enabled' => true]]])->save();
 
     Http::fake([
-        '*/v1/messages' => Http::response([
-            'content' => [[
-                'type' => 'tool_use',
-                'name' => 'provide_receipt',
-                'input' => [
-                    'vendor' => 'Staples Canada',
-                    'total' => 42.50,
-                    'currency' => 'CAD',
-                    'date' => '2026-06-20',
-                    'line_items' => [
-                        ['description' => 'Printer paper', 'amount' => 42.50],
-                    ],
-                ],
-            ]],
-        ], 200),
+        '*/v1/messages' => Http::response(fakeClaudeJsonResponse([
+            'vendor' => 'Staples Canada',
+            'total' => 42.50,
+            'currency' => 'CAD',
+            'date' => '2026-06-20',
+            'line_items' => [
+                ['description' => 'Printer paper', 'amount' => 42.50],
+            ],
+        ]), 200),
     ]);
 
     app()->bind(ReceiptIntelligence::class, fn () => new ClaudeReceiptIntelligence(
         apiKey: 'test-key',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5-5',
     ));
 
     // A vendor that the fuzzy matcher should pick up.
@@ -423,30 +417,24 @@ it('extracts subtotal and tax lines from OCR and maps GST to the ITC code', func
 
     // The Bar Oso receipt: $249.00 subtotal, GST 5% $12.45, a 10% levy $13.00, $274.45 total.
     Http::fake([
-        '*/v1/messages' => Http::response([
-            'content' => [[
-                'type' => 'tool_use',
-                'name' => 'provide_receipt',
-                'input' => [
-                    'vendor' => 'Bar Oso',
-                    'subtotal' => 249.00,
-                    'total' => 274.45,
-                    'currency' => 'CAD',
-                    'date' => '2026-02-27',
-                    'taxes' => [
-                        ['label' => 'GST', 'rate' => 5, 'amount' => 12.45],
-                        ['label' => 'PLT', 'rate' => 10, 'amount' => 13.00],
-                    ],
-                    'line_items' => [],
-                ],
-            ]],
-        ], 200),
+        '*/v1/messages' => Http::response(fakeClaudeJsonResponse([
+            'vendor' => 'Bar Oso',
+            'subtotal' => 249.00,
+            'total' => 274.45,
+            'currency' => 'CAD',
+            'date' => '2026-02-27',
+            'taxes' => [
+                ['label' => 'GST', 'rate' => 5, 'amount' => 12.45],
+                ['label' => 'PLT', 'rate' => 10, 'amount' => 13.00],
+            ],
+            'line_items' => [],
+        ]), 200),
     ]);
 
     app()->bind(ReceiptIntelligence::class, fn () => new ClaudeReceiptIntelligence(
         apiKey: 'test-key',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5-5',
     ));
 
     $item = stageInboxItem($this->company, $this->user, 'image/jpeg');

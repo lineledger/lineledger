@@ -35,9 +35,10 @@ class InsightServiceProvider extends ServiceProvider
             return new ClaudeInsightNarrator(
                 apiKey: (string) $key,
                 baseUrl: rtrim((string) $app['config']->get('services.anthropic.base_url', 'https://api.anthropic.com'), '/'),
-                model: (string) ($config['model'] ?? 'claude-sonnet-4-6'),
+                model: (string) ($config['model'] ?? 'claude-sonnet-5-5'),
                 timeout: (int) ($config['timeout'] ?? 20),
                 fallback: new TemplateInsightNarrator,
+                effort: (string) ($config['effort'] ?? ''),
             );
         });
 

@@ -16,6 +16,7 @@ use App\Models\InboxItem;
 use App\Models\User;
 use App\Services\Inbox\OCR\ClaudeReceiptIntelligence;
 use App\Services\Inbox\OCR\Contracts\ReceiptIntelligence;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -91,47 +92,42 @@ function enableInboxAi(Company $company): void
     app()->bind(ReceiptIntelligence::class, fn () => new ClaudeReceiptIntelligence(
         apiKey: 'test-key',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5-5',
     ));
 }
 
 /**
- * Fake the Anthropic endpoint for both the OCR (provide_receipt) and the
- * classification (classify_transactions) tools, switching on the requested tool.
+ * Fake the Anthropic endpoint for both the OCR and the classification
+ * requests, telling them apart by the requested JSON schema.
  *
- * @param  array<string, mixed>  $receipt  the provide_receipt tool input
+ * @param  array<string, mixed>  $receipt  the OCR answer
  */
 function fakeAnthropic(array $receipt, ?string $classifyCode = null): void
 {
     Http::fake(['*/v1/messages' => function ($request) use ($receipt, $classifyCode) {
-        $tool = $request->data()['tools'][0]['name'] ?? '';
-
-        if ($tool === 'classify_transactions') {
-            return Http::response(['content' => [[
-                'type' => 'tool_use',
-                'name' => 'classify_transactions',
-                'input' => ['classifications' => $classifyCode !== null
-                    ? [['index' => 0, 'account_code' => $classifyCode]]
-                    : []],
-            ]]], 200);
+        if (isClassifyRequest($request)) {
+            return Http::response(fakeClaudeJsonResponse(['classifications' => $classifyCode !== null
+                ? [['index' => 0, 'account_code' => $classifyCode]]
+                : []]), 200);
         }
 
-        return Http::response(['content' => [[
-            'type' => 'tool_use',
-            'name' => 'provide_receipt',
-            'input' => $receipt,
-        ]]], 200);
+        return Http::response(fakeClaudeJsonResponse($receipt), 200);
     }]);
+}
+
+function isClassifyRequest(Request $request): bool
+{
+    return isset($request->data()['output_config']['format']['schema']['properties']['classifications']);
 }
 
 function assertClassifyNotSent(): void
 {
-    Http::assertNotSent(fn ($request): bool => ($request->data()['tools'][0]['name'] ?? '') === 'classify_transactions');
+    Http::assertNotSent(fn (Request $request): bool => isClassifyRequest($request));
 }
 
 function assertClassifySent(): void
 {
-    Http::assertSent(fn ($request): bool => ($request->data()['tools'][0]['name'] ?? '') === 'classify_transactions');
+    Http::assertSent(fn (Request $request): bool => isClassifyRequest($request));
 }
 
 it('stores a contact-default category from the job and leaves OCR tax untouched', function () {

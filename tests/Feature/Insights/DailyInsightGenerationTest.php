@@ -82,7 +82,7 @@ function makeFakeClaudeNarrator(): ClaudeInsightNarrator
     return new ClaudeInsightNarrator(
         apiKey: 'test-key',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5-5',
         timeout: 5,
         fallback: new TemplateInsightNarrator,
     );
@@ -188,17 +188,11 @@ it('uses the AI narrator once the company opts in', function () {
     $this->company->setInsightsState(['ai_narration' => true]);
 
     Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [[
-                'type' => 'tool_use',
-                'name' => 'provide_daily_insight',
-                'input' => [
-                    'chosen_key' => 'aaa',
-                    'headline' => 'An AI headline',
-                    'body' => 'An AI body quoting $4,820 faithfully.',
-                ],
-            ]],
-        ]),
+        'api.anthropic.com/*' => Http::response(fakeClaudeJsonResponse([
+            'chosen_key' => 'aaa',
+            'headline' => 'An AI headline',
+            'body' => 'An AI body quoting $4,820 faithfully.',
+        ])),
     ]);
 
     $generator = makeInsightGenerator(
