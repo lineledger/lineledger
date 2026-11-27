@@ -63,6 +63,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The AI features now run on Claude Sonnet 5.5.** Receipt reading, AI
+  categorization, AI bank import and AI daily insights default to
+  `claude-sonnet-5-5` (was `claude-sonnet-4-6`). Their answers now come back
+  as structured JSON, which the newer model requires. New
+  `INBOX_OCR_EFFORT`, `BANK_IMPORT_AI_EFFORT` and `INSIGHTS_AI_EFFORT` settings
+  set how much it thinks, `low` by default; leave one empty for a model without
+  effort support. When the model declines a request or its answer is cut off,
+  the feature falls back to manual entry or the built-in wording, as on any
+  other failure, without telling the user to try again.
 - **Bank-statement AI is off for each organization until it is turned on.**
   Setting `BANK_IMPORT_AI_ENABLED` used to send every organization's
   unreadable statements to Anthropic; now an organization's Owner (or anyone

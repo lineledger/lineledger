@@ -704,3 +704,20 @@ function deletionLedgerState(Company $company): array
         'items' => Item::withoutGlobalScopes()->where('company_id', $company->id)->orderBy('id')->get(['id', 'qty_on_hand_cached', 'unit_cost_cents_cached'])->map(fn ($i) => [(string) $i->qty_on_hand_cached, (int) $i->unit_cost_cents_cached])->all(),
     ];
 }
+
+/**
+ * A faked Anthropic Messages API body for a structured-outputs request: the
+ * answer as JSON in a `text` block. Pass $leadingBlocks to put blocks (e.g. an
+ * empty `thinking` block) before it, as a thinking-on model does.
+ *
+ * @param  array<string, mixed>  $data
+ * @param  list<array<string, mixed>>  $leadingBlocks
+ * @return array<string, mixed>
+ */
+function fakeClaudeJsonResponse(array $data, string $stopReason = 'end_turn', array $leadingBlocks = []): array
+{
+    return [
+        'stop_reason' => $stopReason,
+        'content' => [...$leadingBlocks, ['type' => 'text', 'text' => json_encode($data)]],
+    ];
+}

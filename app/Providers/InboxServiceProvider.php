@@ -35,8 +35,9 @@ class InboxServiceProvider extends ServiceProvider
             return new ClaudeReceiptIntelligence(
                 apiKey: (string) $key,
                 baseUrl: rtrim((string) $app['config']->get('services.anthropic.base_url', 'https://api.anthropic.com'), '/'),
-                model: (string) ($config['model'] ?? 'claude-sonnet-4-6'),
+                model: (string) ($config['model'] ?? 'claude-sonnet-5-5'),
                 timeout: (int) ($config['timeout'] ?? 60),
+                effort: (string) ($config['effort'] ?? ''),
             );
         });
     }

@@ -28,7 +28,15 @@ return [
         // null | http — which outbound client backs the OCR layer.
         'driver' => env('INBOX_OCR_DRIVER', 'http'),
 
-        'model' => env('INBOX_OCR_MODEL', 'claude-sonnet-4-6'),
+        // Any model that supports structured outputs. Also used by the
+        // transaction-classification fallback (config/classification.php).
+        'model' => env('INBOX_OCR_MODEL', 'claude-sonnet-5-5'),
+
+        // output_config.effort: low | medium | high | xhigh | max. Low suits
+        // extraction and classification (the model skips thinking on most simple
+        // requests). Set it empty to omit the field, for a model without effort
+        // support (e.g. Claude Haiku 4.5).
+        'effort' => env('INBOX_OCR_EFFORT', 'low'),
 
         'timeout' => (int) env('INBOX_OCR_TIMEOUT', 60),
     ],

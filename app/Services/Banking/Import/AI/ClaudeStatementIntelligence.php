@@ -6,14 +6,13 @@ use App\Providers\BankingServiceProvider;
 use App\Services\Banking\Import\Contracts\StatementIntelligence;
 use App\Services\Banking\Import\DTO\ColumnMapping;
 use App\Services\Banking\Import\DTO\ParsedTransaction;
+use App\Support\Anthropic\StructuredOutputRequest;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Claude-backed intelligence over the Anthropic Messages API using forced tool-use
- * for validated, structured output. Every call is defensively wrapped: any failure
+ * Claude-backed intelligence over the Anthropic Messages API, using structured
+ * outputs for validated JSON (see {@see StructuredOutputRequest}). Every call is defensively wrapped: any failure
  * (network, auth, malformed output) returns null/[] so the caller degrades to the
  * deterministic path rather than erroring. Bound only when AI is enabled and keyed
  * (see {@see BankingServiceProvider}).
@@ -27,6 +26,7 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
         private readonly string $baseUrl,
         private readonly string $model,
         private readonly int $timeout = 60,
+        private readonly ?string $effort = 'low',
     ) {}
 
     public function isEnabled(): bool
@@ -43,7 +43,7 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
     {
         $maxRows = (int) config('banking.statement_import.ai.max_sample_rows', 15);
 
-        $input = $this->callTool(
+        $input = $this->request(
             system: 'You map a bank statement export (CSV/Excel) to a transaction schema. '
                 .'Use the EXACT header strings provided for column names. amountMode is "single" for one signed amount column, '
                 .'or "debit_credit" for separate money-out (debit) and money-in (credit) columns. dateFormat is a PHP date() '
@@ -53,8 +53,8 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
                 'headers' => array_values($headers),
                 'rows' => array_slice($sampleRows, 0, $maxRows),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-            toolName: 'provide_column_mapping',
             schema: self::MAPPING_SCHEMA,
+            logContext: ['task' => 'column_mapping'],
         );
 
         if ($input === null) {
@@ -68,11 +68,11 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
 
     public function extractTransactions(string $statementText): array
     {
-        return $this->toTransactions($this->callTool(
+        return $this->toTransactions($this->request(
             system: self::EXTRACTION_SYSTEM,
             user: $statementText,
-            toolName: 'provide_transactions',
             schema: self::TRANSACTIONS_SCHEMA,
+            logContext: ['task' => 'text_extraction'],
         ));
     }
 
@@ -89,7 +89,7 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
             return [];
         }
 
-        return $this->toTransactions($this->callTool(
+        return $this->toTransactions($this->request(
             system: self::EXTRACTION_SYSTEM,
             user: [
                 ['type' => 'document', 'source' => [
@@ -99,8 +99,8 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
                 ]],
                 ['type' => 'text', 'text' => 'Extract every transaction from this bank statement PDF. Read the columns to determine each amount and its sign, and include the running balance when shown.'],
             ],
-            toolName: 'provide_transactions',
             schema: self::TRANSACTIONS_SCHEMA,
+            logContext: ['task' => 'pdf_extraction'],
         ));
     }
 
@@ -147,57 +147,23 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
     }
 
     /**
-     * Force a single tool call and return its validated input object, or null on any
-     * failure so the caller can fall back.
+     * Ask for one JSON object matching the schema and return it, or null on any
+     * failure so the caller can fall back. Records a transient failure in
+     * lastError().
      *
      * @param  string|array<int, array<string, mixed>>  $user  a plain string, or Anthropic content blocks
      * @param  array<string, mixed>  $schema
+     * @param  array<string, mixed>  $logContext
      * @return array<string, mixed>|null
      */
-    private function callTool(string $system, string|array $user, string $toolName, array $schema): ?array
+    private function request(string $system, string|array $user, array $schema, array $logContext = []): ?array
     {
-        $this->lastError = null;
+        $result = (new StructuredOutputRequest($this->apiKey, $this->baseUrl, $this->model, $this->timeout, $this->effort))
+            ->send($system, $user, $schema, maxTokens: 16000, logLabel: 'Bank statement AI', logContext: $logContext);
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $this->apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json',
-            ])->timeout($this->timeout)->post($this->baseUrl.'/v1/messages', [
-                'model' => $this->model,
-                'max_tokens' => 8192,
-                'system' => $system,
-                'messages' => [['role' => 'user', 'content' => $user]],
-                'tools' => [[
-                    'name' => $toolName,
-                    'description' => 'Return the structured result.',
-                    'input_schema' => $schema,
-                ]],
-                'tool_choice' => ['type' => 'tool', 'name' => $toolName],
-            ]);
-        } catch (Throwable $e) {
-            // Network error / timeout — the service is unreachable. Flag it so the
-            // caller can tell the user it's temporary, and log it for operators.
-            $this->lastError = 'request_failed';
-            Log::warning('Bank statement AI request failed', ['tool' => $toolName, 'error' => $e->getMessage()]);
+        $this->lastError = $result->error;
 
-            return null;
-        }
-
-        if (! $response->successful()) {
-            $this->lastError = 'http_'.$response->status();
-            Log::warning('Bank statement AI request returned an error', ['tool' => $toolName, 'status' => $response->status()]);
-
-            return null;
-        }
-
-        foreach ((array) $response->json('content', []) as $block) {
-            if (($block['type'] ?? null) === 'tool_use' && ($block['name'] ?? null) === $toolName) {
-                return is_array($block['input'] ?? null) ? $block['input'] : null;
-            }
-        }
-
-        return null;
+        return $result->data;
     }
 
     private const EXTRACTION_SYSTEM = 'You extract real transactions from this bank statement. Exclude opening-balance, '
@@ -224,6 +190,7 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
             'flipSign' => ['type' => 'boolean'],
         ],
         'required' => ['amountMode', 'dateColumn', 'dateFormat'],
+        'additionalProperties' => false,
     ];
 
     /** @var array<string, mixed> */
@@ -241,9 +208,11 @@ final class ClaudeStatementIntelligence implements StatementIntelligence
                         'balance' => ['type' => ['number', 'null']],
                     ],
                     'required' => ['date', 'amount', 'description'],
+                    'additionalProperties' => false,
                 ],
             ],
         ],
         'required' => ['transactions'],
+        'additionalProperties' => false,
     ];
 }

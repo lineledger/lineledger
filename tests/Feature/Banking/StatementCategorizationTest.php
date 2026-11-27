@@ -121,11 +121,9 @@ it('falls back to AI for an unseen merchant when the gate is on, batching only t
     config()->set('services.anthropic.key', 'test-key');
     $this->company->setInboxState(['ocr_enabled' => true]);
 
-    Http::fake(['*/v1/messages' => Http::response(['content' => [[
-        'type' => 'tool_use',
-        'name' => 'classify_transactions',
-        'input' => ['classifications' => [['index' => 0, 'account_code' => $this->expenseB->code]]],
-    ]]], 200)]);
+    Http::fake(['*/v1/messages' => Http::response(fakeClaudeJsonResponse(
+        ['classifications' => [['index' => 0, 'account_code' => $this->expenseB->code]]],
+    ), 200)]);
 
     seedCreatedHistory($this->bank, 'TIM HORTONS', $this->expenseA->id);
 

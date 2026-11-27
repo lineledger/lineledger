@@ -33,7 +33,14 @@ return [
             // null | prism | http — which outbound client backs the AI layer.
             'driver' => env('BANK_IMPORT_AI_DRIVER', 'prism'),
 
-            'model' => env('BANK_IMPORT_AI_MODEL', 'claude-sonnet-4-6'),
+            // Any model that supports structured outputs.
+            'model' => env('BANK_IMPORT_AI_MODEL', 'claude-sonnet-5-5'),
+
+            // output_config.effort: low | medium | high | xhigh | max. Low suits
+            // extraction and classification (the model skips thinking on most simple
+            // requests). Set it empty to omit the field, for a model without effort
+            // support (e.g. Claude Haiku 4.5).
+            'effort' => env('BANK_IMPORT_AI_EFFORT', 'low'),
 
             // Only a small sample of rows is ever sent for CSV mapping inference.
             'max_sample_rows' => (int) env('BANK_IMPORT_AI_SAMPLE_ROWS', 15),
