@@ -74,11 +74,30 @@ new #[Title('Audit Logs')] class extends Component {
         $this->verifyOutput = trim(Artisan::output());
     }
 
+    /**
+     * The From/To dates are days in the organization's timezone (mount() fills
+     * them from its local date), but recorded_at is stored in UTC: turn the
+     * local days into the UTC instants they cover. Read as UTC days instead,
+     * the window misses everything recorded between UTC midnight and local
+     * midnight, so a west-of-UTC organization's newest entries disappear every
+     * evening.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function window(): array
+    {
+        $timezone = $this->company->timezone ?: 'UTC';
+
+        return [
+            CarbonImmutable::parse($this->startDate, $timezone)->startOfDay()->utc(),
+            CarbonImmutable::parse($this->endDate, $timezone)->endOfDay()->utc(),
+        ];
+    }
+
     #[Computed]
     public function accountingEntries()
     {
-        $start = CarbonImmutable::parse($this->startDate)->startOfDay();
-        $end = CarbonImmutable::parse($this->endDate)->endOfDay();
+        [$start, $end] = $this->window();
 
         return AccountingAuditLog::query()
             ->withoutGlobalScopes()
@@ -98,8 +117,7 @@ new #[Title('Audit Logs')] class extends Component {
     #[Computed]
     public function securityEntries()
     {
-        $start = CarbonImmutable::parse($this->startDate)->startOfDay();
-        $end = CarbonImmutable::parse($this->endDate)->endOfDay();
+        [$start, $end] = $this->window();
 
         return SecurityLog::query()
             ->with('user')
@@ -222,7 +240,7 @@ new #[Title('Audit Logs')] class extends Component {
                     @forelse ($rows as $row)
                         <tr data-test="audit-row">
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->sequence }}</td>
-                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->toDayDateTimeString() }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->copy()->setTimezone($company->timezone ?: 'UTC')->toDayDateTimeString() }}</td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->action->value }}</td>
                             <td class="px-3 py-2 text-xs">
                                 @if ($row->auditable_type === \App\Models\DeletedTransaction::class && ($deletedType = \App\Enums\DeletableDocumentType::tryFrom((string) ($row->payload['document_type'] ?? ''))))
@@ -279,7 +297,7 @@ new #[Title('Audit Logs')] class extends Component {
                 <tbody class="divide-y divide-border">
                     @forelse ($rows as $row)
                         <tr data-test="security-row">
-                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->toDayDateTimeString() }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap">{{ $row->recorded_at->copy()->setTimezone($company->timezone ?: 'UTC')->toDayDateTimeString() }}</td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $row->event->value }}</td>
                             <td class="px-3 py-2">
                                 @if ($row->user)

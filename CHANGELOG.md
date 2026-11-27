@@ -75,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The audit log no longer hides the evening's entries.** Its From and To
+  dates are days in the organization's timezone, but the log compared them as
+  UTC days, so for an organization west of UTC everything recorded between UTC
+  midnight and local midnight (from 7 pm in Toronto, 4 pm in Vancouver) was
+  missing until the next day. The dates now cover the organization's own days,
+  and the times in both tables are shown in its timezone.
 - **Deadline emails no longer fail when many go out at once.** Organizations in
   the same timezone all send their deadline emails in the same hourly run, and on
   Mondays that includes every member's weekly digest. Resend refuses more than 10
